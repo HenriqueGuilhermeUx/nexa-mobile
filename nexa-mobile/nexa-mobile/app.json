@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Nexa",
+    "slug": "nexa-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#020617"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.trynexa.app"
+    },
+    "android": {
+      "package": "br.com.trynexa.app"
+    },
+    "extra": {
+      "apiUrl": "https://nexa-backend-p2u0.onrender.com/api/v1"
+    }
+  }
+}

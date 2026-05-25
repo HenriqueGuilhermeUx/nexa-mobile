@@ -1,0 +1,25 @@
+{
+  "name": "nexa-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "latest",
+    "axios": "latest",
+    "expo": "latest",
+    "expo-local-authentication": "latest",
+    "expo-secure-store": "latest",
+    "expo-status-bar": "latest",
+    "lucide-react-native": "latest",
+    "react": "latest",
+    "react-native": "latest",
+    "react-native-safe-area-context": "latest"
+  },
+  "devDependencies": {}
+}
