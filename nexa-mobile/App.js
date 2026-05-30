@@ -1,600 +1,417 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import * as LocalAuthentication from 'expo-local-authentication';
-import axios from 'axios';
-import { Copy, CreditCard, LogOut, RefreshCcw, ShieldCheck, Wallet } from 'lucide-react-native';
+import React, { useState } from 'react';
+import QRCode from 'react-native-qrcode-svg';
+import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 
-const API_URL = 'https://nexa-backend-p2u0.onrender.com/api/v1';
+const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
+const TEST_EMAIL = 'app@nexa.com';
+const TEST_PASSWORD = '123456';
 
-function brl(value) {
-  return Number(value || 0).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-}
+export default function App() {
+  const [page, setPage] = useState('home');
+  const [saldo, setSaldo] = useState({ BRL: 0, USDC: 0 });
+  const [extrato, setExtrato] = useState([]);
 
-async function getToken() {
-  return SecureStore.getItemAsync('nexa_access_token');
-}
+  const [valorBrl, setValorBrl] = useState('');
+  const [pixKey, setPixKey] = useState('');
+  const [username, setUsername] = useState('');
+  const [valorUsdc, setValorUsdc] = useState('');
+  const [wallet, setWallet] = useState('');
+  const [depositValue, setDepositValue] = useState('');
+  const [pixCopyPaste, setPixCopyPaste] = useState('');
+  const [ticketUrl, setTicketUrl] = useState('');
 
-async function getStoredUser() {
-  const raw = await SecureStore.getItemAsync('nexa_user');
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
+  const [user, setUser] = useState(null);
+  const [msg, setMsg] = useState('');
+
+  function show(data) {
+    setMsg(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
   }
-}
-
-async function api(path, options = {}) {
-  const token = await getToken();
-
-  const response = await axios({
-    url: `${API_URL}${path}`,
-    method: options.method || 'GET',
-    data: options.body ? JSON.parse(options.body) : undefined,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  return response.data;
-}
-
-function Logo() {
-  return (
-    <View style={styles.logo}>
-      <Text style={styles.logoText}>N</Text>
-    </View>
-  );
-}
-
-function LoginScreen({ onLogged }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
 
   async function login() {
     try {
-      setLoading(true);
-      setMessage('Entrando...');
-
-      const response = await axios.post(`${API_URL}/auth/login`, {
-        email,
-        password,
+      const response = await fetch(API + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
       });
 
-      await SecureStore.setItemAsync('nexa_access_token', response.data.accessToken);
-      await SecureStore.setItemAsync('nexa_user', JSON.stringify(response.data.user));
+      const data = await response.json();
 
-      setMessage('');
-      onLogged();
-    } catch (error) {
-      setMessage(error?.response?.data?.message || error.message || 'Erro ao entrar');
-    } finally {
-      setLoading(false);
+      if (data.accessToken) {
+        setUser(data.user);
+        show('Login realizado: ' + data.user.fullName);
+      } else {
+        show(data);
+      }
+    } catch (e) {
+      show('Erro login: ' + e.message);
     }
   }
 
+  async function carregarDados() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+
+    try {
+      const r = await fetch(API + '/ledger/statement?userId=' + user.id);
+      const data = await r.json();
+
+      var brl = 0;
+      var usdc = 0;
+
+      if (data.statement) {
+        setExtrato(data.statement);
+
+        data.statement.forEach(function (item) {
+          var sinal = item.direction === 'credit' ? 1 : -1;
+          if (item.asset === 'BRL') brl += Number(item.amount) * sinal;
+          if (item.asset === 'USDC') usdc += Number(item.amount) * sinal;
+        });
+      }
+
+      setSaldo({
+        BRL: Number(brl.toFixed(2)),
+        USDC: Number(usdc.toFixed(6)),
+      });
+
+      show('Saldo atualizado');
+    } catch (e) {
+      show('Falha ao carregar dados: ' + e.message);
+    }
+  }
+
+  async function depositarPix() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+
+    try {
+      const r = await fetch(API + '/banking/mercadopago/pix-charge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          amountBrl: Number(depositValue),
+        }),
+      });
+
+      const data = await r.json();
+
+      setPixCopyPaste(data.pixCopyPasteCode || '');
+      setTicketUrl(data.ticketUrl || '');
+
+      if (data.success) {
+        show('Pix gerado com sucesso. Pague pelo copia e cola abaixo.');
+      } else {
+        show(data);
+      }
+    } catch (e) {
+      show('Erro depósito Pix: ' + e.message);
+    }
+  }
+
+  async function converter() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+
+    try {
+      const r = await fetch(API + '/swap/brl-to-usdc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, amountBrl: Number(valorBrl) }),
+      });
+
+      const data = await r.json();
+      show(data);
+
+      if (data.success) {
+        setValorBrl('');
+        carregarDados();
+      }
+    } catch (e) {
+      show('Erro conversão: ' + e.message);
+    }
+  }
+
+  async function sacarPix() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+
+    try {
+      const r = await fetch(API + '/payment/pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, amountBrl: Number(valorBrl), pixKey: pixKey }),
+      });
+
+      const data = await r.json();
+      show(data);
+    } catch (e) {
+      show('Erro Pix: ' + e.message);
+    }
+  }
+
+  async function enviarUsername() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+
+    try {
+      const r = await fetch(API + '/internal-transfer/send-by-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromUserId: user.id, toUsername: username, amountUsdc: Number(valorUsdc), note: 'envio app' }),
+      });
+
+      const data = await r.json();
+      show(data);
+
+      if (data.success) {
+        setUsername('');
+        setValorUsdc('');
+        carregarDados();
+      }
+    } catch (e) {
+      show('Erro envio: ' + e.message);
+    }
+  }
+
+  async function enviarWallet() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+
+    try {
+      const r = await fetch(API + '/wallet/send-usdc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, toAddress: wallet, amountUsdc: Number(valorUsdc), note: 'envio externo app' }),
+      });
+
+      const data = await r.json();
+      show(data);
+
+      if (data.success) {
+        setWallet('');
+        setValorUsdc('');
+        carregarDados();
+      }
+    } catch (e) {
+      show('Erro wallet: ' + e.message);
+    }
+  }
+
+  function Card(props) {
+    return <View style={styles.card}>{props.children}</View>;
+  }
+
+  function Button(props) {
+    return (
+      <TouchableOpacity style={styles.button} onPress={props.onPress}>
+        <Text style={styles.buttonText}>{props.title}</Text>
+      </TouchableOpacity>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.page}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.loginWrap}>
-        <Logo />
-        <Text style={styles.title}>Nexa</Text>
-        <Text style={styles.subtitle}>Conta digital cripto invisível</Text>
+    <View style={styles.container}>
+      <ScrollView style={styles.content}>
+        <Text style={styles.logo}>NEXA</Text>
+        <Text style={styles.subtitle}>Pix + USDC + @username</Text>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Entrar</Text>
+        <Card>
+          <Text style={styles.statusTitle}>Status</Text>
+          <Text style={styles.statusText}>{msg || 'Aguardando ação...'}</Text>
+        </Card>
 
-          <TextInput
-            style={styles.input}
-            placeholder="E-mail"
-            placeholderTextColor="#64748b"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
+        {page === 'home' && (
+          <>
+            <Card>
+              <Text style={styles.welcome}>👋 Olá, {user ? user.fullName : 'visitante'}</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Senha"
-            placeholderTextColor="#64748b"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+              {!user && <Button title="Entrar na Nexa" onPress={login} />}
 
-          <TouchableOpacity style={styles.primaryButton} onPress={login} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Entrar</Text>}
-          </TouchableOpacity>
+              <Text style={styles.smallLabel}>Saldo BRL</Text>
+              <Text style={styles.bigBalance}>R$ {saldo.BRL.toFixed(2)}</Text>
 
-          {!!message && <Text style={styles.message}>{String(message)}</Text>}
-        </View>
+              <Text style={styles.smallLabel}>Saldo USDC</Text>
+              <Text style={styles.bigBalance}>{saldo.USDC} USDC</Text>
+
+              <Button title="Atualizar saldo" onPress={carregarDados} />
+            </Card>
+
+            <Card>
+              <Text style={styles.title}>Ações rápidas</Text>
+              <Button title="Depositar Pix" onPress={function () { setPage('deposit'); }} />
+              <Button title="Converter para USDC" onPress={function () { setPage('convert'); }} />
+              <Button title="Enviar USDC" onPress={function () { setPage('send'); }} />
+              <Button title="Sacar Pix" onPress={function () { setPage('pix'); }} />
+            </Card>
+
+            <Card>
+              <Text style={styles.title}>Últimas movimentações</Text>
+
+              {extrato.length === 0 && (
+                <Text style={styles.itemText}>Nenhuma movimentação carregada ainda.</Text>
+              )}
+
+              {extrato.slice(0, 5).map(function (item) {
+                return (
+                  <View key={item.id} style={styles.item}>
+                    <Text style={styles.itemText}>{item.description}</Text>
+                    <Text style={styles.itemText}>
+                      {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
+                    </Text>
+                  </View>
+                );
+              })}
+            </Card>
+          </>
+        )}
+
+        {page === 'deposit' && (
+          <Card>
+            <Text style={styles.title}>Depositar Pix</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Valor em R$"
+              keyboardType="numeric"
+              value={depositValue}
+              onChangeText={setDepositValue}
+            />
+
+            <Button title="Gerar Pix Mercado Pago" onPress={depositarPix} />
+
+{pixCopyPaste ? (
+  <View style={styles.pixBox}>
+
+    <Text style={styles.itemText}>
+      QR Code Pix
+    </Text>
+
+    <View
+      style={{
+        backgroundColor: 'white',
+        padding: 15,
+        borderRadius: 10,
+        alignSelf: 'center',
+        marginBottom: 15,
+      }}
+    >
+      <QRCode
+        value={pixCopyPaste}
+        size={180}
+      />
+    </View>
+
+    <Text style={styles.itemText}>
+      Pix copia e cola:
+    </Text>
+
+    <Text style={styles.copyText}>
+      {pixCopyPaste}
+    </Text>
+
+  </View>
+) : null}
+
+            {ticketUrl ? (
+              <View style={styles.pixBox}>
+                <Text style={styles.itemText}>Link de pagamento:</Text>
+                <Text style={styles.copyText}>{ticketUrl}</Text>
+              </View>
+            ) : null}
+          </Card>
+        )}
+
+        {page === 'pix' && (
+          <Card>
+            <Text style={styles.title}>Sacar Pix</Text>
+            <TextInput style={styles.input} placeholder="Chave Pix" value={pixKey} onChangeText={setPixKey} />
+            <TextInput style={styles.input} placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
+            <Button title="Solicitar Pix" onPress={sacarPix} />
+          </Card>
+        )}
+
+        {page === 'convert' && (
+          <Card>
+            <Text style={styles.title}>Converter BRL para USDC</Text>
+            <TextInput style={styles.input} placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
+            <Button title="Converter" onPress={converter} />
+          </Card>
+        )}
+
+        {page === 'send' && (
+          <Card>
+            <Text style={styles.title}>Enviar USDC</Text>
+            <TextInput style={styles.input} placeholder="@username" value={username} onChangeText={setUsername} />
+            <TextInput style={styles.input} placeholder="Valor USDC" keyboardType="numeric" value={valorUsdc} onChangeText={setValorUsdc} />
+            <Button title="Enviar para @username" onPress={enviarUsername} />
+
+            <TextInput style={styles.input} placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
+            <Button title="Enviar para carteira" onPress={enviarWallet} />
+          </Card>
+        )}
+
+        {page === 'extrato' && (
+          <Card>
+            <Text style={styles.title}>Extrato</Text>
+            <Button title="Atualizar extrato" onPress={carregarDados} />
+
+            {extrato.map(function (item) {
+              return (
+                <View key={item.id} style={styles.item}>
+                  <Text style={styles.itemText}>{item.description}</Text>
+                  <Text style={styles.itemText}>{item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}</Text>
+                </View>
+              );
+            })}
+          </Card>
+        )}
+      </ScrollView>
+
+      <View style={styles.menu}>
+        <TouchableOpacity onPress={function () { setPage('home'); }}><Text style={styles.menuText}>Home</Text></TouchableOpacity>
+        <TouchableOpacity onPress={function () { setPage('deposit'); }}><Text style={styles.menuText}>Depositar</Text></TouchableOpacity>
+        <TouchableOpacity onPress={function () { setPage('pix'); }}><Text style={styles.menuText}>Sacar</Text></TouchableOpacity>
+        <TouchableOpacity onPress={function () { setPage('convert'); }}><Text style={styles.menuText}>Converter</Text></TouchableOpacity>
+        <TouchableOpacity onPress={function () { setPage('send'); }}><Text style={styles.menuText}>Enviar</Text></TouchableOpacity>
+        <TouchableOpacity onPress={function () { setPage('extrato'); }}><Text style={styles.menuText}>Extrato</Text></TouchableOpacity>
       </View>
-    </SafeAreaView>
-  );
-}
-
-function MetricCard({ label, value }) {
-  return (
-    <View style={styles.metricCard}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
     </View>
   );
 }
 
-function Dashboard({ onLogout }) {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [balance, setBalance] = useState(null);
-  const [ledger, setLedger] = useState([]);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [pixKey, setPixKey] = useState('');
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  async function refresh() {
-    try {
-      setLoading(true);
-      const stored = await getStoredUser();
-      setUser(stored);
-
-      const me = await api('/user/me');
-      setProfile(me);
-
-      const realUserId = me?.id || stored?.id;
-
-      const balanceData = await api(`/wallet/balance?userId=${realUserId}`);
-      setBalance(balanceData);
-
-      const ledgerData = await api(`/ledger/user?userId=${realUserId}`);
-      setLedger(Array.isArray(ledgerData) ? ledgerData : []);
-    } catch (error) {
-      setMessage(error?.response?.data?.message || error.message || 'Erro ao atualizar');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    refresh();
-  }, []);
-
-  async function unlockBiometric() {
-    const compatible = await LocalAuthentication.hasHardwareAsync();
-    if (!compatible) {
-      Alert.alert('Biometria', 'Este aparelho não possui biometria disponível.');
-      return;
-    }
-
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Confirmar acesso Nexa',
-    });
-
-    Alert.alert('Biometria', result.success ? 'Acesso confirmado.' : 'Não confirmado.');
-  }
-
-  async function deposit() {
-    try {
-      const amount = Number(depositAmount);
-      if (!amount || amount < 10) {
-        setMessage('Depósito mínimo: R$ 10');
-        return;
-      }
-
-      setLoading(true);
-      setMessage('Gerando depósito Pix...');
-
-      const result = await api('/deposit/pix', {
-        method: 'POST',
-        body: JSON.stringify({
-          userId: profile?.id || user?.id,
-          email: profile?.email || user?.email,
-          amount,
-          amountBrl: amount,
-        }),
-      });
-
-      setMessage(`Depositado ${Number(result.amountUsdc || 0).toFixed(2)} USDC`);
-      setDepositAmount('');
-      await refresh();
-    } catch (error) {
-      setMessage(error?.response?.data?.message || error.message || 'Erro no depósito');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function payPix() {
-    try {
-      const amount = Number(paymentAmount);
-      if (!amount || amount <= 0) {
-        setMessage('Informe valor válido');
-        return;
-      }
-      if (!pixKey || pixKey.trim().length < 3) {
-        setMessage('Informe a chave Pix');
-        return;
-      }
-
-      setLoading(true);
-      setMessage('Processando Pix...');
-
-      const result = await api('/payment/pix', {
-        method: 'POST',
-        body: JSON.stringify({
-          userId: profile?.id || user?.id,
-          email: profile?.email || user?.email,
-          amount,
-          amountBrl: amount,
-          pixKey: pixKey.trim(),
-        }),
-      });
-
-      setMessage(`Pix processado: ${brl(result.amountBRL)} / ${Number(result.debitedUSDC || 0).toFixed(4)} USDC`);
-      setPaymentAmount('');
-      setPixKey('');
-      await refresh();
-    } catch (error) {
-      setMessage(error?.response?.data?.message || error.message || 'Erro no Pix');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function logout() {
-    await SecureStore.deleteItemAsync('nexa_access_token');
-    await SecureStore.deleteItemAsync('nexa_user');
-    onLogout();
-  }
-
-  return (
-    <SafeAreaView style={styles.page}>
-      <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <Logo />
-            <View>
-              <Text style={styles.brandTitle}>Nexa</Text>
-              <Text style={styles.muted}>Cripto sem complicação</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.iconButton} onPress={logout}>
-            <LogOut size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.hello}>Olá, {profile?.fullName || user?.fullName || user?.email}</Text>
-
-        <View style={styles.balanceCard}>
-          <Text style={styles.metricLabel}>Saldo USDC</Text>
-          <Text style={styles.bigBalance}>${Number(balance?.balances?.USDC || 0).toFixed(2)}</Text>
-          <Text style={styles.muted}>{brl(balance?.balances?.BRL || 0)}</Text>
-        </View>
-
-        <View style={styles.metricsGrid}>
-          <MetricCard label="Wallet" value={profile?.wallet?.address ? 'Ativa' : 'Pendente'} />
-          <MetricCard label="KYC" value={profile?.kycStatus || 'pending'} />
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Conta digital</Text>
-          <Text style={styles.muted}>Wallet automática nos bastidores.</Text>
-          <Text style={styles.walletBox}>{profile?.wallet?.address || 'Endereço ainda não criado'}</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Depositar Pix</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Valor em R$"
-            placeholderTextColor="#64748b"
-            keyboardType="decimal-pad"
-            value={depositAmount}
-            onChangeText={setDepositAmount}
-          />
-          <TouchableOpacity style={styles.primaryButton} onPress={deposit} disabled={loading}>
-            <Text style={styles.buttonText}>Depositar</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Pagar Pix com USDC</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Valor em R$"
-            placeholderTextColor="#64748b"
-            keyboardType="decimal-pad"
-            value={paymentAmount}
-            onChangeText={setPaymentAmount}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Chave Pix"
-            placeholderTextColor="#64748b"
-            value={pixKey}
-            onChangeText={setPixKey}
-          />
-          <TouchableOpacity style={styles.primaryButton} onPress={payPix} disabled={loading}>
-            <Text style={styles.buttonText}>Pagar Pix</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.secondaryButton} onPress={refresh}>
-            <RefreshCcw size={18} color="#fff" />
-            <Text style={styles.buttonText}>Atualizar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={unlockBiometric}>
-            <ShieldCheck size={18} color="#fff" />
-            <Text style={styles.buttonText}>Biometria</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Extrato Ledger</Text>
-          {ledger.length === 0 && <Text style={styles.muted}>Nenhum lançamento ainda.</Text>}
-          {ledger.slice(0, 12).map((entry) => (
-            <View key={entry.id} style={styles.ledgerRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.ledgerTitle}>{entry.type}</Text>
-                <Text style={styles.muted}>{entry.description}</Text>
-              </View>
-              <Text style={entry.direction === 'credit' ? styles.green : styles.red}>
-                {entry.direction === 'credit' ? '+' : '-'} {Number(entry.amount || 0).toFixed(entry.asset === 'BRL' ? 2 : 4)} {entry.asset}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {!!message && <Text style={styles.message}>{message}</Text>}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-export default function App() {
-  const [logged, setLogged] = useState(false);
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    getToken().then((token) => {
-      setLogged(!!token);
-      setChecking(false);
-    });
-  }, []);
-
-  if (checking) {
-    return (
-      <SafeAreaView style={styles.pageCenter}>
-        <ActivityIndicator color="#6366f1" />
-      </SafeAreaView>
-    );
-  }
-
-  return logged ? <Dashboard onLogout={() => setLogged(false)} /> : <LoginScreen onLogged={() => setLogged(true)} />;
-}
-
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#020617',
-  },
-  pageCenter: {
-    flex: 1,
-    backgroundColor: '#020617',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scroll: {
-    padding: 20,
-    paddingBottom: 50,
-  },
-  loginWrap: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  logo: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#4f46e5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    color: '#fff',
-    fontWeight: '900',
-    fontSize: 24,
-  },
-  brandTitle: {
-    color: '#fff',
-    fontWeight: '900',
-    fontSize: 24,
-  },
-  title: {
-    color: '#fff',
-    fontWeight: '900',
-    fontSize: 48,
-    marginTop: 18,
-  },
-  subtitle: {
-    color: '#94a3b8',
-    fontSize: 18,
-    marginBottom: 28,
-  },
-  hello: {
-    color: '#fff',
-    fontWeight: '800',
-    fontSize: 20,
-    marginBottom: 16,
-  },
-  card: {
-    backgroundColor: '#0f172a',
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,.08)',
-  },
-  balanceCard: {
-    backgroundColor: '#111827',
-    borderRadius: 30,
-    padding: 24,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,.1)',
-  },
-  cardTitle: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '900',
-    marginBottom: 12,
-  },
-  bigBalance: {
-    color: '#fff',
-    fontSize: 48,
-    fontWeight: '900',
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,.08)',
-  },
-  metricLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  metricValue: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '900',
-    marginTop: 6,
-  },
-  input: {
-    backgroundColor: '#020617',
-    color: '#fff',
-    borderRadius: 16,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,.1)',
-    marginBottom: 12,
-  },
-  primaryButton: {
-    backgroundColor: '#4f46e5',
-    borderRadius: 16,
-    padding: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,.08)',
-    borderRadius: 16,
-    padding: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '900',
-  },
-  muted: {
-    color: '#94a3b8',
-  },
-  walletBox: {
-    color: '#cbd5e1',
-    backgroundColor: '#020617',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 12,
-    fontSize: 12,
-  },
-  ledgerRow: {
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,.08)',
-    paddingTop: 14,
-    marginTop: 14,
-  },
-  ledgerTitle: {
-    color: '#fff',
-    fontWeight: '900',
-  },
-  green: {
-    color: '#34d399',
-    fontWeight: '900',
-  },
-  red: {
-    color: '#f87171',
-    fontWeight: '900',
-  },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  message: {
-    color: '#cbd5e1',
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 8,
-    marginBottom: 20,
-  },
-});
+const styles = {
+  container: { flex: 1, backgroundColor: '#0f172a' },
+  content: { flex: 1, padding: 20, paddingTop: 55 },
+  logo: { color: 'white', fontSize: 34, fontWeight: 'bold', textAlign: 'center' },
+  subtitle: { color: '#94a3b8', textAlign: 'center', marginBottom: 25 },
+  card: { backgroundColor: '#1e293b', padding: 20, borderRadius: 14, marginBottom: 20 },
+  title: { color: 'white', fontSize: 20, fontWeight: 'bold', marginBottom: 15, marginTop: 10 },
+  welcome: { color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
+  smallLabel: { color: '#94a3b8', fontSize: 13, marginTop: 8 },
+  bigBalance: { color: 'white', fontSize: 30, fontWeight: 'bold', marginBottom: 8 },
+  statusTitle: { color: '#93c5fd', fontWeight: 'bold', marginBottom: 8 },
+  statusText: { color: 'white', fontSize: 12 },
+  input: { backgroundColor: 'white', padding: 12, borderRadius: 8, marginBottom: 10 },
+  button: { backgroundColor: '#2563eb', padding: 14, borderRadius: 10, marginBottom: 10 },
+  buttonText: { color: 'white', textAlign: 'center', fontWeight: 'bold' },
+  menu: { height: 70, backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  menuText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
+  item: { borderBottomColor: '#334155', borderBottomWidth: 1, paddingVertical: 10 },
+  itemText: { color: 'white', marginBottom: 6 },
+  pixBox: { backgroundColor: '#0f172a', padding: 12, borderRadius: 10, marginTop: 10 },
+  copyText: { color: '#cbd5e1', fontSize: 11 },
+};
