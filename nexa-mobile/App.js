@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import QRCode from 'react-native-qrcode-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
@@ -21,10 +22,28 @@ export default function App() {
   const [ticketUrl, setTicketUrl] = useState('');
 
   const [user, setUser] = useState(null);
-  const [msg, setMsg] = useState('');
+  const [msg, setMsg] = useState('Aguardando ação...');
+
+  useEffect(function () {
+    carregarLoginSalvo();
+  }, []);
 
   function show(data) {
     setMsg(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  }
+
+  async function carregarLoginSalvo() {
+    try {
+      const savedUser = await AsyncStorage.getItem('nexa_user');
+
+      if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        setMsg('Login restaurado: ' + parsedUser.fullName);
+      }
+    } catch (e) {
+      setMsg('Erro ao restaurar login: ' + e.message);
+    }
   }
 
   async function login() {
@@ -39,12 +58,27 @@ export default function App() {
 
       if (data.accessToken) {
         setUser(data.user);
+        await AsyncStorage.setItem('nexa_user', JSON.stringify(data.user));
         show('Login realizado: ' + data.user.fullName);
       } else {
         show(data);
       }
     } catch (e) {
       show('Erro login: ' + e.message);
+    }
+  }
+
+  async function logout() {
+    try {
+      await AsyncStorage.removeItem('nexa_user');
+      setUser(null);
+      setSaldo({ BRL: 0, USDC: 0 });
+      setExtrato([]);
+      setPixCopyPaste('');
+      setTicketUrl('');
+      show('Você saiu da Nexa');
+    } catch (e) {
+      show('Erro ao sair: ' + e.message);
     }
   }
 
@@ -105,7 +139,7 @@ export default function App() {
       setTicketUrl(data.ticketUrl || '');
 
       if (data.success) {
-        show('Pix gerado com sucesso. Pague pelo copia e cola abaixo.');
+        show('Pix gerado com sucesso. Pague pelo QR Code ou copia e cola abaixo.');
       } else {
         show(data);
       }
@@ -149,7 +183,11 @@ export default function App() {
       const r = await fetch(API + '/payment/pix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, amountBrl: Number(valorBrl), pixKey: pixKey }),
+        body: JSON.stringify({
+          userId: user.id,
+          amountBrl: Number(valorBrl),
+          pixKey: pixKey,
+        }),
       });
 
       const data = await r.json();
@@ -169,7 +207,12 @@ export default function App() {
       const r = await fetch(API + '/internal-transfer/send-by-username', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromUserId: user.id, toUsername: username, amountUsdc: Number(valorUsdc), note: 'envio app' }),
+        body: JSON.stringify({
+          fromUserId: user.id,
+          toUsername: username,
+          amountUsdc: Number(valorUsdc),
+          note: 'envio app',
+        }),
       });
 
       const data = await r.json();
@@ -195,7 +238,12 @@ export default function App() {
       const r = await fetch(API + '/wallet/send-usdc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, toAddress: wallet, amountUsdc: Number(valorUsdc), note: 'envio externo app' }),
+        body: JSON.stringify({
+          userId: user.id,
+          toAddress: wallet,
+          amountUsdc: Number(valorUsdc),
+          note: 'envio externo app',
+        }),
       });
 
       const data = await r.json();
@@ -231,15 +279,18 @@ export default function App() {
 
         <Card>
           <Text style={styles.statusTitle}>Status</Text>
-          <Text style={styles.statusText}>{msg || 'Aguardando ação...'}</Text>
+          <Text style={styles.statusText}>{msg}</Text>
         </Card>
 
         {page === 'home' && (
           <>
             <Card>
-              <Text style={styles.welcome}>👋 Olá, {user ? user.fullName : 'visitante'}</Text>
+              <Text style={styles.welcome}>
+                👋 Olá, {user ? user.fullName : 'visitante'}
+              </Text>
 
               {!user && <Button title="Entrar na Nexa" onPress={login} />}
+              {user && <Button title="Sair" onPress={logout} />}
 
               <Text style={styles.smallLabel}>Saldo BRL</Text>
               <Text style={styles.bigBalance}>R$ {saldo.BRL.toFixed(2)}</Text>
@@ -293,38 +344,18 @@ export default function App() {
 
             <Button title="Gerar Pix Mercado Pago" onPress={depositarPix} />
 
-{pixCopyPaste ? (
-  <View style={styles.pixBox}>
+            {pixCopyPaste ? (
+              <View style={styles.pixBox}>
+                <Text style={styles.itemText}>QR Code Pix</Text>
 
-    <Text style={styles.itemText}>
-      QR Code Pix
-    </Text>
+                <View style={styles.qrBox}>
+                  <QRCode value={pixCopyPaste} size={180} />
+                </View>
 
-    <View
-      style={{
-        backgroundColor: 'white',
-        padding: 15,
-        borderRadius: 10,
-        alignSelf: 'center',
-        marginBottom: 15,
-      }}
-    >
-      <QRCode
-        value={pixCopyPaste}
-        size={180}
-      />
-    </View>
-
-    <Text style={styles.itemText}>
-      Pix copia e cola:
-    </Text>
-
-    <Text style={styles.copyText}>
-      {pixCopyPaste}
-    </Text>
-
-  </View>
-) : null}
+                <Text style={styles.itemText}>Pix copia e cola:</Text>
+                <Text style={styles.copyText}>{pixCopyPaste}</Text>
+              </View>
+            ) : null}
 
             {ticketUrl ? (
               <View style={styles.pixBox}>
@@ -373,7 +404,9 @@ export default function App() {
               return (
                 <View key={item.id} style={styles.item}>
                   <Text style={styles.itemText}>{item.description}</Text>
-                  <Text style={styles.itemText}>{item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}</Text>
+                  <Text style={styles.itemText}>
+                    {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
+                  </Text>
                 </View>
               );
             })}
@@ -414,4 +447,11 @@ const styles = {
   itemText: { color: 'white', marginBottom: 6 },
   pixBox: { backgroundColor: '#0f172a', padding: 12, borderRadius: 10, marginTop: 10 },
   copyText: { color: '#cbd5e1', fontSize: 11 },
+  qrBox: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 10,
+    alignSelf: 'center',
+    marginBottom: 15,
+  },
 };
