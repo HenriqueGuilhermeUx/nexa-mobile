@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "latest",
+    "@react-native-async-storage/async-storage": "latest",
     "axios": "latest",
     "expo": "latest",
     "expo-local-authentication": "latest",
@@ -19,7 +20,9 @@
     "lucide-react-native": "latest",
     "react": "latest",
     "react-native": "latest",
-    "react-native-safe-area-context": "latest"
+    "react-native-qrcode-svg": "latest",
+    "react-native-safe-area-context": "latest",
+    "react-native-svg": "latest"
   },
   "devDependencies": {}
 }
