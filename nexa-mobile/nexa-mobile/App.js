@@ -15,7 +15,6 @@ export default function App() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
   const [fullName, setFullName] = useState('');
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
@@ -30,8 +29,7 @@ export default function App() {
   const [ticketUrl, setTicketUrl] = useState('');
 
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState('');
-  const [msg, setMsg] = useState('Aguardando ação...');
+  const [msg, setMsg] = useState('');
 
   useEffect(function () {
     carregarLoginSalvo();
@@ -71,8 +69,6 @@ export default function App() {
 
   async function salvarSessao(data) {
     setUser(data.user);
-    setToken(data.accessToken || '');
-
     await AsyncStorage.setItem('nexa_user', JSON.stringify(data.user));
     await AsyncStorage.setItem('nexa_token', data.accessToken || '');
   }
@@ -80,13 +76,11 @@ export default function App() {
   async function carregarLoginSalvo() {
     try {
       const savedUser = await AsyncStorage.getItem('nexa_user');
-      const savedToken = await AsyncStorage.getItem('nexa_token');
 
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
-        setToken(savedToken || '');
-        setMsg('Login restaurado: ' + parsedUser.fullName);
+        setMsg('Login restaurado');
       }
     } catch (e) {
       setMsg('Erro ao restaurar login: ' + e.message);
@@ -103,14 +97,14 @@ export default function App() {
       const response = await fetch(API + '/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email, password: password }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (data.accessToken) {
         await salvarSessao(data);
-        show('Login realizado: ' + data.user.fullName);
+        show('Login realizado com sucesso');
       } else {
         show(data);
       }
@@ -129,20 +123,14 @@ export default function App() {
       const response = await fetch(API + '/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          cpf: cpf,
-          fullName: fullName,
-          phone: phone,
-        }),
+        body: JSON.stringify({ email, password, cpf, fullName, phone }),
       });
 
       const data = await response.json();
 
       if (data.accessToken) {
         await salvarSessao(data);
-        show('Conta criada: ' + data.user.fullName);
+        show('Conta criada com sucesso');
       } else {
         show(data);
       }
@@ -152,22 +140,16 @@ export default function App() {
   }
 
   async function logout() {
-    try {
-      await AsyncStorage.removeItem('nexa_user');
-      await AsyncStorage.removeItem('nexa_token');
+    await AsyncStorage.removeItem('nexa_user');
+    await AsyncStorage.removeItem('nexa_token');
 
-      setUser(null);
-      setToken('');
-      setSaldo({ BRL: 0, USDC: 0 });
-      setExtrato([]);
-      setPixCopyPaste('');
-      setTicketUrl('');
-      setPage('home');
-
-      show('Você saiu da Nexa');
-    } catch (e) {
-      show('Erro ao sair: ' + e.message);
-    }
+    setUser(null);
+    setSaldo({ BRL: 0, USDC: 0 });
+    setExtrato([]);
+    setPixCopyPaste('');
+    setTicketUrl('');
+    setPage('home');
+    show('Você saiu da Nexa');
   }
 
   async function carregarDados() {
@@ -227,7 +209,7 @@ export default function App() {
       setTicketUrl(data.ticketUrl || '');
 
       if (data.success) {
-        show('Pix gerado com sucesso. Pague pelo QR Code ou copia e cola abaixo.');
+        show('Pix gerado com sucesso');
       } else {
         show(data);
       }
@@ -274,7 +256,7 @@ export default function App() {
         body: JSON.stringify({
           userId: user.id,
           amountBrl: Number(valorBrl),
-          pixKey: pixKey,
+          pixKey,
         }),
       });
 
@@ -385,14 +367,11 @@ export default function App() {
           <Text style={styles.subtitle}>Cripto sem complicação</Text>
 
           <Card>
-            <Text style={styles.statusTitle}>Status</Text>
-            <Text style={styles.statusText}>{msg}</Text>
-          </Card>
-
-          <Card>
             <Text style={styles.title}>
               {authPage === 'login' ? 'Entrar' : 'Criar conta'}
             </Text>
+
+            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
 
             <Input
               placeholder="E-mail"
@@ -458,11 +437,6 @@ export default function App() {
       <ScrollView style={styles.content} keyboardShouldPersistTaps="always">
         <Text style={styles.logo}>NEXA</Text>
         <Text style={styles.subtitle}>Pix + USDC + @username</Text>
-
-        <Card>
-          <Text style={styles.statusTitle}>Status</Text>
-          <Text style={styles.statusText}>{msg}</Text>
-        </Card>
 
         {page === 'home' && (
           <>
@@ -535,6 +509,8 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Depositar Pix</Text>
 
+            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
+
             <Input
               placeholder="Valor em R$"
               keyboardType="numeric"
@@ -569,6 +545,7 @@ export default function App() {
         {page === 'pix' && (
           <Card>
             <Text style={styles.title}>Sacar Pix</Text>
+            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
 
             <Input
               placeholder="Chave Pix"
@@ -590,6 +567,7 @@ export default function App() {
         {page === 'convert' && (
           <Card>
             <Text style={styles.title}>Converter BRL para USDC</Text>
+            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
 
             <Input
               placeholder="Valor em R$"
@@ -605,6 +583,7 @@ export default function App() {
         {page === 'send' && (
           <Card>
             <Text style={styles.title}>Enviar USDC</Text>
+            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
 
             <Input
               placeholder="@username"
@@ -806,13 +785,6 @@ const styles = {
     marginBottom: 12,
   },
 
-  bigBalance: {
-    color: '#ffffff',
-    fontSize: 34,
-    fontWeight: '900',
-    marginBottom: 8,
-  },
-
   balanceGrid: {
     flexDirection: 'row',
     gap: 10,
@@ -839,16 +811,11 @@ const styles = {
     marginBottom: 14,
   },
 
-  statusTitle: {
-    color: '#60a5fa',
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-
-  statusText: {
-    color: '#cbd5e1',
-    fontSize: 12,
-    lineHeight: 18,
+  loginMsg: {
+    color: '#93c5fd',
+    marginBottom: 15,
+    textAlign: 'center',
+    fontSize: 13,
   },
 
   input: {
@@ -861,9 +828,9 @@ const styles = {
 
   button: {
     backgroundColor: '#2563eb',
-    padding: 15,
-    borderRadius: 16,
-    marginBottom: 12,
+    padding: 13,
+    borderRadius: 14,
+    marginBottom: 11,
   },
 
   buttonText: {
