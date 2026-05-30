@@ -4,13 +4,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
-const TEST_EMAIL = 'app@nexa.com';
-const TEST_PASSWORD = '123456';
 
 export default function App() {
   const [page, setPage] = useState('home');
+  const [authPage, setAuthPage] = useState('login');
+
   const [saldo, setSaldo] = useState({ BRL: 0, USDC: 0 });
   const [extrato, setExtrato] = useState([]);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const [fullName, setFullName] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [phone, setPhone] = useState('');
 
   const [valorBrl, setValorBrl] = useState('');
   const [pixKey, setPixKey] = useState('');
@@ -22,23 +29,40 @@ export default function App() {
   const [ticketUrl, setTicketUrl] = useState('');
 
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState('');
   const [msg, setMsg] = useState('Aguardando ação...');
 
   useEffect(function () {
     carregarLoginSalvo();
   }, []);
 
+  useEffect(function () {
+    if (user && user.id) {
+      carregarDados();
+    }
+  }, [user && user.id]);
+
   function show(data) {
     setMsg(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  }
+
+  async function salvarSessao(data) {
+    setUser(data.user);
+    setToken(data.accessToken || '');
+
+    await AsyncStorage.setItem('nexa_user', JSON.stringify(data.user));
+    await AsyncStorage.setItem('nexa_token', data.accessToken || '');
   }
 
   async function carregarLoginSalvo() {
     try {
       const savedUser = await AsyncStorage.getItem('nexa_user');
+      const savedToken = await AsyncStorage.getItem('nexa_token');
 
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
+        setToken(savedToken || '');
         setMsg('Login restaurado: ' + parsedUser.fullName);
       }
     } catch (e) {
@@ -47,18 +71,22 @@ export default function App() {
   }
 
   async function login() {
+    if (!email || !password) {
+      show('Informe e-mail e senha');
+      return;
+    }
+
     try {
       const response = await fetch(API + '/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
+        body: JSON.stringify({ email: email, password: password }),
       });
 
       const data = await response.json();
 
       if (data.accessToken) {
-        setUser(data.user);
-        await AsyncStorage.setItem('nexa_user', JSON.stringify(data.user));
+        await salvarSessao(data);
         show('Login realizado: ' + data.user.fullName);
       } else {
         show(data);
@@ -68,14 +96,51 @@ export default function App() {
     }
   }
 
+  async function cadastrar() {
+    if (!email || !password || !fullName || !cpf || !phone) {
+      show('Preencha todos os campos do cadastro');
+      return;
+    }
+
+    try {
+      const response = await fetch(API + '/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          cpf: cpf,
+          fullName: fullName,
+          phone: phone,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.accessToken) {
+        await salvarSessao(data);
+        show('Conta criada: ' + data.user.fullName);
+      } else {
+        show(data);
+      }
+    } catch (e) {
+      show('Erro cadastro: ' + e.message);
+    }
+  }
+
   async function logout() {
     try {
       await AsyncStorage.removeItem('nexa_user');
+      await AsyncStorage.removeItem('nexa_token');
+
       setUser(null);
+      setToken('');
       setSaldo({ BRL: 0, USDC: 0 });
       setExtrato([]);
       setPixCopyPaste('');
       setTicketUrl('');
+      setPage('home');
+
       show('Você saiu da Nexa');
     } catch (e) {
       show('Erro ao sair: ' + e.message);
@@ -271,9 +336,107 @@ export default function App() {
     );
   }
 
+  function Input(props) {
+    return (
+      <TextInput
+        style={styles.input}
+        placeholder={props.placeholder}
+        value={props.value}
+        onChangeText={props.onChangeText}
+        secureTextEntry={props.secureTextEntry || false}
+        keyboardType={props.keyboardType || 'default'}
+        autoCapitalize={props.autoCapitalize || 'none'}
+        autoCorrect={false}
+        blurOnSubmit={false}
+        returnKeyType="next"
+        placeholderTextColor="#64748b"
+      />
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.content}
+          keyboardShouldPersistTaps="always"
+        >
+          <Text style={styles.logo}>NEXA</Text>
+          <Text style={styles.subtitle}>Cripto sem complicação</Text>
+
+          <Card>
+            <Text style={styles.statusTitle}>Status</Text>
+            <Text style={styles.statusText}>{msg}</Text>
+          </Card>
+
+          <Card>
+            <Text style={styles.title}>
+              {authPage === 'login' ? 'Entrar' : 'Criar conta'}
+            </Text>
+
+            <Input
+              placeholder="E-mail"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Input
+              placeholder="Senha"
+              secureTextEntry={true}
+              value={password}
+              onChangeText={setPassword}
+            />
+
+            {authPage === 'register' && (
+              <>
+                <Input
+                  placeholder="Nome completo"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                />
+
+                <Input
+                  placeholder="CPF"
+                  keyboardType="numeric"
+                  value={cpf}
+                  onChangeText={setCpf}
+                />
+
+                <Input
+                  placeholder="Telefone"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={setPhone}
+                />
+              </>
+            )}
+
+            {authPage === 'login' ? (
+              <Button title="Entrar" onPress={login} />
+            ) : (
+              <Button title="Criar conta" onPress={cadastrar} />
+            )}
+
+            {authPage === 'login' ? (
+              <Button title="Não tenho conta" onPress={function () { setAuthPage('register'); }} />
+            ) : (
+              <Button title="Já tenho conta" onPress={function () { setAuthPage('login'); }} />
+            )}
+          </Card>
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        keyboardShouldPersistTaps="always"
+      >
         <Text style={styles.logo}>NEXA</Text>
         <Text style={styles.subtitle}>Pix + USDC + @username</Text>
 
@@ -285,12 +448,7 @@ export default function App() {
         {page === 'home' && (
           <>
             <Card>
-              <Text style={styles.welcome}>
-                👋 Olá, {user ? user.fullName : 'visitante'}
-              </Text>
-
-              {!user && <Button title="Entrar na Nexa" onPress={login} />}
-              {user && <Button title="Sair" onPress={logout} />}
+              <Text style={styles.welcome}>👋 Olá, {user.fullName}</Text>
 
               <Text style={styles.smallLabel}>Saldo BRL</Text>
               <Text style={styles.bigBalance}>R$ {saldo.BRL.toFixed(2)}</Text>
@@ -334,8 +492,7 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Depositar Pix</Text>
 
-            <TextInput
-              style={styles.input}
+            <Input
               placeholder="Valor em R$"
               keyboardType="numeric"
               value={depositValue}
@@ -369,8 +526,20 @@ export default function App() {
         {page === 'pix' && (
           <Card>
             <Text style={styles.title}>Sacar Pix</Text>
-            <TextInput style={styles.input} placeholder="Chave Pix" value={pixKey} onChangeText={setPixKey} />
-            <TextInput style={styles.input} placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
+
+            <Input
+              placeholder="Chave Pix"
+              value={pixKey}
+              onChangeText={setPixKey}
+            />
+
+            <Input
+              placeholder="Valor em R$"
+              keyboardType="numeric"
+              value={valorBrl}
+              onChangeText={setValorBrl}
+            />
+
             <Button title="Solicitar Pix" onPress={sacarPix} />
           </Card>
         )}
@@ -378,7 +547,14 @@ export default function App() {
         {page === 'convert' && (
           <Card>
             <Text style={styles.title}>Converter BRL para USDC</Text>
-            <TextInput style={styles.input} placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
+
+            <Input
+              placeholder="Valor em R$"
+              keyboardType="numeric"
+              value={valorBrl}
+              onChangeText={setValorBrl}
+            />
+
             <Button title="Converter" onPress={converter} />
           </Card>
         )}
@@ -386,12 +562,40 @@ export default function App() {
         {page === 'send' && (
           <Card>
             <Text style={styles.title}>Enviar USDC</Text>
-            <TextInput style={styles.input} placeholder="@username" value={username} onChangeText={setUsername} />
-            <TextInput style={styles.input} placeholder="Valor USDC" keyboardType="numeric" value={valorUsdc} onChangeText={setValorUsdc} />
+
+            <Input
+              placeholder="@username"
+              value={username}
+              onChangeText={setUsername}
+            />
+
+            <Input
+              placeholder="Valor USDC"
+              keyboardType="numeric"
+              value={valorUsdc}
+              onChangeText={setValorUsdc}
+            />
+
             <Button title="Enviar para @username" onPress={enviarUsername} />
 
-            <TextInput style={styles.input} placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
+            <Input
+              placeholder="Carteira 0x..."
+              value={wallet}
+              onChangeText={setWallet}
+            />
+
             <Button title="Enviar para carteira" onPress={enviarWallet} />
+          </Card>
+        )}
+
+        {page === 'profile' && (
+          <Card>
+            <Text style={styles.title}>Perfil</Text>
+            <Text style={styles.itemText}>Nome: {user.fullName}</Text>
+            <Text style={styles.itemText}>E-mail: {user.email}</Text>
+            <Text style={styles.itemText}>CPF: {user.cpf}</Text>
+            <Text style={styles.itemText}>KYC: {user.kycStatus}</Text>
+            <Button title="Sair" onPress={logout} />
           </Card>
         )}
 
@@ -415,12 +619,29 @@ export default function App() {
       </ScrollView>
 
       <View style={styles.menu}>
-        <TouchableOpacity onPress={function () { setPage('home'); }}><Text style={styles.menuText}>Home</Text></TouchableOpacity>
-        <TouchableOpacity onPress={function () { setPage('deposit'); }}><Text style={styles.menuText}>Depositar</Text></TouchableOpacity>
-        <TouchableOpacity onPress={function () { setPage('pix'); }}><Text style={styles.menuText}>Sacar</Text></TouchableOpacity>
-        <TouchableOpacity onPress={function () { setPage('convert'); }}><Text style={styles.menuText}>Converter</Text></TouchableOpacity>
-        <TouchableOpacity onPress={function () { setPage('send'); }}><Text style={styles.menuText}>Enviar</Text></TouchableOpacity>
-        <TouchableOpacity onPress={function () { setPage('extrato'); }}><Text style={styles.menuText}>Extrato</Text></TouchableOpacity>
+        <TouchableOpacity onPress={function () { setPage('home'); }}>
+          <Text style={styles.menuText}>Home</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={function () { setPage('deposit'); }}>
+          <Text style={styles.menuText}>Depositar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={function () { setPage('pix'); }}>
+          <Text style={styles.menuText}>Sacar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={function () { setPage('convert'); }}>
+          <Text style={styles.menuText}>Converter</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={function () { setPage('send'); }}>
+          <Text style={styles.menuText}>Enviar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={function () { setPage('profile'); }}>
+          <Text style={styles.menuText}>Perfil</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
