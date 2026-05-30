@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
+const USDC_BRL_RATE = 5.3;
 
 export default function App() {
   const [page, setPage] = useState('home');
@@ -44,6 +45,28 @@ export default function App() {
 
   function show(data) {
     setMsg(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  }
+
+  function getUsername() {
+    if (!user || !user.id) return '@nexa';
+    return '@' + String(user.email || user.id).split('@')[0];
+  }
+
+  function getInitial() {
+    if (!user || !user.fullName) return 'N';
+    return user.fullName.charAt(0).toUpperCase();
+  }
+
+  function getIcon(item) {
+    const description = String(item.description || '').toLowerCase();
+
+    if (description.includes('pix')) return '💳';
+    if (description.includes('conversão')) return '🔄';
+    if (description.includes('transferência')) return '📤';
+    if (description.includes('carteira')) return '🌐';
+    if (item.asset === 'USDC') return '💵';
+
+    return '💰';
   }
 
   async function salvarSessao(data) {
@@ -357,10 +380,7 @@ export default function App() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <ScrollView
-          style={styles.content}
-          keyboardShouldPersistTaps="always"
-        >
+        <ScrollView style={styles.content} keyboardShouldPersistTaps="always">
           <Text style={styles.logo}>NEXA</Text>
           <Text style={styles.subtitle}>Cripto sem complicação</Text>
 
@@ -431,12 +451,11 @@ export default function App() {
     );
   }
 
+  const patrimonioTotal = Number((saldo.BRL + saldo.USDC * USDC_BRL_RATE).toFixed(2));
+
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.content}
-        keyboardShouldPersistTaps="always"
-      >
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="always">
         <Text style={styles.logo}>NEXA</Text>
         <Text style={styles.subtitle}>Pix + USDC + @username</Text>
 
@@ -448,23 +467,45 @@ export default function App() {
         {page === 'home' && (
           <>
             <Card>
-              <Text style={styles.welcome}>👋 Olá, {user.fullName}</Text>
+              <View style={styles.headerRow}>
+                <View style={styles.avatarSmall}>
+                  <Text style={styles.avatarText}>{getInitial()}</Text>
+                </View>
 
-              <Text style={styles.smallLabel}>Saldo BRL</Text>
-              <Text style={styles.bigBalance}>R$ {saldo.BRL.toFixed(2)}</Text>
+                <View>
+                  <Text style={styles.welcome}>Olá, {user.fullName}</Text>
+                  <Text style={styles.usernameText}>{getUsername()}</Text>
+                </View>
+              </View>
 
-              <Text style={styles.smallLabel}>Saldo USDC</Text>
-              <Text style={styles.bigBalance}>{saldo.USDC} USDC</Text>
+              <Text style={styles.smallLabel}>Patrimônio total estimado</Text>
+              <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
+
+              <View style={styles.balanceGrid}>
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>BRL</Text>
+                  <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
+                </View>
+
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>USDC</Text>
+                  <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.rateText}>
+                Cotação estimada: 1 USDC = R$ {USDC_BRL_RATE.toFixed(2)}
+              </Text>
 
               <Button title="Atualizar saldo" onPress={carregarDados} />
             </Card>
 
             <Card>
               <Text style={styles.title}>Ações rápidas</Text>
-              <Button title="Depositar Pix" onPress={function () { setPage('deposit'); }} />
-              <Button title="Converter para USDC" onPress={function () { setPage('convert'); }} />
-              <Button title="Enviar USDC" onPress={function () { setPage('send'); }} />
-              <Button title="Sacar Pix" onPress={function () { setPage('pix'); }} />
+              <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
+              <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
+              <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
+              <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
             </Card>
 
             <Card>
@@ -477,8 +518,10 @@ export default function App() {
               {extrato.slice(0, 5).map(function (item) {
                 return (
                   <View key={item.id} style={styles.item}>
-                    <Text style={styles.itemText}>{item.description}</Text>
                     <Text style={styles.itemText}>
+                      {getIcon(item)} {item.description}
+                    </Text>
+                    <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
                       {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
                     </Text>
                   </View>
@@ -590,11 +633,18 @@ export default function App() {
 
         {page === 'profile' && (
           <Card>
+            <View style={styles.avatarLarge}>
+              <Text style={styles.avatarLargeText}>{getInitial()}</Text>
+            </View>
+
             <Text style={styles.title}>Perfil</Text>
             <Text style={styles.itemText}>Nome: {user.fullName}</Text>
+            <Text style={styles.itemText}>Username: {getUsername()}</Text>
             <Text style={styles.itemText}>E-mail: {user.email}</Text>
             <Text style={styles.itemText}>CPF: {user.cpf}</Text>
             <Text style={styles.itemText}>KYC: {user.kycStatus}</Text>
+            <Text style={styles.itemText}>User ID: {user.id}</Text>
+
             <Button title="Sair" onPress={logout} />
           </Card>
         )}
@@ -607,8 +657,10 @@ export default function App() {
             {extrato.map(function (item) {
               return (
                 <View key={item.id} style={styles.item}>
-                  <Text style={styles.itemText}>{item.description}</Text>
                   <Text style={styles.itemText}>
+                    {getIcon(item)} {item.description}
+                  </Text>
+                  <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
                     {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
                   </Text>
                 </View>
@@ -620,27 +672,27 @@ export default function App() {
 
       <View style={styles.menu}>
         <TouchableOpacity onPress={function () { setPage('home'); }}>
-          <Text style={styles.menuText}>Home</Text>
+          <Text style={styles.menuText}>🏠</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={function () { setPage('deposit'); }}>
-          <Text style={styles.menuText}>Depositar</Text>
+          <Text style={styles.menuText}>💳</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={function () { setPage('pix'); }}>
-          <Text style={styles.menuText}>Sacar</Text>
+          <Text style={styles.menuText}>🏦</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={function () { setPage('convert'); }}>
-          <Text style={styles.menuText}>Converter</Text>
+          <Text style={styles.menuText}>🔄</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={function () { setPage('send'); }}>
-          <Text style={styles.menuText}>Enviar</Text>
+          <Text style={styles.menuText}>📤</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={function () { setPage('profile'); }}>
-          <Text style={styles.menuText}>Perfil</Text>
+          <Text style={styles.menuText}>👤</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -690,9 +742,54 @@ const styles = {
 
   welcome: {
     color: 'white',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+
+  usernameText: {
+    color: '#60a5fa',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+
+  avatarSmall: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+
+  avatarText: {
+    color: 'white',
     fontSize: 24,
     fontWeight: '900',
-    marginBottom: 22,
+  },
+
+  avatarLarge: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 18,
+  },
+
+  avatarLargeText: {
+    color: 'white',
+    fontSize: 38,
+    fontWeight: '900',
   },
 
   smallLabel: {
@@ -702,11 +799,44 @@ const styles = {
     marginBottom: 4,
   },
 
+  totalBalance: {
+    color: '#ffffff',
+    fontSize: 38,
+    fontWeight: '900',
+    marginBottom: 12,
+  },
+
   bigBalance: {
     color: '#ffffff',
     fontSize: 34,
     fontWeight: '900',
     marginBottom: 8,
+  },
+
+  balanceGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+
+  balanceMiniCard: {
+    flex: 1,
+    backgroundColor: '#111827',
+    borderRadius: 18,
+    padding: 14,
+  },
+
+  balanceMiniText: {
+    color: 'white',
+    fontWeight: '900',
+    fontSize: 18,
+  },
+
+  rateText: {
+    color: '#93c5fd',
+    fontSize: 12,
+    marginBottom: 14,
   },
 
   statusTitle: {
@@ -755,7 +885,7 @@ const styles = {
 
   menuText: {
     color: '#e2e8f0',
-    fontSize: 10,
+    fontSize: 21,
     fontWeight: '800',
   },
 
@@ -770,6 +900,18 @@ const styles = {
     color: '#f8fafc',
     marginBottom: 6,
     fontSize: 13,
+  },
+
+  creditText: {
+    color: '#22c55e',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+
+  debitText: {
+    color: '#f87171',
+    fontWeight: '900',
+    fontSize: 14,
   },
 
   pixBox: {
