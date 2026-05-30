@@ -648,31 +648,150 @@ export default function App() {
 }
 
 const styles = {
-  container: { flex: 1, backgroundColor: '#0f172a' },
-  content: { flex: 1, padding: 20, paddingTop: 55 },
-  logo: { color: 'white', fontSize: 34, fontWeight: 'bold', textAlign: 'center' },
-  subtitle: { color: '#94a3b8', textAlign: 'center', marginBottom: 25 },
-  card: { backgroundColor: '#1e293b', padding: 20, borderRadius: 14, marginBottom: 20 },
-  title: { color: 'white', fontSize: 20, fontWeight: 'bold', marginBottom: 15, marginTop: 10 },
-  welcome: { color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
-  smallLabel: { color: '#94a3b8', fontSize: 13, marginTop: 8 },
-  bigBalance: { color: 'white', fontSize: 30, fontWeight: 'bold', marginBottom: 8 },
-  statusTitle: { color: '#93c5fd', fontWeight: 'bold', marginBottom: 8 },
-  statusText: { color: 'white', fontSize: 12 },
-  input: { backgroundColor: 'white', padding: 12, borderRadius: 8, marginBottom: 10 },
-  button: { backgroundColor: '#2563eb', padding: 14, borderRadius: 10, marginBottom: 10 },
-  buttonText: { color: 'white', textAlign: 'center', fontWeight: 'bold' },
-  menu: { height: 70, backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
-  menuText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
-  item: { borderBottomColor: '#334155', borderBottomWidth: 1, paddingVertical: 10 },
-  itemText: { color: 'white', marginBottom: 6 },
-  pixBox: { backgroundColor: '#0f172a', padding: 12, borderRadius: 10, marginTop: 10 },
-  copyText: { color: '#cbd5e1', fontSize: 11 },
+  container: { flex: 1, backgroundColor: '#020617' },
+
+  content: {
+    flex: 1,
+    padding: 20,
+    paddingTop: 55,
+  },
+
+  logo: {
+    color: 'white',
+    fontSize: 36,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 2,
+  },
+
+  subtitle: {
+    color: '#93c5fd',
+    textAlign: 'center',
+    marginBottom: 24,
+    fontSize: 13,
+  },
+
+  card: {
+    backgroundColor: '#0f172a',
+    padding: 22,
+    borderRadius: 24,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#1e40af',
+  },
+
+  title: {
+    color: 'white',
+    fontSize: 21,
+    fontWeight: '800',
+    marginBottom: 16,
+    marginTop: 6,
+  },
+
+  welcome: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: '900',
+    marginBottom: 22,
+  },
+
+  smallLabel: {
+    color: '#94a3b8',
+    fontSize: 13,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+
+  bigBalance: {
+    color: '#ffffff',
+    fontSize: 34,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+
+  statusTitle: {
+    color: '#60a5fa',
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+
+  statusText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  input: {
+    backgroundColor: '#f8fafc',
+    padding: 15,
+    borderRadius: 14,
+    marginBottom: 12,
+    fontSize: 15,
+  },
+
+  button: {
+    backgroundColor: '#2563eb',
+    padding: 15,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+
+  menu: {
+    height: 74,
+    backgroundColor: '#020617',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
+  },
+
+  menuText: {
+    color: '#e2e8f0',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  item: {
+    backgroundColor: '#111827',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+  },
+
+  itemText: {
+    color: '#f8fafc',
+    marginBottom: 6,
+    fontSize: 13,
+  },
+
+  pixBox: {
+    backgroundColor: '#020617',
+    padding: 14,
+    borderRadius: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+
+  copyText: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+
   qrBox: {
     backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 18,
     alignSelf: 'center',
-    marginBottom: 15,
+    marginBottom: 16,
   },
 };
