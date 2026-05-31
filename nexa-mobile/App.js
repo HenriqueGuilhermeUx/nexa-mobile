@@ -78,6 +78,9 @@ export default function App() {
   const [pixCopyPaste, setPixCopyPaste] = useState('');
   const [ticketUrl, setTicketUrl] = useState('');
 
+  const [kycStarted, setKycStarted] = useState(false);
+  const [kycStep, setKycStep] = useState('personal');
+
   const [user, setUser] = useState(null);
   const [token, setToken] = useState('');
   const [msg, setMsg] = useState('');
@@ -104,6 +107,19 @@ export default function App() {
     if (user.handle) return user.handle;
     if (user.username) return '@' + user.username;
     return '@' + String(user.email || user.id).split('@')[0];
+  }
+
+  function getKycStatus() {
+    if (!user || !user.kycStatus) return 'pending';
+    return String(user.kycStatus).toLowerCase();
+  }
+
+  function getKycStatusLabel() {
+    const status = getKycStatus();
+    if (status === 'approved') return 'Aprovado';
+    if (status === 'rejected') return 'Reprovado';
+    if (status === 'in_review') return 'Em análise';
+    return 'Pendente';
   }
 
   function getWalletAddress() {
@@ -341,6 +357,33 @@ export default function App() {
     }
   }
 
+  function iniciarKyc() {
+    setKycStarted(true);
+    setKycStep('personal');
+    setPage('kyc');
+    show('Verificação de identidade iniciada');
+  }
+
+  function avancarKyc() {
+    if (kycStep === 'personal') {
+      setKycStep('document');
+      return;
+    }
+
+    if (kycStep === 'document') {
+      setKycStep('selfie');
+      return;
+    }
+
+    if (kycStep === 'selfie') {
+      setKycStep('review');
+      show('KYC enviado para análise visual');
+      return;
+    }
+
+    setPage('profile');
+  }
+
   async function logout() {
     await AsyncStorage.removeItem('nexa_user');
     await AsyncStorage.removeItem('nexa_token');
@@ -389,8 +432,7 @@ export default function App() {
       show('Falha ao carregar dados: ' + e.message);
     }
   }
-
-  async function depositarPix() {
+    async function depositarPix() {
     if (!user || !user.id) {
       show('Faça login primeiro');
       return;
@@ -566,67 +608,26 @@ export default function App() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <ScrollView
-          style={styles.content}
-          keyboardShouldPersistTaps="always"
-          keyboardDismissMode="none"
-        >
+        <ScrollView style={styles.content} keyboardShouldPersistTaps="always" keyboardDismissMode="none">
           <Text style={styles.logo}>NEXA</Text>
           <Text style={styles.subtitle}>Cripto sem complicação</Text>
 
           <Card>
-            <Text style={styles.title}>
-              {authPage === 'login' ? 'Entrar' : 'Criar conta'}
-            </Text>
-
+            <Text style={styles.title}>{authPage === 'login' ? 'Entrar' : 'Criar conta'}</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
 
-            <Input
-              placeholder="E-mail"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <Input
-              placeholder="Senha"
-              secureTextEntry={true}
-              value={password}
-              onChangeText={setPassword}
-            />
+            <Input placeholder="E-mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+            <Input placeholder="Senha" secureTextEntry={true} value={password} onChangeText={setPassword} />
 
             {authPage === 'register' && (
               <>
-                <Input
-                  placeholder="Nome completo"
-                  value={fullName}
-                  onChangeText={setFullName}
-                  autoCapitalize="words"
-                />
-
-                <Input
-                  placeholder="CPF"
-                  keyboardType="numeric"
-                  value={cpf}
-                  onChangeText={setCpf}
-                />
-
-                <Input
-                  placeholder="Telefone"
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={setPhone}
-                />
+                <Input placeholder="Nome completo" value={fullName} onChangeText={setFullName} autoCapitalize="words" />
+                <Input placeholder="CPF" keyboardType="numeric" value={cpf} onChangeText={setCpf} />
+                <Input placeholder="Telefone" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
               </>
             )}
 
-            {authPage === 'login' ? (
-              <Button title="Entrar" onPress={login} />
-            ) : (
-              <Button title="Criar conta" onPress={cadastrar} />
-            )}
-
+            {authPage === 'login' ? <Button title="Entrar" onPress={login} /> : <Button title="Criar conta" onPress={cadastrar} />}
             {authPage === 'login' ? (
               <Button title="Não tenho conta" onPress={function () { setAuthPage('register'); }} />
             ) : (
@@ -644,11 +645,7 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.content}
-        keyboardShouldPersistTaps="always"
-        keyboardDismissMode="none"
-      >
+      <ScrollView style={styles.content} keyboardShouldPersistTaps="always" keyboardDismissMode="none">
         <Text style={styles.logo}>NEXA</Text>
         <Text style={styles.subtitle}>Pix + USDC + @username</Text>
 
@@ -656,14 +653,9 @@ export default function App() {
           <>
             <Card>
               <View style={styles.headerRow}>
-                <View style={styles.avatarSmall}>
-                  <Text style={styles.avatarText}>{getInitial()}</Text>
-                </View>
-
+                <View style={styles.avatarSmall}><Text style={styles.avatarText}>{getInitial()}</Text></View>
                 <View style={styles.headerTextBox}>
-                  <Text style={styles.welcome} numberOfLines={1}>
-                    Olá, {user.fullName}
-                  </Text>
+                  <Text style={styles.welcome} numberOfLines={1}>Olá, {user.fullName}</Text>
                   <Text style={styles.usernameText}>{getUsername()}</Text>
                 </View>
               </View>
@@ -676,7 +668,6 @@ export default function App() {
                   <Text style={styles.smallLabel}>BRL</Text>
                   <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
                 </View>
-
                 <View style={styles.balanceMiniCard}>
                   <Text style={styles.smallLabel}>USDC</Text>
                   <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
@@ -689,9 +680,7 @@ export default function App() {
                 <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
                   {changePrefix}{marketChange.toFixed(2)}% em 24h · {getPriceSourceLabel()}
                 </Text>
-                <Text style={styles.rateText}>
-                  Compra Nexa: R$ {buyRate.toFixed(2)}
-                </Text>
+                <Text style={styles.rateText}>Compra Nexa: R$ {buyRate.toFixed(2)}</Text>
               </View>
 
               <Button title="Atualizar saldo e cotação" onPress={function () { carregarDados(); carregarCotacao(); }} />
@@ -703,6 +692,12 @@ export default function App() {
               <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
               <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
               <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
+            </Card>
+
+            <Card>
+              <Text style={styles.title}>Verificação</Text>
+              <Text style={styles.itemText}>Status KYC: {getKycStatusLabel()}</Text>
+              <Button title="🪪 Iniciar verificação" onPress={iniciarKyc} />
             </Card>
 
             {lastReceipt ? (
@@ -717,17 +712,11 @@ export default function App() {
 
             <Card>
               <Text style={styles.title}>Últimas movimentações</Text>
-
-              {extrato.length === 0 && (
-                <Text style={styles.itemText}>Nenhuma movimentação carregada ainda.</Text>
-              )}
-
+              {extrato.length === 0 && <Text style={styles.itemText}>Nenhuma movimentação carregada ainda.</Text>}
               {extrato.slice(0, 5).map(function (item) {
                 return (
                   <View key={item.id} style={styles.item}>
-                    <Text style={styles.itemText}>
-                      {getIcon(item)} {item.description}
-                    </Text>
+                    <Text style={styles.itemText}>{getIcon(item)} {item.description}</Text>
                     <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
                       {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
                     </Text>
@@ -738,16 +727,59 @@ export default function App() {
           </>
         )}
 
+        {page === 'kyc' && (
+          <Card>
+            <Text style={styles.title}>Verificação de identidade</Text>
+            <Text style={styles.itemText}>Status atual: {getKycStatusLabel()}</Text>
+
+            <View style={styles.kycBox}>
+              <Text style={kycStep === 'personal' ? styles.kycActive : styles.kycDone}>1. Dados pessoais</Text>
+              <Text style={kycStep === 'document' ? styles.kycActive : styles.kycDone}>2. Documento</Text>
+              <Text style={kycStep === 'selfie' ? styles.kycActive : styles.kycDone}>3. Selfie</Text>
+              <Text style={kycStep === 'review' ? styles.kycActive : styles.kycPending}>4. Análise</Text>
+            </View>
+
+            {kycStep === 'personal' && (
+              <>
+                <Text style={styles.itemText}>Confirme seus dados pessoais antes de enviar os documentos.</Text>
+                <Text style={styles.itemText}>Nome: {user.fullName}</Text>
+                <Text style={styles.itemText}>E-mail: {user.email}</Text>
+                <Text style={styles.itemText}>CPF: {user.cpf}</Text>
+              </>
+            )}
+
+            {kycStep === 'document' && (
+              <>
+                <Text style={styles.itemText}>Envio de documento será integrado no próximo passo.</Text>
+                <Text style={styles.rateText}>Aceitaremos RG, CNH ou documento oficial com foto.</Text>
+              </>
+            )}
+
+            {kycStep === 'selfie' && (
+              <>
+                <Text style={styles.itemText}>Selfie de segurança será integrada com câmera depois.</Text>
+                <Text style={styles.rateText}>Por enquanto, esta etapa é visual para simular o fluxo completo.</Text>
+              </>
+            )}
+
+            {kycStep === 'review' && (
+              <>
+                <Text style={styles.itemText}>✅ Verificação enviada para análise.</Text>
+                <Text style={styles.rateText}>Quando o backend KYC estiver ativo, esta etapa atualizará o status automaticamente.</Text>
+              </>
+            )}
+
+            <Button title={kycStep === 'review' ? 'Concluir' : 'Continuar'} onPress={avancarKyc} />
+            <Button title="Voltar ao Perfil" onPress={function () { setPage('profile'); }} />
+          </Card>
+        )}
+
         {page === 'wallet' && (
           <>
             <Card>
               <Text style={styles.title}>Carteira Nexa</Text>
-
               <View style={styles.walletHeader}>
-                <View style={styles.avatarSmall}>
-                  <Text style={styles.avatarText}>{getInitial()}</Text>
-                </View>
-
+                <View style={styles.avatarSmall}><Text style={styles.avatarText}>{getInitial()}</Text></View>
                 <View style={styles.headerTextBox}>
                   <Text style={styles.walletName} numberOfLines={1}>{user.fullName}</Text>
                   <Text style={styles.usernameText}>{getUsername()}</Text>
@@ -758,15 +790,8 @@ export default function App() {
               <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
 
               <View style={styles.balanceGrid}>
-                <View style={styles.balanceMiniCard}>
-                  <Text style={styles.smallLabel}>Saldo BRL</Text>
-                  <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
-                </View>
-
-                <View style={styles.balanceMiniCard}>
-                  <Text style={styles.smallLabel}>Saldo USDC</Text>
-                  <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
-                </View>
+                <View style={styles.balanceMiniCard}><Text style={styles.smallLabel}>Saldo BRL</Text><Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text></View>
+                <View style={styles.balanceMiniCard}><Text style={styles.smallLabel}>Saldo USDC</Text><Text style={styles.balanceMiniText}>{saldo.USDC}</Text></View>
               </View>
 
               <Button title="Atualizar carteira" onPress={function () { carregarDados(); buscarPerfilAtualizado(); }} />
@@ -776,14 +801,8 @@ export default function App() {
               <Text style={styles.title}>Receber USDC</Text>
               <Text style={styles.itemText}>Rede: {getWalletNetwork()}</Text>
               <Text style={styles.itemText}>Endereço da carteira:</Text>
-
-              <View style={styles.walletAddressBox}>
-                <Text style={styles.walletAddressText}>{walletAddress}</Text>
-              </View>
-
-              <Text style={styles.rateText}>
-                Use este endereço apenas para ativos compatíveis com a rede Polygon.
-              </Text>
+              <View style={styles.walletAddressBox}><Text style={styles.walletAddressText}>{walletAddress}</Text></View>
+              <Text style={styles.rateText}>Use este endereço apenas para ativos compatíveis com a rede Polygon.</Text>
             </Card>
 
             <Card>
@@ -800,24 +819,13 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Depositar Pix</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-            <Input
-              placeholder="Valor em R$"
-              keyboardType="numeric"
-              value={depositValue}
-              onChangeText={setDepositValue}
-            />
-
+            <Input placeholder="Valor em R$" keyboardType="numeric" value={depositValue} onChangeText={setDepositValue} />
             <Button title="Gerar Pix Mercado Pago" onPress={depositarPix} />
 
             {pixCopyPaste ? (
               <View style={styles.pixBox}>
                 <Text style={styles.itemText}>QR Code Pix</Text>
-
-                <View style={styles.qrBox}>
-                  <QRCode value={pixCopyPaste} size={180} />
-                </View>
-
+                <View style={styles.qrBox}><QRCode value={pixCopyPaste} size={180} /></View>
                 <Text style={styles.itemText}>Pix copia e cola:</Text>
                 <Text style={styles.copyText}>{pixCopyPaste}</Text>
               </View>
@@ -836,20 +844,8 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Sacar Pix</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-            <Input
-              placeholder="Chave Pix"
-              value={pixKey}
-              onChangeText={setPixKey}
-            />
-
-            <Input
-              placeholder="Valor em R$"
-              keyboardType="numeric"
-              value={valorBrl}
-              onChangeText={setValorBrl}
-            />
-
+            <Input placeholder="Chave Pix" value={pixKey} onChangeText={setPixKey} />
+            <Input placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
             <Button title="Solicitar Pix" onPress={sacarPix} />
           </Card>
         )}
@@ -858,18 +854,8 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Converter BRL para USDC</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-            <Input
-              placeholder="Valor em R$"
-              keyboardType="numeric"
-              value={valorBrl}
-              onChangeText={setValorBrl}
-            />
-
-            <Text style={styles.rateText}>
-              Cotação atual: 1 USDC = R$ {buyRate.toFixed(2)}
-            </Text>
-
+            <Input placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
+            <Text style={styles.rateText}>Cotação atual: 1 USDC = R$ {buyRate.toFixed(2)}</Text>
             <Button title="Converter" onPress={converter} />
           </Card>
         )}
@@ -878,17 +864,7 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Enviar USDC</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-            <Input
-              placeholder="@username"
-              value={username}
-              onChangeText={function (value) {
-                setUsername(value);
-                setRecipientUser(null);
-                setRecipientChecked(false);
-              }}
-            />
-
+            <Input placeholder="@username" value={username} onChangeText={function (value) { setUsername(value); setRecipientUser(null); setRecipientChecked(false); }} />
             <Button title="Verificar usuário" onPress={buscarDestinatario} />
 
             {recipientUser ? (
@@ -900,70 +876,29 @@ export default function App() {
             ) : null}
 
             {!recipientUser && recipientChecked ? (
-              <View style={styles.recipientBoxError}>
-                <Text style={styles.recipientError}>❌ Usuário não encontrado</Text>
-              </View>
+              <View style={styles.recipientBoxError}><Text style={styles.recipientError}>❌ Usuário não encontrado</Text></View>
             ) : null}
 
-            <Input
-              placeholder="Valor USDC"
-              keyboardType="numeric"
-              value={valorUsdc}
-              onChangeText={setValorUsdc}
-            />
-
+            <Input placeholder="Valor USDC" keyboardType="numeric" value={valorUsdc} onChangeText={setValorUsdc} />
             <Button title="Enviar para @username" onPress={enviarUsername} />
-
-            <Input
-              placeholder="Carteira 0x..."
-              value={wallet}
-              onChangeText={setWallet}
-            />
-
+            <Input placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
             <Button title="Enviar para carteira" onPress={enviarWallet} />
           </Card>
         )}
 
         {page === 'receipt' && (
           <Card>
-            <View style={styles.receiptIcon}>
-              <Text style={styles.receiptIconText}>✓</Text>
-            </View>
-
+            <View style={styles.receiptIcon}><Text style={styles.receiptIconText}>✓</Text></View>
             <Text style={styles.receiptTitle}>Transferência concluída</Text>
 
             {lastReceipt ? (
               <>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Valor</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.amountUsdc} USDC</Text>
-                </View>
-
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Destino</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.destinationHandle}</Text>
-                </View>
-
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Nome</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.destinationName}</Text>
-                </View>
-
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Origem</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.fromHandle}</Text>
-                </View>
-
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Data</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.date}</Text>
-                </View>
-
-                <View style={styles.receiptBox}>
-                  <Text style={styles.receiptSmallLabel}>ID da transferência</Text>
-                  <Text style={styles.receiptId}>{lastReceipt.transferId}</Text>
-                </View>
-
+                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Valor</Text><Text style={styles.receiptValue}>{lastReceipt.amountUsdc} USDC</Text></View>
+                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Destino</Text><Text style={styles.receiptValue}>{lastReceipt.destinationHandle}</Text></View>
+                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Nome</Text><Text style={styles.receiptValue}>{lastReceipt.destinationName}</Text></View>
+                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Origem</Text><Text style={styles.receiptValue}>{lastReceipt.fromHandle}</Text></View>
+                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Data</Text><Text style={styles.receiptValue}>{lastReceipt.date}</Text></View>
+                <View style={styles.receiptBox}><Text style={styles.receiptSmallLabel}>ID da transferência</Text><Text style={styles.receiptId}>{lastReceipt.transferId}</Text></View>
                 <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
                 <Button title="Enviar outro valor" onPress={function () { setPage('send'); }} />
               </>
@@ -978,25 +913,16 @@ export default function App() {
 
         {page === 'profile' && (
           <Card>
-            <View style={styles.avatarLarge}>
-              <Text style={styles.avatarLargeText}>{getInitial()}</Text>
-            </View>
-
+            <View style={styles.avatarLarge}><Text style={styles.avatarLargeText}>{getInitial()}</Text></View>
             <Text style={styles.title}>Perfil</Text>
             <Text style={styles.itemText}>Nome: {user.fullName}</Text>
             <Text style={styles.itemText}>Username atual: {getUsername()}</Text>
             <Text style={styles.itemText}>E-mail: {user.email}</Text>
             <Text style={styles.itemText}>CPF: {user.cpf}</Text>
-            <Text style={styles.itemText}>KYC: {user.kycStatus}</Text>
-
-            <Input
-              placeholder="Novo username"
-              value={newUsername}
-              onChangeText={setNewUsername}
-              autoCapitalize="none"
-            />
-
+            <Text style={styles.itemText}>KYC: {getKycStatusLabel()}</Text>
+            <Input placeholder="Novo username" value={newUsername} onChangeText={setNewUsername} autoCapitalize="none" />
             <Button title="Salvar username" onPress={salvarUsername} />
+            <Button title="🪪 Verificação de identidade" onPress={iniciarKyc} />
             <Button title="Atualizar perfil" onPress={buscarPerfilAtualizado} />
             <Button title="Sair" onPress={logout} />
           </Card>
@@ -1006,13 +932,10 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Extrato</Text>
             <Button title="Atualizar extrato" onPress={carregarDados} />
-
             {extrato.map(function (item) {
               return (
                 <View key={item.id} style={styles.item}>
-                  <Text style={styles.itemText}>
-                    {getIcon(item)} {item.description}
-                  </Text>
+                  <Text style={styles.itemText}>{getIcon(item)} {item.description}</Text>
                   <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
                     {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
                   </Text>
@@ -1042,22 +965,18 @@ const styles = {
   subtitle: { color: '#93c5fd', textAlign: 'center', marginBottom: 24, fontSize: 13 },
   card: { backgroundColor: '#0f172a', padding: 22, borderRadius: 24, marginBottom: 18, borderWidth: 1, borderColor: '#1e40af' },
   title: { color: 'white', fontSize: 21, fontWeight: '800', marginBottom: 16, marginTop: 6 },
-
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   headerTextBox: { flex: 1, minWidth: 0 },
   walletHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   walletName: { color: 'white', fontSize: 18, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
   walletAddressBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
   walletAddressText: { color: '#93c5fd', fontSize: 12, lineHeight: 18, fontWeight: '800' },
-
   welcome: { color: 'white', fontSize: 20, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
   usernameText: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
-
   avatarSmall: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   avatarText: { color: 'white', fontSize: 24, fontWeight: '900' },
   avatarLarge: { width: 92, height: 92, borderRadius: 46, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
   avatarLargeText: { color: 'white', fontSize: 38, fontWeight: '900' },
-
   smallLabel: { color: '#94a3b8', fontSize: 13, marginTop: 10, marginBottom: 4 },
   totalBalance: { color: '#ffffff', fontSize: 38, fontWeight: '900', marginBottom: 12 },
   balanceGrid: { flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 10 },
@@ -1065,20 +984,21 @@ const styles = {
   balanceMiniText: { color: 'white', fontWeight: '900', fontSize: 18 },
   rateText: { color: '#93c5fd', fontSize: 12, marginBottom: 14 },
   loginMsg: { color: '#93c5fd', marginBottom: 15, textAlign: 'center', fontSize: 13 },
-
   marketBox: { backgroundColor: '#111827', borderRadius: 18, padding: 14, marginTop: 8, marginBottom: 14 },
   marketTitle: { color: '#94a3b8', fontSize: 12, fontWeight: '700' },
   marketPrice: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 4 },
   marketUp: { color: '#22c55e', fontSize: 12, fontWeight: '800', marginTop: 3 },
   marketDown: { color: '#f87171', fontSize: 12, fontWeight: '800', marginTop: 3 },
-
+  kycBox: { backgroundColor: '#111827', borderRadius: 16, padding: 14, marginBottom: 14 },
+  kycActive: { color: '#93c5fd', fontSize: 14, fontWeight: '900', marginBottom: 8 },
+  kycDone: { color: '#22c55e', fontSize: 14, fontWeight: '800', marginBottom: 8 },
+  kycPending: { color: '#94a3b8', fontSize: 14, fontWeight: '700', marginBottom: 8 },
   recipientBox: { backgroundColor: '#052e16', borderColor: '#22c55e', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
   recipientBoxError: { backgroundColor: '#450a0a', borderColor: '#ef4444', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
   recipientOk: { color: '#22c55e', fontSize: 12, fontWeight: '900', marginBottom: 5 },
   recipientError: { color: '#fca5a5', fontSize: 12, fontWeight: '900' },
   recipientName: { color: 'white', fontSize: 16, fontWeight: '900', marginBottom: 3 },
   recipientHandle: { color: '#93c5fd', fontSize: 13, fontWeight: '700' },
-
   receiptIcon: { width: 82, height: 82, borderRadius: 41, backgroundColor: '#16a34a', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
   receiptIconText: { color: 'white', fontSize: 42, fontWeight: '900' },
   receiptTitle: { color: 'white', fontSize: 24, fontWeight: '900', textAlign: 'center', marginBottom: 20 },
@@ -1088,21 +1008,17 @@ const styles = {
   receiptBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
   receiptSmallLabel: { color: '#94a3b8', fontSize: 11, marginBottom: 5 },
   receiptId: { color: '#93c5fd', fontSize: 12, fontWeight: '800' },
-
   input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 14, marginBottom: 12, fontSize: 15 },
   button: { backgroundColor: '#2563eb', padding: 13, borderRadius: 14, marginBottom: 11 },
   buttonText: { color: 'white', textAlign: 'center', fontWeight: '800', fontSize: 15 },
-
   menu: { height: 78, backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: '#1e293b' },
   menuItem: { alignItems: 'center', justifyContent: 'center', flex: 1 },
   menuIcon: { color: '#e2e8f0', fontSize: 18 },
   menuLabel: { color: '#94a3b8', fontSize: 9, marginTop: 2, fontWeight: '700' },
-
   item: { backgroundColor: '#111827', borderRadius: 14, padding: 12, marginBottom: 10 },
   itemText: { color: '#f8fafc', marginBottom: 6, fontSize: 13 },
   creditText: { color: '#22c55e', fontWeight: '900', fontSize: 14 },
   debitText: { color: '#f87171', fontWeight: '900', fontSize: 14 },
-
   pixBox: { backgroundColor: '#020617', padding: 14, borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: '#1e293b' },
   copyText: { color: '#cbd5e1', fontSize: 11, lineHeight: 16 },
   qrBox: { backgroundColor: 'white', padding: 16, borderRadius: 18, alignSelf: 'center', marginBottom: 16 },
