@@ -105,7 +105,6 @@ export default function App() {
   async function buscarPerfilAtualizado() {
     try {
       const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
-
       if (!savedToken) return;
 
       const r = await fetch(API + '/user/me', {
@@ -121,9 +120,7 @@ export default function App() {
         await atualizarUsuarioLocal(data);
         setNewUsername(data.username || '');
       }
-    } catch (e) {
-      // Não quebra o app se falhar atualização de perfil
-    }
+    } catch (e) {}
   }
 
   async function login() {
@@ -439,6 +436,15 @@ export default function App() {
     );
   }
 
+  function MenuItem(props) {
+    return (
+      <TouchableOpacity style={styles.menuItem} onPress={props.onPress}>
+        <Text style={styles.menuIcon}>{props.icon}</Text>
+        <Text style={styles.menuLabel}>{props.label}</Text>
+      </TouchableOpacity>
+    );
+  }
+
   if (!user) {
     return (
       <View style={styles.container}>
@@ -526,8 +532,10 @@ export default function App() {
                   <Text style={styles.avatarText}>{getInitial()}</Text>
                 </View>
 
-                <View>
-                  <Text style={styles.welcome}>Olá, {user.fullName}</Text>
+                <View style={styles.headerTextBox}>
+                  <Text style={styles.welcome} numberOfLines={1}>
+                    Olá, {user.fullName}
+                  </Text>
                   <Text style={styles.usernameText}>{getUsername()}</Text>
                 </View>
               </View>
@@ -737,29 +745,12 @@ export default function App() {
       </ScrollView>
 
       <View style={styles.menu}>
-        <TouchableOpacity onPress={function () { setPage('home'); }}>
-          <Text style={styles.menuText}>🏠</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={function () { setPage('deposit'); }}>
-          <Text style={styles.menuText}>💳</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={function () { setPage('pix'); }}>
-          <Text style={styles.menuText}>🏦</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={function () { setPage('convert'); }}>
-          <Text style={styles.menuText}>🔄</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={function () { setPage('send'); }}>
-          <Text style={styles.menuText}>📤</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={function () { setPage('profile'); }}>
-          <Text style={styles.menuText}>👤</Text>
-        </TouchableOpacity>
+        <MenuItem icon="🏠" label="Home" onPress={function () { setPage('home'); }} />
+        <MenuItem icon="💳" label="Depositar" onPress={function () { setPage('deposit'); }} />
+        <MenuItem icon="🏦" label="Sacar" onPress={function () { setPage('pix'); }} />
+        <MenuItem icon="🔄" label="Converter" onPress={function () { setPage('convert'); }} />
+        <MenuItem icon="📤" label="Enviar" onPress={function () { setPage('send'); }} />
+        <MenuItem icon="👤" label="Perfil" onPress={function () { setPage('profile'); }} />
       </View>
     </View>
   );
@@ -772,13 +763,18 @@ const styles = {
   subtitle: { color: '#93c5fd', textAlign: 'center', marginBottom: 24, fontSize: 13 },
   card: { backgroundColor: '#0f172a', padding: 22, borderRadius: 24, marginBottom: 18, borderWidth: 1, borderColor: '#1e40af' },
   title: { color: 'white', fontSize: 21, fontWeight: '800', marginBottom: 16, marginTop: 6 },
-  welcome: { color: 'white', fontSize: 20, fontWeight: '900', marginBottom: 4 },
-  usernameText: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
+
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  headerTextBox: { flex: 1, minWidth: 0 },
+
+  welcome: { color: 'white', fontSize: 20, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
+  usernameText: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
+
   avatarSmall: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   avatarText: { color: 'white', fontSize: 24, fontWeight: '900' },
   avatarLarge: { width: 92, height: 92, borderRadius: 46, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
   avatarLargeText: { color: 'white', fontSize: 38, fontWeight: '900' },
+
   smallLabel: { color: '#94a3b8', fontSize: 13, marginTop: 10, marginBottom: 4 },
   totalBalance: { color: '#ffffff', fontSize: 38, fontWeight: '900', marginBottom: 12 },
   balanceGrid: { flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 10 },
@@ -786,15 +782,21 @@ const styles = {
   balanceMiniText: { color: 'white', fontWeight: '900', fontSize: 18 },
   rateText: { color: '#93c5fd', fontSize: 12, marginBottom: 14 },
   loginMsg: { color: '#93c5fd', marginBottom: 15, textAlign: 'center', fontSize: 13 },
+
   input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 14, marginBottom: 12, fontSize: 15 },
   button: { backgroundColor: '#2563eb', padding: 13, borderRadius: 14, marginBottom: 11 },
   buttonText: { color: 'white', textAlign: 'center', fontWeight: '800', fontSize: 15 },
-  menu: { height: 74, backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: '#1e293b' },
-  menuText: { color: '#e2e8f0', fontSize: 21, fontWeight: '800' },
+
+  menu: { height: 78, backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: '#1e293b' },
+  menuItem: { alignItems: 'center', justifyContent: 'center', flex: 1 },
+  menuIcon: { color: '#e2e8f0', fontSize: 18 },
+  menuLabel: { color: '#94a3b8', fontSize: 9, marginTop: 2, fontWeight: '700' },
+
   item: { backgroundColor: '#111827', borderRadius: 14, padding: 12, marginBottom: 10 },
   itemText: { color: '#f8fafc', marginBottom: 6, fontSize: 13 },
   creditText: { color: '#22c55e', fontWeight: '900', fontSize: 14 },
   debitText: { color: '#f87171', fontWeight: '900', fontSize: 14 },
+
   pixBox: { backgroundColor: '#020617', padding: 14, borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: '#1e293b' },
   copyText: { color: '#cbd5e1', fontSize: 11, lineHeight: 16 },
   qrBox: { backgroundColor: 'white', padding: 16, borderRadius: 18, alignSelf: 'center', marginBottom: 16 },
