@@ -106,6 +106,19 @@ export default function App() {
     return '@' + String(user.email || user.id).split('@')[0];
   }
 
+  function getWalletAddress() {
+    if (!user) return 'Carteira ainda não vinculada';
+    if (user.wallet && user.wallet.address) return user.wallet.address;
+    if (user.walletAddress) return user.walletAddress;
+    return 'Carteira ainda não vinculada';
+  }
+
+  function getWalletNetwork() {
+    if (user && user.wallet && user.wallet.network) return user.wallet.network;
+    if (user && user.walletNetwork) return user.walletNetwork;
+    return 'polygon';
+  }
+
   function getInitial() {
     if (!user || !user.fullName) return 'N';
     return user.fullName.charAt(0).toUpperCase();
@@ -626,6 +639,7 @@ export default function App() {
   }
 
   const patrimonioTotal = Number((saldo.BRL + saldo.USDC * marketPrice).toFixed(2));
+  const walletAddress = getWalletAddress();
   const changePrefix = marketChange >= 0 ? '+' : '';
 
   return (
@@ -720,6 +734,64 @@ export default function App() {
                   </View>
                 );
               })}
+            </Card>
+          </>
+        )}
+
+        {page === 'wallet' && (
+          <>
+            <Card>
+              <Text style={styles.title}>Carteira Nexa</Text>
+
+              <View style={styles.walletHeader}>
+                <View style={styles.avatarSmall}>
+                  <Text style={styles.avatarText}>{getInitial()}</Text>
+                </View>
+
+                <View style={styles.headerTextBox}>
+                  <Text style={styles.walletName} numberOfLines={1}>{user.fullName}</Text>
+                  <Text style={styles.usernameText}>{getUsername()}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.smallLabel}>Patrimônio total estimado</Text>
+              <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
+
+              <View style={styles.balanceGrid}>
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>Saldo BRL</Text>
+                  <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
+                </View>
+
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>Saldo USDC</Text>
+                  <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
+                </View>
+              </View>
+
+              <Button title="Atualizar carteira" onPress={function () { carregarDados(); buscarPerfilAtualizado(); }} />
+            </Card>
+
+            <Card>
+              <Text style={styles.title}>Receber USDC</Text>
+              <Text style={styles.itemText}>Rede: {getWalletNetwork()}</Text>
+              <Text style={styles.itemText}>Endereço da carteira:</Text>
+
+              <View style={styles.walletAddressBox}>
+                <Text style={styles.walletAddressText}>{walletAddress}</Text>
+              </View>
+
+              <Text style={styles.rateText}>
+                Use este endereço apenas para ativos compatíveis com a rede Polygon.
+              </Text>
+            </Card>
+
+            <Card>
+              <Text style={styles.title}>Atalhos da carteira</Text>
+              <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
+              <Button title="🔄 Converter BRL para USDC" onPress={function () { setPage('convert'); }} />
+              <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
+              <Button title="📄 Ver extrato" onPress={function () { setPage('extrato'); }} />
             </Card>
           </>
         )}
@@ -953,8 +1025,8 @@ export default function App() {
 
       <View style={styles.menu}>
         <MenuItem icon="🏠" label="Home" onPress={function () { setPage('home'); }} />
+        <MenuItem icon="👛" label="Carteira" onPress={function () { setPage('wallet'); }} />
         <MenuItem icon="💳" label="Depositar" onPress={function () { setPage('deposit'); }} />
-        <MenuItem icon="🏦" label="Sacar" onPress={function () { setPage('pix'); }} />
         <MenuItem icon="🔄" label="Converter" onPress={function () { setPage('convert'); }} />
         <MenuItem icon="📤" label="Enviar" onPress={function () { setPage('send'); }} />
         <MenuItem icon="👤" label="Perfil" onPress={function () { setPage('profile'); }} />
@@ -973,6 +1045,10 @@ const styles = {
 
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   headerTextBox: { flex: 1, minWidth: 0 },
+  walletHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  walletName: { color: 'white', fontSize: 18, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
+  walletAddressBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
+  walletAddressText: { color: '#93c5fd', fontSize: 12, lineHeight: 18, fontWeight: '800' },
 
   welcome: { color: 'white', fontSize: 20, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
   usernameText: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
