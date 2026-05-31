@@ -22,6 +22,7 @@ export default function App() {
   const [valorBrl, setValorBrl] = useState('');
   const [pixKey, setPixKey] = useState('');
   const [username, setUsername] = useState('');
+  const [newUsername, setNewUsername] = useState('');
   const [valorUsdc, setValorUsdc] = useState('');
   const [wallet, setWallet] = useState('');
   const [depositValue, setDepositValue] = useState('');
@@ -29,6 +30,7 @@ export default function App() {
   const [ticketUrl, setTicketUrl] = useState('');
 
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState('');
   const [msg, setMsg] = useState('');
 
   useEffect(function () {
@@ -38,6 +40,7 @@ export default function App() {
   useEffect(function () {
     if (user && user.id) {
       carregarDados();
+      buscarPerfilAtualizado();
     }
   }, [user && user.id]);
 
@@ -46,7 +49,9 @@ export default function App() {
   }
 
   function getUsername() {
-    if (!user || !user.id) return '@nexa';
+    if (!user) return '@nexa';
+    if (user.handle) return user.handle;
+    if (user.username) return '@' + user.username;
     return '@' + String(user.email || user.id).split('@')[0];
   }
 
@@ -57,33 +62,67 @@ export default function App() {
 
   function getIcon(item) {
     const description = String(item.description || '').toLowerCase();
-
     if (description.includes('pix')) return '💳';
     if (description.includes('conversão')) return '🔄';
     if (description.includes('transferência')) return '📤';
     if (description.includes('carteira')) return '🌐';
     if (item.asset === 'USDC') return '💵';
-
     return '💰';
   }
 
   async function salvarSessao(data) {
-    setUser(data.user);
-    await AsyncStorage.setItem('nexa_user', JSON.stringify(data.user));
-    await AsyncStorage.setItem('nexa_token', data.accessToken || '');
+    const userData = data.user;
+    const accessToken = data.accessToken || '';
+
+    setUser(userData);
+    setToken(accessToken);
+
+    await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
+    await AsyncStorage.setItem('nexa_token', accessToken);
+  }
+
+  async function atualizarUsuarioLocal(userData) {
+    setUser(userData);
+    await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
   }
 
   async function carregarLoginSalvo() {
     try {
       const savedUser = await AsyncStorage.getItem('nexa_user');
+      const savedToken = await AsyncStorage.getItem('nexa_token');
 
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
+        setToken(savedToken || '');
         setMsg('Login restaurado');
       }
     } catch (e) {
       setMsg('Erro ao restaurar login: ' + e.message);
+    }
+  }
+
+  async function buscarPerfilAtualizado() {
+    try {
+      const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
+
+      if (!savedToken) return;
+
+      const r = await fetch(API + '/user/me', {
+        method: 'GET',
+        headers: {
+          Authorization: 'Bearer ' + savedToken,
+        },
+      });
+
+      const data = await r.json();
+
+      if (data && data.id) {
+        await atualizarUsuarioLocal(data);
+        setNewUsername(data.username || '');
+      }
+    } catch (e) {
+      // Não quebra o app se falhar atualização de perfil
     }
   }
 
@@ -139,11 +178,52 @@ export default function App() {
     }
   }
 
+  async function salvarUsername() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+
+    if (!newUsername) {
+      show('Digite um username');
+      return;
+    }
+
+    try {
+      const r = await fetch(API + '/user/username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          username: newUsername,
+        }),
+      });
+
+      const data = await r.json();
+
+      if (data.success && data.user) {
+        const updated = {
+          ...user,
+          username: data.user.username,
+          handle: data.user.handle,
+        };
+
+        await atualizarUsuarioLocal(updated);
+        show('Username atualizado: ' + data.user.handle);
+      } else {
+        show(data);
+      }
+    } catch (e) {
+      show('Erro username: ' + e.message);
+    }
+  }
+
   async function logout() {
     await AsyncStorage.removeItem('nexa_user');
     await AsyncStorage.removeItem('nexa_token');
 
     setUser(null);
+    setToken('');
     setSaldo({ BRL: 0, USDC: 0 });
     setExtrato([]);
     setPixCopyPaste('');
@@ -508,7 +588,6 @@ export default function App() {
         {page === 'deposit' && (
           <Card>
             <Text style={styles.title}>Depositar Pix</Text>
-
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
 
             <Input
@@ -618,12 +697,20 @@ export default function App() {
 
             <Text style={styles.title}>Perfil</Text>
             <Text style={styles.itemText}>Nome: {user.fullName}</Text>
-            <Text style={styles.itemText}>Username: {getUsername()}</Text>
+            <Text style={styles.itemText}>Username atual: {getUsername()}</Text>
             <Text style={styles.itemText}>E-mail: {user.email}</Text>
             <Text style={styles.itemText}>CPF: {user.cpf}</Text>
             <Text style={styles.itemText}>KYC: {user.kycStatus}</Text>
-            <Text style={styles.itemText}>User ID: {user.id}</Text>
 
+            <Input
+              placeholder="Novo username"
+              value={newUsername}
+              onChangeText={setNewUsername}
+              autoCapitalize="none"
+            />
+
+            <Button title="Salvar username" onPress={salvarUsername} />
+            <Button title="Atualizar perfil" onPress={buscarPerfilAtualizado} />
             <Button title="Sair" onPress={logout} />
           </Card>
         )}
@@ -680,227 +767,35 @@ export default function App() {
 
 const styles = {
   container: { flex: 1, backgroundColor: '#020617' },
-
-  content: {
-    flex: 1,
-    padding: 20,
-    paddingTop: 55,
-  },
-
-  logo: {
-    color: 'white',
-    fontSize: 36,
-    fontWeight: '900',
-    textAlign: 'center',
-    letterSpacing: 2,
-  },
-
-  subtitle: {
-    color: '#93c5fd',
-    textAlign: 'center',
-    marginBottom: 24,
-    fontSize: 13,
-  },
-
-  card: {
-    backgroundColor: '#0f172a',
-    padding: 22,
-    borderRadius: 24,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: '#1e40af',
-  },
-
-  title: {
-    color: 'white',
-    fontSize: 21,
-    fontWeight: '800',
-    marginBottom: 16,
-    marginTop: 6,
-  },
-
-  welcome: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
-
-  usernameText: {
-    color: '#60a5fa',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  avatarSmall: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-
-  avatarText: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: '900',
-  },
-
-  avatarLarge: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginBottom: 18,
-  },
-
-  avatarLargeText: {
-    color: 'white',
-    fontSize: 38,
-    fontWeight: '900',
-  },
-
-  smallLabel: {
-    color: '#94a3b8',
-    fontSize: 13,
-    marginTop: 10,
-    marginBottom: 4,
-  },
-
-  totalBalance: {
-    color: '#ffffff',
-    fontSize: 38,
-    fontWeight: '900',
-    marginBottom: 12,
-  },
-
-  balanceGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-    marginBottom: 10,
-  },
-
-  balanceMiniCard: {
-    flex: 1,
-    backgroundColor: '#111827',
-    borderRadius: 18,
-    padding: 14,
-  },
-
-  balanceMiniText: {
-    color: 'white',
-    fontWeight: '900',
-    fontSize: 18,
-  },
-
-  rateText: {
-    color: '#93c5fd',
-    fontSize: 12,
-    marginBottom: 14,
-  },
-
-  loginMsg: {
-    color: '#93c5fd',
-    marginBottom: 15,
-    textAlign: 'center',
-    fontSize: 13,
-  },
-
-  input: {
-    backgroundColor: '#f8fafc',
-    padding: 15,
-    borderRadius: 14,
-    marginBottom: 12,
-    fontSize: 15,
-  },
-
-  button: {
-    backgroundColor: '#2563eb',
-    padding: 13,
-    borderRadius: 14,
-    marginBottom: 11,
-  },
-
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: '800',
-    fontSize: 15,
-  },
-
-  menu: {
-    height: 74,
-    backgroundColor: '#020617',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    borderTopWidth: 1,
-    borderTopColor: '#1e293b',
-  },
-
-  menuText: {
-    color: '#e2e8f0',
-    fontSize: 21,
-    fontWeight: '800',
-  },
-
-  item: {
-    backgroundColor: '#111827',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-  },
-
-  itemText: {
-    color: '#f8fafc',
-    marginBottom: 6,
-    fontSize: 13,
-  },
-
-  creditText: {
-    color: '#22c55e',
-    fontWeight: '900',
-    fontSize: 14,
-  },
-
-  debitText: {
-    color: '#f87171',
-    fontWeight: '900',
-    fontSize: 14,
-  },
-
-  pixBox: {
-    backgroundColor: '#020617',
-    padding: 14,
-    borderRadius: 16,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-
-  copyText: {
-    color: '#cbd5e1',
-    fontSize: 11,
-    lineHeight: 16,
-  },
-
-  qrBox: {
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 18,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
+  content: { flex: 1, padding: 20, paddingTop: 55 },
+  logo: { color: 'white', fontSize: 36, fontWeight: '900', textAlign: 'center', letterSpacing: 2 },
+  subtitle: { color: '#93c5fd', textAlign: 'center', marginBottom: 24, fontSize: 13 },
+  card: { backgroundColor: '#0f172a', padding: 22, borderRadius: 24, marginBottom: 18, borderWidth: 1, borderColor: '#1e40af' },
+  title: { color: 'white', fontSize: 21, fontWeight: '800', marginBottom: 16, marginTop: 6 },
+  welcome: { color: 'white', fontSize: 20, fontWeight: '900', marginBottom: 4 },
+  usernameText: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  avatarSmall: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  avatarText: { color: 'white', fontSize: 24, fontWeight: '900' },
+  avatarLarge: { width: 92, height: 92, borderRadius: 46, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
+  avatarLargeText: { color: 'white', fontSize: 38, fontWeight: '900' },
+  smallLabel: { color: '#94a3b8', fontSize: 13, marginTop: 10, marginBottom: 4 },
+  totalBalance: { color: '#ffffff', fontSize: 38, fontWeight: '900', marginBottom: 12 },
+  balanceGrid: { flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 10 },
+  balanceMiniCard: { flex: 1, backgroundColor: '#111827', borderRadius: 18, padding: 14 },
+  balanceMiniText: { color: 'white', fontWeight: '900', fontSize: 18 },
+  rateText: { color: '#93c5fd', fontSize: 12, marginBottom: 14 },
+  loginMsg: { color: '#93c5fd', marginBottom: 15, textAlign: 'center', fontSize: 13 },
+  input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 14, marginBottom: 12, fontSize: 15 },
+  button: { backgroundColor: '#2563eb', padding: 13, borderRadius: 14, marginBottom: 11 },
+  buttonText: { color: 'white', textAlign: 'center', fontWeight: '800', fontSize: 15 },
+  menu: { height: 74, backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: '#1e293b' },
+  menuText: { color: '#e2e8f0', fontSize: 21, fontWeight: '800' },
+  item: { backgroundColor: '#111827', borderRadius: 14, padding: 12, marginBottom: 10 },
+  itemText: { color: '#f8fafc', marginBottom: 6, fontSize: 13 },
+  creditText: { color: '#22c55e', fontWeight: '900', fontSize: 14 },
+  debitText: { color: '#f87171', fontWeight: '900', fontSize: 14 },
+  pixBox: { backgroundColor: '#020617', padding: 14, borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: '#1e293b' },
+  copyText: { color: '#cbd5e1', fontSize: 11, lineHeight: 16 },
+  qrBox: { backgroundColor: 'white', padding: 16, borderRadius: 18, alignSelf: 'center', marginBottom: 16 },
 };
