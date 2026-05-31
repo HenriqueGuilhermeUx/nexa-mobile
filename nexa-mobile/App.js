@@ -676,7 +676,7 @@ export default function App() {
               </View>
 
               <View style={styles.marketBox}>
-                <Text style={styles.marketTitle}>USDC hoje</Text>
+                <Text style={styles.marketTitle}>Cotação USDC</Text>
                 <Text style={styles.marketPrice}>R$ {marketPrice.toFixed(2)}</Text>
                 <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
                   {changePrefix}{marketChange.toFixed(2)}% em 24h · {getPriceSourceLabel()}
@@ -799,7 +799,7 @@ export default function App() {
             </Card>
 
             <Card>
-              <Text style={styles.title}>Receber USDC</Text>
+              <Text style={styles.title}>Receber Cripto</Text>
               <Text style={styles.itemText}>Rede: {getWalletNetwork()}</Text>
               <Text style={styles.itemText}>Endereço da carteira:</Text>
               <View style={styles.walletAddressBox}><Text style={styles.walletAddressText}>{walletAddress}</Text></View>
@@ -819,7 +819,10 @@ export default function App() {
 
         {page === 'deposit' && (
           <Card>
-            <Text style={styles.title}>Depositar Pix</Text>
+            <Text style={styles.title}>Adicionar saldo</Text>
+<Text style={styles.rateText}>
+Deposite reais instantaneamente via Pix.
+</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
             <Input placeholder="Valor em R$" keyboardType="numeric" value={depositValue} onChangeText={setDepositValue} />
             <Button
@@ -945,7 +948,7 @@ export default function App() {
             <Text style={styles.itemText}>CPF: {user.cpf}</Text>
             <Text style={styles.itemText}>KYC: {getKycStatusLabel()}</Text>
             <Input placeholder="Novo username" value={newUsername} onChangeText={setNewUsername} autoCapitalize="none" />
-            <Button title="Salvar username" onPress={salvarUsername} />
+            <Button title="Salvar @username" onPress={salvarUsername} />
             <Button title="🪪 Verificação de identidade" onPress={iniciarKyc} />
             <Button title="Atualizar perfil" onPress={buscarPerfilAtualizado} />
             <Button title="Sair" onPress={logout} />
