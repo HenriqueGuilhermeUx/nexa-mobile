@@ -651,82 +651,132 @@ export default function App() {
         <Text style={styles.subtitle}>Pix + USDC + @username</Text>
 
         {page === 'home' && (
-          <>
-            <Card>
-              <View style={styles.headerRow}>
-                <View style={styles.avatarSmall}><Text style={styles.avatarText}>{getInitial()}</Text></View>
-                <View style={styles.headerTextBox}>
-                  <Text style={styles.welcome} numberOfLines={1}>Olá, {user.fullName}</Text>
-                  <Text style={styles.usernameText}>{getUsername()}</Text>
-                </View>
-              </View>
+  <>
+    <Card>
+      <View style={styles.headerRow}>
+        <View style={styles.avatarSmall}>
+          <Text style={styles.avatarText}>{getInitial()}</Text>
+        </View>
 
-              <Text style={styles.smallLabel}>Patrimônio total estimado</Text>
-              <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
+        <View style={styles.headerTextBox}>
+          <Text style={styles.welcome} numberOfLines={1}>
+            Olá, {user.fullName}
+          </Text>
+          <Text style={styles.usernameText}>{getUsername()}</Text>
+        </View>
+      </View>
 
-              <View style={styles.balanceGrid}>
-                <View style={styles.balanceMiniCard}>
-                  <Text style={styles.smallLabel}>BRL</Text>
-                  <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
-                </View>
-                <View style={styles.balanceMiniCard}>
-                  <Text style={styles.smallLabel}>USDC</Text>
-                  <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
-                </View>
-              </View>
+      <Text style={styles.smallLabel}>Patrimônio total estimado</Text>
+      <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
 
-              <View style={styles.marketBox}>
-                <Text style={styles.marketTitle}>Cotação USDC</Text>
-                <Text style={styles.marketPrice}>R$ {marketPrice.toFixed(2)}</Text>
-                <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
-                  {changePrefix}{marketChange.toFixed(2)}% em 24h · {getPriceSourceLabel()}
-                </Text>
-                <Text style={styles.rateText}>Compra Nexa: R$ {buyRate.toFixed(2)}</Text>
-              </View>
+      <View style={styles.balanceGrid}>
+        <View style={styles.balanceMiniCard}>
+          <Text style={styles.smallLabel}>BRL</Text>
+          <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
+        </View>
 
-              <Button title="Atualizar saldo e cotação" onPress={function () { carregarDados(); carregarCotacao(); }} />
-            </Card>
+        <View style={styles.balanceMiniCard}>
+          <Text style={styles.smallLabel}>USDC</Text>
+          <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
+        </View>
+      </View>
 
-            <Card>
-              <Text style={styles.title}>Ações rápidas</Text>
-              <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
-              <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
-              <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
-              <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
-            </Card>
+      <View style={styles.marketBox}>
+        <Text style={styles.marketTitle}>Cotação USDC</Text>
+        <Text style={styles.marketPrice}>R$ {marketPrice.toFixed(2)}</Text>
+        <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
+          {changePrefix}{marketChange.toFixed(2)}% em 24h · {getPriceSourceLabel()}
+        </Text>
+        <Text style={styles.rateText}>Compra Nexa: R$ {buyRate.toFixed(2)}</Text>
+      </View>
 
-            <Card>
-              <Text style={styles.title}>Verificação</Text>
-              <Text style={styles.itemText}>Status KYC: {getKycStatusLabel()}</Text>
-              <Button title="🪪 Iniciar verificação" onPress={iniciarKyc} />
-            </Card>
+      <Button
+        title="Atualizar saldo e cotação"
+        onPress={function () {
+          carregarDados();
+          carregarCotacao();
+        }}
+      />
+    </Card>
 
-            {lastReceipt ? (
-              <Card>
-                <Text style={styles.title}>Último comprovante</Text>
-                <Text style={styles.itemText}>✅ {lastReceipt.message}</Text>
-                <Text style={styles.itemText}>Valor: {lastReceipt.amountUsdc} USDC</Text>
-                <Text style={styles.itemText}>Destino: {lastReceipt.destinationHandle}</Text>
-                <Button title="Ver comprovante" onPress={function () { setPage('receipt'); }} />
-              </Card>
-            ) : null}
+    <Card>
+      <Text style={styles.title}>Notificações</Text>
 
-            <Card>
-              <Text style={styles.title}>Últimas movimentações</Text>
-              {extrato.length === 0 && <Text style={styles.itemText}>Nenhuma movimentação carregada ainda.</Text>}
-              {extrato.slice(0, 5).map(function (item) {
-                return (
-                  <View key={item.id} style={styles.item}>
-                    <Text style={styles.itemText}>{getIcon(item)} {item.description}</Text>
-                    <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
-                      {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
-                    </Text>
-                  </View>
-                );
-              })}
-            </Card>
-          </>
-        )}
+      <View style={styles.item}>
+        <Text style={styles.itemText}>🔔 Bem-vindo à Nexa</Text>
+        <Text style={styles.rateText}>Sua conta está pronta para usar.</Text>
+      </View>
+
+      <View style={styles.item}>
+        <Text style={styles.itemText}>💰 Saldo atualizado</Text>
+        <Text style={styles.rateText}>BRL e USDC sincronizados com sua carteira.</Text>
+      </View>
+
+      <View style={styles.item}>
+        <Text style={styles.itemText}>🪪 KYC {getKycStatusLabel()}</Text>
+        <Text style={styles.rateText}>Acompanhe sua verificação de identidade.</Text>
+      </View>
+
+      {lastReceipt ? (
+        <View style={styles.item}>
+          <Text style={styles.itemText}>✅ Última transferência concluída</Text>
+          <Text style={styles.rateText}>
+            {lastReceipt.amountUsdc} USDC para {lastReceipt.destinationHandle}
+          </Text>
+        </View>
+      ) : null}
+    </Card>
+
+    <Card>
+      <Text style={styles.title}>Ações rápidas</Text>
+      <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
+      <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
+      <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
+      <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
+      <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
+    </Card>
+
+    <Card>
+      <Text style={styles.title}>Verificação</Text>
+      <Text style={styles.itemText}>Status KYC: {getKycStatusLabel()}</Text>
+      <Button title="🪪 Iniciar verificação" onPress={iniciarKyc} />
+    </Card>
+
+    {lastReceipt ? (
+      <Card>
+        <Text style={styles.title}>Último comprovante</Text>
+        <Text style={styles.itemText}>✅ {lastReceipt.message}</Text>
+        <Text style={styles.itemText}>Valor: {lastReceipt.amountUsdc} USDC</Text>
+        <Text style={styles.itemText}>Destino: {lastReceipt.destinationHandle}</Text>
+        <Button title="Ver comprovante" onPress={function () { setPage('receipt'); }} />
+      </Card>
+    ) : null}
+
+    <Card>
+      <Text style={styles.title}>Últimas movimentações</Text>
+
+      {extrato.length === 0 && (
+        <Text style={styles.itemText}>
+          Nenhuma movimentação carregada ainda.
+        </Text>
+      )}
+
+      {extrato.slice(0, 5).map(function (item) {
+        return (
+          <View key={item.id} style={styles.item}>
+            <Text style={styles.itemText}>
+              {getIcon(item)} {item.description}
+            </Text>
+
+            <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
+              {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
+            </Text>
+          </View>
+        );
+      })}
+    </Card>
+  </>
+)}
 
         {page === 'kyc' && (
           <Card>
