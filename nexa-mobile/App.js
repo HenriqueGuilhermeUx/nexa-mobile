@@ -822,7 +822,10 @@ export default function App() {
             <Text style={styles.title}>Depositar Pix</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
             <Input placeholder="Valor em R$" keyboardType="numeric" value={depositValue} onChangeText={setDepositValue} />
-            <Button title="Gerar Pix Mercado Pago" onPress={depositarPix} />
+            <Button
+  title="Depositar via Pix"
+  onPress={depositarPix}
+/>
 
             {pixCopyPaste ? (
               <View style={styles.pixBox}>
