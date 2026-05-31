@@ -4,7 +4,46 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
-const USDC_BRL_RATE = 5.3;
+const DEFAULT_USDC_BRL_RATE = 5.3;
+
+function Card(props) {
+  return <View style={styles.card}>{props.children}</View>;
+}
+
+function Button(props) {
+  return (
+    <TouchableOpacity style={styles.button} onPress={props.onPress}>
+      <Text style={styles.buttonText}>{props.title}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function Input(props) {
+  return (
+    <TextInput
+      style={styles.input}
+      placeholder={props.placeholder}
+      value={props.value}
+      onChangeText={props.onChangeText}
+      secureTextEntry={props.secureTextEntry || false}
+      keyboardType={props.keyboardType || 'default'}
+      autoCapitalize={props.autoCapitalize || 'none'}
+      autoCorrect={false}
+      blurOnSubmit={false}
+      returnKeyType="next"
+      placeholderTextColor="#64748b"
+    />
+  );
+}
+
+function MenuItem(props) {
+  return (
+    <TouchableOpacity style={styles.menuItem} onPress={props.onPress}>
+      <Text style={styles.menuIcon}>{props.icon}</Text>
+      <Text style={styles.menuLabel}>{props.label}</Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function App() {
   const [page, setPage] = useState('home');
@@ -12,6 +51,11 @@ export default function App() {
 
   const [saldo, setSaldo] = useState({ BRL: 0, USDC: 0 });
   const [extrato, setExtrato] = useState([]);
+
+  const [marketPrice, setMarketPrice] = useState(DEFAULT_USDC_BRL_RATE);
+  const [buyRate, setBuyRate] = useState(DEFAULT_USDC_BRL_RATE);
+  const [marketChange, setMarketChange] = useState(0);
+  const [priceSource, setPriceSource] = useState('fallback');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,6 +66,9 @@ export default function App() {
   const [valorBrl, setValorBrl] = useState('');
   const [pixKey, setPixKey] = useState('');
   const [username, setUsername] = useState('');
+  const [recipientUser, setRecipientUser] = useState(null);
+  const [recipientChecked, setRecipientChecked] = useState(false);
+
   const [newUsername, setNewUsername] = useState('');
   const [valorUsdc, setValorUsdc] = useState('');
   const [wallet, setWallet] = useState('');
@@ -35,12 +82,14 @@ export default function App() {
 
   useEffect(function () {
     carregarLoginSalvo();
+    carregarCotacao();
   }, []);
 
   useEffect(function () {
     if (user && user.id) {
       carregarDados();
       buscarPerfilAtualizado();
+      carregarCotacao();
     }
   }, [user && user.id]);
 
@@ -68,6 +117,63 @@ export default function App() {
     if (description.includes('carteira')) return '🌐';
     if (item.asset === 'USDC') return '💵';
     return '💰';
+  }
+
+  function getPriceSourceLabel() {
+    if (priceSource === 'coingecko') return 'CoinGecko';
+    if (priceSource === 'awesomeapi') return 'AwesomeAPI';
+    return 'Cotação Nexa';
+  }
+
+  function normalizeUsername(value) {
+    return String(value || '').replace('@', '').trim().toLowerCase();
+  }
+
+  async function carregarCotacao() {
+    try {
+      const r = await fetch(API + '/swap/price?symbol=USDC');
+      const data = await r.json();
+
+      if (data && data.priceBrl) {
+        setMarketPrice(Number(data.priceBrl));
+        setBuyRate(Number(data.buyRateBrl || data.priceBrl));
+        setMarketChange(Number(data.change24h || 0));
+        setPriceSource(data.source || 'api');
+      }
+    } catch (e) {
+      setPriceSource('fallback');
+    }
+  }
+
+  async function buscarDestinatario() {
+    const cleanUsername = normalizeUsername(username);
+
+    setRecipientChecked(false);
+    setRecipientUser(null);
+
+    if (!cleanUsername) {
+      show('Digite um @username para verificar');
+      return;
+    }
+
+    try {
+      const r = await fetch(API + '/user/by-username/' + cleanUsername);
+      const data = await r.json();
+
+      setRecipientChecked(true);
+
+      if (data.success && data.user) {
+        setRecipientUser(data.user);
+        show('Usuário encontrado: ' + data.user.handle);
+      } else {
+        setRecipientUser(null);
+        show('Usuário não encontrado');
+      }
+    } catch (e) {
+      setRecipientChecked(true);
+      setRecipientUser(null);
+      show('Erro ao verificar usuário: ' + e.message);
+    }
   }
 
   async function salvarSessao(data) {
@@ -314,6 +420,7 @@ export default function App() {
       if (data.success) {
         setValorBrl('');
         carregarDados();
+        carregarCotacao();
       }
     } catch (e) {
       show('Erro conversão: ' + e.message);
@@ -350,13 +457,23 @@ export default function App() {
       return;
     }
 
+    if (!recipientUser) {
+      show('Verifique o @username antes de enviar');
+      return;
+    }
+
+    if (!valorUsdc || Number(valorUsdc) <= 0) {
+      show('Informe um valor USDC válido');
+      return;
+    }
+
     try {
       const r = await fetch(API + '/internal-transfer/send-by-username', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromUserId: user.id,
-          toUsername: username,
+          toUsername: recipientUser.username || normalizeUsername(username),
           amountUsdc: Number(valorUsdc),
           note: 'envio app',
         }),
@@ -367,6 +484,8 @@ export default function App() {
 
       if (data.success) {
         setUsername('');
+        setRecipientUser(null);
+        setRecipientChecked(false);
         setValorUsdc('');
         carregarDados();
       }
@@ -406,49 +525,14 @@ export default function App() {
     }
   }
 
-  function Card(props) {
-    return <View style={styles.card}>{props.children}</View>;
-  }
-
-  function Button(props) {
-    return (
-      <TouchableOpacity style={styles.button} onPress={props.onPress}>
-        <Text style={styles.buttonText}>{props.title}</Text>
-      </TouchableOpacity>
-    );
-  }
-
-  function Input(props) {
-    return (
-      <TextInput
-        style={styles.input}
-        placeholder={props.placeholder}
-        value={props.value}
-        onChangeText={props.onChangeText}
-        secureTextEntry={props.secureTextEntry || false}
-        keyboardType={props.keyboardType || 'default'}
-        autoCapitalize={props.autoCapitalize || 'none'}
-        autoCorrect={false}
-        blurOnSubmit={false}
-        returnKeyType="next"
-        placeholderTextColor="#64748b"
-      />
-    );
-  }
-
-  function MenuItem(props) {
-    return (
-      <TouchableOpacity style={styles.menuItem} onPress={props.onPress}>
-        <Text style={styles.menuIcon}>{props.icon}</Text>
-        <Text style={styles.menuLabel}>{props.label}</Text>
-      </TouchableOpacity>
-    );
-  }
-
   if (!user) {
     return (
       <View style={styles.container}>
-        <ScrollView style={styles.content} keyboardShouldPersistTaps="always">
+        <ScrollView
+          style={styles.content}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="none"
+        >
           <Text style={styles.logo}>NEXA</Text>
           <Text style={styles.subtitle}>Cripto sem complicação</Text>
 
@@ -516,11 +600,16 @@ export default function App() {
     );
   }
 
-  const patrimonioTotal = Number((saldo.BRL + saldo.USDC * USDC_BRL_RATE).toFixed(2));
+  const patrimonioTotal = Number((saldo.BRL + saldo.USDC * marketPrice).toFixed(2));
+  const changePrefix = marketChange >= 0 ? '+' : '';
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content} keyboardShouldPersistTaps="always">
+      <ScrollView
+        style={styles.content}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+      >
         <Text style={styles.logo}>NEXA</Text>
         <Text style={styles.subtitle}>Pix + USDC + @username</Text>
 
@@ -555,11 +644,18 @@ export default function App() {
                 </View>
               </View>
 
-              <Text style={styles.rateText}>
-                Cotação estimada: 1 USDC = R$ {USDC_BRL_RATE.toFixed(2)}
-              </Text>
+              <View style={styles.marketBox}>
+                <Text style={styles.marketTitle}>USDC hoje</Text>
+                <Text style={styles.marketPrice}>R$ {marketPrice.toFixed(2)}</Text>
+                <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
+                  {changePrefix}{marketChange.toFixed(2)}% em 24h · {getPriceSourceLabel()}
+                </Text>
+                <Text style={styles.rateText}>
+                  Compra Nexa: R$ {buyRate.toFixed(2)}
+                </Text>
+              </View>
 
-              <Button title="Atualizar saldo" onPress={carregarDados} />
+              <Button title="Atualizar saldo e cotação" onPress={function () { carregarDados(); carregarCotacao(); }} />
             </Card>
 
             <Card>
@@ -663,6 +759,10 @@ export default function App() {
               onChangeText={setValorBrl}
             />
 
+            <Text style={styles.rateText}>
+              Cotação atual: 1 USDC = R$ {buyRate.toFixed(2)}
+            </Text>
+
             <Button title="Converter" onPress={converter} />
           </Card>
         )}
@@ -675,8 +775,28 @@ export default function App() {
             <Input
               placeholder="@username"
               value={username}
-              onChangeText={setUsername}
+              onChangeText={function (value) {
+                setUsername(value);
+                setRecipientUser(null);
+                setRecipientChecked(false);
+              }}
             />
+
+            <Button title="Verificar usuário" onPress={buscarDestinatario} />
+
+            {recipientUser ? (
+              <View style={styles.recipientBox}>
+                <Text style={styles.recipientOk}>✅ Usuário encontrado</Text>
+                <Text style={styles.recipientName}>{recipientUser.fullName}</Text>
+                <Text style={styles.recipientHandle}>{recipientUser.handle}</Text>
+              </View>
+            ) : null}
+
+            {!recipientUser && recipientChecked ? (
+              <View style={styles.recipientBoxError}>
+                <Text style={styles.recipientError}>❌ Usuário não encontrado</Text>
+              </View>
+            ) : null}
 
             <Input
               placeholder="Valor USDC"
@@ -782,6 +902,19 @@ const styles = {
   balanceMiniText: { color: 'white', fontWeight: '900', fontSize: 18 },
   rateText: { color: '#93c5fd', fontSize: 12, marginBottom: 14 },
   loginMsg: { color: '#93c5fd', marginBottom: 15, textAlign: 'center', fontSize: 13 },
+
+  marketBox: { backgroundColor: '#111827', borderRadius: 18, padding: 14, marginTop: 8, marginBottom: 14 },
+  marketTitle: { color: '#94a3b8', fontSize: 12, fontWeight: '700' },
+  marketPrice: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 4 },
+  marketUp: { color: '#22c55e', fontSize: 12, fontWeight: '800', marginTop: 3 },
+  marketDown: { color: '#f87171', fontSize: 12, fontWeight: '800', marginTop: 3 },
+
+  recipientBox: { backgroundColor: '#052e16', borderColor: '#22c55e', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
+  recipientBoxError: { backgroundColor: '#450a0a', borderColor: '#ef4444', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
+  recipientOk: { color: '#22c55e', fontSize: 12, fontWeight: '900', marginBottom: 5 },
+  recipientError: { color: '#fca5a5', fontSize: 12, fontWeight: '900' },
+  recipientName: { color: 'white', fontSize: 16, fontWeight: '900', marginBottom: 3 },
+  recipientHandle: { color: '#93c5fd', fontSize: 13, fontWeight: '700' },
 
   input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 14, marginBottom: 12, fontSize: 15 },
   button: { backgroundColor: '#2563eb', padding: 13, borderRadius: 14, marginBottom: 11 },
