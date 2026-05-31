@@ -432,7 +432,8 @@ export default function App() {
       show('Falha ao carregar dados: ' + e.message);
     }
   }
-    async function depositarPix() {
+
+  async function depositarPix() {
     if (!user || !user.id) {
       show('Faça login primeiro');
       return;
@@ -810,6 +811,7 @@ export default function App() {
               <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
               <Button title="🔄 Converter BRL para USDC" onPress={function () { setPage('convert'); }} />
               <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
+              <Button title="💳 Cartão Virtual Nexa" onPress={function () { setPage('card'); }} />
               <Button title="📄 Ver extrato" onPress={function () { setPage('extrato'); }} />
             </Card>
           </>
@@ -911,6 +913,25 @@ export default function App() {
           </Card>
         )}
 
+        {page === 'card' && (
+          <Card>
+            <Text style={styles.title}>Cartão Virtual Nexa</Text>
+
+            <View style={styles.virtualCard}>
+              <Text style={styles.cardBrand}>NEXA CARD</Text>
+              <Text style={styles.cardNumber}>**** **** **** 2026</Text>
+              <Text style={styles.cardName}>{user.fullName}</Text>
+              <Text style={styles.cardStatus}>Status: Em breve</Text>
+            </View>
+
+            <Text style={styles.smallLabel}>Saldo disponível</Text>
+            <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
+
+            <Button title="Ativar cartão em breve" onPress={function () { show('Cartão virtual em preparação'); }} />
+            <Button title="Voltar para carteira" onPress={function () { setPage('wallet'); }} />
+          </Card>
+        )}
+
         {page === 'profile' && (
           <Card>
             <View style={styles.avatarLarge}><Text style={styles.avatarLargeText}>{getInitial()}</Text></View>
@@ -1008,6 +1029,11 @@ const styles = {
   receiptBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
   receiptSmallLabel: { color: '#94a3b8', fontSize: 11, marginBottom: 5 },
   receiptId: { color: '#93c5fd', fontSize: 12, fontWeight: '800' },
+  virtualCard: { backgroundColor: '#1e3a8a', borderRadius: 22, padding: 22, marginBottom: 18, minHeight: 190, justifyContent: 'space-between' },
+  cardBrand: { color: '#bfdbfe', fontSize: 13, fontWeight: '900', letterSpacing: 2 },
+  cardNumber: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 34, letterSpacing: 2 },
+  cardName: { color: '#e0f2fe', fontSize: 14, fontWeight: '800', marginTop: 24 },
+  cardStatus: { color: '#93c5fd', fontSize: 12, fontWeight: '700', marginTop: 8 },
   input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 14, marginBottom: 12, fontSize: 15 },
   button: { backgroundColor: '#2563eb', padding: 13, borderRadius: 14, marginBottom: 11 },
   buttonText: { color: 'white', textAlign: 'center', fontWeight: '800', fontSize: 15 },
