@@ -955,22 +955,81 @@ Deposite reais instantaneamente via Pix.
           </Card>
         )}
 
-        {page === 'extrato' && (
-          <Card>
-            <Text style={styles.title}>Extrato</Text>
-            <Button title="Atualizar extrato" onPress={carregarDados} />
-            {extrato.map(function (item) {
-              return (
-                <View key={item.id} style={styles.item}>
-                  <Text style={styles.itemText}>{getIcon(item)} {item.description}</Text>
-                  <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
-                    {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
-                  </Text>
-                </View>
-              );
-            })}
-          </Card>
-        )}
+{page === 'extrato' && (
+  <Card>
+    <Text style={styles.title}>Histórico Premium</Text>
+
+    <Button
+      title="Atualizar histórico"
+      onPress={carregarDados}
+    />
+
+    {extrato.length === 0 && (
+      <Text style={styles.itemText}>
+        Nenhuma movimentação encontrada.
+      </Text>
+    )}
+
+    {extrato.map(function (item) {
+      const isCredit = item.direction === 'credit';
+
+      return (
+        <View
+          key={item.id}
+          style={{
+            backgroundColor: '#111827',
+            borderRadius: 18,
+            padding: 15,
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: '#1e293b',
+          }}
+        >
+          <Text
+            style={{
+              color: 'white',
+              fontWeight: '900',
+              fontSize: 15,
+              marginBottom: 4,
+            }}
+          >
+            {getIcon(item)} {item.description}
+          </Text>
+
+          <Text
+            style={{
+              color: '#94a3b8',
+              fontSize: 12,
+              marginBottom: 10,
+            }}
+          >
+            {item.asset}
+          </Text>
+
+          <Text
+            style={{
+              color: isCredit ? '#22c55e' : '#ef4444',
+              fontWeight: '900',
+              fontSize: 16,
+            }}
+          >
+            {isCredit ? '+' : '-'} {item.amount} {item.asset}
+          </Text>
+
+          <Text
+            style={{
+              color: '#64748b',
+              fontSize: 11,
+              marginTop: 6,
+            }}
+          >
+            Concluído
+          </Text>
+        </View>
+      );
+    })}
+  </Card>
+)}
       </ScrollView>
 
       <View style={styles.menu}>
