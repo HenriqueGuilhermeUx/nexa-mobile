@@ -69,6 +69,8 @@ export default function App() {
   const [recipientUser, setRecipientUser] = useState(null);
   const [recipientChecked, setRecipientChecked] = useState(false);
 
+  const [lastReceipt, setLastReceipt] = useState(null);
+
   const [newUsername, setNewUsername] = useState('');
   const [valorUsdc, setValorUsdc] = useState('');
   const [wallet, setWallet] = useState('');
@@ -127,6 +129,11 @@ export default function App() {
 
   function normalizeUsername(value) {
     return String(value || '').replace('@', '').trim().toLowerCase();
+  }
+
+  function getNowLabel() {
+    const now = new Date();
+    return now.toLocaleString('pt-BR');
   }
 
   async function carregarCotacao() {
@@ -331,6 +338,7 @@ export default function App() {
     setExtrato([]);
     setPixCopyPaste('');
     setTicketUrl('');
+    setLastReceipt(null);
     setPage('home');
     show('Você saiu da Nexa');
   }
@@ -468,13 +476,15 @@ export default function App() {
     }
 
     try {
+      const amountToSend = Number(valorUsdc);
+
       const r = await fetch(API + '/internal-transfer/send-by-username', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromUserId: user.id,
           toUsername: recipientUser.username || normalizeUsername(username),
-          amountUsdc: Number(valorUsdc),
+          amountUsdc: amountToSend,
           note: 'envio app',
         }),
       });
@@ -483,11 +493,26 @@ export default function App() {
       show(data);
 
       if (data.success) {
+        const receipt = {
+          type: 'internal_transfer',
+          status: 'completed',
+          transferId: data.transferId || 'internal_' + Date.now(),
+          amountUsdc: data.amountUsdc || amountToSend,
+          destinationName: recipientUser.fullName,
+          destinationHandle: data.handle || recipientUser.handle,
+          destinationUsername: data.toUsername || recipientUser.username,
+          fromHandle: getUsername(),
+          date: getNowLabel(),
+          message: data.message || 'Transferência interna concluída',
+        };
+
+        setLastReceipt(receipt);
         setUsername('');
         setRecipientUser(null);
         setRecipientChecked(false);
         setValorUsdc('');
         carregarDados();
+        setPage('receipt');
       }
     } catch (e) {
       show('Erro envio: ' + e.message);
@@ -666,6 +691,16 @@ export default function App() {
               <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
             </Card>
 
+            {lastReceipt ? (
+              <Card>
+                <Text style={styles.title}>Último comprovante</Text>
+                <Text style={styles.itemText}>✅ {lastReceipt.message}</Text>
+                <Text style={styles.itemText}>Valor: {lastReceipt.amountUsdc} USDC</Text>
+                <Text style={styles.itemText}>Destino: {lastReceipt.destinationHandle}</Text>
+                <Button title="Ver comprovante" onPress={function () { setPage('receipt'); }} />
+              </Card>
+            ) : null}
+
             <Card>
               <Text style={styles.title}>Últimas movimentações</Text>
 
@@ -817,6 +852,58 @@ export default function App() {
           </Card>
         )}
 
+        {page === 'receipt' && (
+          <Card>
+            <View style={styles.receiptIcon}>
+              <Text style={styles.receiptIconText}>✓</Text>
+            </View>
+
+            <Text style={styles.receiptTitle}>Transferência concluída</Text>
+
+            {lastReceipt ? (
+              <>
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Valor</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.amountUsdc} USDC</Text>
+                </View>
+
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Destino</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.destinationHandle}</Text>
+                </View>
+
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Nome</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.destinationName}</Text>
+                </View>
+
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Origem</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.fromHandle}</Text>
+                </View>
+
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Data</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.date}</Text>
+                </View>
+
+                <View style={styles.receiptBox}>
+                  <Text style={styles.receiptSmallLabel}>ID da transferência</Text>
+                  <Text style={styles.receiptId}>{lastReceipt.transferId}</Text>
+                </View>
+
+                <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
+                <Button title="Enviar outro valor" onPress={function () { setPage('send'); }} />
+              </>
+            ) : (
+              <>
+                <Text style={styles.itemText}>Nenhum comprovante disponível.</Text>
+                <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
+              </>
+            )}
+          </Card>
+        )}
+
         {page === 'profile' && (
           <Card>
             <View style={styles.avatarLarge}>
@@ -915,6 +1002,16 @@ const styles = {
   recipientError: { color: '#fca5a5', fontSize: 12, fontWeight: '900' },
   recipientName: { color: 'white', fontSize: 16, fontWeight: '900', marginBottom: 3 },
   recipientHandle: { color: '#93c5fd', fontSize: 13, fontWeight: '700' },
+
+  receiptIcon: { width: 82, height: 82, borderRadius: 41, backgroundColor: '#16a34a', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
+  receiptIconText: { color: 'white', fontSize: 42, fontWeight: '900' },
+  receiptTitle: { color: 'white', fontSize: 24, fontWeight: '900', textAlign: 'center', marginBottom: 20 },
+  receiptRow: { backgroundColor: '#111827', borderRadius: 14, padding: 13, marginBottom: 10 },
+  receiptLabel: { color: '#94a3b8', fontSize: 12, marginBottom: 4 },
+  receiptValue: { color: 'white', fontSize: 15, fontWeight: '900' },
+  receiptBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
+  receiptSmallLabel: { color: '#94a3b8', fontSize: 11, marginBottom: 5 },
+  receiptId: { color: '#93c5fd', fontSize: 12, fontWeight: '800' },
 
   input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 14, marginBottom: 12, fontSize: 15 },
   button: { backgroundColor: '#2563eb', padding: 13, borderRadius: 14, marginBottom: 11 },
