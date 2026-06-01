@@ -582,31 +582,85 @@ function avancarKyc() {
     }
   }
 
-  async function sacarPix() {
-    if (!user || !user.id) {
-      show('Faça login primeiro');
-      return;
-    }
-
-    try {
-      const r = await fetch(API + '/payment/pix', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          amountBrl: Number(valorBrl),
-          pixKey,
-        }),
-      });
-
-      const data = await r.json();
-      show(data);
-    } catch (e) {
-      show('Erro Pix: ' + e.message);
-    }
+async function sacarPix() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
   }
 
+  if (getKycStatus() !== 'approved') {
+    show('Conclua sua verificação de identidade antes de sacar Pix');
+    setPage('profile');
+    return;
+  }
+
+  if (!pixKey) {
+    show('Informe a chave Pix');
+    return;
+  }
+
+  if (!valorBrl || Number(valorBrl) <= 0) {
+    show('Informe um valor válido em R$');
+    return;
+  }
+
+  try {
+    show('Processando saque Pix...');
+
+    const r = await fetch(API + '/payment/pix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        amountBrl: Number(valorBrl),
+        pixKey,
+      }),
+    });
+
+    const data = await r.json();
+
+    if (!r.ok) {
+      throw new Error(
+        data.message ||
+        data.error ||
+        'Erro ao solicitar saque Pix'
+      );
+    }
+
+    show(data);
+
+    if (data.success) {
+      setValorBrl('');
+      setPixKey('');
+      carregarDados();
+
+      const receipt = {
+        type: 'pix_withdraw',
+        status: data.status || 'completed',
+        transferId: data.paymentId || data.transactionId || 'pix_' + Date.now(),
+        amountUsdc: data.debitedUSDC,
+        amountBrl: data.amountBRL,
+        destinationName: 'Chave Pix',
+        destinationHandle: pixKey,
+        fromHandle: getUsername(),
+        date: getNowLabel(),
+        message: data.message || 'Saque Pix solicitado',
+      };
+
+      setLastReceipt(receipt);
+      setPage('receipt');
+    }
+  } catch (e) {
+    show('Erro saque Pix: ' + e.message);
+  }
+}
+
   async function enviarUsername() {
+    if (getKycStatus() !== 'approved') {
+  show('Conclua sua verificação de identidade antes de enviar USDC');
+  setPage('profile');
+  return;
+}
     if (!user || !user.id) {
       show('Faça login primeiro');
       return;
@@ -667,6 +721,11 @@ function avancarKyc() {
   }
 
   async function enviarWallet() {
+    if (getKycStatus() !== 'approved') {
+  show('Conclua sua verificação de identidade antes de enviar USDC');
+  setPage('profile');
+  return;
+}
     if (!user || !user.id) {
       show('Faça login primeiro');
       return;
