@@ -530,6 +530,12 @@ function avancarKyc() {
     return;
   }
 
+  if (getKycStatus() !== 'approved') {
+  show('Conclua sua verificação de identidade antes de depositar Pix');
+  setPage('profile');
+  return;
+}
+
   if (!depositValue || Number(depositValue) < 10) {
     show('Depósito mínimo é R$ 10,00');
     return;
