@@ -525,37 +525,68 @@ function avancarKyc() {
   }
 
   async function depositarPix() {
-    if (!user || !user.id) {
-      show('Faça login primeiro');
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  if (!depositValue || Number(depositValue) < 10) {
+    show('Depósito mínimo é R$ 10,00');
+    return;
+  }
+
+  try {
+    show('Gerando Pix real...');
+
+    const r = await fetch(API + '/deposit/woovi-pix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        amountBrl: Number(depositValue),
+        customer: {
+          name: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          taxID: user.cpf,
+        },
+      }),
+    });
+
+    const data = await r.json();
+
+    if (data.success) {
+      setPixCopyPaste(data.copyPasteCode || '');
+      setTicketUrl(data.paymentLinkUrl || data.qrCodeImage || '');
+      show('Pix real gerado com sucesso');
       return;
     }
 
-    try {
-      const r = await fetch(API + '/banking/mercadopago/pix-charge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          email: user.email,
-          amountBrl: Number(depositValue),
-        }),
-      });
+    show('Pix Woovi ainda não autorizado. Usando Pix reserva...');
 
-      const data = await r.json();
+    const fallback = await fetch(API + '/deposit/pix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        amountBrl: Number(depositValue),
+      }),
+    });
 
-      setPixCopyPaste(data.pixCopyPasteCode || '');
-      setTicketUrl(data.ticketUrl || '');
+    const fallbackData = await fallback.json();
 
-      if (data.success) {
-        show('Pix gerado com sucesso');
-      } else {
-        show(data);
-      }
-    } catch (e) {
-      show('Erro depósito Pix: ' + e.message);
+    setPixCopyPaste(fallbackData.copyPasteCode || '');
+    setTicketUrl(fallbackData.paymentLinkUrl || fallbackData.qrCodeImage || '');
+
+    if (fallbackData.success) {
+      show('Pix reserva gerado com sucesso');
+    } else {
+      show(fallbackData);
     }
+  } catch (e) {
+    show('Erro depósito Pix: ' + e.message);
   }
-
+}
   async function converter() {
     if (!user || !user.id) {
       show('Faça login primeiro');
