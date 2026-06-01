@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import QRCode from 'react-native-qrcode-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Linking
+} from 'react-native';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
 const DEFAULT_USDC_BRL_RATE = 5.3;
@@ -357,15 +364,99 @@ export default function App() {
     }
   }
 
-  function iniciarKyc() {
-    setKycStarted(true);
-    setKycStep('personal');
-    setPage('kyc');
-    show('Verificação de identidade iniciada');
-  }
+async function iniciarKyc() {
+  try {
+    if (!user || !user.id) {
+      show('Usuário não encontrado');
+      return;
+    }
 
-  function avancarKyc() {
-    if (kycStep === 'personal') {
+    show('Criando sessão de verificação...');
+
+    const response = await fetch(
+      API + '/kyc/didit/start',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || 'Erro ao iniciar KYC'
+      );
+    }
+
+    const verificationUrl =
+      data.raw?.url ||
+      data.verificationUrl;
+
+    if (!verificationUrl) {
+      throw new Error(
+        'URL de verificação não recebida'
+      );
+    }
+
+    show('Abrindo verificação Didit...');
+
+    setKycStarted(true);
+    setKycStep('external');
+
+    if (typeof window !== 'undefined') {
+      window.open(
+        verificationUrl,
+        '_blank'
+      );
+    }
+  } catch (error) {
+    show(
+      error?.message ||
+      'Falha ao iniciar KYC'
+    );
+  }
+}
+
+async function atualizarStatusKyc() {
+  try {
+    if (!user || !user.id) {
+      show('Usuário não encontrado');
+      return;
+    }
+
+    const response = await fetch(
+      API + '/kyc/didit/status/' + user.id
+    );
+
+    const data = await response.json();
+
+    if (data.success) {
+      const updatedUser = {
+        ...user,
+        kycStatus: data.kycStatus,
+        kycVerifiedAt: data.kycVerifiedAt,
+      };
+
+      await atualizarUsuarioLocal(updatedUser);
+
+      show('KYC atualizado: ' + data.kycStatus);
+      return;
+    }
+
+    show(data);
+  } catch (e) {
+    show('Erro ao atualizar KYC: ' + e.message);
+  }
+}
+
+function avancarKyc() {   
+   if (kycStep === 'personal') {
       setKycStep('document');
       return;
     }
@@ -740,6 +831,7 @@ export default function App() {
       <Text style={styles.title}>Verificação</Text>
       <Text style={styles.itemText}>Status KYC: {getKycStatusLabel()}</Text>
       <Button title="🪪 Iniciar verificação" onPress={iniciarKyc} />
+      <Button title="🔄 Atualizar status KYC" onPress={atualizarStatusKyc} />
     </Card>
 
     {lastReceipt ? (
