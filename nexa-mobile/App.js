@@ -491,38 +491,50 @@ function avancarKyc() {
   }
 
   async function carregarDados() {
-    if (!user || !user.id) {
-      show('Faça login primeiro');
-      return;
-    }
-
-    try {
-      const r = await fetch(API + '/ledger/statement?userId=' + user.id);
-      const data = await r.json();
-
-      var brl = 0;
-      var usdc = 0;
-
-      if (data.statement) {
-        setExtrato(data.statement);
-
-        data.statement.forEach(function (item) {
-          var sinal = item.direction === 'credit' ? 1 : -1;
-          if (item.asset === 'BRL') brl += Number(item.amount) * sinal;
-          if (item.asset === 'USDC') usdc += Number(item.amount) * sinal;
-        });
-      }
-
-      setSaldo({
-        BRL: Number(brl.toFixed(2)),
-        USDC: Number(usdc.toFixed(6)),
-      });
-
-      show('Saldo atualizado');
-    } catch (e) {
-      show('Falha ao carregar dados: ' + e.message);
-    }
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
   }
+
+  try {
+    const statementResponse = await fetch(
+      API +
+        '/ledger/statement?userId=' +
+        user.id +
+        '&limit=50&mode=real'
+    );
+
+    const statementData =
+      await statementResponse.json();
+
+    if (statementData.statement) {
+      setExtrato(statementData.statement);
+    }
+
+    const balanceResponse = await fetch(
+      API +
+        '/ledger/balance?userId=' +
+        user.id +
+        '&mode=real'
+    );
+
+    const balanceData =
+      await balanceResponse.json();
+
+    setSaldo({
+      BRL: Number(
+        balanceData.balances?.BRL || 0
+      ),
+      USDC: Number(
+        balanceData.balances?.USDC || 0
+      ),
+    });
+
+    show('Saldo real Woovi atualizado');
+  } catch (e) {
+    show('Falha ao carregar dados: ' + e.message);
+  }
+}
 
   async function depositarPix() {
   if (!user || !user.id) {
