@@ -219,16 +219,51 @@ export default function App() {
     }
   }
 
-  async function salvarSessao(data) {
-    const userData = data.user;
-    const accessToken = data.accessToken || '';
+  async function vincularWalletPrivy(userData) {
+  try {
+    if (!userData || !userData.id) return userData;
 
-    setUser(userData);
-    setToken(accessToken);
+    const existingAddress =
+      userData.walletAddress ||
+      userData.wallet?.address;
 
-    await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
-    await AsyncStorage.setItem('nexa_token', accessToken);
+    if (existingAddress) return userData;
+
+    const walletResponse = await fetch(API + '/wallet/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: userData.id,
+      }),
+    });
+
+    const walletData = await walletResponse.json();
+
+    if (walletData.success && walletData.walletAddress) {
+      return {
+        ...userData,
+        walletAddress: walletData.walletAddress,
+        walletNetwork: walletData.network || 'polygon',
+        walletProvider: walletData.provider || 'privy',
+      };
+    }
+
+    return userData;
+  } catch (e) {
+    return userData;
   }
+}
+
+  async function salvarSessao(data) {
+  const userData = await vincularWalletPrivy(data.user);
+  const accessToken = data.accessToken || '';
+
+  setUser(userData);
+  setToken(accessToken);
+
+  await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
+  await AsyncStorage.setItem('nexa_token', accessToken);
+ }
 
   async function atualizarUsuarioLocal(userData) {
     setUser(userData);
