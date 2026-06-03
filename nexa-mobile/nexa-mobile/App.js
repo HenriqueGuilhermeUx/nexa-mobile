@@ -58,6 +58,10 @@ export default function App() {
 
   const [saldo, setSaldo] = useState({ BRL: 0, USDC: 0 });
   const [extrato, setExtrato] = useState([]);
+  const [rewardPlans, setRewardPlans] = useState([]);
+  const [rewardPositions, setRewardPositions] = useState([]);
+  const [rewardAmount, setRewardAmount] = useState('');
+  const [selectedRewardPlan, setSelectedRewardPlan] = useState('SPARK');
 
   const [marketPrice, setMarketPrice] = useState(DEFAULT_USDC_BRL_RATE);
   const [buyRate, setBuyRate] = useState(DEFAULT_USDC_BRL_RATE);
@@ -102,6 +106,7 @@ export default function App() {
       carregarDados();
       buscarPerfilAtualizado();
       carregarCotacao();
+      carregarRewards();
     }
   }, [user && user.id]);
 
@@ -171,6 +176,66 @@ export default function App() {
     const now = new Date();
     return now.toLocaleString('pt-BR');
   }
+
+  async function carregarRewards() {
+  if (!user || !user.id) return;
+
+  try {
+    const plansResponse = await fetch(API + '/rewards/plans');
+    const plansData = await plansResponse.json();
+
+    if (plansData.success) {
+      setRewardPlans(plansData.plans || []);
+    }
+
+    const positionsResponse = await fetch(
+      API + '/rewards/positions?userId=' + user.id
+    );
+
+    const positionsData = await positionsResponse.json();
+
+    if (positionsData.success) {
+      setRewardPositions(positionsData.positions || []);
+    }
+  } catch (e) {
+    show('Erro Rewards: ' + e.message);
+  }
+}
+
+async function ativarRewards() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  if (!rewardAmount || Number(rewardAmount) <= 0) {
+    show('Informe um valor USDC válido');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/rewards/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        amountUsdc: Number(rewardAmount),
+        plan: selectedRewardPlan,
+      }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      setRewardAmount('');
+      carregarRewards();
+      carregarDados();
+    }
+  } catch (e) {
+    show('Erro ao ativar Rewards: ' + e.message);
+  }
+}
 
   async function carregarCotacao() {
     try {
