@@ -1305,6 +1305,69 @@ Deposite reais instantaneamente via Pix.
           </Card>
         )}
 
+{page === 'rewards' && (
+  <Card>
+    <Text style={styles.title}>Nexa Rewards</Text>
+    <Text style={styles.rateText}>
+      Transforme parte do seu saldo em Saldo Boost e receba cashback de permanência.
+    </Text>
+
+    <Text style={styles.smallLabel}>Saldo Livre</Text>
+    <Text style={styles.balanceMiniText}>{saldo.USDC} USDC</Text>
+
+    <Input
+      placeholder="Valor em USDC"
+      keyboardType="numeric"
+      value={rewardAmount}
+      onChangeText={setRewardAmount}
+    />
+
+    {rewardPlans.map(function (plan) {
+      return (
+        <Button
+          key={plan.plan}
+          title={
+            (selectedRewardPlan === plan.plan ? '✅ ' : '') +
+            plan.name +
+            ' · ' +
+            plan.days +
+            ' dias · ' +
+            (plan.cashbackRate * 100).toFixed(2) +
+            '% cashback'
+          }
+          onPress={function () {
+            setSelectedRewardPlan(plan.plan);
+          }}
+        />
+      );
+    })}
+
+    <Button title="Ativar Saldo Boost" onPress={ativarRewards} />
+
+    <Text style={styles.title}>Meus Boosts</Text>
+
+    {rewardPositions.length === 0 && (
+      <Text style={styles.itemText}>Nenhum Saldo Boost ativo.</Text>
+    )}
+
+    {rewardPositions.map(function (position) {
+      return (
+        <View key={position.id} style={styles.item}>
+          <Text style={styles.itemText}>
+            🚀 {position.plan} · {Number(position.amountUsdc).toFixed(4)} USDC
+          </Text>
+          <Text style={styles.rateText}>
+            Liberação: {new Date(position.unlockAt).toLocaleDateString('pt-BR')}
+          </Text>
+          <Text style={styles.rateText}>
+            Status: {position.status}
+          </Text>
+        </View>
+      );
+    })}
+  </Card>
+)}        
+
 {page === 'extrato' && (
   <Card>
     <Text style={styles.title}>Histórico Premium</Text>
@@ -1389,6 +1452,7 @@ Deposite reais instantaneamente via Pix.
         <MenuItem icon="🔄" label="Converter" onPress={function () { setPage('convert'); }} />
         <MenuItem icon="📤" label="Enviar" onPress={function () { setPage('send'); }} />
         <MenuItem icon="👤" label="Perfil" onPress={function () { setPage('profile'); }} />
+        <MenuItem icon="🚀" label="Rewards" onPress={function () { setPage('rewards'); }} />
       </View>
     </View>
   );
