@@ -7,7 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Linking
+  Linking,
 } from 'react-native';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
@@ -55,9 +55,9 @@ function MenuItem(props) {
 export default function App() {
   const [page, setPage] = useState('home');
   const [authPage, setAuthPage] = useState('login');
-
   const [saldo, setSaldo] = useState({ BRL: 0, USDC: 0 });
   const [extrato, setExtrato] = useState([]);
+
   const [rewardPlans, setRewardPlans] = useState([]);
   const [rewardPositions, setRewardPositions] = useState([]);
   const [rewardAmount, setRewardAmount] = useState('');
@@ -79,12 +79,11 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [recipientUser, setRecipientUser] = useState(null);
   const [recipientChecked, setRecipientChecked] = useState(false);
-
   const [lastReceipt, setLastReceipt] = useState(null);
-
   const [newUsername, setNewUsername] = useState('');
   const [valorUsdc, setValorUsdc] = useState('');
   const [wallet, setWallet] = useState('');
+
   const [depositValue, setDepositValue] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
   const [ticketUrl, setTicketUrl] = useState('');
@@ -101,17 +100,39 @@ export default function App() {
     carregarCotacao();
   }, []);
 
-  useEffect(function () {
-    if (user && user.id) {
-      carregarDados();
-      buscarPerfilAtualizado();
-      carregarCotacao();
-      carregarRewards();
-    }
-  }, [user && user.id]);
+  useEffect(
+    function () {
+      if (user && user.id) {
+        carregarDados();
+        buscarPerfilAtualizado();
+        carregarCotacao();
+        carregarRewards();
+      }
+    },
+    [user && user.id],
+  );
 
   function show(data) {
     setMsg(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  }
+
+  function parseAmount(value) {
+    const text = String(value || '').trim();
+
+    if (!text) return 0;
+
+    const clean = text
+      .replace(/\s/g, '')
+      .replace(/R\$/gi, '')
+      .replace(/USDC/gi, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+
+    const number = Number(clean);
+
+    if (!Number.isFinite(number)) return 0;
+
+    return number;
   }
 
   function getUsername() {
@@ -128,9 +149,11 @@ export default function App() {
 
   function getKycStatusLabel() {
     const status = getKycStatus();
+
     if (status === 'approved') return 'Aprovado';
     if (status === 'rejected') return 'Reprovado';
     if (status === 'in_review') return 'Em análise';
+
     return 'Pendente';
   }
 
@@ -138,12 +161,14 @@ export default function App() {
     if (!user) return 'Carteira ainda não vinculada';
     if (user.wallet && user.wallet.address) return user.wallet.address;
     if (user.walletAddress) return user.walletAddress;
+
     return 'Carteira ainda não vinculada';
   }
 
   function getWalletNetwork() {
     if (user && user.wallet && user.wallet.network) return user.wallet.network;
     if (user && user.walletNetwork) return user.walletNetwork;
+
     return 'polygon';
   }
 
@@ -154,17 +179,20 @@ export default function App() {
 
   function getIcon(item) {
     const description = String(item.description || '').toLowerCase();
+
     if (description.includes('pix')) return '💳';
     if (description.includes('conversão')) return '🔄';
     if (description.includes('transferência')) return '📤';
     if (description.includes('carteira')) return '🌐';
     if (item.asset === 'USDC') return '💵';
+
     return '💰';
   }
 
   function getPriceSourceLabel() {
     if (priceSource === 'coingecko') return 'CoinGecko';
     if (priceSource === 'awesomeapi') return 'AwesomeAPI';
+
     return 'Cotação Nexa';
   }
 
@@ -173,69 +201,70 @@ export default function App() {
   }
 
   function getNowLabel() {
-    const now = new Date();
-    return now.toLocaleString('pt-BR');
+    return new Date().toLocaleString('pt-BR');
   }
 
   async function carregarRewards() {
-  if (!user || !user.id) return;
+    if (!user || !user.id) return;
 
-  try {
-    const plansResponse = await fetch(API + '/rewards/plans');
-    const plansData = await plansResponse.json();
+    try {
+      const plansResponse = await fetch(API + '/rewards/plans');
+      const plansData = await plansResponse.json();
 
-    if (plansData.success) {
-      setRewardPlans(plansData.plans || []);
+      if (plansData.success) {
+        setRewardPlans(plansData.plans || []);
+      }
+
+      const positionsResponse = await fetch(
+        API + '/rewards/positions?userId=' + user.id,
+      );
+
+      const positionsData = await positionsResponse.json();
+
+      if (positionsData.success) {
+        setRewardPositions(positionsData.positions || []);
+      }
+    } catch (e) {
+      show('Erro Rewards: ' + e.message);
+    }
+  }
+
+  async function ativarRewards() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
     }
 
-    const positionsResponse = await fetch(
-      API + '/rewards/positions?userId=' + user.id
-    );
+    const amount = parseAmount(rewardAmount);
 
-    const positionsData = await positionsResponse.json();
-
-    if (positionsData.success) {
-      setRewardPositions(positionsData.positions || []);
+    if (!amount || amount <= 0) {
+      show('Informe um valor USDC válido');
+      return;
     }
-  } catch (e) {
-    show('Erro Rewards: ' + e.message);
-  }
-}
 
-async function ativarRewards() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
+    try {
+      const r = await fetch(API + '/rewards/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amountUsdc: amount,
+          plan: selectedRewardPlan,
+        }),
+      });
 
-  if (!rewardAmount || Number(rewardAmount) <= 0) {
-    show('Informe um valor USDC válido');
-    return;
-  }
+      const data = await r.json();
+      show(data);
 
-  try {
-    const r = await fetch(API + '/rewards/join', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        amountUsdc: Number(rewardAmount),
-        plan: selectedRewardPlan,
-      }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      setRewardAmount('');
-      carregarRewards();
-      carregarDados();
+      if (data.success) {
+        setRewardAmount('');
+        carregarRewards();
+        carregarDados();
+      }
+    } catch (e) {
+      show('Erro ao ativar Rewards: ' + e.message);
     }
-  } catch (e) {
-    show('Erro ao ativar Rewards: ' + e.message);
   }
-}
 
   async function carregarCotacao() {
     try {
@@ -285,50 +314,46 @@ async function ativarRewards() {
   }
 
   async function vincularWalletPrivy(userData) {
-  try {
-    if (!userData || !userData.id) return userData;
+    try {
+      if (!userData || !userData.id) return userData;
 
-    const existingAddress =
-      userData.walletAddress ||
-      userData.wallet?.address;
+      const existingAddress = userData.walletAddress || userData.wallet?.address;
 
-    if (existingAddress) return userData;
+      if (existingAddress) return userData;
 
-    const walletResponse = await fetch(API + '/wallet/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: userData.id,
-      }),
-    });
+      const walletResponse = await fetch(API + '/wallet/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userData.id }),
+      });
 
-    const walletData = await walletResponse.json();
+      const walletData = await walletResponse.json();
 
-    if (walletData.success && walletData.walletAddress) {
-      return {
-        ...userData,
-        walletAddress: walletData.walletAddress,
-        walletNetwork: walletData.network || 'polygon',
-        walletProvider: walletData.provider || 'privy',
-      };
+      if (walletData.success && walletData.walletAddress) {
+        return {
+          ...userData,
+          walletAddress: walletData.walletAddress,
+          walletNetwork: walletData.network || 'polygon',
+          walletProvider: walletData.provider || 'privy',
+        };
+      }
+
+      return userData;
+    } catch (e) {
+      return userData;
     }
-
-    return userData;
-  } catch (e) {
-    return userData;
   }
-}
 
   async function salvarSessao(data) {
-  const userData = await vincularWalletPrivy(data.user);
-  const accessToken = data.accessToken || '';
+    const userData = await vincularWalletPrivy(data.user);
+    const accessToken = data.accessToken || '';
 
-  setUser(userData);
-  setToken(accessToken);
+    setUser(userData);
+    setToken(accessToken);
 
-  await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
-  await AsyncStorage.setItem('nexa_token', accessToken);
- }
+    await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
+    await AsyncStorage.setItem('nexa_token', accessToken);
+  }
 
   async function atualizarUsuarioLocal(userData) {
     setUser(userData);
@@ -342,6 +367,7 @@ async function ativarRewards() {
 
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
+
         setUser(parsedUser);
         setToken(savedToken || '');
         setMsg('Login restaurado');
@@ -354,6 +380,7 @@ async function ativarRewards() {
   async function buscarPerfilAtualizado() {
     try {
       const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
+
       if (!savedToken) return;
 
       const r = await fetch(API + '/user/me', {
@@ -464,99 +491,73 @@ async function ativarRewards() {
     }
   }
 
-async function iniciarKyc() {
-  try {
-    if (!user || !user.id) {
-      show('Usuário não encontrado');
-      return;
-    }
-
-    show('Criando sessão de verificação...');
-
-    const response = await fetch(
-      API + '/kyc/didit/start',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.id,
-        }),
+  async function iniciarKyc() {
+    try {
+      if (!user || !user.id) {
+        show('Usuário não encontrado');
+        return;
       }
-    );
 
-    const data = await response.json();
+      show('Criando sessão de verificação...');
 
-    if (!response.ok) {
-      throw new Error(
-        data.message || 'Erro ao iniciar KYC'
-      );
+      const response = await fetch(API + '/kyc/didit/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Erro ao iniciar KYC');
+      }
+
+      const verificationUrl = data.raw?.url || data.verificationUrl;
+
+      if (!verificationUrl) {
+        throw new Error('URL de verificação não recebida');
+      }
+
+      show('Abrindo verificação Didit...');
+      setKycStarted(true);
+      setKycStep('external');
+
+      await Linking.openURL(verificationUrl);
+    } catch (error) {
+      show(error?.message || 'Falha ao iniciar KYC');
     }
-
-    const verificationUrl =
-      data.raw?.url ||
-      data.verificationUrl;
-
-    if (!verificationUrl) {
-      throw new Error(
-        'URL de verificação não recebida'
-      );
-    }
-
-    show('Abrindo verificação Didit...');
-
-    setKycStarted(true);
-    setKycStep('external');
-
-    if (typeof window !== 'undefined') {
-      window.open(
-        verificationUrl,
-        '_blank'
-      );
-    }
-  } catch (error) {
-    show(
-      error?.message ||
-      'Falha ao iniciar KYC'
-    );
   }
-}
 
-async function atualizarStatusKyc() {
-  try {
-    if (!user || !user.id) {
-      show('Usuário não encontrado');
-      return;
+  async function atualizarStatusKyc() {
+    try {
+      if (!user || !user.id) {
+        show('Usuário não encontrado');
+        return;
+      }
+
+      const response = await fetch(API + '/kyc/didit/status/' + user.id);
+      const data = await response.json();
+
+      if (data.success) {
+        const updatedUser = {
+          ...user,
+          kycStatus: data.kycStatus,
+          kycVerifiedAt: data.kycVerifiedAt,
+        };
+
+        await atualizarUsuarioLocal(updatedUser);
+        show('KYC atualizado: ' + data.kycStatus);
+        return;
+      }
+
+      show(data);
+    } catch (e) {
+      show('Erro ao atualizar KYC: ' + e.message);
     }
-
-    const response = await fetch(
-      API + '/kyc/didit/status/' + user.id
-    );
-
-    const data = await response.json();
-
-    if (data.success) {
-      const updatedUser = {
-        ...user,
-        kycStatus: data.kycStatus,
-        kycVerifiedAt: data.kycVerifiedAt,
-      };
-
-      await atualizarUsuarioLocal(updatedUser);
-
-      show('KYC atualizado: ' + data.kycStatus);
-      return;
-    }
-
-    show(data);
-  } catch (e) {
-    show('Erro ao atualizar KYC: ' + e.message);
   }
-}
 
-function avancarKyc() {   
-   if (kycStep === 'personal') {
+  function avancarKyc() {
+    if (kycStep === 'personal') {
       setKycStep('document');
       return;
     }
@@ -591,123 +592,121 @@ function avancarKyc() {
   }
 
   async function carregarDados() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  try {
-    const statementResponse = await fetch(
-      API +
-        '/ledger/statement?userId=' +
-        user.id +
-        '&limit=50&mode=real'
-    );
-
-    const statementData =
-      await statementResponse.json();
-
-    if (statementData.statement) {
-      setExtrato(statementData.statement);
-    }
-
-    const balanceResponse = await fetch(
-      API +
-        '/ledger/balance?userId=' +
-        user.id +
-        '&mode=real'
-    );
-
-    const balanceData =
-      await balanceResponse.json();
-
-    setSaldo({
-      BRL: Number(
-        balanceData.balances?.BRL || 0
-      ),
-      USDC: Number(
-        balanceData.balances?.USDC || 0
-      ),
-    });
-
-    show('Saldo real Woovi atualizado');
-  } catch (e) {
-    show('Falha ao carregar dados: ' + e.message);
-  }
-}
-
-  async function depositarPix() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  if (getKycStatus() !== 'approved') {
-  show('Conclua sua verificação de identidade antes de depositar Pix');
-  setPage('profile');
-  return;
-}
-
-  if (!depositValue || Number(depositValue) < 10) {
-    show('Depósito mínimo é R$ 10,00');
-    return;
-  }
-
-  try {
-    show('Gerando Pix real...');
-
-    const r = await fetch(API + '/deposit/woovi-pix', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        amountBrl: Number(depositValue),
-        customer: {
-          name: user.fullName,
-          email: user.email,
-          phone: user.phone,
-          taxID: user.cpf,
-        },
-      }),
-    });
-
-    const data = await r.json();
-
-    if (data.success) {
-      setPixCopyPaste(data.copyPasteCode || '');
-      setTicketUrl(data.paymentLinkUrl || data.qrCodeImage || '');
-      show('Pix real gerado com sucesso');
+    if (!user || !user.id) {
+      show('Faça login primeiro');
       return;
     }
 
-    show('Pix Woovi ainda não autorizado. Usando Pix reserva...');
+    try {
+      const statementResponse = await fetch(
+        API + '/ledger/statement?userId=' + user.id + '&limit=50&mode=real',
+      );
 
-    const fallback = await fetch(API + '/deposit/pix', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        amountBrl: Number(depositValue),
-      }),
-    });
+      const statementData = await statementResponse.json();
 
-    const fallbackData = await fallback.json();
+      if (statementData.statement) {
+        setExtrato(statementData.statement);
+      }
 
-    setPixCopyPaste(fallbackData.copyPasteCode || '');
-    setTicketUrl(fallbackData.paymentLinkUrl || fallbackData.qrCodeImage || '');
+      const balanceResponse = await fetch(
+        API + '/ledger/balance?userId=' + user.id + '&mode=real',
+      );
 
-    if (fallbackData.success) {
-      show('Pix reserva gerado com sucesso');
-    } else {
-      show(fallbackData);
+      const balanceData = await balanceResponse.json();
+
+      setSaldo({
+        BRL: Number(balanceData.balances?.BRL || 0),
+        USDC: Number(balanceData.balances?.USDC || 0),
+      });
+
+      show('Saldo real atualizado');
+    } catch (e) {
+      show('Falha ao carregar dados: ' + e.message);
     }
-  } catch (e) {
-    show('Erro depósito Pix: ' + e.message);
   }
-}
+
+  async function depositarPix() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+
+    if (getKycStatus() !== 'approved') {
+      show('Conclua sua verificação de identidade antes de depositar Pix');
+      setPage('profile');
+      return;
+    }
+
+    const amount = parseAmount(depositValue);
+
+    if (!amount || amount < 10) {
+      show('Depósito mínimo é R$ 10,00');
+      return;
+    }
+
+    try {
+      show('Gerando Pix real...');
+
+      const r = await fetch(API + '/deposit/woovi-pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amountBrl: amount,
+          customer: {
+            name: user.fullName,
+            email: user.email,
+            phone: user.phone,
+            taxID: user.cpf,
+          },
+        }),
+      });
+
+      const data = await r.json();
+
+      if (data.success) {
+        setPixCopyPaste(data.copyPasteCode || '');
+        setTicketUrl(data.paymentLinkUrl || data.qrCodeImage || '');
+        show('Pix real gerado com sucesso');
+        return;
+      }
+
+      show('Pix Woovi ainda não autorizado. Usando Pix reserva...');
+
+      const fallback = await fetch(API + '/deposit/pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amountBrl: amount,
+        }),
+      });
+
+      const fallbackData = await fallback.json();
+
+      setPixCopyPaste(fallbackData.copyPasteCode || '');
+      setTicketUrl(fallbackData.paymentLinkUrl || fallbackData.qrCodeImage || '');
+
+      if (fallbackData.success) {
+        show('Pix reserva gerado com sucesso');
+      } else {
+        show(fallbackData);
+      }
+    } catch (e) {
+      show('Erro depósito Pix: ' + e.message);
+    }
+  }
+
   async function converter() {
     if (!user || !user.id) {
       show('Faça login primeiro');
+      return;
+    }
+
+    const amount = parseAmount(valorBrl);
+
+    if (!amount || amount <= 0) {
+      show('Informe um valor válido em R$');
       return;
     }
 
@@ -715,10 +714,11 @@ function avancarKyc() {
       const r = await fetch(API + '/swap/brl-to-usdc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, amountBrl: Number(valorBrl) }),
+        body: JSON.stringify({ userId: user.id, amountBrl: amount }),
       });
 
       const data = await r.json();
+
       show(data);
 
       if (data.success) {
@@ -731,85 +731,84 @@ function avancarKyc() {
     }
   }
 
-async function sacarPix() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  if (getKycStatus() !== 'approved') {
-    show('Conclua sua verificação de identidade antes de sacar Pix');
-    setPage('profile');
-    return;
-  }
-
-  if (!pixKey) {
-    show('Informe a chave Pix');
-    return;
-  }
-
-  if (!valorBrl || Number(valorBrl) <= 0) {
-    show('Informe um valor válido em R$');
-    return;
-  }
-
-  try {
-    show('Processando saque Pix...');
-
-    const r = await fetch(API + '/payment/pix', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        amountBrl: Number(valorBrl),
-        pixKey,
-      }),
-    });
-
-    const data = await r.json();
-
-    if (!r.ok) {
-      throw new Error(
-        data.message ||
-        data.error ||
-        'Erro ao solicitar saque Pix'
-      );
+  async function sacarPix() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
     }
 
-    show(data);
-
-    if (data.success) {
-      setValorBrl('');
-      setPixKey('');
-      carregarDados();
-
-      const receipt = {
-        type: 'pix_withdraw',
-        status: data.status || 'completed',
-        transferId: data.paymentId || data.transactionId || 'pix_' + Date.now(),
-        amountUsdc: data.debitedUSDC,
-        amountBrl: data.amountBRL,
-        destinationName: 'Chave Pix',
-        destinationHandle: pixKey,
-        fromHandle: getUsername(),
-        date: getNowLabel(),
-        message: data.message || 'Saque Pix solicitado',
-      };
-
-      setLastReceipt(receipt);
-      setPage('receipt');
+    if (getKycStatus() !== 'approved') {
+      show('Conclua sua verificação de identidade antes de sacar Pix');
+      setPage('profile');
+      return;
     }
-  } catch (e) {
-    show('Erro saque Pix: ' + e.message);
+
+    if (!pixKey) {
+      show('Informe a chave Pix');
+      return;
+    }
+
+    const amount = parseAmount(valorBrl);
+
+    if (!amount || amount <= 0) {
+      show('Informe um valor válido em R$');
+      return;
+    }
+
+    try {
+      show('Processando saque Pix...');
+
+      const r = await fetch(API + '/payment/pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amountBrl: amount,
+          pixKey,
+        }),
+      });
+
+      const data = await r.json();
+
+      if (!r.ok) {
+        throw new Error(data.message || data.error || 'Erro ao solicitar saque Pix');
+      }
+
+      show(data);
+
+      if (data.success) {
+        setValorBrl('');
+        setPixKey('');
+        carregarDados();
+
+        const receipt = {
+          type: 'pix_withdraw',
+          status: data.status || 'completed',
+          transferId: data.paymentId || data.transactionId || 'pix_' + Date.now(),
+          amountUsdc: data.debitedUSDC,
+          amountBrl: data.amountBRL,
+          destinationName: 'Chave Pix',
+          destinationHandle: pixKey,
+          fromHandle: getUsername(),
+          date: getNowLabel(),
+          message: data.message || 'Saque Pix solicitado',
+        };
+
+        setLastReceipt(receipt);
+        setPage('receipt');
+      }
+    } catch (e) {
+      show('Erro saque Pix: ' + e.message);
+    }
   }
-}
 
   async function enviarUsername() {
     if (getKycStatus() !== 'approved') {
-  show('Conclua sua verificação de identidade antes de enviar USDC');
-  setPage('profile');
-  return;
-}
+      show('Conclua sua verificação de identidade antes de enviar USDC');
+      setPage('profile');
+      return;
+    }
+
     if (!user || !user.id) {
       show('Faça login primeiro');
       return;
@@ -820,14 +819,14 @@ async function sacarPix() {
       return;
     }
 
-    if (!valorUsdc || Number(valorUsdc) <= 0) {
+    const amountToSend = parseAmount(valorUsdc);
+
+    if (!amountToSend || amountToSend <= 0) {
       show('Informe um valor USDC válido');
       return;
     }
 
     try {
-      const amountToSend = Number(valorUsdc);
-
       const r = await fetch(API + '/internal-transfer/send-by-username', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -840,6 +839,7 @@ async function sacarPix() {
       });
 
       const data = await r.json();
+
       show(data);
 
       if (data.success) {
@@ -871,12 +871,20 @@ async function sacarPix() {
 
   async function enviarWallet() {
     if (getKycStatus() !== 'approved') {
-  show('Conclua sua verificação de identidade antes de enviar USDC');
-  setPage('profile');
-  return;
-}
+      show('Conclua sua verificação de identidade antes de enviar USDC');
+      setPage('profile');
+      return;
+    }
+
     if (!user || !user.id) {
       show('Faça login primeiro');
+      return;
+    }
+
+    const amount = parseAmount(valorUsdc);
+
+    if (!amount || amount <= 0) {
+      show('Informe um valor USDC válido');
       return;
     }
 
@@ -887,12 +895,13 @@ async function sacarPix() {
         body: JSON.stringify({
           userId: user.id,
           toAddress: wallet,
-          amountUsdc: Number(valorUsdc),
+          amountUsdc: amount,
           note: 'envio externo app',
         }),
       });
 
       const data = await r.json();
+
       show(data);
 
       if (data.success) {
@@ -908,26 +917,67 @@ async function sacarPix() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <ScrollView style={styles.content} keyboardShouldPersistTaps="always" keyboardDismissMode="none">
+        <ScrollView
+          style={styles.content}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="none"
+        >
           <Text style={styles.logo}>NEXA</Text>
           <Text style={styles.subtitle}>Cripto sem complicação</Text>
 
           <Card>
-            <Text style={styles.title}>{authPage === 'login' ? 'Entrar' : 'Criar conta'}</Text>
+            <Text style={styles.title}>
+              {authPage === 'login' ? 'Entrar' : 'Criar conta'}
+            </Text>
+
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
 
-            <Input placeholder="E-mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-            <Input placeholder="Senha" secureTextEntry={true} value={password} onChangeText={setPassword} />
+            <Input
+              placeholder="E-mail"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Input
+              placeholder="Senha"
+              secureTextEntry={true}
+              value={password}
+              onChangeText={setPassword}
+            />
 
             {authPage === 'register' && (
               <>
-                <Input placeholder="Nome completo" value={fullName} onChangeText={setFullName} autoCapitalize="words" />
-                <Input placeholder="CPF" keyboardType="numeric" value={cpf} onChangeText={setCpf} />
-                <Input placeholder="Telefone" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
+                <Input
+                  placeholder="Nome completo"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                />
+
+                <Input
+                  placeholder="CPF"
+                  keyboardType="numeric"
+                  value={cpf}
+                  onChangeText={setCpf}
+                />
+
+                <Input
+                  placeholder="Telefone"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={setPhone}
+                />
               </>
             )}
 
-            {authPage === 'login' ? <Button title="Entrar" onPress={login} /> : <Button title="Criar conta" onPress={cadastrar} />}
+            {authPage === 'login' ? (
+              <Button title="Entrar" onPress={login} />
+            ) : (
+              <Button title="Criar conta" onPress={cadastrar} />
+            )}
+
             {authPage === 'login' ? (
               <Button title="Não tenho conta" onPress={function () { setAuthPage('register'); }} />
             ) : (
@@ -945,138 +995,145 @@ async function sacarPix() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content} keyboardShouldPersistTaps="always" keyboardDismissMode="none">
+      <ScrollView
+        style={styles.content}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+      >
         <Text style={styles.logo}>NEXA</Text>
         <Text style={styles.subtitle}>Pix + USDC + @username</Text>
 
         {page === 'home' && (
-  <>
-    <Card>
-      <View style={styles.headerRow}>
-        <View style={styles.avatarSmall}>
-          <Text style={styles.avatarText}>{getInitial()}</Text>
-        </View>
+          <>
+            <Card>
+              <View style={styles.headerRow}>
+                <View style={styles.avatarSmall}>
+                  <Text style={styles.avatarText}>{getInitial()}</Text>
+                </View>
 
-        <View style={styles.headerTextBox}>
-          <Text style={styles.welcome} numberOfLines={1}>
-            Olá, {user.fullName}
-          </Text>
-          <Text style={styles.usernameText}>{getUsername()}</Text>
-        </View>
-      </View>
+                <View style={styles.headerTextBox}>
+                  <Text style={styles.welcome} numberOfLines={1}>
+                    Olá, {user.fullName}
+                  </Text>
 
-      <Text style={styles.smallLabel}>Patrimônio total estimado</Text>
-      <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
+                  <Text style={styles.usernameText}>{getUsername()}</Text>
+                </View>
+              </View>
 
-      <View style={styles.balanceGrid}>
-        <View style={styles.balanceMiniCard}>
-          <Text style={styles.smallLabel}>BRL</Text>
-          <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
-        </View>
+              <Text style={styles.smallLabel}>Patrimônio total estimado</Text>
+              <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
 
-        <View style={styles.balanceMiniCard}>
-          <Text style={styles.smallLabel}>USDC</Text>
-          <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
-        </View>
-      </View>
+              <View style={styles.balanceGrid}>
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>BRL</Text>
+                  <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
+                </View>
 
-      <View style={styles.marketBox}>
-        <Text style={styles.marketTitle}>Cotação USDC</Text>
-        <Text style={styles.marketPrice}>R$ {marketPrice.toFixed(2)}</Text>
-        <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
-          {changePrefix}{marketChange.toFixed(2)}% em 24h · {getPriceSourceLabel()}
-        </Text>
-        <Text style={styles.rateText}>Compra Nexa: R$ {buyRate.toFixed(2)}</Text>
-      </View>
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>USDC</Text>
+                  <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
+                </View>
+              </View>
 
-      <Button
-        title="Atualizar saldo e cotação"
-        onPress={function () {
-          carregarDados();
-          carregarCotacao();
-        }}
-      />
-    </Card>
+              <View style={styles.marketBox}>
+                <Text style={styles.marketTitle}>Cotação USDC</Text>
+                <Text style={styles.marketPrice}>R$ {marketPrice.toFixed(2)}</Text>
+                <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
+                  {changePrefix}
+                  {marketChange.toFixed(2)}% em 24h · {getPriceSourceLabel()}
+                </Text>
+              </View>
 
-    <Card>
-      <Text style={styles.title}>Notificações</Text>
+              <Button
+                title="Atualizar saldo e cotação"
+                onPress={function () {
+                  carregarDados();
+                  carregarCotacao();
+                }}
+              />
+            </Card>
 
-      <View style={styles.item}>
-        <Text style={styles.itemText}>🔔 Bem-vindo à Nexa</Text>
-        <Text style={styles.rateText}>Sua conta está pronta para usar.</Text>
-      </View>
+            <Card>
+              <Text style={styles.title}>Notificações</Text>
 
-      <View style={styles.item}>
-        <Text style={styles.itemText}>💰 Saldo atualizado</Text>
-        <Text style={styles.rateText}>BRL e USDC sincronizados com sua carteira.</Text>
-      </View>
+              <View style={styles.item}>
+                <Text style={styles.itemText}>🔔 Bem-vindo à Nexa</Text>
+                <Text style={styles.rateText}>Sua conta está pronta para usar.</Text>
+              </View>
 
-      <View style={styles.item}>
-        <Text style={styles.itemText}>🪪 KYC {getKycStatusLabel()}</Text>
-        <Text style={styles.rateText}>Acompanhe sua verificação de identidade.</Text>
-      </View>
+              <View style={styles.item}>
+                <Text style={styles.itemText}>💰 Saldo atualizado</Text>
+                <Text style={styles.rateText}>
+                  BRL e USDC sincronizados com sua carteira.
+                </Text>
+              </View>
 
-      {lastReceipt ? (
-        <View style={styles.item}>
-          <Text style={styles.itemText}>✅ Última transferência concluída</Text>
-          <Text style={styles.rateText}>
-            {lastReceipt.amountUsdc} USDC para {lastReceipt.destinationHandle}
-          </Text>
-        </View>
-      ) : null}
-    </Card>
+              <View style={styles.item}>
+                <Text style={styles.itemText}>🪪 KYC {getKycStatusLabel()}</Text>
+                <Text style={styles.rateText}>
+                  Acompanhe sua verificação de identidade.
+                </Text>
+              </View>
 
-    <Card>
-      <Text style={styles.title}>Ações rápidas</Text>
-      <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
-      <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
-      <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
-      <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
-      <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
-    </Card>
+              {lastReceipt ? (
+                <View style={styles.item}>
+                  <Text style={styles.itemText}>✅ Última transferência concluída</Text>
+                  <Text style={styles.rateText}>
+                    {lastReceipt.amountUsdc} USDC para {lastReceipt.destinationHandle}
+                  </Text>
+                </View>
+              ) : null}
+            </Card>
 
-    <Card>
-      <Text style={styles.title}>Verificação</Text>
-      <Text style={styles.itemText}>Status KYC: {getKycStatusLabel()}</Text>
-      <Button title="🪪 Iniciar verificação" onPress={iniciarKyc} />
-      <Button title="🔄 Atualizar status KYC" onPress={atualizarStatusKyc} />
-    </Card>
+            <Card>
+              <Text style={styles.title}>Ações rápidas</Text>
+              <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
+              <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
+              <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
+              <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
+              <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
+            </Card>
 
-    {lastReceipt ? (
-      <Card>
-        <Text style={styles.title}>Último comprovante</Text>
-        <Text style={styles.itemText}>✅ {lastReceipt.message}</Text>
-        <Text style={styles.itemText}>Valor: {lastReceipt.amountUsdc} USDC</Text>
-        <Text style={styles.itemText}>Destino: {lastReceipt.destinationHandle}</Text>
-        <Button title="Ver comprovante" onPress={function () { setPage('receipt'); }} />
-      </Card>
-    ) : null}
+            <Card>
+              <Text style={styles.title}>Verificação</Text>
+              <Text style={styles.itemText}>Status KYC: {getKycStatusLabel()}</Text>
+              <Button title="🪪 Iniciar verificação" onPress={iniciarKyc} />
+              <Button title="🔄 Atualizar status KYC" onPress={atualizarStatusKyc} />
+            </Card>
 
-    <Card>
-      <Text style={styles.title}>Últimas movimentações</Text>
+            {lastReceipt ? (
+              <Card>
+                <Text style={styles.title}>Último comprovante</Text>
+                <Text style={styles.itemText}>✅ {lastReceipt.message}</Text>
+                <Text style={styles.itemText}>Valor: {lastReceipt.amountUsdc} USDC</Text>
+                <Text style={styles.itemText}>Destino: {lastReceipt.destinationHandle}</Text>
+                <Button title="Ver comprovante" onPress={function () { setPage('receipt'); }} />
+              </Card>
+            ) : null}
 
-      {extrato.length === 0 && (
-        <Text style={styles.itemText}>
-          Nenhuma movimentação carregada ainda.
-        </Text>
-      )}
+            <Card>
+              <Text style={styles.title}>Últimas movimentações</Text>
 
-      {extrato.slice(0, 5).map(function (item) {
-        return (
-          <View key={item.id} style={styles.item}>
-            <Text style={styles.itemText}>
-              {getIcon(item)} {item.description}
-            </Text>
+              {extrato.length === 0 && (
+                <Text style={styles.itemText}>Nenhuma movimentação carregada ainda.</Text>
+              )}
 
-            <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
-              {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
-            </Text>
-          </View>
-        );
-      })}
-    </Card>
-  </>
-)}
+              {extrato.slice(0, 5).map(function (item) {
+                return (
+                  <View key={item.id} style={styles.item}>
+                    <Text style={styles.itemText}>
+                      {getIcon(item)} {item.description}
+                    </Text>
+
+                    <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
+                      {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
+                    </Text>
+                  </View>
+                );
+              })}
+            </Card>
+          </>
+        )}
 
         {page === 'kyc' && (
           <Card>
@@ -1116,7 +1173,9 @@ async function sacarPix() {
             {kycStep === 'review' && (
               <>
                 <Text style={styles.itemText}>✅ Verificação enviada para análise.</Text>
-                <Text style={styles.rateText}>Quando o backend KYC estiver ativo, esta etapa atualizará o status automaticamente.</Text>
+                <Text style={styles.rateText}>
+                  Quando o backend KYC estiver ativo, esta etapa atualizará o status automaticamente.
+                </Text>
               </>
             )}
 
@@ -1129,8 +1188,12 @@ async function sacarPix() {
           <>
             <Card>
               <Text style={styles.title}>Carteira Nexa</Text>
+
               <View style={styles.walletHeader}>
-                <View style={styles.avatarSmall}><Text style={styles.avatarText}>{getInitial()}</Text></View>
+                <View style={styles.avatarSmall}>
+                  <Text style={styles.avatarText}>{getInitial()}</Text>
+                </View>
+
                 <View style={styles.headerTextBox}>
                   <Text style={styles.walletName} numberOfLines={1}>{user.fullName}</Text>
                   <Text style={styles.usernameText}>{getUsername()}</Text>
@@ -1141,8 +1204,15 @@ async function sacarPix() {
               <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
 
               <View style={styles.balanceGrid}>
-                <View style={styles.balanceMiniCard}><Text style={styles.smallLabel}>Saldo BRL</Text><Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text></View>
-                <View style={styles.balanceMiniCard}><Text style={styles.smallLabel}>Saldo USDC</Text><Text style={styles.balanceMiniText}>{saldo.USDC}</Text></View>
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>Saldo BRL</Text>
+                  <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
+                </View>
+
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>Saldo USDC</Text>
+                  <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
+                </View>
               </View>
 
               <Button title="Atualizar carteira" onPress={function () { carregarDados(); buscarPerfilAtualizado(); }} />
@@ -1152,8 +1222,14 @@ async function sacarPix() {
               <Text style={styles.title}>Receber Cripto</Text>
               <Text style={styles.itemText}>Rede: {getWalletNetwork()}</Text>
               <Text style={styles.itemText}>Endereço da carteira:</Text>
-              <View style={styles.walletAddressBox}><Text style={styles.walletAddressText}>{walletAddress}</Text></View>
-              <Text style={styles.rateText}>Use este endereço apenas para ativos compatíveis com a rede Polygon.</Text>
+
+              <View style={styles.walletAddressBox}>
+                <Text style={styles.walletAddressText}>{walletAddress}</Text>
+              </View>
+
+              <Text style={styles.rateText}>
+                Use este endereço apenas para ativos compatíveis com a rede Polygon.
+              </Text>
             </Card>
 
             <Card>
@@ -1170,20 +1246,27 @@ async function sacarPix() {
         {page === 'deposit' && (
           <Card>
             <Text style={styles.title}>Adicionar saldo</Text>
-<Text style={styles.rateText}>
-Deposite reais instantaneamente via Pix.
-</Text>
+            <Text style={styles.rateText}>Deposite reais instantaneamente via Pix.</Text>
+
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-            <Input placeholder="Valor em R$" keyboardType="numeric" value={depositValue} onChangeText={setDepositValue} />
-            <Button
-  title="Depositar via Pix"
-  onPress={depositarPix}
-/>
+
+            <Input
+              placeholder="Valor em R$"
+              keyboardType="numeric"
+              value={depositValue}
+              onChangeText={setDepositValue}
+            />
+
+            <Button title="Depositar via Pix" onPress={depositarPix} />
 
             {pixCopyPaste ? (
               <View style={styles.pixBox}>
                 <Text style={styles.itemText}>QR Code Pix</Text>
-                <View style={styles.qrBox}><QRCode value={pixCopyPaste} size={180} /></View>
+
+                <View style={styles.qrBox}>
+                  <QRCode value={pixCopyPaste} size={180} />
+                </View>
+
                 <Text style={styles.itemText}>Pix copia e cola:</Text>
                 <Text style={styles.copyText}>{pixCopyPaste}</Text>
               </View>
@@ -1202,8 +1285,16 @@ Deposite reais instantaneamente via Pix.
           <Card>
             <Text style={styles.title}>Sacar Pix</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
+
             <Input placeholder="Chave Pix" value={pixKey} onChangeText={setPixKey} />
-            <Input placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
+
+            <Input
+              placeholder="Valor em R$"
+              keyboardType="numeric"
+              value={valorBrl}
+              onChangeText={setValorBrl}
+            />
+
             <Button title="Solicitar Pix" onPress={sacarPix} />
           </Card>
         )}
@@ -1212,8 +1303,16 @@ Deposite reais instantaneamente via Pix.
           <Card>
             <Text style={styles.title}>Converter BRL para USDC</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-            <Input placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
+
+            <Input
+              placeholder="Valor em R$"
+              keyboardType="numeric"
+              value={valorBrl}
+              onChangeText={setValorBrl}
+            />
+
             <Text style={styles.rateText}>Cotação atual: 1 USDC = R$ {buyRate.toFixed(2)}</Text>
+
             <Button title="Converter" onPress={converter} />
           </Card>
         )}
@@ -1222,7 +1321,17 @@ Deposite reais instantaneamente via Pix.
           <Card>
             <Text style={styles.title}>Enviar USDC</Text>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-            <Input placeholder="@username" value={username} onChangeText={function (value) { setUsername(value); setRecipientUser(null); setRecipientChecked(false); }} />
+
+            <Input
+              placeholder="@username"
+              value={username}
+              onChangeText={function (value) {
+                setUsername(value);
+                setRecipientUser(null);
+                setRecipientChecked(false);
+              }}
+            />
+
             <Button title="Verificar usuário" onPress={buscarDestinatario} />
 
             {recipientUser ? (
@@ -1234,29 +1343,66 @@ Deposite reais instantaneamente via Pix.
             ) : null}
 
             {!recipientUser && recipientChecked ? (
-              <View style={styles.recipientBoxError}><Text style={styles.recipientError}>❌ Usuário não encontrado</Text></View>
+              <View style={styles.recipientBoxError}>
+                <Text style={styles.recipientError}>❌ Usuário não encontrado</Text>
+              </View>
             ) : null}
 
-            <Input placeholder="Valor USDC" keyboardType="numeric" value={valorUsdc} onChangeText={setValorUsdc} />
+            <Input
+              placeholder="Valor USDC"
+              keyboardType="numeric"
+              value={valorUsdc}
+              onChangeText={setValorUsdc}
+            />
+
             <Button title="Enviar para @username" onPress={enviarUsername} />
+
             <Input placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
+
             <Button title="Enviar para carteira" onPress={enviarWallet} />
           </Card>
         )}
 
         {page === 'receipt' && (
           <Card>
-            <View style={styles.receiptIcon}><Text style={styles.receiptIconText}>✓</Text></View>
+            <View style={styles.receiptIcon}>
+              <Text style={styles.receiptIconText}>✓</Text>
+            </View>
+
             <Text style={styles.receiptTitle}>Transferência concluída</Text>
 
             {lastReceipt ? (
               <>
-                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Valor</Text><Text style={styles.receiptValue}>{lastReceipt.amountUsdc} USDC</Text></View>
-                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Destino</Text><Text style={styles.receiptValue}>{lastReceipt.destinationHandle}</Text></View>
-                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Nome</Text><Text style={styles.receiptValue}>{lastReceipt.destinationName}</Text></View>
-                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Origem</Text><Text style={styles.receiptValue}>{lastReceipt.fromHandle}</Text></View>
-                <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Data</Text><Text style={styles.receiptValue}>{lastReceipt.date}</Text></View>
-                <View style={styles.receiptBox}><Text style={styles.receiptSmallLabel}>ID da transferência</Text><Text style={styles.receiptId}>{lastReceipt.transferId}</Text></View>
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Valor</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.amountUsdc} USDC</Text>
+                </View>
+
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Destino</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.destinationHandle}</Text>
+                </View>
+
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Nome</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.destinationName}</Text>
+                </View>
+
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Origem</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.fromHandle}</Text>
+                </View>
+
+                <View style={styles.receiptRow}>
+                  <Text style={styles.receiptLabel}>Data</Text>
+                  <Text style={styles.receiptValue}>{lastReceipt.date}</Text>
+                </View>
+
+                <View style={styles.receiptBox}>
+                  <Text style={styles.receiptSmallLabel}>ID da transferência</Text>
+                  <Text style={styles.receiptId}>{lastReceipt.transferId}</Text>
+                </View>
+
                 <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
                 <Button title="Enviar outro valor" onPress={function () { setPage('send'); }} />
               </>
@@ -1290,14 +1436,24 @@ Deposite reais instantaneamente via Pix.
 
         {page === 'profile' && (
           <Card>
-            <View style={styles.avatarLarge}><Text style={styles.avatarLargeText}>{getInitial()}</Text></View>
+            <View style={styles.avatarLarge}>
+              <Text style={styles.avatarLargeText}>{getInitial()}</Text>
+            </View>
+
             <Text style={styles.title}>Perfil</Text>
             <Text style={styles.itemText}>Nome: {user.fullName}</Text>
             <Text style={styles.itemText}>Username atual: {getUsername()}</Text>
             <Text style={styles.itemText}>E-mail: {user.email}</Text>
             <Text style={styles.itemText}>CPF: {user.cpf}</Text>
             <Text style={styles.itemText}>KYC: {getKycStatusLabel()}</Text>
-            <Input placeholder="Novo username" value={newUsername} onChangeText={setNewUsername} autoCapitalize="none" />
+
+            <Input
+              placeholder="Novo username"
+              value={newUsername}
+              onChangeText={setNewUsername}
+              autoCapitalize="none"
+            />
+
             <Button title="Salvar @username" onPress={salvarUsername} />
             <Button title="🪪 Verificação de identidade" onPress={iniciarKyc} />
             <Button title="Atualizar perfil" onPress={buscarPerfilAtualizado} />
@@ -1305,144 +1461,139 @@ Deposite reais instantaneamente via Pix.
           </Card>
         )}
 
-{page === 'rewards' && (
-  <Card>
-    <Text style={styles.title}>Nexa Rewards</Text>
-    <Text style={styles.rateText}>
-      Transforme parte do seu saldo em Saldo Boost e receba cashback de permanência.
-    </Text>
+        {page === 'rewards' && (
+          <Card>
+            <Text style={styles.title}>Nexa Rewards</Text>
+            <Text style={styles.rateText}>
+              Transforme parte do seu saldo em Saldo Boost e receba cashback de permanência.
+            </Text>
 
-    <Text style={styles.smallLabel}>Saldo Livre</Text>
-    <Text style={styles.balanceMiniText}>{saldo.USDC} USDC</Text>
+            <Text style={styles.smallLabel}>Saldo Livre</Text>
+            <Text style={styles.balanceMiniText}>{saldo.USDC} USDC</Text>
 
-    <Input
-      placeholder="Valor em USDC"
-      keyboardType="numeric"
-      value={rewardAmount}
-      onChangeText={setRewardAmount}
-    />
+            <Input
+              placeholder="Valor em USDC"
+              keyboardType="numeric"
+              value={rewardAmount}
+              onChangeText={setRewardAmount}
+            />
 
-    {rewardPlans.map(function (plan) {
-      return (
-        <Button
-          key={plan.plan}
-          title={
-            (selectedRewardPlan === plan.plan ? '✅ ' : '') +
-            plan.name +
-            ' · ' +
-            plan.days +
-            ' dias · ' +
-            (plan.cashbackRate * 100).toFixed(2) +
-            '% cashback'
-          }
-          onPress={function () {
-            setSelectedRewardPlan(plan.plan);
-          }}
-        />
-      );
-    })}
+            {rewardPlans.map(function (plan) {
+              return (
+                <Button
+                  key={plan.plan}
+                  title={
+                    (selectedRewardPlan === plan.plan ? '✅ ' : '') +
+                    plan.name +
+                    ' · ' +
+                    plan.days +
+                    ' dias · ' +
+                    (plan.cashbackRate * 100).toFixed(2) +
+                    '% cashback'
+                  }
+                  onPress={function () {
+                    setSelectedRewardPlan(plan.plan);
+                  }}
+                />
+              );
+            })}
 
-    <Button title="Ativar Saldo Boost" onPress={ativarRewards} />
+            <Button title="Ativar Saldo Boost" onPress={ativarRewards} />
 
-    <Text style={styles.title}>Meus Boosts</Text>
+            <Text style={styles.title}>Meus Boosts</Text>
 
-    {rewardPositions.length === 0 && (
-      <Text style={styles.itemText}>Nenhum Saldo Boost ativo.</Text>
-    )}
+            {rewardPositions.length === 0 && (
+              <Text style={styles.itemText}>Nenhum Saldo Boost ativo.</Text>
+            )}
 
-    {rewardPositions.map(function (position) {
-      return (
-        <View key={position.id} style={styles.item}>
-          <Text style={styles.itemText}>
-            🚀 {position.plan} · {Number(position.amountUsdc).toFixed(4)} USDC
-          </Text>
-          <Text style={styles.rateText}>
-            Liberação: {new Date(position.unlockAt).toLocaleDateString('pt-BR')}
-          </Text>
-          <Text style={styles.rateText}>
-            Status: {position.status}
-          </Text>
-        </View>
-      );
-    })}
-  </Card>
-)}        
+            {rewardPositions.map(function (position) {
+              return (
+                <View key={position.id} style={styles.item}>
+                  <Text style={styles.itemText}>
+                    🚀 {position.plan} · {Number(position.amountUsdc).toFixed(4)} USDC
+                  </Text>
 
-{page === 'extrato' && (
-  <Card>
-    <Text style={styles.title}>Histórico Premium</Text>
+                  <Text style={styles.rateText}>
+                    Liberação: {new Date(position.unlockAt).toLocaleDateString('pt-BR')}
+                  </Text>
 
-    <Button
-      title="Atualizar histórico"
-      onPress={carregarDados}
-    />
+                  <Text style={styles.rateText}>Status: {position.status}</Text>
+                </View>
+              );
+            })}
+          </Card>
+        )}
 
-    {extrato.length === 0 && (
-      <Text style={styles.itemText}>
-        Nenhuma movimentação encontrada.
-      </Text>
-    )}
+        {page === 'extrato' && (
+          <Card>
+            <Text style={styles.title}>Histórico Premium</Text>
 
-    {extrato.map(function (item) {
-      const isCredit = item.direction === 'credit';
+            <Button title="Atualizar histórico" onPress={carregarDados} />
 
-      return (
-        <View
-          key={item.id}
-          style={{
-            backgroundColor: '#111827',
-            borderRadius: 18,
-            padding: 15,
-            marginBottom: 12,
-            borderWidth: 1,
-            borderColor: '#1e293b',
-          }}
-        >
-          <Text
-            style={{
-              color: 'white',
-              fontWeight: '900',
-              fontSize: 15,
-              marginBottom: 4,
-            }}
-          >
-            {getIcon(item)} {item.description}
-          </Text>
+            {extrato.length === 0 && (
+              <Text style={styles.itemText}>Nenhuma movimentação encontrada.</Text>
+            )}
 
-          <Text
-            style={{
-              color: '#94a3b8',
-              fontSize: 12,
-              marginBottom: 10,
-            }}
-          >
-            {item.asset}
-          </Text>
+            {extrato.map(function (item) {
+              const isCredit = item.direction === 'credit';
 
-          <Text
-            style={{
-              color: isCredit ? '#22c55e' : '#ef4444',
-              fontWeight: '900',
-              fontSize: 16,
-            }}
-          >
-            {isCredit ? '+' : '-'} {item.amount} {item.asset}
-          </Text>
+              return (
+                <View
+                  key={item.id}
+                  style={{
+                    backgroundColor: '#111827',
+                    borderRadius: 18,
+                    padding: 15,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: '#1e293b',
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: 'white',
+                      fontWeight: '900',
+                      fontSize: 15,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {getIcon(item)} {item.description}
+                  </Text>
 
-          <Text
-            style={{
-              color: '#64748b',
-              fontSize: 11,
-              marginTop: 6,
-            }}
-          >
-            Concluído
-          </Text>
-        </View>
-      );
-    })}
-  </Card>
-)}
+                  <Text
+                    style={{
+                      color: '#94a3b8',
+                      fontSize: 12,
+                      marginBottom: 10,
+                    }}
+                  >
+                    {item.asset}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: isCredit ? '#22c55e' : '#ef4444',
+                      fontWeight: '900',
+                      fontSize: 16,
+                    }}
+                  >
+                    {isCredit ? '+' : '-'} {item.amount} {item.asset}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: '#64748b',
+                      fontSize: 11,
+                      marginTop: 6,
+                    }}
+                  >
+                    Concluído
+                  </Text>
+                </View>
+              );
+            })}
+          </Card>
+        )}
       </ScrollView>
 
       <View style={styles.menu}>
