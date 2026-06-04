@@ -277,20 +277,20 @@ function isKycApproved() {
   }
 
   async function carregarCotacao() {
-    try {
-      const r = await fetch(API + '/swap/price?symbol=USDC');
-      const data = await r.json();
+  try {
+    const r = await fetch(API + '/swap/price?symbol=USDC');
+    const data = await r.json();
 
-      if (data && data.priceBrl) {
-        setMarketPrice(Number(data.priceBrl));
-        setBuyRate(Number(data.buyRateBrl || data.priceBrl));
-        setMarketChange(Number(data.change24h || 0));
-        setPriceSource(data.source || 'api');
-      }
-    } catch (e) {
-      setPriceSource('fallback');
+    if (data && data.priceBrl) {
+      setMarketPrice(Number(data.priceBrl));
+      setBuyRate(Number(data.buyRateBrl || data.priceBrl));
+      setMarketChange(Number(data.change24h || 0));
+      setPriceSource(data.source || 'api');
     }
+  } catch (e) {
+    setPriceSource('fallback');
   }
+}
 
   async function buscarDestinatario() {
     const cleanUsername = normalizeUsername(username);
@@ -1256,13 +1256,21 @@ async function redefinirSenha() {
               </View>
 
               <View style={styles.marketBox}>
-                <Text style={styles.marketTitle}>Cotação USDC</Text>
-                <Text style={styles.marketPrice}>R$ {marketPrice.toFixed(2)}</Text>
-                <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
-                  {changePrefix}
-                  {marketChange.toFixed(2)}% em 24h · {getPriceSourceLabel()}
-                </Text>
-              </View>
+  <Text style={styles.marketTitle}>USDC</Text>
+
+  <Text style={styles.marketPrice}>
+    R$ {buyRate.toFixed(2)}
+  </Text>
+
+  <Text style={styles.rateText}>
+    Nexa
+  </Text>
+
+  <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
+    {changePrefix}
+    {marketChange.toFixed(2)}%
+  </Text>
+</View>
 
               <Button
                 title="Atualizar saldo e cotação"
