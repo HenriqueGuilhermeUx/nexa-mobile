@@ -27,9 +27,16 @@
         "backgroundColor": "#020617"
       }
     },
+    "sdkVersion": "53.0.0",
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "extra": {
-      "apiUrl": "https://nexa-backend-p2u0.onrender.com/api/v1"
-    "eas": {
-    "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
+      "apiUrl": "https://nexa-backend-p2u0.onrender.com/api/v1",
+      "eas": {
+        "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
+      }
+    }
   }
 }
