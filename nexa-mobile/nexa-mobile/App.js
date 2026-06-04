@@ -148,14 +148,18 @@ export default function App() {
   }
 
   function getKycStatusLabel() {
-    const status = getKycStatus();
+  const status = getKycStatus();
 
-    if (status === 'approved') return 'Aprovado';
-    if (status === 'rejected') return 'Reprovado';
-    if (status === 'in_review') return 'Em análise';
+  if (status === 'approved') return 'Aprovado';
+  if (status === 'rejected') return 'Reprovado';
+  if (status === 'in_review') return 'Em análise';
 
-    return 'Pendente';
-  }
+  return 'Pendente';
+}
+
+function isKycApproved() {
+  return getKycStatus() === 'approved';
+}
 
   function getWalletAddress() {
     if (!user) return 'Carteira ainda não vinculada';
@@ -353,6 +357,10 @@ export default function App() {
 
     await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
     await AsyncStorage.setItem('nexa_token', accessToken);
+
+    if (userData && userData.email) {
+      await AsyncStorage.setItem('nexa_last_email', userData.email);
+    }
   }
 
   async function atualizarUsuarioLocal(userData) {
@@ -364,6 +372,11 @@ export default function App() {
     try {
       const savedUser = await AsyncStorage.getItem('nexa_user');
       const savedToken = await AsyncStorage.getItem('nexa_token');
+      const lastEmail = await AsyncStorage.getItem('nexa_last_email');
+
+      if (lastEmail) {
+        setEmail(lastEmail);
+      }
 
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser);
@@ -1017,6 +1030,9 @@ export default function App() {
                   </Text>
 
                   <Text style={styles.usernameText}>{getUsername()}</Text>
+                  {isKycApproved() ? (
+                    <Text style={styles.verifiedBadge}>✅ Verificado</Text>
+                  ) : null}
                 </View>
               </View>
 
@@ -1068,12 +1084,14 @@ export default function App() {
                 </Text>
               </View>
 
-              <View style={styles.item}>
-                <Text style={styles.itemText}>🪪 KYC {getKycStatusLabel()}</Text>
-                <Text style={styles.rateText}>
-                  Acompanhe sua verificação de identidade.
-                </Text>
-              </View>
+              {!isKycApproved() ? (
+                <View style={styles.item}>
+                  <Text style={styles.itemText}>🪪 KYC {getKycStatusLabel()}</Text>
+                  <Text style={styles.rateText}>
+                    Acompanhe sua verificação de identidade.
+                  </Text>
+                </View>
+              ) : null}
 
               {lastReceipt ? (
                 <View style={styles.item}>
@@ -1094,12 +1112,14 @@ export default function App() {
               <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
             </Card>
 
+         {!isKycApproved() ? (
             <Card>
               <Text style={styles.title}>Verificação</Text>
               <Text style={styles.itemText}>Status KYC: {getKycStatusLabel()}</Text>
               <Button title="🪪 Iniciar verificação" onPress={iniciarKyc} />
               <Button title="🔄 Atualizar status KYC" onPress={atualizarStatusKyc} />
             </Card>
+         ) : null}
 
             {lastReceipt ? (
               <Card>
@@ -1197,6 +1217,9 @@ export default function App() {
                 <View style={styles.headerTextBox}>
                   <Text style={styles.walletName} numberOfLines={1}>{user.fullName}</Text>
                   <Text style={styles.usernameText}>{getUsername()}</Text>
+                  {isKycApproved() ? (
+                    <Text style={styles.verifiedBadge}>✅ Verificado</Text>
+                  ) : null}
                 </View>
               </View>
 
@@ -1258,7 +1281,6 @@ export default function App() {
             />
 
             <Button title="Depositar via Pix" onPress={depositarPix} />
-
             {pixCopyPaste ? (
               <View style={styles.pixBox}>
                 <Text style={styles.itemText}>QR Code Pix</Text>
@@ -1455,7 +1477,13 @@ export default function App() {
             />
 
             <Button title="Salvar @username" onPress={salvarUsername} />
-            <Button title="🪪 Verificação de identidade" onPress={iniciarKyc} />
+            {!isKycApproved() ? (
+              <Button title="🪪 Verificação de identidade" onPress={iniciarKyc} />
+            ) : (
+              <View style={styles.verifiedProfileBox}>
+                <Text style={styles.verifiedProfileText}>✅ Identidade verificada</Text>
+              </View>
+            )}
             <Button title="Atualizar perfil" onPress={buscarPerfilAtualizado} />
             <Button title="Sair" onPress={logout} />
           </Card>
@@ -1624,6 +1652,7 @@ const styles = {
   walletAddressText: { color: '#93c5fd', fontSize: 12, lineHeight: 18, fontWeight: '800' },
   welcome: { color: 'white', fontSize: 20, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
   usernameText: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
+  verifiedBadge: { color: '#22c55e', fontSize: 12, fontWeight: '900', marginTop: 4 },
   avatarSmall: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   avatarText: { color: 'white', fontSize: 24, fontWeight: '900' },
   avatarLarge: { width: 92, height: 92, borderRadius: 46, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
@@ -1659,6 +1688,8 @@ const styles = {
   receiptBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
   receiptSmallLabel: { color: '#94a3b8', fontSize: 11, marginBottom: 5 },
   receiptId: { color: '#93c5fd', fontSize: 12, fontWeight: '800' },
+  verifiedProfileBox: { backgroundColor: '#052e16', borderColor: '#22c55e', borderWidth: 1, borderRadius: 14, padding: 13, marginBottom: 12 },
+  verifiedProfileText: { color: '#22c55e', textAlign: 'center', fontWeight: '900', fontSize: 14 },
   virtualCard: { backgroundColor: '#1e3a8a', borderRadius: 22, padding: 22, marginBottom: 18, minHeight: 190, justifyContent: 'space-between' },
   cardBrand: { color: '#bfdbfe', fontSize: 13, fontWeight: '900', letterSpacing: 2 },
   cardNumber: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 34, letterSpacing: 2 },
