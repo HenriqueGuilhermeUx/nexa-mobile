@@ -3,26 +3,35 @@
   "version": "1.0.0",
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
+
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
   },
+
   "dependencies": {
-    "@expo/vector-icons": "latest",
-    "@react-native-async-storage/async-storage": "latest",
-    "axios": "latest",
-    "expo": "latest",
-    "expo-local-authentication": "latest",
-    "expo-secure-store": "latest",
-    "expo-status-bar": "latest",
-    "lucide-react-native": "latest",
-    "react": "latest",
-    "react-native": "latest",
-    "react-native-qrcode-svg": "latest",
-    "react-native-safe-area-context": "latest",
-    "react-native-svg": "latest"
-  },
-  "devDependencies": {}
+    "expo": "~53.0.20",
+    "react": "19.0.0",
+    "react-native": "0.79.5",
+
+    "@expo/vector-icons": "^14.1.0",
+
+    "@react-native-async-storage/async-storage": "2.1.2",
+
+    "axios": "^1.8.4",
+
+    "expo-local-authentication": "~16.0.5",
+    "expo-secure-store": "~14.2.3",
+    "expo-status-bar": "~2.2.3",
+
+    "lucide-react-native": "^0.511.0",
+
+    "react-native-safe-area-context": "5.4.0",
+
+    "react-native-svg": "15.11.2",
+
+    "react-native-qrcode-svg": "^6.3.15"
+  }
 }
