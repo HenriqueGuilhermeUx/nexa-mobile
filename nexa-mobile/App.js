@@ -1446,18 +1446,30 @@ async function redefinirSenha() {
             </Card>
 
             <Card>
-              <Text style={styles.title}>Receber Cripto</Text>
-              <Text style={styles.itemText}>Rede: {getWalletNetwork()}</Text>
-              <Text style={styles.itemText}>Endereço da carteira:</Text>
+  <Text style={styles.title}>Receber USDC</Text>
 
-              <View style={styles.walletAddressBox}>
-                <Text style={styles.walletAddressText}>{walletAddress}</Text>
-              </View>
+  <View style={styles.item}>
+    <Text style={styles.itemText}>✅ Receber de usuário Nexa</Text>
+    <Text style={styles.rateText}>
+      Use seu @username para receber USDC instantaneamente dentro da Nexa.
+    </Text>
+    <Text style={styles.walletAddressText}>{getUsername()}</Text>
+  </View>
 
-              <Text style={styles.rateText}>
-                Use este endereço apenas para ativos compatíveis com a rede Polygon.
-              </Text>
-            </Card>
+  <View style={styles.item}>
+    <Text style={styles.itemText}>⏳ Receber USDC externo</Text>
+    <Text style={styles.rateText}>
+      Depósito externo via blockchain Polygon ficará disponível em breve.
+    </Text>
+  </View>
+
+  <View style={styles.item}>
+    <Text style={styles.itemText}>📤 Enviar USDC externo</Text>
+    <Text style={styles.rateText}>
+      Você já pode enviar USDC para uma carteira Polygon informando o endereço 0x.
+    </Text>
+  </View>
+</Card>
 
             <Card>
               <Text style={styles.title}>Atalhos da carteira</Text>
