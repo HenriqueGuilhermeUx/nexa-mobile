@@ -94,6 +94,12 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState('');
   const [msg, setMsg] = useState('');
+  const [savedEmail, setSavedEmail] = useState('');
+  const [savedName, setSavedName] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [forgotStep, setForgotStep] = useState('email');
 
   useEffect(function () {
     carregarLoginSalvo();
@@ -349,19 +355,25 @@ function isKycApproved() {
   }
 
   async function salvarSessao(data) {
-    const userData = await vincularWalletPrivy(data.user);
-    const accessToken = data.accessToken || '';
+  const userData = await vincularWalletPrivy(data.user);
+  const accessToken = data.accessToken || '';
 
-    setUser(userData);
-    setToken(accessToken);
+  setUser(userData);
+  setToken(accessToken);
 
-    await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
-    await AsyncStorage.setItem('nexa_token', accessToken);
+  await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
+  await AsyncStorage.setItem('nexa_token', accessToken);
 
-    if (userData && userData.email) {
-      await AsyncStorage.setItem('nexa_last_email', userData.email);
-    }
+  if (userData.email) {
+    await AsyncStorage.setItem('nexa_last_email', userData.email);
+    setSavedEmail(userData.email);
   }
+
+  if (userData.fullName) {
+    await AsyncStorage.setItem('nexa_last_name', userData.fullName);
+    setSavedName(userData.fullName);
+  }
+}
 
   async function atualizarUsuarioLocal(userData) {
     setUser(userData);
@@ -369,26 +381,32 @@ function isKycApproved() {
   }
 
   async function carregarLoginSalvo() {
-    try {
-      const savedUser = await AsyncStorage.getItem('nexa_user');
-      const savedToken = await AsyncStorage.getItem('nexa_token');
-      const lastEmail = await AsyncStorage.getItem('nexa_last_email');
+  try {
+    const savedUser = await AsyncStorage.getItem('nexa_user');
+    const savedToken = await AsyncStorage.getItem('nexa_token');
+    const lastEmail = await AsyncStorage.getItem('nexa_last_email');
+    const lastName = await AsyncStorage.getItem('nexa_last_name');
 
-      if (lastEmail) {
-        setEmail(lastEmail);
-      }
-
-      if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-
-        setUser(parsedUser);
-        setToken(savedToken || '');
-        setMsg('Login restaurado');
-      }
-    } catch (e) {
-      setMsg('Erro ao restaurar login: ' + e.message);
+    if (lastEmail) {
+      setEmail(lastEmail);
+      setSavedEmail(lastEmail);
+      setResetEmail(lastEmail);
     }
+
+    if (lastName) {
+      setSavedName(lastName);
+    }
+
+    if (savedUser) {
+      const parsedUser = JSON.parse(savedUser);
+      setUser(parsedUser);
+      setToken(savedToken || '');
+      setMsg('Login restaurado');
+    }
+  } catch (e) {
+    setMsg('Erro ao restaurar login: ' + e.message);
   }
+}
 
   async function buscarPerfilAtualizado() {
     try {
@@ -590,19 +608,20 @@ function isKycApproved() {
   }
 
   async function logout() {
-    await AsyncStorage.removeItem('nexa_user');
-    await AsyncStorage.removeItem('nexa_token');
+  await AsyncStorage.removeItem('nexa_user');
+  await AsyncStorage.removeItem('nexa_token');
 
-    setUser(null);
-    setToken('');
-    setSaldo({ BRL: 0, USDC: 0 });
-    setExtrato([]);
-    setPixCopyPaste('');
-    setTicketUrl('');
-    setLastReceipt(null);
-    setPage('home');
-    show('Você saiu da Nexa');
-  }
+  setUser(null);
+  setToken('');
+  setPassword('');
+  setSaldo({ BRL: 0, USDC: 0 });
+  setExtrato([]);
+  setPixCopyPaste('');
+  setTicketUrl('');
+  setLastReceipt(null);
+  setPage('home');
+  show('Você saiu da Nexa');
+}
 
   async function carregarDados() {
     if (!user || !user.id) {
@@ -927,80 +946,265 @@ function isKycApproved() {
     }
   }
 
-  if (!user) {
-    return (
-      <View style={styles.container}>
-        <ScrollView
-          style={styles.content}
-          keyboardShouldPersistTaps="always"
-          keyboardDismissMode="none"
-        >
-          <Text style={styles.logo}>NEXA</Text>
-          <Text style={styles.subtitle}>Cripto sem complicação</Text>
+  async function solicitarRecuperacaoSenha() {
+  const emailToUse = resetEmail || email || savedEmail;
 
-          <Card>
-            <Text style={styles.title}>
-              {authPage === 'login' ? 'Entrar' : 'Criar conta'}
-            </Text>
-
-            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-            <Input
-              placeholder="E-mail"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <Input
-              placeholder="Senha"
-              secureTextEntry={true}
-              value={password}
-              onChangeText={setPassword}
-            />
-
-            {authPage === 'register' && (
-              <>
-                <Input
-                  placeholder="Nome completo"
-                  value={fullName}
-                  onChangeText={setFullName}
-                  autoCapitalize="words"
-                />
-
-                <Input
-                  placeholder="CPF"
-                  keyboardType="numeric"
-                  value={cpf}
-                  onChangeText={setCpf}
-                />
-
-                <Input
-                  placeholder="Telefone"
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={setPhone}
-                />
-              </>
-            )}
-
-            {authPage === 'login' ? (
-              <Button title="Entrar" onPress={login} />
-            ) : (
-              <Button title="Criar conta" onPress={cadastrar} />
-            )}
-
-            {authPage === 'login' ? (
-              <Button title="Não tenho conta" onPress={function () { setAuthPage('register'); }} />
-            ) : (
-              <Button title="Já tenho conta" onPress={function () { setAuthPage('login'); }} />
-            )}
-          </Card>
-        </ScrollView>
-      </View>
-    );
+  if (!emailToUse) {
+    show('Informe seu e-mail');
+    return;
   }
+
+  try {
+    const r = await fetch(API + '/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailToUse }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      setResetEmail(emailToUse);
+      setForgotStep('code');
+    }
+  } catch (e) {
+    show('Erro recuperação: ' + e.message);
+  }
+}
+
+async function redefinirSenha() {
+  if (!resetEmail || !resetCode || !resetNewPassword) {
+    show('Informe e-mail, código e nova senha');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: resetEmail,
+        code: resetCode,
+        newPassword: resetNewPassword,
+      }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      setPassword('');
+      setResetCode('');
+      setResetNewPassword('');
+      setAuthPage('login');
+      setForgotStep('email');
+    }
+  } catch (e) {
+    show('Erro reset senha: ' + e.message);
+  }
+}
+
+  if (!user) {
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.content}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+      >
+        <Text style={styles.logo}>NEXA</Text>
+        <Text style={styles.subtitle}>Cripto sem complicação</Text>
+
+        <Card>
+          {authPage === 'forgot' ? (
+            <>
+              <Text style={styles.title}>Recuperar senha</Text>
+
+              {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
+
+              {forgotStep === 'email' ? (
+                <>
+                  <Input
+                    placeholder="E-mail"
+                    value={resetEmail}
+                    onChangeText={setResetEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+
+                  <Button
+                    title="Receber código"
+                    onPress={solicitarRecuperacaoSenha}
+                  />
+
+                  <Button
+                    title="Voltar para login"
+                    onPress={function () {
+                      setAuthPage('login');
+                    }}
+                  />
+                </>
+              ) : (
+                <>
+                  <Input
+                    placeholder="E-mail"
+                    value={resetEmail}
+                    onChangeText={setResetEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+
+                  <Input
+                    placeholder="Código recebido"
+                    value={resetCode}
+                    onChangeText={setResetCode}
+                    keyboardType="numeric"
+                  />
+
+                  <Input
+                    placeholder="Nova senha"
+                    secureTextEntry={true}
+                    value={resetNewPassword}
+                    onChangeText={setResetNewPassword}
+                  />
+
+                  <Button
+                    title="Redefinir senha"
+                    onPress={redefinirSenha}
+                  />
+
+                  <Button
+                    title="Receber novo código"
+                    onPress={function () {
+                      setForgotStep('email');
+                    }}
+                  />
+
+                  <Button
+                    title="Voltar para login"
+                    onPress={function () {
+                      setAuthPage('login');
+                    }}
+                  />
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>
+                {authPage === 'login' ? 'Entrar' : 'Criar conta'}
+              </Text>
+
+              {savedEmail && authPage === 'login' ? (
+                <View style={styles.savedLoginBox}>
+                  <Text style={styles.savedLoginTitle}>
+                    Olá{savedName ? ', ' + savedName.split(' ')[0] : ''} 👋
+                  </Text>
+
+                  <Text style={styles.savedLoginEmail}>
+                    {savedEmail}
+                  </Text>
+                </View>
+              ) : null}
+
+              {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
+
+              {authPage === 'login' && savedEmail ? null : (
+                <Input
+                  placeholder="E-mail"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              )}
+
+              <Input
+                placeholder="Senha"
+                secureTextEntry={true}
+                value={password}
+                onChangeText={setPassword}
+              />
+
+              {authPage === 'register' && (
+                <>
+                  <Input
+                    placeholder="Nome completo"
+                    value={fullName}
+                    onChangeText={setFullName}
+                    autoCapitalize="words"
+                  />
+
+                  <Input
+                    placeholder="CPF"
+                    keyboardType="numeric"
+                    value={cpf}
+                    onChangeText={setCpf}
+                  />
+
+                  <Input
+                    placeholder="Telefone"
+                    keyboardType="phone-pad"
+                    value={phone}
+                    onChangeText={setPhone}
+                  />
+                </>
+              )}
+
+              {authPage === 'login' ? (
+                <Button title="Entrar" onPress={login} />
+              ) : (
+                <Button title="Criar conta" onPress={cadastrar} />
+              )}
+
+              {authPage === 'login' && savedEmail ? (
+                <Button
+                  title="Trocar conta"
+                  onPress={async function () {
+                    await AsyncStorage.removeItem('nexa_last_email');
+                    await AsyncStorage.removeItem('nexa_last_name');
+                    setSavedEmail('');
+                    setSavedName('');
+                    setEmail('');
+                    setPassword('');
+                    setMsg('');
+                  }}
+                />
+              ) : null}
+
+              {authPage === 'login' ? (
+                <>
+                  <Button
+                    title="Esqueci minha senha"
+                    onPress={function () {
+                      setResetEmail(savedEmail || email);
+                      setAuthPage('forgot');
+                    }}
+                  />
+
+                  <Button
+                    title="Não tenho conta"
+                    onPress={function () {
+                      setAuthPage('register');
+                    }}
+                  />
+                </>
+              ) : (
+                <Button
+                  title="Já tenho conta"
+                  onPress={function () {
+                    setAuthPage('login');
+                  }}
+                />
+              )}
+            </>
+          )}
+        </Card>
+      </ScrollView>
+    </View>
+  );
+}
 
   const patrimonioTotal = Number((saldo.BRL + saldo.USDC * marketPrice).toFixed(2));
   const walletAddress = getWalletAddress();
@@ -1644,41 +1848,71 @@ const styles = {
   subtitle: { color: '#93c5fd', textAlign: 'center', marginBottom: 24, fontSize: 13 },
   card: { backgroundColor: '#0f172a', padding: 22, borderRadius: 24, marginBottom: 18, borderWidth: 1, borderColor: '#1e40af' },
   title: { color: 'white', fontSize: 21, fontWeight: '800', marginBottom: 16, marginTop: 6 },
+
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   headerTextBox: { flex: 1, minWidth: 0 },
+
   walletHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   walletName: { color: 'white', fontSize: 18, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
   walletAddressBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
   walletAddressText: { color: '#93c5fd', fontSize: 12, lineHeight: 18, fontWeight: '800' },
+
   welcome: { color: 'white', fontSize: 20, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
   usernameText: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
   verifiedBadge: { color: '#22c55e', fontSize: 12, fontWeight: '900', marginTop: 4 },
+
+  savedLoginBox: {
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#1e40af',
+  },
+  savedLoginTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  savedLoginEmail: {
+    color: '#93c5fd',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
   avatarSmall: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   avatarText: { color: 'white', fontSize: 24, fontWeight: '900' },
   avatarLarge: { width: 92, height: 92, borderRadius: 46, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
   avatarLargeText: { color: 'white', fontSize: 38, fontWeight: '900' },
+
   smallLabel: { color: '#94a3b8', fontSize: 13, marginTop: 10, marginBottom: 4 },
   totalBalance: { color: '#ffffff', fontSize: 38, fontWeight: '900', marginBottom: 12 },
   balanceGrid: { flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 10 },
   balanceMiniCard: { flex: 1, backgroundColor: '#111827', borderRadius: 18, padding: 14 },
   balanceMiniText: { color: 'white', fontWeight: '900', fontSize: 18 },
+
   rateText: { color: '#93c5fd', fontSize: 12, marginBottom: 14 },
   loginMsg: { color: '#93c5fd', marginBottom: 15, textAlign: 'center', fontSize: 13 },
+
   marketBox: { backgroundColor: '#111827', borderRadius: 18, padding: 14, marginTop: 8, marginBottom: 14 },
   marketTitle: { color: '#94a3b8', fontSize: 12, fontWeight: '700' },
   marketPrice: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 4 },
   marketUp: { color: '#22c55e', fontSize: 12, fontWeight: '800', marginTop: 3 },
   marketDown: { color: '#f87171', fontSize: 12, fontWeight: '800', marginTop: 3 },
+
   kycBox: { backgroundColor: '#111827', borderRadius: 16, padding: 14, marginBottom: 14 },
   kycActive: { color: '#93c5fd', fontSize: 14, fontWeight: '900', marginBottom: 8 },
   kycDone: { color: '#22c55e', fontSize: 14, fontWeight: '800', marginBottom: 8 },
   kycPending: { color: '#94a3b8', fontSize: 14, fontWeight: '700', marginBottom: 8 },
+
   recipientBox: { backgroundColor: '#052e16', borderColor: '#22c55e', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
   recipientBoxError: { backgroundColor: '#450a0a', borderColor: '#ef4444', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
   recipientOk: { color: '#22c55e', fontSize: 12, fontWeight: '900', marginBottom: 5 },
   recipientError: { color: '#fca5a5', fontSize: 12, fontWeight: '900' },
   recipientName: { color: 'white', fontSize: 16, fontWeight: '900', marginBottom: 3 },
   recipientHandle: { color: '#93c5fd', fontSize: 13, fontWeight: '700' },
+
   receiptIcon: { width: 82, height: 82, borderRadius: 41, backgroundColor: '#16a34a', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
   receiptIconText: { color: 'white', fontSize: 42, fontWeight: '900' },
   receiptTitle: { color: 'white', fontSize: 24, fontWeight: '900', textAlign: 'center', marginBottom: 20 },
@@ -1688,24 +1922,30 @@ const styles = {
   receiptBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
   receiptSmallLabel: { color: '#94a3b8', fontSize: 11, marginBottom: 5 },
   receiptId: { color: '#93c5fd', fontSize: 12, fontWeight: '800' },
+
   verifiedProfileBox: { backgroundColor: '#052e16', borderColor: '#22c55e', borderWidth: 1, borderRadius: 14, padding: 13, marginBottom: 12 },
   verifiedProfileText: { color: '#22c55e', textAlign: 'center', fontWeight: '900', fontSize: 14 },
+
   virtualCard: { backgroundColor: '#1e3a8a', borderRadius: 22, padding: 22, marginBottom: 18, minHeight: 190, justifyContent: 'space-between' },
   cardBrand: { color: '#bfdbfe', fontSize: 13, fontWeight: '900', letterSpacing: 2 },
   cardNumber: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 34, letterSpacing: 2 },
   cardName: { color: '#e0f2fe', fontSize: 14, fontWeight: '800', marginTop: 24 },
   cardStatus: { color: '#93c5fd', fontSize: 12, fontWeight: '700', marginTop: 8 },
+
   input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 14, marginBottom: 12, fontSize: 15 },
   button: { backgroundColor: '#2563eb', padding: 13, borderRadius: 14, marginBottom: 11 },
   buttonText: { color: 'white', textAlign: 'center', fontWeight: '800', fontSize: 15 },
+
   menu: { height: 78, backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: '#1e293b' },
   menuItem: { alignItems: 'center', justifyContent: 'center', flex: 1 },
   menuIcon: { color: '#e2e8f0', fontSize: 18 },
   menuLabel: { color: '#94a3b8', fontSize: 9, marginTop: 2, fontWeight: '700' },
+
   item: { backgroundColor: '#111827', borderRadius: 14, padding: 12, marginBottom: 10 },
   itemText: { color: '#f8fafc', marginBottom: 6, fontSize: 13 },
   creditText: { color: '#22c55e', fontWeight: '900', fontSize: 14 },
   debitText: { color: '#f87171', fontWeight: '900', fontSize: 14 },
+
   pixBox: { backgroundColor: '#020617', padding: 14, borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: '#1e293b' },
   copyText: { color: '#cbd5e1', fontSize: 11, lineHeight: 16 },
   qrBox: { backgroundColor: 'white', padding: 16, borderRadius: 18, alignSelf: 'center', marginBottom: 16 },
