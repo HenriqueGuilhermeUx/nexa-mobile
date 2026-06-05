@@ -83,6 +83,12 @@ export default function App() {
   const [newUsername, setNewUsername] = useState('');
   const [valorUsdc, setValorUsdc] = useState('');
   const [wallet, setWallet] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [usdcDepositAddress, setUsdcDepositAddress] = useState('');
+  const [usdcDepositQrUrl, setUsdcDepositQrUrl] = useState('');
+  const [spendingLimit, setSpendingLimit] = useState(null);
+  const [sendPermission, setSendPermission] = useState(null);
 
   const [depositValue, setDepositValue] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
@@ -113,6 +119,7 @@ export default function App() {
         buscarPerfilAtualizado();
         carregarCotacao();
         carregarRewards();
+        carregarSegurancaWallet();
       }
     },
     [user && user.id],
@@ -875,31 +882,157 @@ function isKycApproved() {
       show(data);
 
       if (data.success) {
-        const receipt = {
-          type: 'internal_transfer',
-          status: 'completed',
-          transferId: data.transferId || 'internal_' + Date.now(),
-          amountUsdc: data.amountUsdc || amountToSend,
-          destinationName: recipientUser.fullName,
-          destinationHandle: data.handle || recipientUser.handle,
-          destinationUsername: data.toUsername || recipientUser.username,
-          fromHandle: getUsername(),
-          date: getNowLabel(),
-          message: data.message || 'Transferência interna concluída',
-        };
+  const receipt = {
+    type: 'internal_transfer',
+    status: 'completed',
+    transferId: data.transferId || 'internal_' + Date.now(),
+    amountUsdc: data.amountUsdc || amountToSend,
+    destinationName: recipientUser.fullName,
+    destinationHandle: data.handle || recipientUser.handle,
+    destinationUsername: data.toUsername || recipientUser.username,
+    fromHandle: getUsername(),
+    date: getNowLabel(),
+    message: data.message || 'Transferência interna concluída',
+  };
 
-        setLastReceipt(receipt);
-        setUsername('');
-        setRecipientUser(null);
-        setRecipientChecked(false);
-        setValorUsdc('');
-        carregarDados();
-        setPage('receipt');
-      }
+  setLastReceipt(receipt);
+  setUsername('');
+  setRecipientUser(null);
+  setRecipientChecked(false);
+  setValorUsdc('');
+  carregarDados();
+  setPage('receipt');
+}
     } catch (e) {
       show('Erro envio: ' + e.message);
     }
   }
+
+  async function carregarSegurancaWallet() {
+  if (!user || !user.id) return;
+
+  try {
+    const limitResponse = await fetch(API + '/wallet/spending-limit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id }),
+    });
+
+    const limitData = await limitResponse.json();
+
+    if (limitData.success) {
+      setSpendingLimit(limitData);
+    }
+
+    const permissionResponse = await fetch(
+      API + '/wallet/usdc-send-permission?userId=' + user.id,
+    );
+
+    const permissionData = await permissionResponse.json();
+
+    if (permissionData.success) {
+      setSendPermission(permissionData);
+    }
+  } catch (e) {
+    show('Erro segurança wallet: ' + e.message);
+  }
+}
+
+async function solicitarHabilitacaoEnvioExterno() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/wallet/request-usdc-send-enable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        note: 'Solicitação feita pelo app Nexa',
+      }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      carregarSegurancaWallet();
+    }
+  } catch (e) {
+    show('Erro ao solicitar habilitação: ' + e.message);
+  }
+}
+
+async function criarDepositoUsdcExterno() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/usdc-deposit/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        amountExpected: 0,
+      }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      setUsdcDepositAddress(data.treasuryAddress || data.qrCodeValue || '');
+      setUsdcDepositQrUrl(data.qrCodeImageUrl || '');
+    }
+  } catch (e) {
+    show('Erro depósito USDC: ' + e.message);
+  }
+}
+
+async function solicitarOtpEnvioWallet() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  const amount = parseAmount(valorUsdc);
+
+  if (!wallet) {
+    show('Informe a carteira 0x de destino');
+    return;
+  }
+
+  if (!amount || amount <= 0) {
+    show('Informe um valor USDC válido');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/wallet/send-usdc/request-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        toAddress: wallet,
+        amountUsdc: amount,
+      }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      setOtpRequested(true);
+      show('Código enviado para seu e-mail. Digite o OTP para concluir.');
+    }
+  } catch (e) {
+    show('Erro OTP: ' + e.message);
+  }
+}
 
   async function enviarWallet() {
     if (getKycStatus() !== 'approved') {
@@ -928,6 +1061,7 @@ function isKycApproved() {
           userId: user.id,
           toAddress: wallet,
           amountUsdc: amount,
+          otpCode,
           note: 'envio externo app',
         }),
       });
@@ -936,10 +1070,26 @@ function isKycApproved() {
 
       show(data);
 
-      if (data.success) {
+            if (data.success) {
+        const receipt = {
+          type: 'external_wallet',
+          status: 'completed',
+          transferId: data.transferId,
+          amountUsdc: data.amountUsdc || amount,
+          destinationName: 'Carteira externa',
+          destinationHandle: data.toAddress || wallet,
+          fromHandle: getUsername(),
+          date: getNowLabel(),
+          message: data.message || 'Envio externo concluído',
+        };
+
+        setLastReceipt(receipt);
         setWallet('');
         setValorUsdc('');
+        setOtpCode('');
+        setOtpRequested(false);
         carregarDados();
+        setPage('receipt');
       }
     } catch (e) {
       show('Erro wallet: ' + e.message);
@@ -1003,6 +1153,76 @@ async function redefinirSenha() {
   } catch (e) {
     show('Erro reset senha: ' + e.message);
   }
+}
+
+function formatMoney(value) {
+  const number = Number(value || 0);
+
+  return number.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function getTransactionTitle(item) {
+  const description = String(item.description || '').toLowerCase();
+
+  if (description.includes('pix') && item.direction === 'credit') {
+    return 'Depósito Pix';
+  }
+
+  if (description.includes('pix') && item.direction === 'debit') {
+    return 'Saque Pix';
+  }
+
+  if (description.includes('conversão') && item.asset === 'BRL') {
+    return 'Compra de USDC';
+  }
+
+  if (description.includes('conversão') && item.asset === 'USDC') {
+    return 'USDC recebido';
+  }
+
+  if (description.includes('transferência') && item.direction === 'debit') {
+    return 'USDC enviado';
+  }
+
+  if (description.includes('transferência') && item.direction === 'credit') {
+    return 'USDC recebido';
+  }
+
+  if (item.asset === 'USDC' && item.direction === 'credit') {
+    return 'Entrada USDC';
+  }
+
+  if (item.asset === 'USDC' && item.direction === 'debit') {
+    return 'Saída USDC';
+  }
+
+  return item.description || 'Movimentação';
+}
+
+function getTransactionSubtitle(item) {
+  const asset = item.asset || '';
+  const direction = item.direction === 'credit' ? 'Entrada' : 'Saída';
+
+  return `${direction} · ${asset}`;
+}
+
+function getTransactionAmountText(item) {
+  const sign = item.direction === 'credit' ? '+' : '-';
+
+  if (item.asset === 'BRL') {
+    return `${sign} R$ ${formatMoney(item.amount)}`;
+  }
+
+  return `${sign} ${Number(item.amount || 0).toFixed(8)} ${item.asset}`;
+}
+
+function getTransactionAmountStyle(item) {
+  return item.direction === 'credit'
+    ? styles.transactionAmountCredit
+    : styles.transactionAmountDebit;
 }
 
   if (!user) {
@@ -1456,20 +1676,47 @@ async function redefinirSenha() {
             <Card>
   <Text style={styles.title}>Receber USDC</Text>
 
-  <View style={styles.item}>
-    <Text style={styles.itemText}>✅ Receber de usuário Nexa</Text>
-    <Text style={styles.rateText}>
-      Use seu @username para receber USDC instantaneamente dentro da Nexa.
-    </Text>
-    <Text style={styles.walletAddressText}>{getUsername()}</Text>
-  </View>
+  <TouchableOpacity
+  style={styles.item}
+  onPress={function () {
+    setPage('receive');
+  }}
+>
+  <Text style={styles.itemText}>
+    ✅ Receber de usuário Nexa
+  </Text>
 
-  <View style={styles.item}>
-    <Text style={styles.itemText}>⏳ Receber USDC externo</Text>
-    <Text style={styles.rateText}>
-      Depósito externo via blockchain Polygon ficará disponível em breve.
-    </Text>
-  </View>
+  <Text style={styles.rateText}>
+    Use seu @username para receber USDC instantaneamente dentro da Nexa.
+  </Text>
+
+  <Text style={styles.walletAddressText}>
+    {getUsername()}
+  </Text>
+
+  <Text
+    style={{
+      color: '#60a5fa',
+      marginTop: 8,
+      fontWeight: '800',
+    }}
+  >
+    Toque para compartilhar →
+  </Text>
+</TouchableOpacity>
+
+  <TouchableOpacity
+  style={styles.item}
+  onPress={function () {
+    setPage('receive');
+    criarDepositoUsdcExterno();
+  }}
+>
+  <Text style={styles.itemText}>🌐 Receber USDC externo</Text>
+  <Text style={styles.rateText}>
+    Receba USDC pela rede Polygon usando a carteira Treasury da Nexa.
+  </Text>
+</TouchableOpacity>
 
   <View style={styles.item}>
     <Text style={styles.itemText}>📤 Enviar USDC externo</Text>
@@ -1489,6 +1736,72 @@ async function redefinirSenha() {
             </Card>
           </>
         )}
+       
+       {page === 'receive' && (
+  <Card>
+    <Text style={styles.title}>
+      Receber USDC
+    </Text>
+
+    <View style={styles.avatarLarge}>
+      <Text style={styles.avatarLargeText}>
+        {getInitial()}
+      </Text>
+    </View>
+
+    <View style={styles.receiveBox}>
+      <Text style={styles.receiveLabel}>
+        Seu usuário Nexa
+      </Text>
+
+      <Text style={styles.receiveHandle}>
+        {getUsername()}
+      </Text>
+    </View>
+
+    <Text
+      style={{
+        color: '#94a3b8',
+        textAlign: 'center',
+        marginBottom: 16,
+      }}
+    >
+      Compartilhe seu @username para receber
+      USDC instantaneamente de outros usuários
+      Nexa.
+    </Text>
+
+    <View style={styles.pixBox}>
+  <Text style={styles.itemText}>Receber USDC externo</Text>
+  <Text style={styles.rateText}>
+    Envie somente USDC na rede Polygon. Taxa de recebimento: 1%.
+  </Text>
+
+  {usdcDepositAddress ? (
+    <>
+      <View style={styles.qrBox}>
+        <QRCode value={usdcDepositAddress} size={180} />
+      </View>
+
+      <Text style={styles.itemText}>Endereço:</Text>
+      <Text style={styles.copyText}>{usdcDepositAddress}</Text>
+    </>
+  ) : (
+    <Button
+      title="Gerar endereço USDC"
+      onPress={criarDepositoUsdcExterno}
+    />
+  )}
+</View>
+
+    <Button
+      title="Voltar para carteira"
+      onPress={function () {
+        setPage('wallet');
+      }}
+    />
+  </Card>
+)} 
 
         {page === 'deposit' && (
           <Card>
@@ -1602,10 +1915,50 @@ async function redefinirSenha() {
             />
 
             <Button title="Enviar para @username" onPress={enviarUsername} />
+<Input placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
 
-            <Input placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
+<Text style={styles.rateText}>
+  Envio externo cobra 1% e exige OTP por e-mail.
+</Text>
 
-            <Button title="Enviar para carteira" onPress={enviarWallet} />
+{sendPermission && !sendPermission.enabled ? (
+  <View style={styles.item}>
+    <Text style={styles.itemText}>🔒 Envio externo não habilitado</Text>
+    <Text style={styles.rateText}>
+      É necessário saldo mínimo de 100 USDC e aprovação administrativa.
+    </Text>
+
+    <Button
+      title="Solicitar habilitação"
+      onPress={solicitarHabilitacaoEnvioExterno}
+    />
+  </View>
+) : null}
+
+{spendingLimit ? (
+  <View style={styles.item}>
+    <Text style={styles.itemText}>🛡️ Limite diário</Text>
+    <Text style={styles.rateText}>
+      Limite: {Number(spendingLimit.limit?.dailyUsdcLimit || 100)} USDC/dia
+    </Text>
+    <Text style={styles.rateText}>
+      Usado hoje: {Number(spendingLimit.usage?.sentToday || 0)} USDC
+    </Text>
+  </View>
+) : null}
+
+<Button title="Receber código OTP" onPress={solicitarOtpEnvioWallet} />
+
+{otpRequested ? (
+  <Input
+    placeholder="Código OTP recebido por e-mail"
+    value={otpCode}
+    onChangeText={setOtpCode}
+    keyboardType="numeric"
+  />
+) : null}
+
+<Button title="Enviar para carteira" onPress={enviarWallet} />
           </Card>
         )}
 
@@ -1787,63 +2140,40 @@ async function redefinirSenha() {
             )}
 
             {extrato.map(function (item) {
-              const isCredit = item.direction === 'credit';
+  return (
+    <View key={item.id} style={styles.transactionCard}>
+      <View style={styles.transactionIconBox}>
+        <Text style={styles.transactionIcon}>
+          {getIcon(item)}
+        </Text>
+      </View>
 
-              return (
-                <View
-                  key={item.id}
-                  style={{
-                    backgroundColor: '#111827',
-                    borderRadius: 18,
-                    padding: 15,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: '#1e293b',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: 'white',
-                      fontWeight: '900',
-                      fontSize: 15,
-                      marginBottom: 4,
-                    }}
-                  >
-                    {getIcon(item)} {item.description}
-                  </Text>
+      <View style={styles.transactionMiddle}>
+        <Text style={styles.transactionTitle}>
+          {getTransactionTitle(item)}
+        </Text>
 
-                  <Text
-                    style={{
-                      color: '#94a3b8',
-                      fontSize: 12,
-                      marginBottom: 10,
-                    }}
-                  >
-                    {item.asset}
-                  </Text>
+        <Text style={styles.transactionSubtitle}>
+          {getTransactionSubtitle(item)}
+        </Text>
 
-                  <Text
-                    style={{
-                      color: isCredit ? '#22c55e' : '#ef4444',
-                      fontWeight: '900',
-                      fontSize: 16,
-                    }}
-                  >
-                    {isCredit ? '+' : '-'} {item.amount} {item.asset}
-                  </Text>
+        <Text style={styles.transactionDescription}>
+          {item.description}
+        </Text>
+      </View>
 
-                  <Text
-                    style={{
-                      color: '#64748b',
-                      fontSize: 11,
-                      marginTop: 6,
-                    }}
-                  >
-                    Concluído
-                  </Text>
-                </View>
-              );
-            })}
+      <View style={styles.transactionRight}>
+        <Text style={getTransactionAmountStyle(item)}>
+          {getTransactionAmountText(item)}
+        </Text>
+
+        <Text style={styles.transactionStatus}>
+          Concluído
+        </Text>
+      </View>
+    </View>
+  );
+})}
           </Card>
         )}
       </ScrollView>
@@ -1968,5 +2298,101 @@ const styles = {
 
   pixBox: { backgroundColor: '#020617', padding: 14, borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: '#1e293b' },
   copyText: { color: '#cbd5e1', fontSize: 11, lineHeight: 16 },
-  qrBox: { backgroundColor: 'white', padding: 16, borderRadius: 18, alignSelf: 'center', marginBottom: 16 },
+qrBox: { backgroundColor: 'white', padding: 16, borderRadius: 18, alignSelf: 'center', marginBottom: 16 },
+
+transactionCard: {
+  backgroundColor: '#111827',
+  borderRadius: 18,
+  padding: 14,
+  marginBottom: 12,
+  borderWidth: 1,
+  borderColor: '#1e293b',
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+
+transactionIconBox: {
+  width: 42,
+  height: 42,
+  borderRadius: 21,
+  backgroundColor: '#020617',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginRight: 12,
+},
+
+transactionIcon: {
+  fontSize: 20,
+},
+
+transactionMiddle: {
+  flex: 1,
+  paddingRight: 8,
+},
+
+transactionTitle: {
+  color: 'white',
+  fontWeight: '900',
+  fontSize: 14,
+  marginBottom: 3,
+},
+
+transactionSubtitle: {
+  color: '#93c5fd',
+  fontWeight: '700',
+  fontSize: 11,
+  marginBottom: 3,
+},
+
+transactionDescription: {
+  color: '#64748b',
+  fontSize: 10,
+},
+
+transactionRight: {
+  alignItems: 'flex-end',
+  maxWidth: 110,
+},
+
+transactionAmountCredit: {
+  color: '#22c55e',
+  fontWeight: '900',
+  fontSize: 13,
+  textAlign: 'right',
+},
+
+transactionAmountDebit: {
+  color: '#f87171',
+  fontWeight: '900',
+  fontSize: 13,
+  textAlign: 'right',
+},
+
+transactionStatus: {
+  color: '#64748b',
+  fontSize: 10,
+  marginTop: 4,
+},
+
+receiveBox: {
+  backgroundColor: '#020617',
+  borderRadius: 18,
+  padding: 18,
+  marginBottom: 14,
+  borderWidth: 1,
+  borderColor: '#1e40af',
+  alignItems: 'center',
+},
+
+receiveLabel: {
+  color: '#94a3b8',
+  fontSize: 12,
+  marginBottom: 6,
+},
+
+receiveHandle: {
+  color: '#60a5fa',
+  fontSize: 28,
+  fontWeight: '900',
+},
 };
