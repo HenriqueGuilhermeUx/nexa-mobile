@@ -89,6 +89,9 @@ export default function App() {
   const [usdcDepositQrUrl, setUsdcDepositQrUrl] = useState('');
   const [spendingLimit, setSpendingLimit] = useState(null);
   const [sendPermission, setSendPermission] = useState(null);
+  const [newDailyLimit, setNewDailyLimit] = useState('');
+  const [limitOtpCode, setLimitOtpCode] = useState('');
+  const [limitOtpRequested, setLimitOtpRequested] = useState(false);
 
   const [depositValue, setDepositValue] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
@@ -1000,9 +1003,15 @@ async function solicitarOtpEnvioWallet() {
   }
 
   const amount = parseAmount(valorUsdc);
+  const cleanWallet = String(wallet || '').trim();
 
-  if (!wallet) {
+  if (!cleanWallet) {
     show('Informe a carteira 0x de destino');
+    return;
+  }
+
+  if (!cleanWallet.startsWith('0x') || cleanWallet.length !== 42) {
+    show('Carteira inválida. O endereço precisa começar com 0x e ter 42 caracteres.');
     return;
   }
 
@@ -1012,13 +1021,56 @@ async function solicitarOtpEnvioWallet() {
   }
 
   try {
+    show('Solicitando código OTP...');
+
+    const payload = {
+      userId: user.id,
+      toAddress: cleanWallet,
+      amountUsdc: amount,
+    };
+
     const r = await fetch(API + '/wallet/send-usdc/request-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await r.json();
+
+    show({
+      status: r.status,
+      sentPayload: payload,
+      response: data,
+    });
+
+    if (r.ok && data.success) {
+      setWallet(cleanWallet);
+      setOtpRequested(true);
+    }
+  } catch (e) {
+    show('Erro OTP app: ' + e.message);
+  }
+}
+async function solicitarOtpLimiteDiario() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  const newLimit = parseAmount(newDailyLimit);
+
+  if (!newLimit || newLimit <= 0) {
+    show('Informe um novo limite diário válido');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/wallet/spending-limit/request-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId: user.id,
-        toAddress: wallet,
-        amountUsdc: amount,
+        newDailyUsdcLimit: newLimit,
       }),
     });
 
@@ -1026,14 +1078,55 @@ async function solicitarOtpEnvioWallet() {
     show(data);
 
     if (data.success) {
-      setOtpRequested(true);
-      show('Código enviado para seu e-mail. Digite o OTP para concluir.');
+      setLimitOtpRequested(true);
     }
   } catch (e) {
-    show('Erro OTP: ' + e.message);
+    show('Erro OTP limite: ' + e.message);
   }
 }
 
+async function confirmarNovoLimiteDiario() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  const newLimit = parseAmount(newDailyLimit);
+
+  if (!newLimit || newLimit <= 0) {
+    show('Informe um novo limite diário válido');
+    return;
+  }
+
+  if (!limitOtpCode) {
+    show('Digite o código OTP recebido por e-mail');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/wallet/spending-limit/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        newDailyUsdcLimit: newLimit,
+        otpCode: limitOtpCode,
+      }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      setNewDailyLimit('');
+      setLimitOtpCode('');
+      setLimitOtpRequested(false);
+      carregarSegurancaWallet();
+    }
+  } catch (e) {
+    show('Erro confirmar limite: ' + e.message);
+  }
+}
   async function enviarWallet() {
     if (getKycStatus() !== 'approved') {
       show('Conclua sua verificação de identidade antes de enviar USDC');
@@ -1947,7 +2040,43 @@ function getTransactionAmountStyle(item) {
   </View>
 ) : null}
 
-<Button title="Receber código OTP" onPress={solicitarOtpEnvioWallet} />
+<View style={styles.item}>
+  <Text style={styles.itemText}>🛡️ Segurança da carteira</Text>
+
+  <Text style={styles.rateText}>
+    Limite atual: {Number(spendingLimit?.limit?.dailyUsdcLimit || 100)} USDC/dia
+  </Text>
+
+  <Input
+    placeholder="Novo limite diário em USDC"
+    keyboardType="numeric"
+    value={newDailyLimit}
+    onChangeText={setNewDailyLimit}
+  />
+
+  <Button
+    title="Receber OTP para alterar limite"
+    onPress={solicitarOtpLimiteDiario}
+  />
+
+  {limitOtpRequested ? (
+    <>
+      <Input
+        placeholder="Código OTP do limite"
+        keyboardType="numeric"
+        value={limitOtpCode}
+        onChangeText={setLimitOtpCode}
+      />
+
+      <Button
+        title="Confirmar novo limite"
+        onPress={confirmarNovoLimiteDiario}
+      />
+    </>
+  ) : null}
+</View>
+
+<Button title="Receber OTP para enviar USDC" onPress={solicitarOtpEnvioWallet} />
 
 {otpRequested ? (
   <Input
