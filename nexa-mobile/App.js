@@ -87,6 +87,8 @@ export default function App() {
   const [otpRequested, setOtpRequested] = useState(false);
   const [usdcDepositAddress, setUsdcDepositAddress] = useState('');
   const [usdcDepositQrUrl, setUsdcDepositQrUrl] = useState('');
+  const [usdcDepositId, setUsdcDepositId] = useState('');
+  const [usdcTxHash, setUsdcTxHash] = useState('');
   const [spendingLimit, setSpendingLimit] = useState(null);
   const [sendPermission, setSendPermission] = useState(null);
   const [newDailyLimit, setNewDailyLimit] = useState('');
@@ -975,6 +977,8 @@ async function criarDepositoUsdcExterno() {
   }
 
   try {
+    show('Gerando endereço para receber USDC...');
+
     const r = await fetch(API + '/usdc-deposit/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -988,8 +992,14 @@ async function criarDepositoUsdcExterno() {
     show(data);
 
     if (data.success) {
-      setUsdcDepositAddress(data.treasuryAddress || data.qrCodeValue || '');
+      setUsdcDepositId(data.depositId || '');
+      setUsdcDepositAddress(
+        data.treasuryAddress ||
+          data.qrCodeValue ||
+          '',
+      );
       setUsdcDepositQrUrl(data.qrCodeImageUrl || '');
+      setUsdcTxHash('');
     }
   } catch (e) {
     show('Erro depósito USDC: ' + e.message);
@@ -1871,15 +1881,33 @@ function getTransactionAmountStyle(item) {
   </Text>
 
   {usdcDepositAddress ? (
-    <>
-      <View style={styles.qrBox}>
-        <QRCode value={usdcDepositAddress} size={180} />
-      </View>
+  <>
+    <View style={styles.qrBox}>
+      <QRCode value={usdcDepositAddress} size={180} />
+    </View>
 
-      <Text style={styles.itemText}>Endereço:</Text>
-      <Text style={styles.copyText}>{usdcDepositAddress}</Text>
-    </>
-  ) : (
+    <Text style={styles.itemText}>Endereço:</Text>
+    <Text style={styles.copyText}>{usdcDepositAddress}</Text>
+
+    {usdcDepositId ? (
+      <>
+        <Text style={styles.itemText}>Deposit ID:</Text>
+        <Text style={styles.copyText}>{usdcDepositId}</Text>
+
+        <Input
+          placeholder="Cole aqui o txHash Polygon"
+          value={usdcTxHash}
+          onChangeText={setUsdcTxHash}
+        />
+
+        <Button
+          title="Confirmar recebimento USDC"
+          onPress={confirmarDepositoUsdcExterno}
+        />
+      </>
+    ) : null}
+  </>
+) : (
     <Button
       title="Gerar endereço USDC"
       onPress={criarDepositoUsdcExterno}
