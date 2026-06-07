@@ -1700,82 +1700,97 @@ function getTransactionAmountStyle(item) {
           </>
         )}
 
-        {page === 'ecosystem' && (
-  <>
-    <Card>
-      <Text style={styles.title}>Ecossistema Nexa</Text>
+      {page === 'ecosystem' && (
+  <Card>
+    <Text style={styles.title}>Ecossistema Nexa</Text>
+
+    <Text style={styles.itemText}>
+      Sua vida digital sob seu controle.
+    </Text>
+
+    <Text style={styles.rateText}>
+      Acesse produtos conectados à Nexa para cuidar do seu dinheiro, documentos,
+      saúde, patrimônio e produtividade.
+    </Text>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>👤 Nexa ID Beta</Text>
       <Text style={styles.rateText}>
-        Sua vida digital sob seu controle: dinheiro, documentos, saúde, inteligência financeira e produtividade.
+        Em breve, um único acesso para todos os aplicativos Nexa.
       </Text>
+    </View>
 
-      <View style={styles.item}>
-        <Text style={styles.itemText}>👤 Nexa ID Beta</Text>
-        <Text style={styles.rateText}>
-          Em breve, um único acesso para todos os aplicativos Nexa.
-        </Text>
-      </View>
+    <TouchableOpacity
+      style={styles.item}
+      onPress={function () {
+        abrirLink('https://docwallet.netlify.app');
+      }}
+    >
+      <Text style={styles.itemText}>📄 DocWallet</Text>
+      <Text style={styles.rateText}>
+        Documentos, identidade e arquivos importantes sob seu controle.
+      </Text>
+    </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.item}
-        onPress={function () {
-          abrirLink('https://docwallet.netlify.app');
-        }}
-      >
-        <Text style={styles.itemText}>📄 DocWallet</Text>
-        <Text style={styles.rateText}>
-          Documentos e identidade sob seu controle.
-        </Text>
-      </TouchableOpacity>
+    <TouchableOpacity
+      style={styles.item}
+      onPress={function () {
+        abrirLink('https://healthwallet1.netlify.app');
+      }}
+    >
+      <Text style={styles.itemText}>🏥 HealthWallet</Text>
+      <Text style={styles.rateText}>
+        Exames, carteirinhas, medicamentos e dados de saúde organizados.
+      </Text>
+    </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.item}
-        onPress={function () {
-          abrirLink('https://healthwallet1.netlify.app');
-        }}
-      >
-        <Text style={styles.itemText}>🏥 HealthWallet</Text>
-        <Text style={styles.rateText}>
-          Exames, carteirinhas e dados de saúde organizados.
-        </Text>
-      </TouchableOpacity>
+    <TouchableOpacity
+      style={styles.item}
+      onPress={function () {
+        abrirLink('https://mydatamed.com');
+      }}
+    >
+      <Text style={styles.itemText}>👨‍⚕️ MyDataMed</Text>
+      <Text style={styles.rateText}>
+        Portal profissional para dados de saúde compartilhados pelo paciente.
+      </Text>
+    </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.item}
-        onPress={function () {
-          abrirLink('https://mydatamed.com');
-        }}
-      >
-        <Text style={styles.itemText}>👨‍⚕️ MyDataMed</Text>
-        <Text style={styles.rateText}>
-          Portal profissional para dados de saúde compartilhados pelo paciente.
-        </Text>
-      </TouchableOpacity>
+    <TouchableOpacity
+      style={styles.item}
+      onPress={function () {
+        abrirLink('https://f-insight.netlify.app');
+      }}
+    >
+      <Text style={styles.itemText}>📈 F-Insight</Text>
+      <Text style={styles.rateText}>
+        Inteligência financeira para acompanhar ativos, patrimônio e oportunidades.
+      </Text>
+    </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.item}
-        onPress={function () {
-          abrirLink('https://f-insight.netlify.app');
-        }}
-      >
-        <Text style={styles.itemText}>📈 F-Insight</Text>
-        <Text style={styles.rateText}>
-          Inteligência financeira, ativos, patrimônio e decisões melhores.
-        </Text>
-      </TouchableOpacity>
+    <TouchableOpacity
+      style={styles.item}
+      onPress={function () {
+        abrirLink('https://app.smartbots.club');
+      }}
+    >
+      <Text style={styles.itemText}>🤖 Staff</Text>
+      <Text style={styles.rateText}>
+        Assistente pessoal inteligente para rotina, organização e produtividade.
+      </Text>
+    </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.item}
-        onPress={function () {
-          abrirLink('https://app.smartbots.club');
-        }}
-      >
-        <Text style={styles.itemText}>🤖 Staff</Text>
-        <Text style={styles.rateText}>
-          Assistente pessoal inteligente exclusivo para clientes Nexa.
-        </Text>
-      </TouchableOpacity>
-    </Card>
-  </>
+    <Text style={styles.rateText}>
+      Os produtos abrem no navegador. Em breve, todos serão conectados pelo Nexa ID.
+    </Text>
+
+    <Button
+      title="Voltar para Home"
+      onPress={function () {
+        setPage('home');
+      }}
+    />
+  </Card>
 )}
 
         {page === 'kyc' && (
