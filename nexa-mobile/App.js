@@ -222,6 +222,14 @@ function isKycApproved() {
     return String(value || '').replace('@', '').trim().toLowerCase();
   }
 
+  async function abrirLink(url) {
+  try {
+    await Linking.openURL(url);
+  } catch (e) {
+    show('Não foi possível abrir o link: ' + e.message);
+  }
+}
+
   function getNowLabel() {
     return new Date().toLocaleString('pt-BR');
   }
@@ -1639,13 +1647,15 @@ function getTransactionAmountStyle(item) {
             </Card>
 
             <Card>
-              <Text style={styles.title}>Ações rápidas</Text>
-              <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
-              <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
-              <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
-              <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
-              <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
-            </Card>
+  <Text style={styles.title}>Ações rápidas</Text>
+  <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
+  <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
+  <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
+  <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
+  <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
+  <Button title="🚀 Nexa Rewards" onPress={function () { setPage('rewards'); }} />
+  <Button title="🌐 Ecossistema Nexa" onPress={function () { setPage('ecosystem'); }} />
+</Card>
 
          {!isKycApproved() ? (
             <Card>
@@ -1689,6 +1699,84 @@ function getTransactionAmountStyle(item) {
             </Card>
           </>
         )}
+
+        {page === 'ecosystem' && (
+  <>
+    <Card>
+      <Text style={styles.title}>Ecossistema Nexa</Text>
+      <Text style={styles.rateText}>
+        Sua vida digital sob seu controle: dinheiro, documentos, saúde, inteligência financeira e produtividade.
+      </Text>
+
+      <View style={styles.item}>
+        <Text style={styles.itemText}>👤 Nexa ID Beta</Text>
+        <Text style={styles.rateText}>
+          Em breve, um único acesso para todos os aplicativos Nexa.
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.item}
+        onPress={function () {
+          abrirLink('https://docwallet.netlify.app');
+        }}
+      >
+        <Text style={styles.itemText}>📄 DocWallet</Text>
+        <Text style={styles.rateText}>
+          Documentos e identidade sob seu controle.
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.item}
+        onPress={function () {
+          abrirLink('https://healthwallet1.netlify.app');
+        }}
+      >
+        <Text style={styles.itemText}>🏥 HealthWallet</Text>
+        <Text style={styles.rateText}>
+          Exames, carteirinhas e dados de saúde organizados.
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.item}
+        onPress={function () {
+          abrirLink('https://mydatamed.com');
+        }}
+      >
+        <Text style={styles.itemText}>👨‍⚕️ MyDataMed</Text>
+        <Text style={styles.rateText}>
+          Portal profissional para dados de saúde compartilhados pelo paciente.
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.item}
+        onPress={function () {
+          abrirLink('https://f-insight.netlify.app');
+        }}
+      >
+        <Text style={styles.itemText}>📈 F-Insight</Text>
+        <Text style={styles.rateText}>
+          Inteligência financeira, ativos, patrimônio e decisões melhores.
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.item}
+        onPress={function () {
+          abrirLink('https://app.smartbots.club');
+        }}
+      >
+        <Text style={styles.itemText}>🤖 Staff</Text>
+        <Text style={styles.rateText}>
+          Assistente pessoal inteligente exclusivo para clientes Nexa.
+        </Text>
+      </TouchableOpacity>
+    </Card>
+  </>
+)}
 
         {page === 'kyc' && (
           <Card>
@@ -2336,14 +2424,12 @@ function getTransactionAmountStyle(item) {
       </ScrollView>
 
       <View style={styles.menu}>
-        <MenuItem icon="🏠" label="Home" onPress={function () { setPage('home'); }} />
-        <MenuItem icon="👛" label="Carteira" onPress={function () { setPage('wallet'); }} />
-        <MenuItem icon="💳" label="Depositar" onPress={function () { setPage('deposit'); }} />
-        <MenuItem icon="🔄" label="Converter" onPress={function () { setPage('convert'); }} />
-        <MenuItem icon="📤" label="Enviar" onPress={function () { setPage('send'); }} />
-        <MenuItem icon="👤" label="Perfil" onPress={function () { setPage('profile'); }} />
-        <MenuItem icon="🚀" label="Rewards" onPress={function () { setPage('rewards'); }} />
-      </View>
+  <MenuItem icon="🏠" label="Home" onPress={function () { setPage('home'); }} />
+  <MenuItem icon="👛" label="Carteira" onPress={function () { setPage('wallet'); }} />
+  <MenuItem icon="💳" label="Pix" onPress={function () { setPage('deposit'); }} />
+  <MenuItem icon="📤" label="Enviar" onPress={function () { setPage('send'); }} />
+  <MenuItem icon="👤" label="Perfil" onPress={function () { setPage('profile'); }} /> 
+</View>
     </View>
   );
 }
