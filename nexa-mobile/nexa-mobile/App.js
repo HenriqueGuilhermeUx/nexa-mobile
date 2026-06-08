@@ -230,6 +230,38 @@ function isKycApproved() {
   }
 }
 
+async function abrirStaffPremium() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    show('Gerando acesso seguro ao Staff...');
+
+    const r = await fetch(API + '/staff/access-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        email: user.email,
+        fullName: user.fullName,
+      }),
+    });
+
+    const data = await r.json();
+
+    if (data.success && data.url) {
+      await abrirLink(data.url);
+      return;
+    }
+
+    show(data);
+  } catch (e) {
+    show('Erro ao abrir Staff: ' + e.message);
+  }
+}
+
   function getNowLabel() {
     return new Date().toLocaleString('pt-BR');
   }
@@ -1769,16 +1801,14 @@ function getTransactionAmountStyle(item) {
     </TouchableOpacity>
 
     <TouchableOpacity
-      style={styles.item}
-      onPress={function () {
-        abrirLink('https://app.smartbots.club');
-      }}
-    >
-      <Text style={styles.itemText}>🤖 Staff</Text>
-      <Text style={styles.rateText}>
-        Assistente pessoal inteligente para rotina, organização e produtividade.
-      </Text>
-    </TouchableOpacity>
+  style={styles.item}
+  onPress={abrirStaffPremium}
+>
+  <Text style={styles.itemText}>🤖 Staff Premium</Text>
+  <Text style={styles.rateText}>
+    Assistente pessoal inteligente incluído para clientes Nexa.
+  </Text>
+</TouchableOpacity>
 
     <Text style={styles.rateText}>
       Os produtos abrem no navegador. Em breve, todos serão conectados pelo Nexa ID.
