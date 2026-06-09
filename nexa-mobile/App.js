@@ -247,6 +247,42 @@ function isKycApproved() {
   }
 }
 
+async function abrirMyDataMedComNexaId() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    show('Gerando acesso seguro ao MyDataMed...');
+
+    const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
+
+    if (!savedToken) {
+      show('Sessão expirada. Faça login novamente.');
+      return;
+    }
+
+    const r = await fetch(API + '/nexa-id/access-token-secure', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + savedToken,
+      },
+    });
+
+    const data = await r.json();
+
+    if (data.success && data.token) {
+      await abrirLink('https://mydatamed.com/login?nexaToken=' + data.token);
+      return;
+    }
+
+    show(data);
+  } catch (e) {
+    show('Erro ao abrir MyDataMed: ' + e.message);
+  }
+}
+
 async function abrirStaffPremium() {
   if (!user || !user.id) {
     show('Faça login primeiro');
@@ -1797,9 +1833,7 @@ function getTransactionAmountStyle(item) {
 
     <TouchableOpacity
       style={styles.item}
-      onPress={function () {
-        abrirLink('https://mydatamed.com');
-      }}
+      onPress={abrirMyDataMedComNexaId}
     >
       <Text style={styles.itemText}>👨‍⚕️ MyDataMed</Text>
       <Text style={styles.rateText}>
