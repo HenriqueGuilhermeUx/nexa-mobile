@@ -160,6 +160,11 @@ export default function App() {
     return '@' + String(user.email || user.id).split('@')[0];
   }
 
+  function getNexaId() {
+  if (!user || !user.nexaId) return 'NEXA-ID em criação';
+  return user.nexaId;
+}
+
   function getKycStatus() {
     if (!user || !user.kycStatus) return 'pending';
     return String(user.kycStatus).toLowerCase();
@@ -1597,6 +1602,7 @@ function getTransactionAmountStyle(item) {
                   </Text>
 
                   <Text style={styles.usernameText}>{getUsername()}</Text>
+                  <Text style={styles.nexaIdText}>{getNexaId()}</Text>
                   {isKycApproved() ? (
                     <Text style={styles.verifiedBadge}>✅ Verificado</Text>
                   ) : null}
@@ -2332,6 +2338,7 @@ function getTransactionAmountStyle(item) {
             <Text style={styles.title}>Perfil</Text>
             <Text style={styles.itemText}>Nome: {user.fullName}</Text>
             <Text style={styles.itemText}>Username atual: {getUsername()}</Text>
+            <Text style={styles.itemText}>Nexa ID: {getNexaId()}</Text>
             <Text style={styles.itemText}>E-mail: {user.email}</Text>
             <Text style={styles.itemText}>CPF: {user.cpf}</Text>
             <Text style={styles.itemText}>KYC: {getKycStatusLabel()}</Text>
@@ -2683,4 +2690,12 @@ receiveHandle: {
   fontSize: 28,
   fontWeight: '900',
 },
+
+nexaIdText: {
+  color: '#c4b5fd',
+  fontSize: 12,
+  fontWeight: '900',
+  marginTop: 3,
+},
+
 };
