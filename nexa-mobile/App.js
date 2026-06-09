@@ -165,6 +165,18 @@ export default function App() {
   return user.nexaId;
 }
 
+function getNexaPassportQrValue() {
+  return JSON.stringify({
+    type: 'NEXA_PASSPORT',
+    nexaId: getNexaId(),
+    username: getUsername(),
+    name: user?.fullName || '',
+    wallet: getWalletAddress(),
+    network: getWalletNetwork(),
+    kyc: getKycStatus(),
+  });
+}
+
   function getKycStatus() {
     if (!user || !user.kycStatus) return 'pending';
     return String(user.kycStatus).toLowerCase();
@@ -1686,6 +1698,7 @@ function getTransactionAmountStyle(item) {
 
             <Card>
   <Text style={styles.title}>Ações rápidas</Text>
+  <Button title="👤 Meu Nexa ID" onPress={function () { setPage('nexaId'); }} />
   <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
   <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
   <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
@@ -2329,6 +2342,60 @@ function getTransactionAmountStyle(item) {
           </Card>
         )}
 
+        {page === 'nexaId' && (
+  <Card>
+    <Text style={styles.passportTopLabel}>NEXA PASSPORT</Text>
+
+    <View style={styles.passportCard}>
+      <View style={styles.passportHeader}>
+        <View style={styles.avatarLarge}>
+          <Text style={styles.avatarLargeText}>{getInitial()}</Text>
+        </View>
+
+        <Text style={styles.passportName} numberOfLines={1}>
+          {user.fullName}
+        </Text>
+
+        <Text style={styles.passportHandle}>
+          {getUsername()}
+        </Text>
+
+        <Text style={styles.passportNexaId}>
+          {getNexaId()}
+        </Text>
+      </View>
+
+      <View style={styles.passportQrBox}>
+        <QRCode value={getNexaPassportQrValue()} size={190} />
+      </View>
+
+      <View style={styles.passportInfoBox}>
+        <Text style={styles.passportInfoLabel}>Status de identidade</Text>
+        <Text style={isKycApproved() ? styles.passportVerified : styles.passportPending}>
+          {isKycApproved() ? '✅ KYC Verificado' : '⏳ KYC ' + getKycStatusLabel()}
+        </Text>
+      </View>
+
+      <View style={styles.passportInfoBox}>
+        <Text style={styles.passportInfoLabel}>Wallet</Text>
+        <Text style={styles.passportWallet} numberOfLines={2}>
+          {getWalletAddress()}
+        </Text>
+        <Text style={styles.passportNetwork}>
+          Rede: {getWalletNetwork()}
+        </Text>
+      </View>
+    </View>
+
+    <Text style={styles.rateText}>
+      Este QR identifica seu Nexa ID, @username, status KYC e carteira vinculada. Em breve será usado para conectar HealthWallet, DocWallet e Staff.
+    </Text>
+
+    <Button title="Atualizar Nexa ID" onPress={buscarPerfilAtualizado} />
+    <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
+  </Card>
+)}
+
         {page === 'profile' && (
           <Card>
             <View style={styles.avatarLarge}>
@@ -2696,6 +2763,100 @@ nexaIdText: {
   fontSize: 12,
   fontWeight: '900',
   marginTop: 3,
+},
+
+passportTopLabel: {
+  color: '#c4b5fd',
+  fontSize: 12,
+  fontWeight: '900',
+  letterSpacing: 2,
+  textAlign: 'center',
+  marginBottom: 12,
+},
+
+passportCard: {
+  backgroundColor: '#111827',
+  borderRadius: 28,
+  padding: 20,
+  borderWidth: 1,
+  borderColor: '#4f46e5',
+  marginBottom: 16,
+},
+
+passportHeader: {
+  alignItems: 'center',
+  marginBottom: 18,
+},
+
+passportName: {
+  color: 'white',
+  fontSize: 20,
+  fontWeight: '900',
+  textAlign: 'center',
+  marginTop: 4,
+},
+
+passportHandle: {
+  color: '#60a5fa',
+  fontSize: 15,
+  fontWeight: '800',
+  marginTop: 4,
+},
+
+passportNexaId: {
+  color: '#c4b5fd',
+  fontSize: 22,
+  fontWeight: '900',
+  marginTop: 8,
+  letterSpacing: 1,
+},
+
+passportQrBox: {
+  backgroundColor: 'white',
+  padding: 18,
+  borderRadius: 22,
+  alignSelf: 'center',
+  marginBottom: 18,
+},
+
+passportInfoBox: {
+  backgroundColor: '#020617',
+  borderRadius: 16,
+  padding: 14,
+  marginBottom: 12,
+  borderWidth: 1,
+  borderColor: '#1e293b',
+},
+
+passportInfoLabel: {
+  color: '#94a3b8',
+  fontSize: 11,
+  marginBottom: 5,
+},
+
+passportVerified: {
+  color: '#22c55e',
+  fontSize: 14,
+  fontWeight: '900',
+},
+
+passportPending: {
+  color: '#facc15',
+  fontSize: 14,
+  fontWeight: '900',
+},
+
+passportWallet: {
+  color: '#93c5fd',
+  fontSize: 12,
+  fontWeight: '800',
+  lineHeight: 18,
+},
+
+passportNetwork: {
+  color: '#64748b',
+  fontSize: 11,
+  marginTop: 6,
 },
 
 };
