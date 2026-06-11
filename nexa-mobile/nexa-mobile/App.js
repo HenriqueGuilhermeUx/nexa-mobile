@@ -3231,10 +3231,7 @@ Converter para USDC
   onChangeText={setRedeemAmount}
 />
 
-<Button
-  title="Simular Resgate"
-  onPress={simularResgate}
-/>
+<Button title="Simular conversão para USDC" onPress={simularResgate} />
 
 {redeemQuote && (
   <Card>
@@ -3247,7 +3244,7 @@ Converter para USDC
     </Text>
 
     <Button
-      title="Confirmar Resgate"
+      title="Confirmar conversão para USDC"
       onPress={
         executarResgate
       }
