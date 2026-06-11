@@ -2885,7 +2885,7 @@ function getTransactionAmountStyle(item) {
       </Text>
 
       <Text style={styles.rateText}>
-        {user?.kycStatus || 'pending'}
+        {getKycStatusLabel()}
       </Text>
     </View>
 
@@ -2893,6 +2893,31 @@ function getTransactionAmountStyle(item) {
       <Text style={styles.itemText}>
         Aceites Jurídicos
       </Text>
+
+      <View style={styles.item}>
+  <Text style={styles.itemText}>Nível da conta</Text>
+  <Text style={styles.rateText}>
+    {isKycApproved() && compliance?.fullyAccepted
+      ? '✅ Conta validada'
+      : '⚠️ Pendente de validação'}
+  </Text>
+</View>
+
+<View style={styles.item}>
+  <Text style={styles.itemText}>Ativos digitais</Text>
+  <Text style={styles.rateText}>
+    {isKycApproved() && compliance?.fullyAccepted
+      ? '✅ Habilitados'
+      : '⚠️ Limitados'}
+  </Text>
+</View>
+
+<View style={styles.item}>
+  <Text style={styles.itemText}>Limite diário</Text>
+  <Text style={styles.rateText}>
+    {Number(spendingLimit?.limit?.dailyUsdcLimit || 100)} USDC/dia
+  </Text>
+</View>
 
       <Text style={styles.rateText}>
         {compliance?.fullyAccepted
@@ -3021,6 +3046,45 @@ function getTransactionAmountStyle(item) {
     )}
 
     <Text style={styles.title}>
+Resumo da Carteira
+</Text>
+
+<View style={styles.item}>
+  <Text style={styles.itemText}>
+    💵 USDC:
+    {' '}
+    {Number(
+      portfolio?.positions?.find(
+        p => p.asset === 'USDC',
+      )?.valueUsd || 0,
+    ).toFixed(2)}
+    {' '}USD
+  </Text>
+
+  <Text style={styles.itemText}>
+    🥇 PAX Gold:
+    {' '}
+    {Number(
+      portfolio?.positions?.find(
+        p => p.asset === 'PAXG',
+      )?.valueUsd || 0,
+    ).toFixed(2)}
+    {' '}USD
+  </Text>
+
+  <Text style={styles.itemText}>
+    💸 USDY:
+    {' '}
+    {Number(
+      portfolio?.positions?.find(
+        p => p.asset === 'USDY',
+      )?.valueUsd || 0,
+    ).toFixed(2)}
+    {' '}USD
+  </Text>
+</View>
+
+    <Text style={styles.title}>
 Atividades Recentes
 </Text>
 
@@ -3032,46 +3096,42 @@ Atividades Recentes
   assetActivities
     .slice(0, 10)
     .map(function (activity) {
-      const metadata =
-        activity.metadata || {};
-
-      const isRedeem =
-        metadata.kind ===
-        'redeem_swap';
+      const metadata = activity.metadata || {};
+      const isRedeem = metadata.kind === 'redeem_swap';
 
       return (
-        <View
-          key={activity.id}
-          style={styles.item}
-        >
-          <Text
-            style={styles.itemText}
-          >
+        <View key={activity.id} style={styles.item}>
+          <Text style={styles.itemText}>
             {isRedeem
-              ? '🔄 Resgate'
-              : '🧩 Conversão'}
+              ? '🔄 Resgate de ativo'
+              : '🧩 Conversão de ativo'}
+          </Text>
+
+          <Text style={styles.rateText}>
+            {metadata.fromAsset} → {metadata.toAsset}
           </Text>
 
           <Text
-            style={styles.rateText}
+            style={
+              activity.direction === 'credit'
+                ? styles.creditText
+                : styles.debitText
+            }
           >
-            {metadata.fromAsset} →{' '}
-            {metadata.toAsset}
+            {activity.direction === 'credit' ? '+' : '-'}{' '}
+            {Number(activity.amount || 0).toFixed(8)}{' '}
+            {activity.asset}
           </Text>
 
-          <Text
-            style={styles.rateText}
-          >
-            {new Date(
-              activity.createdAt,
-            ).toLocaleString()}
+          <Text style={styles.rateText}>
+            {new Date(activity.createdAt).toLocaleString('pt-BR')}
           </Text>
         </View>
       );
     })
 )}
 
-    <Text style={styles.title}>Converter USDC</Text>
+    <Text style={styles.title}>Alocar saldo digital</Text>
 
     <Button
       title={
@@ -3140,7 +3200,7 @@ Atividades Recentes
     ) : null}
 
     <Text style={styles.title}>
-Resgatar Ativos
+Converter para USDC
 </Text>
 
 <Button
