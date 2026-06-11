@@ -113,9 +113,18 @@ export default function App() {
   const [forgotStep, setForgotStep] = useState('email');
 
   const [portfolio, setPortfolio] = useState(null);
+  const [compliance, setCompliance] = useState(null);
   const [investmentAsset, setInvestmentAsset] = useState('PAXG');
   const [investmentAmount, setInvestmentAmount] = useState('');
   const [investmentQuote, setInvestmentQuote] = useState(null);
+  const [redeemAsset, setRedeemAsset] =
+  useState('PAXG');
+
+const [redeemAmount, setRedeemAmount] =
+  useState('');
+
+const [redeemQuote, setRedeemQuote] =
+  useState(null);
   const [assetActivities, setAssetActivities] = useState([]);
 
   useEffect(function () {
@@ -134,6 +143,7 @@ export default function App() {
 
       carregarPortfolio();
       carregarAtividadesAtivos();
+      carregarCompliance();
     }
   },
   [user && user.id],
@@ -780,6 +790,27 @@ async function carregarAtividadesAtivos() {
   }
 }
 
+async function carregarCompliance() {
+  if (!user?.id) return;
+
+  try {
+    const r = await fetch(
+      API +
+        '/legal/status?userId=' +
+        user.id,
+    );
+
+    const data = await r.json();
+
+    setCompliance(data);
+  } catch (e) {
+    show(
+      'Erro compliance: ' +
+        e.message,
+    );
+  }
+}
+
 async function carregarPortfolio() {
   if (!user || !user.id) return;
 
@@ -802,6 +833,26 @@ async function carregarPortfolio() {
     }
   } catch (e) {
     show('Erro portfolio: ' + e.message);
+  }
+}
+
+async function aceitarDocumentosLegais() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/legal/accept-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id }),
+    });
+
+    const data = await r.json();
+    show(data);
+  } catch (e) {
+    show('Erro aceite legal: ' + e.message);
   }
 }
 
@@ -875,6 +926,78 @@ async function executarInvestimento() {
 }
   } catch (e) {
     show('Erro investimento: ' + e.message);
+  }
+}
+
+async function simularResgate() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    const r = await fetch(
+      API + '/swap/redeem-quote',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          fromAsset: redeemAsset,
+          amount: Number(redeemAmount),
+        }),
+      },
+    );
+
+    const data = await r.json();
+
+    setRedeemQuote(data);
+    show(data);
+  } catch (e) {
+    show(e.message);
+  }
+}
+
+async function executarResgate() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    const r = await fetch(
+      API + '/swap/redeem-execute',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          fromAsset: redeemAsset,
+          amount: Number(redeemAmount),
+        }),
+      },
+    );
+
+    const data = await r.json();
+
+    show(data);
+
+    if (data.success) {
+      setRedeemQuote(null);
+      setRedeemAmount('');
+
+      carregarDados();
+      carregarPortfolio();
+      carregarAtividadesAtivos();
+    }
+  } catch (e) {
+    show(e.message);
   }
 }
 
@@ -1900,6 +2023,8 @@ function getTransactionAmountStyle(item) {
   <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
   <Button title="🚀 Nexa Rewards" onPress={function () { setPage('rewards'); }} />
   <Button title="🌐 Ecossistema Nexa" onPress={function () { setPage('ecosystem'); }} />
+  <Button title="⚖️ Legal e Segurança" onPress={function () { setPage('legal'); }} />
+  <Button title="🛡️ Compliance" onPress={() => setPage('compliance')} />
   <Button title="🧩 Ativos Digitais" onPress={function () { setPage('investments'); }} />
 </Card>
 
@@ -2686,6 +2811,103 @@ function getTransactionAmountStyle(item) {
           </Card>
         )}
 
+        {page === 'legal' && (
+  <Card>
+    <Text style={styles.title}>Legal e Segurança</Text>
+
+    <Text style={styles.itemText}>
+      Documentos jurídicos e políticas de uso da Nexa.
+    </Text>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>📄 Termos de Uso v1</Text>
+      <Text style={styles.rateText}>
+        Regras gerais de uso da plataforma Nexa.
+      </Text>
+    </View>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>🔐 Política de Privacidade v1</Text>
+      <Text style={styles.rateText}>
+        Tratamento de dados pessoais conforme LGPD.
+      </Text>
+    </View>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>⚠️ Riscos dos Ativos Digitais v1</Text>
+      <Text style={styles.rateText}>
+        Ativos digitais possuem volatilidade, risco tecnológico,
+        risco regulatório e risco de liquidez.
+      </Text>
+    </View>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>🛡️ Política AML/KYC v1</Text>
+      <Text style={styles.rateText}>
+        Procedimentos de identificação, prevenção a fraudes
+        e prevenção à lavagem de dinheiro.
+      </Text>
+    </View>
+
+    <Text style={styles.rateText}>
+      Ao aceitar, você confirma ciência dos documentos jurídicos,
+      das políticas de segurança e dos riscos associados ao uso
+      de ativos digitais.
+    </Text>
+
+    <Button
+      title="Aceitar documentos legais"
+      onPress={aceitarDocumentosLegais}
+    />
+
+    <Button
+      title="Voltar para Home"
+      onPress={function () {
+        setPage('home');
+      }}
+    />
+  </Card>
+)}
+
+{page === 'compliance' && (
+  <Card>
+    <Text style={styles.title}>
+      Compliance Nexa
+    </Text>
+
+    <Text style={styles.itemText}>
+      Status regulatório da conta.
+    </Text>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>
+        KYC
+      </Text>
+
+      <Text style={styles.rateText}>
+        {user?.kycStatus || 'pending'}
+      </Text>
+    </View>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>
+        Aceites Jurídicos
+      </Text>
+
+      <Text style={styles.rateText}>
+        {compliance?.fullyAccepted
+          ? '✅ Completo'
+          : '⚠️ Pendente'}
+      </Text>
+    </View>
+
+    <Button
+      title="Atualizar"
+      onPress={carregarCompliance}
+    />
+  </Card>
+)}
+
         {page === 'investments' && (
   <Card>
     <Text style={styles.title}>Ativos Digitais Nexa</Text>
@@ -2848,7 +3070,7 @@ Atividades Recentes
     />
 
     <Button
-      title={investmentAsset === 'USDY' ? '✅ USDY Renda' : 'USDY Renda'}
+      title={investmentAsset === 'USDY' ? '✅ USDY Digital Dollar' : 'USDY Digital Dollar'}
       onPress={function () {
         setInvestmentAsset('USDY');
         setInvestmentQuote(null);
@@ -2896,6 +3118,62 @@ Atividades Recentes
         )}
       </View>
     ) : null}
+
+    <Text style={styles.title}>
+Resgatar Ativos
+</Text>
+
+<Button
+  title={
+    redeemAsset === 'PAXG'
+      ? '✅ PAXG'
+      : 'PAXG'
+  }
+  onPress={() =>
+    setRedeemAsset('PAXG')
+  }
+/>
+
+<Button
+  title={
+    redeemAsset === 'USDY'
+      ? '✅ USDY'
+      : 'USDY'
+  }
+  onPress={() =>
+    setRedeemAsset('USDY')
+  }
+/>
+
+<Input
+  placeholder="Quantidade"
+  value={redeemAmount}
+  onChangeText={setRedeemAmount}
+/>
+
+<Button
+  title="Simular Resgate"
+  onPress={simularResgate}
+/>
+
+{redeemQuote && (
+  <Card>
+    <Text>
+      USDC estimado:
+    </Text>
+
+    <Text>
+      {redeemQuote.estimatedUsdc}
+    </Text>
+
+    <Button
+      title="Confirmar Resgate"
+      onPress={
+        executarResgate
+      }
+    />
+  </Card>
+)}
 
     <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
   </Card>
