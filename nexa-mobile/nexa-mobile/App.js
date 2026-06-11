@@ -2986,8 +2986,20 @@ function getTransactionAmountStyle(item) {
           return (
             <View key={position.asset} style={styles.item}>
               <Text style={styles.itemText}>
-                {position.asset === 'USDC' ? '💵' : position.asset === 'PAXG' ? '🥇' : '💸'} {position.name}
-              </Text>
+  {position.asset === 'USDC'
+    ? '💵 USD Coin'
+    : position.asset === 'PAXG'
+    ? '🥇 PAX Gold'
+    : '💸 USDY Digital Dollar'}
+</Text>
+
+<Text style={styles.rateText}>
+  {position.asset === 'USDC'
+    ? 'Dólar digital usado como saldo base da Nexa.'
+    : position.asset === 'PAXG'
+    ? 'Ouro tokenizado emitido pela Paxos.'
+    : 'Ativo digital dolarizado emitido pela Ondo Finance.'}
+</Text>
 
               <Text style={styles.rateText}>
                 Quantidade: {Number(position.amount || 0).toFixed(8)}
@@ -3062,7 +3074,11 @@ Atividades Recentes
     <Text style={styles.title}>Converter USDC</Text>
 
     <Button
-      title={investmentAsset === 'PAXG' ? '✅ PAXG Ouro' : 'PAXG Ouro'}
+      title={
+  investmentAsset === 'PAXG'
+    ? '✅ 🥇 PAX Gold'
+    : '🥇 PAX Gold'
+}
       onPress={function () {
         setInvestmentAsset('PAXG');
         setInvestmentQuote(null);
@@ -3070,7 +3086,11 @@ Atividades Recentes
     />
 
     <Button
-      title={investmentAsset === 'USDY' ? '✅ USDY Digital Dollar' : 'USDY Digital Dollar'}
+      title={
+  investmentAsset === 'USDY'
+    ? '✅ 💸 USDY Digital Dollar'
+    : '💸 USDY Digital Dollar'
+}
       onPress={function () {
         setInvestmentAsset('USDY');
         setInvestmentQuote(null);
