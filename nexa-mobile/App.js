@@ -112,6 +112,11 @@ export default function App() {
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [forgotStep, setForgotStep] = useState('email');
 
+  const [portfolio, setPortfolio] = useState(null);
+  const [investmentAsset, setInvestmentAsset] = useState('PAXG');
+  const [investmentAmount, setInvestmentAmount] = useState('');
+  const [investmentQuote, setInvestmentQuote] = useState(null);
+
   useEffect(function () {
     carregarLoginSalvo();
     carregarCotacao();
@@ -125,6 +130,7 @@ export default function App() {
         carregarCotacao();
         carregarRewards();
         carregarSegurancaWallet();
+        carregarPortfolio();
       }
     },
     [user && user.id],
@@ -726,6 +732,102 @@ async function abrirStaffPremium() {
   setLastReceipt(null);
   setPage('home');
   show('Você saiu da Nexa');
+}
+
+async function carregarPortfolio() {
+  if (!user || !user.id) return;
+
+  try {
+    const r = await fetch(
+      API + '/swap/portfolio?userId=' + user.id,
+      {
+        headers: {
+          Authorization: 'Bearer ' + token,
+        },
+      }
+    );
+
+    const data = await r.json();
+
+    if (data.success) {
+      setPortfolio(data);
+    } else {
+      show(data);
+    }
+  } catch (e) {
+    show('Erro portfolio: ' + e.message);
+  }
+}
+
+async function cotarInvestimento() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  const amount = parseAmount(investmentAmount);
+
+  if (!amount || amount <= 0) {
+    show('Informe um valor USDC válido');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/swap/investment-quote', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({
+        userId: user.id,
+        toAsset: investmentAsset,
+        amountUsdc: amount,
+      }),
+    });
+
+    const data = await r.json();
+    setInvestmentQuote(data);
+    show(data);
+  } catch (e) {
+    show('Erro cotação: ' + e.message);
+  }
+}
+
+async function executarInvestimento() {
+  if (!investmentQuote || !investmentQuote.allowed) {
+    show('Faça uma cotação válida primeiro');
+    return;
+  }
+
+  const amount = parseAmount(investmentAmount);
+
+  try {
+    const r = await fetch(API + '/swap/investment-execute', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({
+        userId: user.id,
+        toAsset: investmentAsset,
+        amountUsdc: amount,
+      }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      setInvestmentAmount('');
+      setInvestmentQuote(null);
+      carregarDados();
+      carregarPortfolio();
+    }
+  } catch (e) {
+    show('Erro investimento: ' + e.message);
+  }
 }
 
   async function carregarDados() {
@@ -1742,6 +1844,7 @@ function getTransactionAmountStyle(item) {
   <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
   <Button title="🚀 Nexa Rewards" onPress={function () { setPage('rewards'); }} />
   <Button title="🌐 Ecossistema Nexa" onPress={function () { setPage('ecosystem'); }} />
+  <Button title="🧩 Ativos Digitais" onPress={function () { setPage('investments'); }} />
 </Card>
 
          {!isKycApproved() ? (
@@ -2527,6 +2630,126 @@ function getTransactionAmountStyle(item) {
           </Card>
         )}
 
+        {page === 'investments' && (
+  <Card>
+    <Text style={styles.title}>Ativos Digitais Nexa</Text>
+
+    <Button title="Atualizar portfolio" onPress={carregarPortfolio} />
+
+    {portfolio ? (
+      <>
+        <Text style={styles.smallLabel}>
+  Composição em ativos digitais
+</Text>
+
+<Text style={styles.totalBalance}>
+  US$ {Number(portfolio.totalUsd || 0).toFixed(2)}
+</Text>
+
+<Text
+  style={{
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 8,
+    marginBottom: 16,
+    lineHeight: 18,
+  }}
+>
+  Ativos digitais não são garantia de rendimento.
+  Os preços podem variar e a disponibilidade
+  depende dos emissores e da liquidez do mercado.
+</Text>
+
+        {portfolio.positions.map(function (position) {
+          return (
+            <View key={position.asset} style={styles.item}>
+              <Text style={styles.itemText}>
+                {position.asset === 'USDC' ? '💵' : position.asset === 'PAXG' ? '🥇' : '💸'} {position.name}
+              </Text>
+
+              <Text style={styles.rateText}>
+                Quantidade: {Number(position.amount || 0).toFixed(8)}
+              </Text>
+
+              <Text style={styles.rateText}>
+                Valor: US$ {Number(position.valueUsd || 0).toFixed(2)}
+              </Text>
+
+              <Text style={styles.rateText}>
+                Alocação: {Number(position.allocationPercent || 0).toFixed(2)}%
+              </Text>
+            </View>
+          );
+        })}
+      </>
+    ) : (
+      <Text style={styles.itemText}>Portfolio ainda não carregado.</Text>
+    )}
+
+    <Text style={styles.title}>Converter USDC</Text>
+
+    <Button
+      title={investmentAsset === 'PAXG' ? '✅ PAXG Ouro' : 'PAXG Ouro'}
+      onPress={function () {
+        setInvestmentAsset('PAXG');
+        setInvestmentQuote(null);
+      }}
+    />
+
+    <Button
+      title={investmentAsset === 'USDY' ? '✅ USDY Renda' : 'USDY Renda'}
+      onPress={function () {
+        setInvestmentAsset('USDY');
+        setInvestmentQuote(null);
+      }}
+    />
+
+    <Input
+      placeholder="Valor em USDC"
+      keyboardType="numeric"
+      value={investmentAmount}
+      onChangeText={function (value) {
+        setInvestmentAmount(value);
+        setInvestmentQuote(null);
+      }}
+    />
+
+    <Button title="Simular conversão" onPress={cotarInvestimento} />
+
+    {investmentQuote ? (
+      <View style={styles.item}>
+        <Text style={styles.itemText}>
+          Cotação {investmentQuote.fromAsset} → {investmentQuote.toAsset}
+        </Text>
+
+        <Text style={styles.rateText}>
+          Você investe: {investmentQuote.amountUsdc} USDC
+        </Text>
+
+        <Text style={styles.rateText}>
+          Você recebe: {investmentQuote.estimatedToAmount} {investmentQuote.toAsset}
+        </Text>
+
+        <Text style={styles.rateText}>
+          Spread Nexa: {(Number(investmentQuote.spread || 0) * 100).toFixed(2)}%
+        </Text>
+
+        <Text style={styles.rateText}>
+          Disponível para converter: {investmentQuote.availableToConvert} USDC
+        </Text>
+
+        {investmentQuote.allowed ? (
+          <Button title="Confirmar conversão" onPress={executarInvestimento} />
+        ) : (
+          <Text style={styles.debitText}>{investmentQuote.reason}</Text>
+        )}
+      </View>
+    ) : null}
+
+    <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
+  </Card>
+)}
+
         {page === 'extrato' && (
           <Card>
             <Text style={styles.title}>Histórico Premium</Text>
@@ -2579,7 +2802,7 @@ function getTransactionAmountStyle(item) {
       <View style={styles.menu}>
   <MenuItem icon="🏠" label="Home" onPress={function () { setPage('home'); }} />
   <MenuItem icon="👛" label="Carteira" onPress={function () { setPage('wallet'); }} />
-  <MenuItem icon="💳" label="Pix" onPress={function () { setPage('deposit'); }} />
+  <MenuItem icon="🧩" label="Ativos" onPress={function () { setPage('investments'); }} />
   <MenuItem icon="📤" label="Enviar" onPress={function () { setPage('send'); }} />
   <MenuItem icon="👤" label="Perfil" onPress={function () { setPage('profile'); }} /> 
 </View>
