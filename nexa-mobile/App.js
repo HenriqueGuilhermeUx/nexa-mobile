@@ -116,6 +116,7 @@ export default function App() {
   const [investmentAsset, setInvestmentAsset] = useState('PAXG');
   const [investmentAmount, setInvestmentAmount] = useState('');
   const [investmentQuote, setInvestmentQuote] = useState(null);
+  const [assetActivities, setAssetActivities] = useState([]);
 
   useEffect(function () {
     carregarLoginSalvo();
@@ -123,18 +124,20 @@ export default function App() {
   }, []);
 
   useEffect(
-    function () {
-      if (user && user.id) {
-        carregarDados();
-        buscarPerfilAtualizado();
-        carregarCotacao();
-        carregarRewards();
-        carregarSegurancaWallet();
-        carregarPortfolio();
-      }
-    },
-    [user && user.id],
-  );
+  function () {
+    if (user && user.id) {
+      carregarDados();
+      buscarPerfilAtualizado();
+      carregarCotacao();
+      carregarRewards();
+      carregarSegurancaWallet();
+
+      carregarPortfolio();
+      carregarAtividadesAtivos();
+    }
+  },
+  [user && user.id],
+);
 
   function show(data) {
     setMsg(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
@@ -734,6 +737,49 @@ async function abrirStaffPremium() {
   show('Você saiu da Nexa');
 }
 
+async function carregarAtividadesAtivos() {
+  if (!user || !user.id) return;
+
+  try {
+    const r = await fetch(
+      API +
+        '/ledger/statement?userId=' +
+        user.id +
+        '&limit=50&mode=portfolio',
+      {
+        headers: {
+          Authorization: 'Bearer ' + token,
+        },
+      }
+    );
+
+    const data = await r.json();
+
+    if (!data.statement) {
+      return;
+    }
+
+    const filtered = data.statement.filter(
+      function (item) {
+        const metadata = item.metadata || {};
+
+        return (
+          metadata.kind ===
+            'investment_swap' ||
+          metadata.kind ===
+            'redeem_swap'
+        );
+      }
+    );
+
+    setAssetActivities(filtered);
+  } catch (e) {
+    show(
+      'Erro atividades: ' + e.message,
+    );
+  }
+}
+
 async function carregarPortfolio() {
   if (!user || !user.id) return;
 
@@ -820,11 +866,13 @@ async function executarInvestimento() {
     show(data);
 
     if (data.success) {
-      setInvestmentAmount('');
-      setInvestmentQuote(null);
-      carregarDados();
-      carregarPortfolio();
-    }
+  setInvestmentAmount('');
+  setInvestmentQuote(null);
+
+  carregarDados();
+  carregarPortfolio();
+  carregarAtividadesAtivos();
+}
   } catch (e) {
     show('Erro investimento: ' + e.message);
   }
@@ -1460,6 +1508,14 @@ function formatMoney(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function getAssetColor(asset) {
+  if (asset === 'USDC') return '#2563eb';
+  if (asset === 'PAXG') return '#facc15';
+  if (asset === 'USDY') return '#22c55e';
+
+  return '#64748b';
 }
 
 function getTransactionTitle(item) {
@@ -2636,6 +2692,8 @@ function getTransactionAmountStyle(item) {
 
     <Button title="Atualizar portfolio" onPress={carregarPortfolio} />
 
+    <Button title="Atualizar atividades" onPress={carregarAtividadesAtivos} />
+
     {portfolio ? (
       <>
         <Text style={styles.smallLabel}>
@@ -2659,6 +2717,48 @@ function getTransactionAmountStyle(item) {
   Os preços podem variar e a disponibilidade
   depende dos emissores e da liquidez do mercado.
 </Text>
+
+<View style={styles.allocationBox}>
+  <Text style={styles.allocationTitle}>
+    Distribuição dos ativos
+  </Text>
+
+  {portfolio.positions.map(function (position) {
+    const percent = Number(
+      position.allocationPercent || 0,
+    );
+
+    return (
+      <View
+        key={'bar_' + position.asset}
+        style={styles.allocationItem}
+      >
+        <View style={styles.allocationHeader}>
+          <Text style={styles.allocationAsset}>
+            {position.asset}
+          </Text>
+
+          <Text style={styles.allocationPercent}>
+            {percent.toFixed(2)}%
+          </Text>
+        </View>
+
+        <View style={styles.allocationTrack}>
+          <View
+            style={{
+              height: 10,
+              borderRadius: 999,
+              width: percent + '%',
+              backgroundColor: getAssetColor(
+                position.asset,
+              ),
+            }}
+          />
+        </View>
+      </View>
+    );
+  })}
+</View>
 
         {portfolio.positions.map(function (position) {
           return (
@@ -2685,6 +2785,57 @@ function getTransactionAmountStyle(item) {
     ) : (
       <Text style={styles.itemText}>Portfolio ainda não carregado.</Text>
     )}
+
+    <Text style={styles.title}>
+Atividades Recentes
+</Text>
+
+{assetActivities.length === 0 ? (
+  <Text style={styles.itemText}>
+    Nenhuma atividade encontrada.
+  </Text>
+) : (
+  assetActivities
+    .slice(0, 10)
+    .map(function (activity) {
+      const metadata =
+        activity.metadata || {};
+
+      const isRedeem =
+        metadata.kind ===
+        'redeem_swap';
+
+      return (
+        <View
+          key={activity.id}
+          style={styles.item}
+        >
+          <Text
+            style={styles.itemText}
+          >
+            {isRedeem
+              ? '🔄 Resgate'
+              : '🧩 Conversão'}
+          </Text>
+
+          <Text
+            style={styles.rateText}
+          >
+            {metadata.fromAsset} →{' '}
+            {metadata.toAsset}
+          </Text>
+
+          <Text
+            style={styles.rateText}
+          >
+            {new Date(
+              activity.createdAt,
+            ).toLocaleString()}
+          </Text>
+        </View>
+      );
+    })
+)}
 
     <Text style={styles.title}>Converter USDC</Text>
 
@@ -3114,6 +3265,51 @@ passportNetwork: {
   color: '#64748b',
   fontSize: 11,
   marginTop: 6,
+},
+
+allocationBox: {
+  backgroundColor: '#020617',
+  borderRadius: 18,
+  padding: 14,
+  marginBottom: 16,
+  borderWidth: 1,
+  borderColor: '#1e293b',
+},
+
+allocationTitle: {
+  color: 'white',
+  fontSize: 15,
+  fontWeight: '900',
+  marginBottom: 12,
+},
+
+allocationItem: {
+  marginBottom: 12,
+},
+
+allocationHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginBottom: 6,
+},
+
+allocationAsset: {
+  color: '#f8fafc',
+  fontSize: 12,
+  fontWeight: '900',
+},
+
+allocationPercent: {
+  color: '#93c5fd',
+  fontSize: 12,
+  fontWeight: '800',
+},
+
+allocationTrack: {
+  height: 10,
+  borderRadius: 999,
+  backgroundColor: '#111827',
+  overflow: 'hidden',
 },
 
 };
