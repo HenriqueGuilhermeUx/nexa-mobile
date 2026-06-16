@@ -117,19 +117,15 @@ export default function App() {
   const [investmentAsset, setInvestmentAsset] = useState('PAXG');
   const [investmentAmount, setInvestmentAmount] = useState('');
   const [investmentQuote, setInvestmentQuote] = useState(null);
-  const [redeemAsset, setRedeemAsset] =
-  useState('PAXG');
-
-const [redeemAmount, setRedeemAmount] =
-  useState('');
-
-const [redeemQuote, setRedeemQuote] =  useState(null);
-const [assetActivities, setAssetActivities] = useState([]);
-const [recurringPlan, setRecurringPlan] = useState(null);
-const [recurringAmountBrl, setRecurringAmountBrl] = useState('');
-const [recurringAsset, setRecurringAsset] = useState('USDC');
-const [recurringDay, setRecurringDay] = useState('5');
-const [recurringPixLink, setRecurringPixLink] = useState('');
+  const [redeemAsset, setRedeemAsset] = useState('PAXG');
+  const [redeemAmount, setRedeemAmount] = useState('');
+  const [redeemQuote, setRedeemQuote] = useState(null);
+  const [assetActivities, setAssetActivities] = useState([]);
+  const [recurringPlan, setRecurringPlan] = useState(null);
+  const [recurringAmountBrl, setRecurringAmountBrl] = useState('');
+  const [recurringAsset, setRecurringAsset] = useState('USDC');
+  const [recurringDay, setRecurringDay] = useState('5');
+  const [recurringPixLink, setRecurringPixLink] = useState('');
 
   useEffect(function () {
     carregarLoginSalvo();
@@ -137,22 +133,21 @@ const [recurringPixLink, setRecurringPixLink] = useState('');
   }, []);
 
   useEffect(
-  function () {
-    if (user && user.id) {
-      carregarDados();
-      buscarPerfilAtualizado();
-      carregarCotacao();
-      carregarRewards();
-      carregarSegurancaWallet();
-
-      carregarPortfolio();
-      carregarAtividadesAtivos();
-      carregarCompliance();
-      carregarAssinaturaRecorrente();
-    }
-  },
-  [user && user.id],
-);
+    function () {
+      if (user && user.id) {
+        carregarDados();
+        buscarPerfilAtualizado();
+        carregarCotacao();
+        carregarRewards();
+        carregarSegurancaWallet();
+        carregarPortfolio();
+        carregarAtividadesAtivos();
+        carregarCompliance();
+        carregarAssinaturaRecorrente();
+      }
+    },
+    [user && user.id],
+  );
 
   function show(data) {
     setMsg(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
@@ -160,20 +155,15 @@ const [recurringPixLink, setRecurringPixLink] = useState('');
 
   function parseAmount(value) {
     const text = String(value || '').trim();
-
     if (!text) return 0;
-
     const clean = text
       .replace(/\s/g, '')
       .replace(/R\$/gi, '')
       .replace(/USDC/gi, '')
       .replace(/\./g, '')
       .replace(',', '.');
-
     const number = Number(clean);
-
     if (!Number.isFinite(number)) return 0;
-
     return number;
   }
 
@@ -185,21 +175,21 @@ const [recurringPixLink, setRecurringPixLink] = useState('');
   }
 
   function getNexaId() {
-  if (!user || !user.nexaId) return 'NEXA-ID em criação';
-  return user.nexaId;
-}
+    if (!user || !user.nexaId) return 'NEXA-ID em criação';
+    return user.nexaId;
+  }
 
-function getNexaPassportQrValue() {
-  return JSON.stringify({
-    type: 'NEXA_PASSPORT',
-    nexaId: getNexaId(),
-    username: getUsername(),
-    name: user?.fullName || '',
-    wallet: getWalletAddress(),
-    network: getWalletNetwork(),
-    kyc: getKycStatus(),
-  });
-}
+  function getNexaPassportQrValue() {
+    return JSON.stringify({
+      type: 'NEXA_PASSPORT',
+      nexaId: getNexaId(),
+      username: getUsername(),
+      name: user?.fullName || '',
+      wallet: getWalletAddress(),
+      network: getWalletNetwork(),
+      kyc: getKycStatus(),
+    });
+  }
 
   function getKycStatus() {
     if (!user || !user.kycStatus) return 'pending';
@@ -207,31 +197,27 @@ function getNexaPassportQrValue() {
   }
 
   function getKycStatusLabel() {
-  const status = getKycStatus();
+    const status = getKycStatus();
+    if (status === 'approved') return 'Aprovado';
+    if (status === 'rejected') return 'Reprovado';
+    if (status === 'in_review') return 'Em análise';
+    return 'Pendente';
+  }
 
-  if (status === 'approved') return 'Aprovado';
-  if (status === 'rejected') return 'Reprovado';
-  if (status === 'in_review') return 'Em análise';
-
-  return 'Pendente';
-}
-
-function isKycApproved() {
-  return getKycStatus() === 'approved';
-}
+  function isKycApproved() {
+    return getKycStatus() === 'approved';
+  }
 
   function getWalletAddress() {
     if (!user) return 'Carteira ainda não vinculada';
     if (user.wallet && user.wallet.address) return user.wallet.address;
     if (user.walletAddress) return user.walletAddress;
-
     return 'Carteira ainda não vinculada';
   }
 
   function getWalletNetwork() {
     if (user && user.wallet && user.wallet.network) return user.wallet.network;
     if (user && user.walletNetwork) return user.walletNetwork;
-
     return 'polygon';
   }
 
@@ -242,20 +228,17 @@ function isKycApproved() {
 
   function getIcon(item) {
     const description = String(item.description || '').toLowerCase();
-
     if (description.includes('pix')) return '💳';
     if (description.includes('conversão')) return '🔄';
     if (description.includes('transferência')) return '📤';
     if (description.includes('carteira')) return '🌐';
     if (item.asset === 'USDC') return '💵';
-
     return '💰';
   }
 
   function getPriceSourceLabel() {
     if (priceSource === 'coingecko') return 'CoinGecko';
     if (priceSource === 'awesomeapi') return 'AwesomeAPI';
-
     return 'Cotação Nexa';
   }
 
@@ -264,80 +247,68 @@ function isKycApproved() {
   }
 
   async function abrirLink(url) {
-  try {
-    await Linking.openURL(url);
-  } catch (e) {
-    show('Não foi possível abrir o link: ' + e.message);
-  }
-}
-
-async function abrirMyDataMedComNexaId() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
+    try {
+      await Linking.openURL(url);
+    } catch (e) {
+      show('Não foi possível abrir o link: ' + e.message);
+    }
   }
 
-  try {
-    show('Gerando acesso seguro ao MyDataMed...');
-
-    const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
-
-    if (!savedToken) {
-      show('Sessão expirada. Faça login novamente.');
+  async function abrirMyDataMedComNexaId() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
       return;
     }
+    try {
+      show('Gerando acesso seguro ao MyDataMed...');
+      const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
+      if (!savedToken) {
+        show('Sessão expirada. Faça login novamente.');
+        return;
+      }
+      const r = await fetch(API + '/nexa-id/access-token-secure', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + savedToken,
+        },
+      });
+      const data = await r.json();
+      if (data.success && data.token) {
+        await abrirLink('https://mydatamed.com/login?nexaToken=' + data.token);
+        return;
+      }
+      show(data);
+    } catch (e) {
+      show('Erro ao abrir MyDataMed: ' + e.message);
+    }
+  }
 
-    const r = await fetch(API + '/nexa-id/access-token-secure', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + savedToken,
-      },
-    });
-
-    const data = await r.json();
-
-    if (data.success && data.token) {
-      await abrirLink('https://mydatamed.com/login?nexaToken=' + data.token);
+  async function abrirStaffPremium() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
       return;
     }
-
-    show(data);
-  } catch (e) {
-    show('Erro ao abrir MyDataMed: ' + e.message);
-  }
-}
-
-async function abrirStaffPremium() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  try {
-    show('Gerando acesso seguro ao Staff...');
-
-    const r = await fetch(API + '/staff/access-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        fullName: user.fullName,
-      }),
-    });
-
-    const data = await r.json();
-
-    if (data.success && data.url) {
-      await abrirLink(data.url);
-      return;
+    try {
+      show('Gerando acesso seguro ao Staff...');
+      const r = await fetch(API + '/staff/access-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          fullName: user.fullName,
+        }),
+      });
+      const data = await r.json();
+      if (data.success && data.url) {
+        await abrirLink(data.url);
+        return;
+      }
+      show(data);
+    } catch (e) {
+      show('Erro ao abrir Staff: ' + e.message);
     }
-
-    show(data);
-  } catch (e) {
-    show('Erro ao abrir Staff: ' + e.message);
   }
-}
 
   function getNowLabel() {
     return new Date().toLocaleString('pt-BR');
@@ -345,21 +316,16 @@ async function abrirStaffPremium() {
 
   async function carregarRewards() {
     if (!user || !user.id) return;
-
     try {
       const plansResponse = await fetch(API + '/rewards/plans');
       const plansData = await plansResponse.json();
-
       if (plansData.success) {
         setRewardPlans(plansData.plans || []);
       }
-
       const positionsResponse = await fetch(
         API + '/rewards/positions?userId=' + user.id,
       );
-
       const positionsData = await positionsResponse.json();
-
       if (positionsData.success) {
         setRewardPositions(positionsData.positions || []);
       }
@@ -373,14 +339,11 @@ async function abrirStaffPremium() {
       show('Faça login primeiro');
       return;
     }
-
     const amount = parseAmount(rewardAmount);
-
     if (!amount || amount <= 0) {
       show('Informe um valor USDC válido');
       return;
     }
-
     try {
       const r = await fetch(API + '/rewards/join', {
         method: 'POST',
@@ -391,10 +354,8 @@ async function abrirStaffPremium() {
           plan: selectedRewardPlan,
         }),
       });
-
       const data = await r.json();
       show(data);
-
       if (data.success) {
         setRewardAmount('');
         carregarRewards();
@@ -406,260 +367,226 @@ async function abrirStaffPremium() {
   }
 
   async function carregarAssinaturaRecorrente() {
-  if (!user || !user.id) return;
+    if (!user || !user.id) return;
+    try {
+      const r = await fetch(
+        API + '/recurring-pix/me?userId=' + user.id,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+          },
+        },
+      );
+      const data = await r.json();
+      if (data.success) {
+        setRecurringPlan(data.plan || data.recurring || data.data || data);
+      }
+    } catch (e) {
+      show('Erro assinatura recorrente: ' + e.message);
+    }
+  }
 
-  try {
-    const r = await fetch(
-      API + '/recurring-pix/me?userId=' + user.id,
-      {
+  async function salvarAssinaturaRecorrente() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    const amount = parseAmount(recurringAmountBrl);
+    if (amount < 10) {
+      show('Informe valor mensal mínimo de R$ 10,00');
+      return;
+    }
+    try {
+      const payload = {
+        userId: user.id,
+        amountBrl: amount,
+        asset: recurringAsset,
+        targetAsset: recurringAsset,
+        dayOfMonth: Number(recurringDay || 5),
+        frequency: 'monthly',
+        status: 'active',
+      };
+      const r = await fetch(API + '/recurring-pix/upsert', {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: 'Bearer ' + token,
         },
-      },
-    );
-
-    const data = await r.json();
-
-    if (data.success) {
-      setRecurringPlan(data.plan || data.recurring || data.data || data);
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      show({
+        sentPayload: payload,
+        response: data,
+      });
+      if (data.success) {
+        setRecurringPlan(data.plan || data.recurring || data.data || data);
+        carregarAssinaturaRecorrente();
+      }
+    } catch (e) {
+      show('Erro ao salvar assinatura: ' + e.message);
     }
-  } catch (e) {
-    show('Erro assinatura recorrente: ' + e.message);
-  }
-}
-
-async function salvarAssinaturaRecorrente() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
   }
 
-  const amount = parseAmount(recurringAmountBrl);
-
-  if (!amount || amount < 10) {
-    show('Informe valor mensal mínimo de R$ 10,00');
-    return;
-  }
-
-  try {
-    const payload = {
-      userId: user.id,
-      amountBrl: amount,
-      asset: recurringAsset,
-      targetAsset: recurringAsset,
-      dayOfMonth: Number(recurringDay || 5),
-      frequency: 'monthly',
-      status: 'active',
-    };
-
-    const r = await fetch(API + '/recurring-pix/upsert', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await r.json();
-
-    show({
-      sentPayload: payload,
-      response: data,
-    });
-
-    if (data.success) {
-      setRecurringPlan(data.plan || data.recurring || data.data || data);
-      carregarAssinaturaRecorrente();
+  async function pausarAssinaturaRecorrente() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
     }
-  } catch (e) {
-    show('Erro ao salvar assinatura: ' + e.message);
-  }
-}
-
-async function pausarAssinaturaRecorrente() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  try {
-    const r = await fetch(API + '/recurring-pix/pause', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-      },
-      body: JSON.stringify({ userId: user.id }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      carregarAssinaturaRecorrente();
+    try {
+      const r = await fetch(API + '/recurring-pix/pause', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        carregarAssinaturaRecorrente();
+      }
+    } catch (e) {
+      show('Erro ao pausar assinatura: ' + e.message);
     }
-  } catch (e) {
-    show('Erro ao pausar assinatura: ' + e.message);
-  }
-}
-
-async function cancelarAssinaturaRecorrente() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
   }
 
-  try {
-    const r = await fetch(API + '/recurring-pix/cancel', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-      },
-      body: JSON.stringify({ userId: user.id }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      setRecurringPlan(null);
-      carregarAssinaturaRecorrente();
+  async function cancelarAssinaturaRecorrente() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
     }
-  } catch (e) {
-    show('Erro ao cancelar assinatura: ' + e.message);
-  }
-}
-
-async function gerarLinkAssinaturaWoovi() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  try {
-    const r = await fetch(API + '/recurring-pix/link-woovi', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-      },
-      body: JSON.stringify({ userId: user.id }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    const url =
-      data.url ||
-      data.link ||
-      data.paymentLinkUrl ||
-      data.checkoutUrl ||
-      data.data?.url;
-
-    if (url) {
-      setRecurringPixLink(url);
-      abrirLink(url);
+    try {
+      const r = await fetch(API + '/recurring-pix/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        setRecurringPlan(null);
+        carregarAssinaturaRecorrente();
+      }
+    } catch (e) {
+      show('Erro ao cancelar assinatura: ' + e.message);
     }
-  } catch (e) {
-    show('Erro link Woovi: ' + e.message);
-  }
-}
-
-async function gerarLinkManualAssinatura() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
   }
 
-  try {
-    const r = await fetch(API + '/recurring-pix/manual-link', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-      },
-      body: JSON.stringify({ userId: user.id }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    const url =
-      data.url ||
-      data.link ||
-      data.paymentLinkUrl ||
-      data.checkoutUrl ||
-      data.data?.url;
-
-    if (url) {
-      setRecurringPixLink(url);
-      abrirLink(url);
+  async function gerarLinkAssinaturaWoovi() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
     }
-  } catch (e) {
-    show('Erro link manual: ' + e.message);
-  }
-}
-
-async function resgatarRewards(positionId) {
-  if (!positionId) {
-    show('Posição Rewards inválida');
-    return;
-  }
-
-  try {
-    show('Resgatando Nexa Rewards via Aave...');
-
-    const r = await fetch(API + '/rewards/complete/' + positionId, {
-      method: 'POST',
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      carregarRewards();
-      carregarDados();
+    try {
+      const r = await fetch(API + '/recurring-pix/link-woovi', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await r.json();
+      show(data);
+      const url =
+        data.url ||
+        data.link ||
+        data.paymentLinkUrl ||
+        data.checkoutUrl ||
+        data.data?.url;
+      if (url) {
+        setRecurringPixLink(url);
+        abrirLink(url);
+      }
+    } catch (e) {
+      show('Erro link Woovi: ' + e.message);
     }
-  } catch (e) {
-    show('Erro ao resgatar Rewards: ' + e.message);
   }
-}
+
+  async function gerarLinkManualAssinatura() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    try {
+      const r = await fetch(API + '/recurring-pix/manual-link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await r.json();
+      show(data);
+      const url =
+        data.url ||
+        data.link ||
+        data.paymentLinkUrl ||
+        data.checkoutUrl ||
+        data.data?.url;
+      if (url) {
+        setRecurringPixLink(url);
+        abrirLink(url);
+      }
+    } catch (e) {
+      show('Erro link manual: ' + e.message);
+    }
+  }
+
+  async function resgatarRewards(positionId) {
+    if (!positionId) {
+      show('Posição Rewards inválida');
+      return;
+    }
+    try {
+      show('Resgatando Nexa Rewards via Aave...');
+      const r = await fetch(API + '/rewards/complete/' + positionId, {
+        method: 'POST',
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        carregarRewards();
+        carregarDados();
+      }
+    } catch (e) {
+      show('Erro ao resgatar Rewards: ' + e.message);
+    }
+  }
 
   async function carregarCotacao() {
-  try {
-    const r = await fetch(API + '/swap/price?symbol=USDC');
-    const data = await r.json();
-
-    if (data && data.priceBrl) {
-      setMarketPrice(Number(data.priceBrl));
-      setBuyRate(Number(data.buyRateBrl || data.priceBrl));
-      setMarketChange(Number(data.change24h || 0));
-      setPriceSource(data.source || 'api');
+    try {
+      const r = await fetch(API + '/swap/price?symbol=USDC');
+      const data = await r.json();
+      if (data && data.priceBrl) {
+        setMarketPrice(Number(data.priceBrl));
+        setBuyRate(Number(data.buyRateBrl || data.priceBrl));
+        setMarketChange(Number(data.change24h || 0));
+        setPriceSource(data.source || 'api');
+      }
+    } catch (e) {
+      setPriceSource('fallback');
     }
-  } catch (e) {
-    setPriceSource('fallback');
   }
-}
 
   async function buscarDestinatario() {
     const cleanUsername = normalizeUsername(username);
-
     setRecipientChecked(false);
     setRecipientUser(null);
-
     if (!cleanUsername) {
       show('Digite um @username para verificar');
       return;
     }
-
     try {
       const r = await fetch(API + '/user/by-username/' + cleanUsername);
       const data = await r.json();
-
       setRecipientChecked(true);
-
       if (data.success && data.user) {
         setRecipientUser(data.user);
         show('Usuário encontrado: ' + data.user.handle);
@@ -677,19 +604,14 @@ async function resgatarRewards(positionId) {
   async function vincularWalletPrivy(userData) {
     try {
       if (!userData || !userData.id) return userData;
-
       const existingAddress = userData.walletAddress || userData.wallet?.address;
-
       if (existingAddress) return userData;
-
       const walletResponse = await fetch(API + '/wallet/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: userData.id }),
       });
-
       const walletData = await walletResponse.json();
-
       if (walletData.success && walletData.walletAddress) {
         return {
           ...userData,
@@ -698,7 +620,6 @@ async function resgatarRewards(positionId) {
           walletProvider: walletData.provider || 'privy',
         };
       }
-
       return userData;
     } catch (e) {
       return userData;
@@ -706,25 +627,21 @@ async function resgatarRewards(positionId) {
   }
 
   async function salvarSessao(data) {
-  const userData = await vincularWalletPrivy(data.user);
-  const accessToken = data.accessToken || '';
-
-  setUser(userData);
-  setToken(accessToken);
-
-  await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
-  await AsyncStorage.setItem('nexa_token', accessToken);
-
-  if (userData.email) {
-    await AsyncStorage.setItem('nexa_last_email', userData.email);
-    setSavedEmail(userData.email);
+    const userData = await vincularWalletPrivy(data.user);
+    const accessToken = data.accessToken || '';
+    setUser(userData);
+    setToken(accessToken);
+    await AsyncStorage.setItem('nexa_user', JSON.stringify(userData));
+    await AsyncStorage.setItem('nexa_token', accessToken);
+    if (userData.email) {
+      await AsyncStorage.setItem('nexa_last_email', userData.email);
+      setSavedEmail(userData.email);
+    }
+    if (userData.fullName) {
+      await AsyncStorage.setItem('nexa_last_name', userData.fullName);
+      setSavedName(userData.fullName);
+    }
   }
-
-  if (userData.fullName) {
-    await AsyncStorage.setItem('nexa_last_name', userData.fullName);
-    setSavedName(userData.fullName);
-  }
-}
 
   async function atualizarUsuarioLocal(userData) {
     setUser(userData);
@@ -732,48 +649,41 @@ async function resgatarRewards(positionId) {
   }
 
   async function carregarLoginSalvo() {
-  try {
-    const savedUser = await AsyncStorage.getItem('nexa_user');
-    const savedToken = await AsyncStorage.getItem('nexa_token');
-    const lastEmail = await AsyncStorage.getItem('nexa_last_email');
-    const lastName = await AsyncStorage.getItem('nexa_last_name');
-
-    if (lastEmail) {
-      setEmail(lastEmail);
-      setSavedEmail(lastEmail);
-      setResetEmail(lastEmail);
+    try {
+      const savedUser = await AsyncStorage.getItem('nexa_user');
+      const savedToken = await AsyncStorage.getItem('nexa_token');
+      const lastEmail = await AsyncStorage.getItem('nexa_last_email');
+      const lastName = await AsyncStorage.getItem('nexa_last_name');
+      if (lastEmail) {
+        setEmail(lastEmail);
+        setSavedEmail(lastEmail);
+        setResetEmail(lastEmail);
+      }
+      if (lastName) {
+        setSavedName(lastName);
+      }
+      if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        setToken(savedToken || '');
+        setMsg('Login restaurado');
+      }
+    } catch (e) {
+      setMsg('Erro ao restaurar login: ' + e.message);
     }
-
-    if (lastName) {
-      setSavedName(lastName);
-    }
-
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      setToken(savedToken || '');
-      setMsg('Login restaurado');
-    }
-  } catch (e) {
-    setMsg('Erro ao restaurar login: ' + e.message);
   }
-}
 
   async function buscarPerfilAtualizado() {
     try {
       const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
-
       if (!savedToken) return;
-
       const r = await fetch(API + '/user/me', {
         method: 'GET',
         headers: {
           Authorization: 'Bearer ' + savedToken,
         },
       });
-
       const data = await r.json();
-
       if (data && data.id) {
         await atualizarUsuarioLocal(data);
         setNewUsername(data.username || '');
@@ -786,16 +696,13 @@ async function resgatarRewards(positionId) {
       show('Informe e-mail e senha');
       return;
     }
-
     try {
       const response = await fetch(API + '/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
       const data = await response.json();
-
       if (data.accessToken) {
         await salvarSessao(data);
         show('Login realizado com sucesso');
@@ -812,16 +719,13 @@ async function resgatarRewards(positionId) {
       show('Preencha todos os campos do cadastro');
       return;
     }
-
     try {
       const response = await fetch(API + '/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, cpf, fullName, phone }),
       });
-
       const data = await response.json();
-
       if (data.accessToken) {
         await salvarSessao(data);
         show('Conta criada com sucesso');
@@ -838,12 +742,10 @@ async function resgatarRewards(positionId) {
       show('Faça login primeiro');
       return;
     }
-
     if (!newUsername) {
       show('Digite um username');
       return;
     }
-
     try {
       const r = await fetch(API + '/user/username', {
         method: 'POST',
@@ -853,18 +755,15 @@ async function resgatarRewards(positionId) {
           username: newUsername,
         }),
       });
-
       const data = await r.json();
-
       if (data.success && data.user) {
         const updated = {
           ...user,
           username: data.user.username,
           handle: data.user.handle,
         };
-
         await atualizarUsuarioLocal(updated);
-        show('Username atualizado: ' + data.user.handle);
+        show('Username updated: ' + data.user.handle);
       } else {
         show(data);
       }
@@ -879,31 +778,23 @@ async function resgatarRewards(positionId) {
         show('Usuário não encontrado');
         return;
       }
-
-      show('Criando sessão de verificação...');
-
+      show('Creating verification session...');
       const response = await fetch(API + '/kyc/didit/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id }),
       });
-
       const data = await response.json();
-
       if (!response.ok) {
         throw new Error(data.message || 'Erro ao iniciar KYC');
       }
-
       const verificationUrl = data.raw?.url || data.verificationUrl;
-
       if (!verificationUrl) {
         throw new Error('URL de verificação não recebida');
       }
-
       show('Abrindo verificação Didit...');
       setKycStarted(true);
       setKycStep('external');
-
       await Linking.openURL(verificationUrl);
     } catch (error) {
       show(error?.message || 'Falha ao iniciar KYC');
@@ -916,22 +807,18 @@ async function resgatarRewards(positionId) {
         show('Usuário não encontrado');
         return;
       }
-
       const response = await fetch(API + '/kyc/didit/status/' + user.id);
       const data = await response.json();
-
       if (data.success) {
         const updatedUser = {
           ...user,
           kycStatus: data.kycStatus,
           kycVerifiedAt: data.kycVerifiedAt,
         };
-
         await atualizarUsuarioLocal(updatedUser);
         show('KYC atualizado: ' + data.kycStatus);
         return;
       }
-
       show(data);
     } catch (e) {
       show('Erro ao atualizar KYC: ' + e.message);
@@ -943,229 +830,182 @@ async function resgatarRewards(positionId) {
       setKycStep('document');
       return;
     }
-
     if (kycStep === 'document') {
       setKycStep('selfie');
       return;
     }
-
     if (kycStep === 'selfie') {
       setKycStep('review');
       show('KYC enviado para análise visual');
       return;
     }
-
-    setPage('profile');
+    setPage('menuScreen');
   }
 
   async function logout() {
-  await AsyncStorage.removeItem('nexa_user');
-  await AsyncStorage.removeItem('nexa_token');
+    await AsyncStorage.removeItem('nexa_user');
+    await AsyncStorage.removeItem('nexa_token');
+    setUser(null);
+    setToken('');
+    setPassword('');
+    setSaldo({ BRL: 0, USDC: 0 });
+    setExtrato([]);
+    setPixCopyPaste('');
+    setTicketUrl('');
+    setLastReceipt(null);
+    setPage('home');
+    show('Você saiu da Nexa');
+  }
 
-  setUser(null);
-  setToken('');
-  setPassword('');
-  setSaldo({ BRL: 0, USDC: 0 });
-  setExtrato([]);
-  setPixCopyPaste('');
-  setTicketUrl('');
-  setLastReceipt(null);
-  setPage('home');
-  show('Você saiu da Nexa');
-}
+  async function carregarAtividadesAtivos() {
+    if (!user || !user.id) return;
+    try {
+      const r = await fetch(
+        API + '/ledger/statement?userId=' + user.id + '&limit=50&mode=portfolio',
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+          },
+        }
+      );
+      const data = await r.json();
+      if (!data.statement) return;
+      const filtered = data.statement.filter(function (item) {
+        const metadata = item.metadata || {};
+        return (
+          metadata.kind === 'investment_swap' ||
+          metadata.kind === 'redeem_swap'
+        );
+      });
+      setAssetActivities(filtered);
+    } catch (e) {
+      show('Erro atividades: ' + e.message);
+    }
+  }
 
-async function carregarAtividadesAtivos() {
-  if (!user || !user.id) return;
+  async function carregarCompliance() {
+    if (!user?.id) return;
+    try {
+      const r = await fetch(API + '/legal/status?userId=' + user.id);
+      const data = await r.json();
+      setCompliance(data);
+    } catch (e) {
+      show('Erro compliance: ' + e.message);
+    }
+  }
 
-  try {
-    const r = await fetch(
-      API +
-        '/ledger/statement?userId=' +
-        user.id +
-        '&limit=50&mode=portfolio',
-      {
+  async function carregarPortfolio() {
+    if (!user || !user.id) return;
+    try {
+      const r = await fetch(API + '/swap/portfolio?userId=' + user.id, {
         headers: {
           Authorization: 'Bearer ' + token,
         },
+      });
+      const data = await r.json();
+      if (data.success) {
+        setPortfolio(data);
+      } else {
+        show(data);
       }
-    );
+    } catch (e) {
+      show('Erro portfolio: ' + e.message);
+    }
+  }
 
-    const data = await r.json();
-
-    if (!data.statement) {
+  async function aceitarDocumentosLegais() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
       return;
     }
-
-    const filtered = data.statement.filter(
-      function (item) {
-        const metadata = item.metadata || {};
-
-        return (
-          metadata.kind ===
-            'investment_swap' ||
-          metadata.kind ===
-            'redeem_swap'
-        );
-      }
-    );
-
-    setAssetActivities(filtered);
-  } catch (e) {
-    show(
-      'Erro atividades: ' + e.message,
-    );
-  }
-}
-
-async function carregarCompliance() {
-  if (!user?.id) return;
-
-  try {
-    const r = await fetch(
-      API +
-        '/legal/status?userId=' +
-        user.id,
-    );
-
-    const data = await r.json();
-
-    setCompliance(data);
-  } catch (e) {
-    show(
-      'Erro compliance: ' +
-        e.message,
-    );
-  }
-}
-
-async function carregarPortfolio() {
-  if (!user || !user.id) return;
-
-  try {
-    const r = await fetch(
-      API + '/swap/portfolio?userId=' + user.id,
-      {
-        headers: {
-          Authorization: 'Bearer ' + token,
-        },
-      }
-    );
-
-    const data = await r.json();
-
-    if (data.success) {
-      setPortfolio(data);
-    } else {
+    try {
+      const r = await fetch(API + '/legal/accept-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await r.json();
       show(data);
+    } catch (e) {
+      show('Erro aceite legal: ' + e.message);
     }
-  } catch (e) {
-    show('Erro portfolio: ' + e.message);
-  }
-}
-
-async function aceitarDocumentosLegais() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
   }
 
-  try {
-    const r = await fetch(API + '/legal/accept-all', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id }),
-    });
-
-    const data = await r.json();
-    show(data);
-  } catch (e) {
-    show('Erro aceite legal: ' + e.message);
-  }
-}
-
-async function cotarInvestimento() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  const amount = parseAmount(investmentAmount);
-
-  if (!amount || amount <= 0) {
-    show('Informe um valor USDC válido');
-    return;
-  }
-
-  try {
-    const r = await fetch(API + '/swap/investment-quote', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-      },
-      body: JSON.stringify({
-        userId: user.id,
-        toAsset: investmentAsset,
-        amountUsdc: amount,
-      }),
-    });
-
-    const data = await r.json();
-    setInvestmentQuote(data);
-    show(data);
-  } catch (e) {
-    show('Erro cotação: ' + e.message);
-  }
-}
-
-async function executarInvestimento() {
-  if (!investmentQuote || !investmentQuote.allowed) {
-    show('Faça uma cotação válida primeiro');
-    return;
+  async function cotarInvestimento() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    const amount = parseAmount(investmentAmount);
+    if (!amount || amount <= 0) {
+      show('Informe um valor USDC válido');
+      return;
+    }
+    try {
+      const r = await fetch(API + '/swap/investment-quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          toAsset: investmentAsset,
+          amountUsdc: amount,
+        }),
+      });
+      const data = await r.json();
+      setInvestmentQuote(data);
+      show(data);
+    } catch (e) {
+      show('Erro cotação: ' + e.message);
+    }
   }
 
-  const amount = parseAmount(investmentAmount);
-
-  try {
-    const r = await fetch(API + '/swap/investment-execute', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token,
-      },
-      body: JSON.stringify({
-        userId: user.id,
-        toAsset: investmentAsset,
-        amountUsdc: amount,
-      }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-  setInvestmentAmount('');
-  setInvestmentQuote(null);
-
-  carregarDados();
-  carregarPortfolio();
-  carregarAtividadesAtivos();
-}
-  } catch (e) {
-    show('Erro investimento: ' + e.message);
-  }
-}
-
-async function simularResgate() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
+  async function PeanutButter() {
+    // Mantido para compatibilidade estrutural interna
   }
 
-  try {
-    const r = await fetch(
-      API + '/swap/redeem-quote',
-      {
+  async function executarInvestimento() {
+    if (!investmentQuote || !investmentQuote.allowed) {
+      show('Faça uma cotação válida primeiro');
+      return;
+    }
+    const amount = parseAmount(investmentAmount);
+    try {
+      const r = await fetch(API + '/swap/investment-execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          toAsset: investmentAsset,
+          amountUsdc: amount,
+        }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        setInvestmentAmount('');
+        setInvestmentQuote(null);
+        carregarDados();
+        carregarPortfolio();
+        carregarAtividadesAtivos();
+      }
+    } catch (e) {
+      show('Erro investimento: ' + e.message);
+    }
+  }
+
+  async function simularResgate() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    try {
+      const r = await fetch(API + '/swap/redeem-quote', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1176,28 +1016,22 @@ async function simularResgate() {
           fromAsset: redeemAsset,
           amount: Number(redeemAmount),
         }),
-      },
-    );
-
-    const data = await r.json();
-
-    setRedeemQuote(data);
-    show(data);
-  } catch (e) {
-    show(e.message);
-  }
-}
-
-async function executarResgate() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
+      });
+      const data = await r.json();
+      setRedeemQuote(data);
+      show(e.message);
+    } catch (e) {
+      show(e.message);
+    }
   }
 
-  try {
-    const r = await fetch(
-      API + '/swap/redeem-execute',
-      {
+  async function executarResgate() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    try {
+      const r = await fetch(API + '/swap/redeem-execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1208,148 +1042,109 @@ async function executarResgate() {
           fromAsset: redeemAsset,
           amount: Number(redeemAmount),
         }),
-      },
-    );
-
-    const data = await r.json();
-
-    show(data);
-
-    if (data.success) {
-      setRedeemQuote(null);
-      setRedeemAmount('');
-
-      carregarDados();
-      carregarPortfolio();
-      carregarAtividadesAtivos();
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        setRedeemQuote(null);
+        setRedeemAmount('');
+        carregarDados();
+        carregarPortfolio();
+        carregarAtividadesAtivos();
+      }
+    } catch (e) {
+      show(e.message);
     }
-  } catch (e) {
-    show(e.message);
   }
-}
 
   async function carregarDados() {
     if (!user || !user.id) {
       show('Faça login primeiro');
       return;
     }
-
     try {
       const statementResponse = await fetch(
         API + '/ledger/statement?userId=' + user.id + '&limit=50&mode=real',
       );
-
       const statementData = await statementResponse.json();
-
       if (statementData.statement) {
         setExtrato(statementData.statement);
       }
-
       const balanceResponse = await fetch(
         API + '/ledger/balance?userId=' + user.id + '&mode=real',
       );
-
       const balanceData = await balanceResponse.json();
-
       setSaldo({
         BRL: Number(balanceData.balances?.BRL || 0),
         USDC: Number(balanceData.balances?.USDC || 0),
       });
-
-      show('Saldo real atualizado');
+      show('Saldo real updated');
     } catch (e) {
       show('Falha ao carregar dados: ' + e.message);
     }
   }
 
   async function depositarPix() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  if (getKycStatus() !== 'approved') {
-    show('Conclua sua verificação de identidade antes de depositar Pix');
-    setPage('profile');
-    return;
-  }
-
-  const amount = parseAmount(depositValue);
-
-  if (!amount || amount < 10) {
-    show('Depósito mínimo é R$ 10,00');
-    return;
-  }
-
-  try {
-    show('Gerando Pix Nexa...');
-
-    const r = await fetch(API + '/fiat-deposit/woovi/create-charge', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        amountBrl: amount,
-      }),
-    });
-
-    const data = await r.json();
-
-    if (!data.success) {
-      show(data);
+    if (!user || !user.id) {
+      show('Faça login primeiro');
       return;
     }
-
-    const charge = data.charge || {};
-    const pix = charge.paymentMethods?.pix || {};
-
-    const brCode =
-      pix.brCode ||
-      charge.brCode ||
-      '';
-
-    const qrImage =
-      pix.qrCodeImage ||
-      charge.qrCodeImage ||
-      '';
-
-    const paymentLink =
-      charge.paymentLinkUrl ||
-      '';
-
-    setPixCopyPaste(brCode);
-    setTicketUrl(paymentLink || qrImage);
-
-    show('Pix gerado com sucesso. Após o pagamento, a Nexa converte automaticamente para USDC.');
-  } catch (e) {
-    show('Erro depósito Pix: ' + e.message);
+    if (getKycStatus() !== 'approved') {
+      show('Conclua sua verificação de identidade antes de depositar Pix');
+      setPage('menuScreen');
+      return;
+    }
+    const amount = parseAmount(depositValue);
+    if (!amount || amount < 10) {
+      show('Depósito mínimo é R$ 10,00');
+      return;
+    }
+    try {
+      show('Gerando Pix Nexa...');
+      const r = await fetch(API + '/fiat-deposit/woovi/create-charge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amountBrl: amount,
+        }),
+      });
+      const data = await r.json();
+      if (!data.success) {
+        show(data);
+        return;
+      }
+      const charge = data.charge || {};
+      const pix = charge.paymentMethods?.pix || {};
+      const brCode = pix.brCode || charge.brCode || '';
+      const qrImage = pix.qrCodeImage || charge.qrCodeImage || '';
+      const paymentLink = charge.paymentLinkUrl || '';
+      setPixCopyPaste(brCode);
+      setTicketUrl(paymentLink || qrImage);
+      show('Pix gerado com sucesso. Após o pagamento, a Nexa converte automaticamente para USDC.');
+    } catch (e) {
+      show('Erro depósito Pix: ' + e.message);
+    }
   }
-}
 
   async function converter() {
     if (!user || !user.id) {
       show('Faça login primeiro');
       return;
     }
-
     const amount = parseAmount(valorBrl);
-
     if (!amount || amount <= 0) {
       show('Informe um valor válido em R$');
       return;
     }
-
     try {
       const r = await fetch(API + '/swap/brl-to-usdc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, amountBrl: amount }),
       });
-
       const data = await r.json();
-
       show(data);
-
       if (data.success) {
         setValorBrl('');
         carregarDados();
@@ -1365,28 +1160,22 @@ async function executarResgate() {
       show('Faça login primeiro');
       return;
     }
-
     if (getKycStatus() !== 'approved') {
       show('Conclua sua verificação de identidade antes de sacar Pix');
-      setPage('profile');
+      setPage('menuScreen');
       return;
     }
-
     if (!pixKey) {
       show('Informe a chave Pix');
       return;
     }
-
     const amount = parseAmount(valorBrl);
-
     if (!amount || amount <= 0) {
       show('Informe um valor válido em R$');
       return;
     }
-
     try {
       show('Processando saque Pix...');
-
       const r = await fetch(API + '/payment/pix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1396,20 +1185,15 @@ async function executarResgate() {
           pixKey,
         }),
       });
-
       const data = await r.json();
-
       if (!r.ok) {
         throw new Error(data.message || data.error || 'Erro ao solicitar saque Pix');
       }
-
       show(data);
-
       if (data.success) {
         setValorBrl('');
         setPixKey('');
         carregarDados();
-
         const receipt = {
           type: 'pix_withdraw',
           status: data.status || 'completed',
@@ -1422,7 +1206,6 @@ async function executarResgate() {
           date: getNowLabel(),
           message: data.message || 'Saque Pix solicitado',
         };
-
         setLastReceipt(receipt);
         setPage('receipt');
       }
@@ -1434,27 +1217,22 @@ async function executarResgate() {
   async function enviarUsername() {
     if (getKycStatus() !== 'approved') {
       show('Conclua sua verificação de identidade antes de enviar USDC');
-      setPage('profile');
+      setPage('menuScreen');
       return;
     }
-
     if (!user || !user.id) {
       show('Faça login primeiro');
       return;
     }
-
     if (!recipientUser) {
       show('Verifique o @username antes de enviar');
       return;
     }
-
     const amountToSend = parseAmount(valorUsdc);
-
     if (!amountToSend || amountToSend <= 0) {
       show('Informe um valor USDC válido');
       return;
     }
-
     try {
       const r = await fetch(API + '/internal-transfer/send-by-username', {
         method: 'POST',
@@ -1466,281 +1244,266 @@ async function executarResgate() {
           note: 'envio app',
         }),
       });
-
       const data = await r.json();
-
       show(data);
-
       if (data.success) {
-  const receipt = {
-    type: 'internal_transfer',
-    status: 'completed',
-    transferId: data.transferId || 'internal_' + Date.now(),
-    amountUsdc: data.amountUsdc || amountToSend,
-    destinationName: recipientUser.fullName,
-    destinationHandle: data.handle || recipientUser.handle,
-    destinationUsername: data.toUsername || recipientUser.username,
-    fromHandle: getUsername(),
-    date: getNowLabel(),
-    message: data.message || 'Transferência interna concluída',
-  };
-
-  setLastReceipt(receipt);
-  setUsername('');
-  setRecipientUser(null);
-  setRecipientChecked(false);
-  setValorUsdc('');
-  carregarDados();
-  setPage('receipt');
-}
+        const receipt = {
+          type: 'internal_transfer',
+          status: 'completed',
+          transferId: data.transferId || 'internal_' + Date.now(),
+          amountUsdc: data.amountUsdc || amountToSend,
+          destinationName: recipientUser.fullName,
+          destinationHandle: data.handle || recipientUser.handle,
+          destinationUsername: data.toUsername || recipientUser.username,
+          fromHandle: getUsername(),
+          date: getNowLabel(),
+          message: data.message || 'Transferência interna concluída',
+        };
+        setLastReceipt(receipt);
+        setUsername('');
+        setRecipientUser(null);
+        setRecipientChecked(false);
+        setValorUsdc('');
+        carregarDados();
+        setPage('receipt');
+      }
     } catch (e) {
       show('Erro envio: ' + e.message);
     }
   }
 
   async function carregarSegurancaWallet() {
-  if (!user || !user.id) return;
-
-  try {
-    const limitResponse = await fetch(API + '/wallet/spending-limit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id }),
-    });
-
-    const limitData = await limitResponse.json();
-
-    if (limitData.success) {
-      setSpendingLimit(limitData);
-    }
-
-    const permissionResponse = await fetch(
-      API + '/wallet/usdc-send-permission?userId=' + user.id,
-    );
-
-    const permissionData = await permissionResponse.json();
-
-    if (permissionData.success) {
-      setSendPermission(permissionData);
-    }
-  } catch (e) {
-    show('Erro segurança wallet: ' + e.message);
-  }
-}
-
-async function solicitarHabilitacaoEnvioExterno() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  try {
-    const r = await fetch(API + '/wallet/request-usdc-send-enable', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        note: 'Solicitação feita pelo app Nexa',
-      }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      carregarSegurancaWallet();
-    }
-  } catch (e) {
-    show('Erro ao solicitar habilitação: ' + e.message);
-  }
-}
-
-async function criarDepositoUsdcExterno() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  try {
-    show('Gerando endereço para receber USDC...');
-
-    const r = await fetch(API + '/usdc-deposit/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        amountExpected: 0,
-      }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      setUsdcDepositId(data.depositId || '');
-      setUsdcDepositAddress(
-        data.treasuryAddress ||
-          data.qrCodeValue ||
-          '',
+    if (!user || !user.id) return;
+    try {
+      const limitResponse = await fetch(API + '/wallet/spending-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const limitData = await limitResponse.json();
+      if (limitData.success) {
+        setSpendingLimit(limitData);
+      }
+      const permissionResponse = await fetch(
+        API + '/wallet/usdc-send-permission?userId=' + user.id,
       );
-      setUsdcDepositQrUrl(data.qrCodeImageUrl || '');
-      setUsdcTxHash('');
+      const permissionData = await permissionResponse.json();
+      if (permissionData.success) {
+        setSendPermission(permissionData);
+      }
+    } catch (e) {
+      show('Erro segurança wallet: ' + e.message);
     }
-  } catch (e) {
-    show('Erro depósito USDC: ' + e.message);
-  }
-}
-
-async function solicitarOtpEnvioWallet() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
   }
 
-  const amount = parseAmount(valorUsdc);
-  const cleanWallet = String(wallet || '').trim();
-
-  if (!cleanWallet) {
-    show('Informe a carteira 0x de destino');
-    return;
-  }
-
-  if (!cleanWallet.startsWith('0x') || cleanWallet.length !== 42) {
-    show('Carteira inválida. O endereço precisa começar com 0x e ter 42 caracteres.');
-    return;
-  }
-
-  if (!amount || amount <= 0) {
-    show('Informe um valor USDC válido');
-    return;
-  }
-
-  try {
-    show('Solicitando código OTP...');
-
-    const payload = {
-      userId: user.id,
-      toAddress: cleanWallet,
-      amountUsdc: amount,
-    };
-
-    const r = await fetch(API + '/wallet/send-usdc/request-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await r.json();
-
-    show({
-      status: r.status,
-      sentPayload: payload,
-      response: data,
-    });
-
-    if (r.ok && data.success) {
-      setWallet(cleanWallet);
-      setOtpRequested(true);
-    }
-  } catch (e) {
-    show('Erro OTP app: ' + e.message);
-  }
-}
-async function solicitarOtpLimiteDiario() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  const newLimit = parseAmount(newDailyLimit);
-
-  if (!newLimit || newLimit <= 0) {
-    show('Informe um novo limite diário válido');
-    return;
-  }
-
-  try {
-    const r = await fetch(API + '/wallet/spending-limit/request-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        newDailyUsdcLimit: newLimit,
-      }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      setLimitOtpRequested(true);
-    }
-  } catch (e) {
-    show('Erro OTP limite: ' + e.message);
-  }
-}
-
-async function confirmarNovoLimiteDiario() {
-  if (!user || !user.id) {
-    show('Faça login primeiro');
-    return;
-  }
-
-  const newLimit = parseAmount(newDailyLimit);
-
-  if (!newLimit || newLimit <= 0) {
-    show('Informe um novo limite diário válido');
-    return;
-  }
-
-  if (!limitOtpCode) {
-    show('Digite o código OTP recebido por e-mail');
-    return;
-  }
-
-  try {
-    const r = await fetch(API + '/wallet/spending-limit/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        newDailyUsdcLimit: newLimit,
-        otpCode: limitOtpCode,
-      }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      setNewDailyLimit('');
-      setLimitOtpCode('');
-      setLimitOtpRequested(false);
-      carregarSegurancaWallet();
-    }
-  } catch (e) {
-    show('Erro confirmar limite: ' + e.message);
-  }
-}
-  async function enviarWallet() {
-    if (getKycStatus() !== 'approved') {
-      show('Conclua sua verificação de identidade antes de enviar USDC');
-      setPage('profile');
-      return;
-    }
-
+  async function solicitarHabilitacaoEnvioExterno() {
     if (!user || !user.id) {
       show('Faça login primeiro');
       return;
     }
+    try {
+      const r = await fetch(API + '/wallet/request-usdc-send-enable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          note: 'Solicitação feita pelo app Nexa',
+        }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        carregarSegurancaWallet();
+      }
+    } catch (e) {
+      show('Erro ao solicitar habilitação: ' + e.message);
+    }
+  }
 
+  async function criarDepositoUsdcExterno() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    try {
+      show('Gerando endereço para receber USDC...');
+      const r = await fetch(API + '/usdc-deposit/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amountExpected: 0,
+        }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        setUsdcDepositId(data.depositId || '');
+        setUsdcDepositAddress(data.treasuryAddress || data.qrCodeValue || '');
+        setUsdcDepositQrUrl(data.qrCodeImageUrl || '');
+        setUsdcTxHash('');
+      }
+    } catch (e) {
+      show('Erro depósito USDC: ' + e.message);
+    }
+  }
+
+  async function confirmarDepositoUsdcExterno() {
+    if (!user || !user.id || !usdcDepositId) {
+      show('Dados de depósito inválidos');
+      return;
+    }
+    try {
+      show('Confirmando depósito...');
+      const r = await fetch(API + '/usdc-deposit/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          depositId: usdcDepositId,
+          txHash: usdcTxHash,
+        }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        setUsdcDepositId('');
+        setUsdcDepositAddress('');
+        setUsdcTxHash('');
+        carregarDados();
+      }
+    } catch (e) {
+      show('Erro ao confirmar depósito: ' + e.message);
+    }
+  }
+
+  async function solicitarOtpEnvioWallet() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
     const amount = parseAmount(valorUsdc);
-
+    const cleanWallet = String(wallet || '').trim();
+    if (!cleanWallet) {
+      show('Informe a carteira 0x de destino');
+      return;
+    }
+    if (!cleanWallet.startsWith('0x') || cleanWallet.length !== 42) {
+      show('Carteira inválida. O endereço precisa começar com 0x e ter 42 caracteres.');
+      return;
+    }
     if (!amount || amount <= 0) {
       show('Informe um valor USDC válido');
       return;
     }
+    try {
+      show('Solicitando código OTP...');
+      const payload = {
+        userId: user.id,
+        toAddress: cleanWallet,
+        amountUsdc: amount,
+      };
+      const r = await fetch(API + '/wallet/send-usdc/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      show({
+        status: r.status,
+        sentPayload: payload,
+        response: data,
+      });
+      if (r.ok && data.success) {
+        setWallet(cleanWallet);
+        setOtpRequested(true);
+      }
+    } catch (e) {
+      show('Erro OTP app: ' + e.message);
+    }
+  }
 
+  async function solicitarOtpLimiteDiario() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    const newLimit = parseAmount(newDailyLimit);
+    if (!newLimit || newLimit <= 0) {
+      show('Informe um novo limite diário válido');
+      return;
+    }
+    try {
+      const r = await fetch(API + '/wallet/spending-limit/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          newDailyUsdcLimit: newLimit,
+        }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        setLimitOtpRequested(true);
+      }
+    } catch (e) {
+      show('Erro OTP limite: ' + e.message);
+    }
+  }
+
+  async function confirmarNovoLimiteDiario() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    const newLimit = parseAmount(newDailyLimit);
+    if (!newLimit || newLimit <= 0) {
+      show('Informe um novo limite diário válido');
+      return;
+    }
+    if (!limitOtpCode) {
+      show('Digite o código OTP recebido por e-mail');
+      return;
+    }
+    try {
+      const r = await fetch(API + '/wallet/spending-limit/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          newDailyUsdcLimit: newLimit,
+          otpCode: limitOtpCode,
+        }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        setNewDailyLimit('');
+        setLimitOtpCode('');
+        setLimitOtpRequested(false);
+        carregarSegurancaWallet();
+      }
+    } catch (e) {
+      show('Erro confirmar limite: ' + e.message);
+    }
+  }
+
+  async function enviarWallet() {
+    if (getKycStatus() !== 'approved') {
+      show('Conclua sua verificação de identidade antes de enviar USDC');
+      setPage('menuScreen');
+      return;
+    }
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    const amount = parseAmount(valorUsdc);
+    if (!amount || amount <= 0) {
+      show('Informe um valor USDC válido');
+      return;
+    }
     try {
       const r = await fetch(API + '/wallet/send-usdc', {
         method: 'POST',
@@ -1753,12 +1516,9 @@ async function confirmarNovoLimiteDiario() {
           note: 'envio externo app',
         }),
       });
-
       const data = await r.json();
-
       show(data);
-
-            if (data.success) {
+      if (data.success) {
         const receipt = {
           type: 'external_wallet',
           status: 'completed',
@@ -1770,7 +1530,6 @@ async function confirmarNovoLimiteDiario() {
           date: getNowLabel(),
           message: data.message || 'Envio externo concluído',
         };
-
         setLastReceipt(receipt);
         setWallet('');
         setValorUsdc('');
@@ -1785,347 +1544,262 @@ async function confirmarNovoLimiteDiario() {
   }
 
   async function solicitarRecuperacaoSenha() {
-  const emailToUse = resetEmail || email || savedEmail;
-
-  if (!emailToUse) {
-    show('Informe seu e-mail');
-    return;
-  }
-
-  try {
-    const r = await fetch(API + '/auth/forgot-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: emailToUse }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      setResetEmail(emailToUse);
-      setForgotStep('code');
+    const emailToUse = resetEmail || email || savedEmail;
+    if (!emailToUse) {
+      show('Informe seu e-mail');
+      return;
     }
-  } catch (e) {
-    show('Erro recuperação: ' + e.message);
-  }
-}
-
-async function redefinirSenha() {
-  if (!resetEmail || !resetCode || !resetNewPassword) {
-    show('Informe e-mail, código e nova senha');
-    return;
-  }
-
-  try {
-    const r = await fetch(API + '/auth/reset-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: resetEmail,
-        code: resetCode,
-        newPassword: resetNewPassword,
-      }),
-    });
-
-    const data = await r.json();
-    show(data);
-
-    if (data.success) {
-      setPassword('');
-      setResetCode('');
-      setResetNewPassword('');
-      setAuthPage('login');
-      setForgotStep('email');
+    try {
+      const r = await fetch(API + '/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToUse }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        setResetEmail(emailToUse);
+        setForgotStep('code');
+      }
+    } catch (e) {
+      show('Erro recuperação: ' + e.message);
     }
-  } catch (e) {
-    show('Erro reset senha: ' + e.message);
-  }
-}
-
-function formatMoney(value) {
-  const number = Number(value || 0);
-
-  return number.toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function getAssetColor(asset) {
-  if (asset === 'USDC') return '#2563eb';
-  if (asset === 'PAXG') return '#facc15';
-  if (asset === 'WBTC') return '#f97316';
-
-  return '#64748b';
-}
-
-function getTransactionTitle(item) {
-  const description = String(item.description || '').toLowerCase();
-
-  if (description.includes('pix') && item.direction === 'credit') {
-    return 'Depósito Pix';
   }
 
-  if (description.includes('pix') && item.direction === 'debit') {
-    return 'Saque Pix';
+  async function redefinirSenha() {
+    if (!resetEmail || !resetCode || !resetNewPassword) {
+      show('Informe e-mail, código e nova senha');
+      return;
+    }
+    try {
+      const r = await fetch(API + '/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: resetEmail,
+          code: resetCode,
+          newPassword: resetNewPassword,
+        }),
+      });
+      const data = await r.json();
+      show(data);
+      if (data.success) {
+        setPassword('');
+        setResetCode('');
+        setResetNewPassword('');
+        setAuthPage('login');
+        setForgotStep('email');
+      }
+    } catch (e) {
+      show('Erro reset senha: ' + e.message);
+    }
   }
 
-  if (description.includes('conversão') && item.asset === 'BRL') {
-    return 'Compra de USDC';
+  function formatMoney(value) {
+    const number = Number(value || 0);
+    return number.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   }
 
-  if (description.includes('conversão') && item.asset === 'USDC') {
-    return 'USDC recebido';
+  // Bloco de coloração agnóstica de redes
+  function getAssetColor(asset) {
+    if (asset === 'USDC') return '#2563eb';
+    if (asset === 'PAXG') return '#facc15';
+    if (asset === 'WBTC') return '#f97316';
+    return '#64748b';
   }
 
-  if (description.includes('transferência') && item.direction === 'debit') {
-    return 'USDC enviado';
+  function getTransactionTitle(item) {
+    const description = String(item.description || '').toLowerCase();
+    if (description.includes('pix') && item.direction === 'credit') return 'Depósito Pix';
+    if (description.includes('pix') && item.direction === 'debit') return 'Saque Pix';
+    if (description.includes('conversão') && item.asset === 'BRL') return 'Compra de USDC';
+    if (description.includes('conversão') && item.asset === 'USDC') return 'USDC recebido';
+    if (description.includes('transferência') && item.direction === 'debit') return 'USDC enviado';
+    if (description.includes('transferência') && item.direction === 'credit') return 'USDC recebido';
+    if (item.asset === 'USDC' && item.direction === 'credit') return 'Entrada USDC';
+    if (item.asset === 'USDC' && item.direction === 'debit') return 'Saída USDC';
+    return item.description || 'Movimentação';
   }
 
-  if (description.includes('transferência') && item.direction === 'credit') {
-    return 'USDC recebido';
+  function getTransactionSubtitle(item) {
+    const asset = item.asset || '';
+    const direction = item.direction === 'credit' ? 'Entrada' : 'Saída';
+    return `${direction} · ${asset}`;
   }
 
-  if (item.asset === 'USDC' && item.direction === 'credit') {
-    return 'Entrada USDC';
+  function getTransactionAmountText(item) {
+    const sign = item.direction === 'credit' ? '+' : '-';
+    if (item.asset === 'BRL') {
+      return `${sign} R$ ${formatMoney(item.amount)}`;
+    }
+    return `${sign} ${Number(item.amount || 0).toFixed(8)} ${item.asset}`;
   }
 
-  if (item.asset === 'USDC' && item.direction === 'debit') {
-    return 'Saída USDC';
+  function getTransactionAmountStyle(item) {
+    return item.direction === 'credit'
+      ? styles.transactionAmountCredit
+      : styles.transactionAmountDebit;
   }
-
-  return item.description || 'Movimentação';
-}
-
-function getTransactionSubtitle(item) {
-  const asset = item.asset || '';
-  const direction = item.direction === 'credit' ? 'Entrada' : 'Saída';
-
-  return `${direction} · ${asset}`;
-}
-
-function getTransactionAmountText(item) {
-  const sign = item.direction === 'credit' ? '+' : '-';
-
-  if (item.asset === 'BRL') {
-    return `${sign} R$ ${formatMoney(item.amount)}`;
-  }
-
-  return `${sign} ${Number(item.amount || 0).toFixed(8)} ${item.asset}`;
-}
-
-function getTransactionAmountStyle(item) {
-  return item.direction === 'credit'
-    ? styles.transactionAmountCredit
-    : styles.transactionAmountDebit;
-}
 
   if (!user) {
-  return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.content}
-        keyboardShouldPersistTaps="always"
-        keyboardDismissMode="none"
-      >
-        <Text style={styles.logo}>NEXA</Text>
-        <Text style={styles.subtitle}>Cripto sem complicação</Text>
+    return (
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.content}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="none"
+        >
+          <Text style={styles.logo}>NEXA</Text>
+          <Text style={styles.subtitle}>Cripto sem complicação</Text>
 
-        <Card>
-          {authPage === 'forgot' ? (
-            <>
-              <Text style={styles.title}>Recuperar senha</Text>
-
-              {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-              {forgotStep === 'email' ? (
-                <>
+          <Card>
+            {authPage === 'forgot' ? (
+              <>
+                <Text style={styles.title}>Recuperar senha</Text>
+                {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
+                {forgotStep === 'email' ? (
+                  <>
+                    <Input
+                      placeholder="E-mail"
+                      value={resetEmail}
+                      onChangeText={setResetEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                    <Button title="Receber código" onPress={solicitarRecuperacaoSenha} />
+                    <Button title="Voltar para login" onPress={function () { setAuthPage('login'); }} />
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      placeholder="E-mail"
+                      value={resetEmail}
+                      onChangeText={setResetEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                    <Input
+                      placeholder="Código recebido"
+                      value={resetCode}
+                      onChangeText={setResetCode}
+                      keyboardType="numeric"
+                    />
+                    <Input
+                      placeholder="Nova senha"
+                      secureTextEntry={true}
+                      value={resetNewPassword}
+                      onChangeText={setResetNewPassword}
+                    />
+                    <Button title="Redefinir senha" onPress={redefinirSenha} />
+                    <Button title="Receber novo código" onPress={function () { setForgotStep('email'); }} />
+                    <Button title="Voltar para login" onPress={function () { setAuthPage('login'); }} />
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <Text style={styles.title}>
+                  {authPage === 'login' ? 'Entrar' : 'Criar conta'}
+                </Text>
+                {savedEmail && authPage === 'login' ? (
+                  <View style={styles.savedLoginBox}>
+                    <Text style={styles.savedLoginTitle}>
+                      Olá{savedName ? ', ' + savedName.split(' ')[0] : ''} 👋
+                    </Text>
+                    <Text style={styles.savedLoginEmail}>{savedEmail}</Text>
+                  </View>
+                ) : null}
+                {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
+                {authPage === 'login' && savedEmail ? null : (
                   <Input
                     placeholder="E-mail"
-                    value={resetEmail}
-                    onChangeText={setResetEmail}
+                    value={email}
+                    onChangeText={setEmail}
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
-
-                  <Button
-                    title="Receber código"
-                    onPress={solicitarRecuperacaoSenha}
-                  />
-
-                  <Button
-                    title="Voltar para login"
-                    onPress={function () {
-                      setAuthPage('login');
-                    }}
-                  />
-                </>
-              ) : (
-                <>
-                  <Input
-                    placeholder="E-mail"
-                    value={resetEmail}
-                    onChangeText={setResetEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-
-                  <Input
-                    placeholder="Código recebido"
-                    value={resetCode}
-                    onChangeText={setResetCode}
-                    keyboardType="numeric"
-                  />
-
-                  <Input
-                    placeholder="Nova senha"
-                    secureTextEntry={true}
-                    value={resetNewPassword}
-                    onChangeText={setResetNewPassword}
-                  />
-
-                  <Button
-                    title="Redefinir senha"
-                    onPress={redefinirSenha}
-                  />
-
-                  <Button
-                    title="Receber novo código"
-                    onPress={function () {
-                      setForgotStep('email');
-                    }}
-                  />
-
-                  <Button
-                    title="Voltar para login"
-                    onPress={function () {
-                      setAuthPage('login');
-                    }}
-                  />
-                </>
-              )}
-            </>
-          ) : (
-            <>
-              <Text style={styles.title}>
-                {authPage === 'login' ? 'Entrar' : 'Criar conta'}
-              </Text>
-
-              {savedEmail && authPage === 'login' ? (
-                <View style={styles.savedLoginBox}>
-                  <Text style={styles.savedLoginTitle}>
-                    Olá{savedName ? ', ' + savedName.split(' ')[0] : ''} 👋
-                  </Text>
-
-                  <Text style={styles.savedLoginEmail}>
-                    {savedEmail}
-                  </Text>
-                </View>
-              ) : null}
-
-              {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-              {authPage === 'login' && savedEmail ? null : (
+                )}
                 <Input
-                  placeholder="E-mail"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
+                  placeholder="Senha"
+                  secureTextEntry={true}
+                  value={password}
+                  onChangeText={setPassword}
                 />
-              )}
-
-              <Input
-                placeholder="Senha"
-                secureTextEntry={true}
-                value={password}
-                onChangeText={setPassword}
-              />
-
-              {authPage === 'register' && (
-                <>
-                  <Input
-                    placeholder="Nome completo"
-                    value={fullName}
-                    onChangeText={setFullName}
-                    autoCapitalize="words"
-                  />
-
-                  <Input
-                    placeholder="CPF"
-                    keyboardType="numeric"
-                    value={cpf}
-                    onChangeText={setCpf}
-                  />
-
-                  <Input
-                    placeholder="Telefone"
-                    keyboardType="phone-pad"
-                    value={phone}
-                    onChangeText={setPhone}
-                  />
-                </>
-              )}
-
-              {authPage === 'login' ? (
-                <Button title="Entrar" onPress={login} />
-              ) : (
-                <Button title="Criar conta" onPress={cadastrar} />
-              )}
-
-              {authPage === 'login' && savedEmail ? (
-                <Button
-                  title="Trocar conta"
-                  onPress={async function () {
-                    await AsyncStorage.removeItem('nexa_last_email');
-                    await AsyncStorage.removeItem('nexa_last_name');
-                    setSavedEmail('');
-                    setSavedName('');
-                    setEmail('');
-                    setPassword('');
-                    setMsg('');
-                  }}
-                />
-              ) : null}
-
-              {authPage === 'login' ? (
-                <>
+                {authPage === 'register' && (
+                  <>
+                    <Input
+                      placeholder="Nome completo"
+                      value={fullName}
+                      onChangeText={setFullName}
+                      autoCapitalize="words"
+                    />
+                    <Input
+                      placeholder="CPF"
+                      keyboardType="numeric"
+                      value={cpf}
+                      onChangeText={setCpf}
+                    />
+                    <Input
+                      placeholder="Telefone"
+                      keyboardType="phone-pad"
+                      value={phone}
+                      onChangeText={setPhone}
+                    />
+                  </>
+                )}
+                {authPage === 'login' ? (
+                  <Button title="Entrar" onPress={login} />
+                ) : (
+                  <Button title="Criar conta" onPress={cadastrar} />
+                )}
+                {authPage === 'login' && savedEmail ? (
                   <Button
-                    title="Esqueci minha senha"
-                    onPress={function () {
-                      setResetEmail(savedEmail || email);
-                      setAuthPage('forgot');
+                    title="Trocar conta"
+                    onPress={async function () {
+                      await AsyncStorage.removeItem('nexa_last_email');
+                      await AsyncStorage.removeItem('nexa_last_name');
+                      setSavedEmail('');
+                      setSavedName('');
+                      setEmail('');
+                      setPassword('');
+                      setMsg('');
                     }}
                   />
-
+                ) : null}
+                {authPage === 'login' ? (
+                  <>
+                    <Button
+                      title="Esqueci minha senha"
+                      onPress={function () {
+                        setResetEmail(savedEmail || email);
+                        setAuthPage('forgot');
+                      }}
+                    />
+                    <Button
+                      title="Não tenho conta"
+                      onPress={function () { setAuthPage('register'); }}
+                    />
+                  </>
+                ) : (
                   <Button
-                    title="Não tenho conta"
-                    onPress={function () {
-                      setAuthPage('register');
-                    }}
+                    title="Já tenho conta"
+                    onPress={function () { setAuthPage('login'); }}
                   />
-                </>
-              ) : (
-                <Button
-                  title="Já tenho conta"
-                  onPress={function () {
-                    setAuthPage('login');
-                  }}
-                />
-              )}
-            </>
-          )}
-        </Card>
-      </ScrollView>
-    </View>
-  );
-}
+                )}
+              </>
+            )}
+          </Card>
+        </ScrollView>
+      </View>
+    );
+  }
 
   const saldoUsdc = Number(saldo.USDC || 0);
-const saldoBrlEstimado = Number((saldoUsdc * buyRate).toFixed(2));
-const patrimonioTotal = saldoBrlEstimado;
-  const walletAddress = getWalletAddress();
+  const saldoBrlEstimado = Number((saldoUsdc * buyRate).toFixed(2));
+  const patrimonioTotal = saldoBrlEstimado;
   const changePrefix = marketChange >= 0 ? '+' : '';
 
   return (
@@ -2138,6 +1812,7 @@ const patrimonioTotal = saldoBrlEstimado;
         <Text style={styles.logo}>NEXA</Text>
         <Text style={styles.subtitle}>Soberania digital no seu bolso</Text>
 
+        {/* ABA 1: HOME (ULTRA LIMPA) */}
         {page === 'home' && (
           <>
             <Card>
@@ -2145,12 +1820,10 @@ const patrimonioTotal = saldoBrlEstimado;
                 <View style={styles.avatarSmall}>
                   <Text style={styles.avatarText}>{getInitial()}</Text>
                 </View>
-
                 <View style={styles.headerTextBox}>
                   <Text style={styles.welcome} numberOfLines={1}>
                     Olá, {user.fullName}
                   </Text>
-
                   <Text style={styles.usernameText}>{getUsername()}</Text>
                   <Text style={styles.nexaIdText}>{getNexaId()}</Text>
                   {isKycApproved() ? (
@@ -2161,45 +1834,37 @@ const patrimonioTotal = saldoBrlEstimado;
 
               <Text style={styles.smallLabel}>Saldo disponível</Text>
               <Text style={styles.totalBalance}>
-               {saldoUsdc.toFixed(6)} USDC
+                {saldoUsdc.toFixed(6)} USDC
               </Text>
-
               <Text style={styles.rateText}>
-              ≈ R$ {saldoBrlEstimado.toFixed(2)}
+                ≈ R$ {saldoBrlEstimado.toFixed(2)}
               </Text>
 
               <View style={styles.balanceGrid}>
-  <View style={styles.balanceMiniCard}>
-    <Text style={styles.smallLabel}>Uso diário</Text>
-    <Text style={styles.balanceMiniText}>
-      {saldoUsdc.toFixed(4)} USDC
-    </Text>
-  </View>
-
-  <View style={styles.balanceMiniCard}>
-    <Text style={styles.smallLabel}>Estimado em R$</Text>
-    <Text style={styles.balanceMiniText}>
-      R$ {saldoBrlEstimado.toFixed(2)}
-    </Text>
-  </View>
-</View>
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>Uso diário</Text>
+                  <Text style={styles.balanceMiniText}>
+                    {saldoUsdc.toFixed(4)} USDC
+                  </Text>
+                </View>
+                <View style={styles.balanceMiniCard}>
+                  <Text style={styles.smallLabel}>Estimado em R$</Text>
+                  <Text style={styles.balanceMiniText}>
+                    R$ {saldoBrlEstimado.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
 
               <View style={styles.marketBox}>
-  <Text style={styles.marketTitle}>USDC</Text>
-
-  <Text style={styles.marketPrice}>
-    R$ {buyRate.toFixed(2)}
-  </Text>
-
-  <Text style={styles.rateText}>
-    Nexa
-  </Text>
-
-  <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
-    {changePrefix}
-    {marketChange.toFixed(2)}%
-  </Text>
-</View>
+                <Text style={styles.marketTitle}>USDC</Text>
+                <Text style={styles.marketPrice}>
+                  R$ {buyRate.toFixed(2)}
+                </Text>
+                <Text style={styles.rateText}>Nexa</Text>
+                <Text style={marketChange >= 0 ? styles.marketUp : styles.marketDown}>
+                  {changePrefix}{marketChange.toFixed(2)}%
+                </Text>
+              </View>
 
               <Button
                 title="Atualizar saldo e cotação"
@@ -2212,28 +1877,22 @@ const patrimonioTotal = saldoBrlEstimado;
 
             <Card>
               <Text style={styles.title}>Notificações</Text>
-
               <View style={styles.item}>
                 <Text style={styles.itemText}>🔔 Bem-vindo à Nexa</Text>
                 <Text style={styles.rateText}>Sua conta está pronta para usar.</Text>
               </View>
-
               <View style={styles.item}>
                 <Text style={styles.itemText}>💰 Saldo atualizado</Text>
                 <Text style={styles.rateText}>
                   BRL e USDC sincronizados com sua carteira.
                 </Text>
               </View>
-
               {!isKycApproved() ? (
                 <View style={styles.item}>
                   <Text style={styles.itemText}>🪪 KYC {getKycStatusLabel()}</Text>
-                  <Text style={styles.rateText}>
-                    Acompanhe sua verificação de identidade.
-                  </Text>
+                  <Text style={styles.rateText}>Acompanhe sua verificação de identidade.</Text>
                 </View>
               ) : null}
-
               {lastReceipt ? (
                 <View style={styles.item}>
                   <Text style={styles.itemText}>✅ Última transferência concluída</Text>
@@ -2243,806 +1902,42 @@ const patrimonioTotal = saldoBrlEstimado;
                 </View>
               ) : null}
             </Card>
-
-            <Card>
-  <Text style={styles.title}>Ações rápidas</Text>
-  <Button title="👤 Meu Nexa ID" onPress={function () { setPage('nexaId'); }} />
-  <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
-  <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
-  <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
-  <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
-  <Button title="🚀 Nexa Rewards" onPress={function () { setPage('rewards'); }} />
-  <Button title="⭐ Nexa Premium" onPress={function () { setPage('premium'); }} />
-  <Button title="🔁 Cripto por assinatura" onPress={function () { setPage('recurringCrypto'); }} />
-  <Button title="🌐 Ecossistema Nexa" onPress={function () { setPage('ecosystem'); }} />
-  <Button title="⚖️ Legal e Segurança" onPress={function () { setPage('legal'); }} />
-  <Button title="🛡️ Compliance" onPress={() => setPage('compliance')} />
-  <Button title="🧩 Ativos Digitais" onPress={function () { setPage('investments'); }} />
-</Card>
-
-         {!isKycApproved() ? (
-            <Card>
-              <Text style={styles.title}>Verificação</Text>
-              <Text style={styles.itemText}>Status KYC: {getKycStatusLabel()}</Text>
-              <Button title="🪪 Iniciar verificação" onPress={iniciarKyc} />
-              <Button title="🔄 Atualizar status KYC" onPress={atualizarStatusKyc} />
-            </Card>
-         ) : null}
-
-            {lastReceipt ? (
-              <Card>
-                <Text style={styles.title}>Último comprovante</Text>
-                <Text style={styles.itemText}>✅ {lastReceipt.message}</Text>
-                <Text style={styles.itemText}>Valor: {lastReceipt.amountUsdc} USDC</Text>
-                <Text style={styles.itemText}>Destino: {lastReceipt.destinationHandle}</Text>
-                <Button title="Ver comprovante" onPress={function () { setPage('receipt'); }} />
-              </Card>
-            ) : null}
-
-            <Card>
-              <Text style={styles.title}>Últimas movimentações</Text>
-
-              {extrato.length === 0 && (
-                <Text style={styles.itemText}>Nenhuma movimentação carregada ainda.</Text>
-              )}
-
-              {extrato.slice(0, 5).map(function (item) {
-                return (
-                  <View key={item.id} style={styles.item}>
-                    <Text style={styles.itemText}>
-                      {getIcon(item)} {item.description}
-                    </Text>
-
-                    <Text style={item.direction === 'credit' ? styles.creditText : styles.debitText}>
-                      {item.direction === 'credit' ? '+' : '-'} {item.amount} {item.asset}
-                    </Text>
-                  </View>
-                );
-              })}
-            </Card>
           </>
         )}
 
-        {page === 'premium' && (
-  <Card>
-    <Text style={styles.title}>Nexa Premium</Text>
-
-    <Text style={styles.itemText}>
-      Uma assinatura para acessar o ecossistema completo da Nexa.
-    </Text>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>🚀 Nexa Rewards</Text>
-      <Text style={styles.rateText}>
-        Recompensas em USDC via Aave V3 na Polygon.
-      </Text>
-    </View>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>🔁 Cripto por assinatura</Text>
-      <Text style={styles.rateText}>
-        Compras recorrentes automáticas em USDC, WBTC ou PAXG.
-      </Text>
-    </View>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>🥇 PAXG e 🟠 WBTC</Text>
-      <Text style={styles.rateText}>
-        Compra de ouro digital e Bitcoin tokenizado com entrega on-chain.
-      </Text>
-    </View>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>🏥 HealthWallet</Text>
-      <Text style={styles.rateText}>
-        Carteira de saúde com exames, histórico e IA para análise.
-      </Text>
-    </View>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>📄 DocWallet</Text>
-      <Text style={styles.rateText}>
-        Documentos, contratos e certificados protegidos.
-      </Text>
-    </View>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>🤖 Staff Premium</Text>
-      <Text style={styles.rateText}>
-        Assistente pessoal inteligente para rotina e produtividade.
-      </Text>
-    </View>
-
-    <Button
-      title="Configurar cripto por assinatura"
-      onPress={function () {
-        setPage('recurringCrypto');
-      }}
-    />
-
-    <Button
-      title="Ativar Rewards"
-      onPress={function () {
-        setPage('rewards');
-      }}
-    />
-
-    <Button
-      title="Ver Ativos Digitais"
-      onPress={function () {
-        setPage('investments');
-      }}
-    />
-
-    <Button
-      title="Voltar"
-      onPress={function () {
-        setPage('home');
-      }}
-    />
-  </Card>
-)}
-
-      {page === 'ecosystem' && (
-  <Card>
-    <Text style={styles.title}>Ecossistema Nexa</Text>
-
-    <Text style={styles.itemText}>
-      Sua vida digital sob seu controle.
-    </Text>
-
-    <Text style={styles.rateText}>
-      Acesse produtos conectados à Nexa para cuidar do seu dinheiro, documentos,
-      saúde, patrimônio e produtividade.
-    </Text>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>👤 Nexa ID Beta</Text>
-      <Text style={styles.rateText}>
-        Em breve, um único acesso para todos os aplicativos Nexa.
-      </Text>
-    </View>
-
-    <TouchableOpacity
-      style={styles.item}
-      onPress={function () {
-        abrirLink('https://docwallet.netlify.app');
-      }}
-    >
-      <Text style={styles.itemText}>📄 DocWallet</Text>
-      <Text style={styles.rateText}>
-        Documentos, identidade e arquivos importantes sob seu controle.
-      </Text>
-    </TouchableOpacity>
-
-    <TouchableOpacity
-      style={styles.item}
-      onPress={function () {
-        abrirLink('https://healthwallet1.netlify.app');
-      }}
-    >
-      <Text style={styles.itemText}>🏥 HealthWallet</Text>
-      <Text style={styles.rateText}>
-        Carteira de saúde com exames, histórico médico e IA para análise, tudo sob controle do usuário.
-      </Text>
-    </TouchableOpacity>
-
-    <TouchableOpacity
-      style={styles.item}
-      onPress={abrirMyDataMedComNexaId}
-    >
-      <Text style={styles.itemText}>👨‍⚕️ MyDataMed</Text>
-      <Text style={styles.rateText}>
-        Portal profissional para dados de saúde compartilhados pelo paciente.
-      </Text>
-    </TouchableOpacity>
-
-    <TouchableOpacity
-      style={styles.item}
-      onPress={function () {
-        abrirLink('https://f-insight.netlify.app');
-      }}
-    >
-      <Text style={styles.itemText}>📈 F-Insight</Text>
-      <Text style={styles.rateText}>
-        Inteligência financeira para acompanhar ativos, patrimônio e oportunidades.
-      </Text>
-    </TouchableOpacity>
-
-    <TouchableOpacity
-  style={styles.item}
-  onPress={abrirStaffPremium}
->
-  <Text style={styles.itemText}>🤖 Staff Premium</Text>
-  <Text style={styles.rateText}>
-    Assistente pessoal inteligente incluído para clientes Nexa.
-  </Text>
-</TouchableOpacity>
-
-    <Text style={styles.rateText}>
-      Os produtos abrem no navegador. Em breve, todos serão conectados pelo Nexa ID.
-    </Text>
-
-    <Button
-      title="Voltar para Home"
-      onPress={function () {
-        setPage('home');
-      }}
-    />
-  </Card>
-)}
-
-        {page === 'kyc' && (
+        {/* ABA 5: A NOVA CENTRAL DE MENU (NADA EXPOSTO, TUDO BOTÃO) */}
+        {page === 'menuScreen' && (
           <Card>
-            <Text style={styles.title}>Verificação de identidade</Text>
-            <Text style={styles.itemText}>Status atual: {getKycStatusLabel()}</Text>
-
-            <View style={styles.kycBox}>
-              <Text style={kycStep === 'personal' ? styles.kycActive : styles.kycDone}>1. Dados pessoais</Text>
-              <Text style={kycStep === 'document' ? styles.kycActive : styles.kycDone}>2. Documento</Text>
-              <Text style={kycStep === 'selfie' ? styles.kycActive : styles.kycDone}>3. Selfie</Text>
-              <Text style={kycStep === 'review' ? styles.kycActive : styles.kycPending}>4. Análise</Text>
+            <Text style={styles.title}>Menu Executivo</Text>
+            <Text style={styles.rateText}>Selecione uma opção do ecossistema Nexa:</Text>
+            
+            {/* BOTÕES ESPECÍFICOS DE REDIRECIONAMENTO LIMPO */}
+            <Button title="👤 Acessar Meu Perfil" onPress={function () { setPage('profile'); }} />
+            <Button title="📄 Ver Últimas Movimentações" onPress={function () { setPage('extrato'); }} />
+            <Button title="🆔 Meu Nexa ID" onPress={function () { setPage('nexaId'); }} />
+            <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
+            <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
+            <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
+            <Button title="🚀 Nexa Rewards" onPress={function () { setPage('rewards'); }} />
+            <Button title="⭐ Nexa Premium" onPress={function () { setPage('premium'); }} />
+            <Button title="🔁 Cripto por assinatura" onPress={function () { setPage('recurringCrypto'); }} />
+            <Button title="🌐 Ecossistema Nexa" onPress={function () { setPage('ecosystem'); }} />
+            <Button title="⚖️ Legal e Segurança" onPress={function () { setPage('legal'); }} />
+            <Button title="🛡️ Compliance" onPress={() => setPage('compliance')} />
+            <Button title="🧩 Ativos Digitais" onPress={function () { setPage('investments'); }} />
+            
+            <View style={{ marginTop: 20 }}>
+              <Button title="🚪 Sair do Aplicativo" onPress={logout} />
             </View>
-
-            {kycStep === 'personal' && (
-              <>
-                <Text style={styles.itemText}>Confirme seus dados pessoais antes de enviar os documentos.</Text>
-                <Text style={styles.itemText}>Nome: {user.fullName}</Text>
-                <Text style={styles.itemText}>E-mail: {user.email}</Text>
-                <Text style={styles.itemText}>CPF: {user.cpf}</Text>
-              </>
-            )}
-
-            {kycStep === 'document' && (
-              <>
-                <Text style={styles.itemText}>Envio de documento será integrado no próximo passo.</Text>
-                <Text style={styles.rateText}>Aceitaremos RG, CNH ou documento oficial com foto.</Text>
-              </>
-            )}
-
-            {kycStep === 'selfie' && (
-              <>
-                <Text style={styles.itemText}>Selfie de segurança será integrada com câmera depois.</Text>
-                <Text style={styles.rateText}>Por enquanto, esta etapa é visual para simular o fluxo completo.</Text>
-              </>
-            )}
-
-            {kycStep === 'review' && (
-              <>
-                <Text style={styles.itemText}>✅ Verificação enviada para análise.</Text>
-                <Text style={styles.rateText}>
-                  Quando o backend KYC estiver ativo, esta etapa atualizará o status automaticamente.
-                </Text>
-              </>
-            )}
-
-            <Button title={kycStep === 'review' ? 'Concluir' : 'Continuar'} onPress={avancarKyc} />
-            <Button title="Voltar ao Perfil" onPress={function () { setPage('profile'); }} />
           </Card>
         )}
 
-        {page === 'wallet' && (
-          <>
-            <Card>
-              <Text style={styles.title}>Carteira Nexa</Text>
-
-              <View style={styles.walletHeader}>
-                <View style={styles.avatarSmall}>
-                  <Text style={styles.avatarText}>{getInitial()}</Text>
-                </View>
-
-                <View style={styles.headerTextBox}>
-                  <Text style={styles.walletName} numberOfLines={1}>{user.fullName}</Text>
-                  <Text style={styles.usernameText}>{getUsername()}</Text>
-                  {isKycApproved() ? (
-                    <Text style={styles.verifiedBadge}>✅ Verificado</Text>
-                  ) : null}
-                </View>
-              </View>
-
-              <Text style={styles.smallLabel}>Saldo disponível</Text>
-<Text style={styles.totalBalance}>
-  {saldoUsdc.toFixed(6)} USDC
-</Text>
-
-<Text style={styles.rateText}>
-  ≈ R$ {saldoBrlEstimado.toFixed(2)}
-</Text>
-
-              <View style={styles.balanceGrid}>
-  <View style={styles.balanceMiniCard}>
-    <Text style={styles.smallLabel}>Saldo digital</Text>
-    <Text style={styles.balanceMiniText}>
-      {saldoUsdc.toFixed(4)} USDC
-    </Text>
-  </View>
-
-  <View style={styles.balanceMiniCard}>
-    <Text style={styles.smallLabel}>Equivalente</Text>
-    <Text style={styles.balanceMiniText}>
-      R$ {saldoBrlEstimado.toFixed(2)}
-    </Text>
-  </View>
-</View>
-
-              <Button title="Atualizar carteira" onPress={function () { carregarDados(); buscarPerfilAtualizado(); }} />
-            </Card>
-
-            <Card>
-  <Text style={styles.title}>Receber USDC</Text>
-
-  <TouchableOpacity
-  style={styles.item}
-  onPress={function () {
-    setPage('receive');
-  }}
->
-  <Text style={styles.itemText}>
-    ✅ Receber de usuário Nexa
-  </Text>
-
-  <Text style={styles.rateText}>
-    Use seu @username para receber USDC instantaneamente dentro da Nexa.
-  </Text>
-
-  <Text style={styles.walletAddressText}>
-    {getUsername()}
-  </Text>
-
-  <Text
-    style={{
-      color: '#60a5fa',
-      marginTop: 8,
-      fontWeight: '800',
-    }}
-  >
-    Toque para compartilhar →
-  </Text>
-</TouchableOpacity>
-
-  <TouchableOpacity
-  style={styles.item}
-  onPress={function () {
-    setPage('receive');
-    criarDepositoUsdcExterno();
-  }}
->
-  <Text style={styles.itemText}>🌐 Receber USDC externo</Text>
-  <Text style={styles.rateText}>
-    Receba USDC pela rede Polygon usando a carteira Treasury da Nexa.
-  </Text>
-</TouchableOpacity>
-
-  <View style={styles.item}>
-    <Text style={styles.itemText}>📤 Enviar USDC externo</Text>
-    <Text style={styles.rateText}>
-      Você já pode enviar USDC para uma carteira Polygon informando o endereço 0x.
-    </Text>
-  </View>
-</Card>
-
-            <Card>
-              <Text style={styles.title}>Atalhos da carteira</Text>
-              <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
-              <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
-              <Button title="💳 Cartão Virtual Nexa" onPress={function () { setPage('card'); }} />
-              <Button title="📄 Ver extrato" onPress={function () { setPage('extrato'); }} />
-            </Card>
-          </>
-        )}
-       
-       {page === 'receive' && (
-  <Card>
-    <Text style={styles.title}>
-      Receber USDC
-    </Text>
-
-    <View style={styles.avatarLarge}>
-      <Text style={styles.avatarLargeText}>
-        {getInitial()}
-      </Text>
-    </View>
-
-    <View style={styles.receiveBox}>
-      <Text style={styles.receiveLabel}>
-        Seu usuário Nexa
-      </Text>
-
-      <Text style={styles.receiveHandle}>
-        {getUsername()}
-      </Text>
-    </View>
-
-    <Text
-      style={{
-        color: '#94a3b8',
-        textAlign: 'center',
-        marginBottom: 16,
-      }}
-    >
-      Compartilhe seu @username para receber
-      USDC instantaneamente de outros usuários
-      Nexa.
-    </Text>
-
-    <View style={styles.pixBox}>
-  <Text style={styles.itemText}>Receber USDC externo</Text>
-  <Text style={styles.rateText}>
-    Envie somente USDC na rede Polygon. Taxa de recebimento: 1%.
-  </Text>
-
-  {usdcDepositAddress ? (
-  <>
-    <View style={styles.qrBox}>
-      <QRCode value={usdcDepositAddress} size={180} />
-    </View>
-
-    <Text style={styles.itemText}>Endereço:</Text>
-    <Text style={styles.copyText}>{usdcDepositAddress}</Text>
-
-    {usdcDepositId ? (
-      <>
-        <Text style={styles.itemText}>Deposit ID:</Text>
-        <Text style={styles.copyText}>{usdcDepositId}</Text>
-
-        <Input
-          placeholder="Cole aqui o txHash Polygon"
-          value={usdcTxHash}
-          onChangeText={setUsdcTxHash}
-        />
-
-        <Button
-          title="Confirmar recebimento USDC"
-          onPress={confirmarDepositoUsdcExterno}
-        />
-      </>
-    ) : null}
-  </>
-) : (
-    <Button
-      title="Gerar endereço USDC"
-      onPress={criarDepositoUsdcExterno}
-    />
-  )}
-</View>
-
-    <Button
-      title="Voltar para carteira"
-      onPress={function () {
-        setPage('wallet');
-      }}
-    />
-  </Card>
-)} 
-
-        {page === 'deposit' && (
-          <Card>
-            <Text style={styles.title}>Depositar via Pix</Text>
-<Text style={styles.rateText}>
-  Pague via Pix e receba USDC automaticamente na sua carteira Nexa.
-</Text>
-
-            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-            <Input
-              placeholder="Valor em R$"
-              keyboardType="numeric"
-              value={depositValue}
-              onChangeText={setDepositValue}
-            />
-
-            <Button title="Depositar via Pix" onPress={depositarPix} />
-            {pixCopyPaste ? (
-              <View style={styles.pixBox}>
-                <Text style={styles.itemText}>QR Code Pix</Text>
-
-                <View style={styles.qrBox}>
-                  <QRCode value={pixCopyPaste} size={180} />
-                </View>
-
-                <Text style={styles.itemText}>Pix copia e cola:</Text>
-                <Text style={styles.copyText}>{pixCopyPaste}</Text>
-              </View>
-            ) : null}
-
-            {ticketUrl ? (
-              <View style={styles.pixBox}>
-                <Text style={styles.itemText}>Link de pagamento:</Text>
-                <Text style={styles.copyText}>{ticketUrl}</Text>
-              </View>
-            ) : null}
-          </Card>
-        )}
-
-        {page === 'pix' && (
-          <Card>
-            <Text style={styles.title}>Sacar Pix</Text>
-            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-            <Input placeholder="Chave Pix" value={pixKey} onChangeText={setPixKey} />
-
-            <Input
-              placeholder="Valor em R$"
-              keyboardType="numeric"
-              value={valorBrl}
-              onChangeText={setValorBrl}
-            />
-
-            <Button title="Solicitar Pix" onPress={sacarPix} />
-          </Card>
-        )}
-
-        {page === 'convert' && (
-          <Card>
-            <Text style={styles.title}>Converter BRL para USDC</Text>
-            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-            <Input
-              placeholder="Valor em R$"
-              keyboardType="numeric"
-              value={valorBrl}
-              onChangeText={setValorBrl}
-            />
-
-            <Text style={styles.rateText}>Cotação atual: 1 USDC = R$ {buyRate.toFixed(2)}</Text>
-
-            <Button title="Converter" onPress={converter} />
-          </Card>
-        )}
-
-        {page === 'send' && (
-          <Card>
-            <Text style={styles.title}>Enviar USDC</Text>
-            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
-
-            <Input
-              placeholder="@username"
-              value={username}
-              onChangeText={function (value) {
-                setUsername(value);
-                setRecipientUser(null);
-                setRecipientChecked(false);
-              }}
-            />
-
-            <Button title="Verificar usuário" onPress={buscarDestinatario} />
-
-            {recipientUser ? (
-              <View style={styles.recipientBox}>
-                <Text style={styles.recipientOk}>✅ Usuário encontrado</Text>
-                <Text style={styles.recipientName}>{recipientUser.fullName}</Text>
-                <Text style={styles.recipientHandle}>{recipientUser.handle}</Text>
-              </View>
-            ) : null}
-
-            {!recipientUser && recipientChecked ? (
-              <View style={styles.recipientBoxError}>
-                <Text style={styles.recipientError}>❌ Usuário não encontrado</Text>
-              </View>
-            ) : null}
-
-            <Input
-              placeholder="Valor USDC"
-              keyboardType="numeric"
-              value={valorUsdc}
-              onChangeText={setValorUsdc}
-            />
-
-            <Button title="Enviar para @username" onPress={enviarUsername} />
-<Input placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
-
-<Text style={styles.rateText}>
-  Envio externo cobra 1% e exige OTP por e-mail.
-</Text>
-
-{sendPermission && !sendPermission.enabled ? (
-  <View style={styles.item}>
-    <Text style={styles.itemText}>🔒 Envio externo não habilitado</Text>
-    <Text style={styles.rateText}>
-      É necessário saldo mínimo de 100 USDC e aprovação administrativa.
-    </Text>
-
-    <Button
-      title="Solicitar habilitação"
-      onPress={solicitarHabilitacaoEnvioExterno}
-    />
-  </View>
-) : null}
-
-{spendingLimit ? (
-  <View style={styles.item}>
-    <Text style={styles.itemText}>🛡️ Limite diário</Text>
-    <Text style={styles.rateText}>
-      Limite: {Number(spendingLimit.limit?.dailyUsdcLimit || 100)} USDC/dia
-    </Text>
-    <Text style={styles.rateText}>
-      Usado hoje: {Number(spendingLimit.usage?.sentToday || 0)} USDC
-    </Text>
-  </View>
-) : null}
-
-<View style={styles.item}>
-  <Text style={styles.itemText}>🛡️ Segurança da carteira</Text>
-
-  <Text style={styles.rateText}>
-    Limite atual: {Number(spendingLimit?.limit?.dailyUsdcLimit || 100)} USDC/dia
-  </Text>
-
-  <Input
-    placeholder="Novo limite diário em USDC"
-    keyboardType="numeric"
-    value={newDailyLimit}
-    onChangeText={setNewDailyLimit}
-  />
-
-  <Button
-    title="Receber OTP para alterar limite"
-    onPress={solicitarOtpLimiteDiario}
-  />
-
-  {limitOtpRequested ? (
-    <>
-      <Input
-        placeholder="Código OTP do limite"
-        keyboardType="numeric"
-        value={limitOtpCode}
-        onChangeText={setLimitOtpCode}
-      />
-
-      <Button
-        title="Confirmar novo limite"
-        onPress={confirmarNovoLimiteDiario}
-      />
-    </>
-  ) : null}
-</View>
-
-<Button title="Receber OTP para enviar USDC" onPress={solicitarOtpEnvioWallet} />
-
-{otpRequested ? (
-  <Input
-    placeholder="Código OTP recebido por e-mail"
-    value={otpCode}
-    onChangeText={setOtpCode}
-    keyboardType="numeric"
-  />
-) : null}
-
-<Button title="Enviar para carteira" onPress={enviarWallet} />
-          </Card>
-        )}
-
-        {page === 'receipt' && (
-          <Card>
-            <View style={styles.receiptIcon}>
-              <Text style={styles.receiptIconText}>✓</Text>
-            </View>
-
-            <Text style={styles.receiptTitle}>Transferência concluída</Text>
-
-            {lastReceipt ? (
-              <>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Valor</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.amountUsdc} USDC</Text>
-                </View>
-
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Destino</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.destinationHandle}</Text>
-                </View>
-
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Nome</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.destinationName}</Text>
-                </View>
-
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Origem</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.fromHandle}</Text>
-                </View>
-
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Data</Text>
-                  <Text style={styles.receiptValue}>{lastReceipt.date}</Text>
-                </View>
-
-                <View style={styles.receiptBox}>
-                  <Text style={styles.receiptSmallLabel}>ID da transferência</Text>
-                  <Text style={styles.receiptId}>{lastReceipt.transferId}</Text>
-                </View>
-
-                <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
-                <Button title="Enviar outro valor" onPress={function () { setPage('send'); }} />
-              </>
-            ) : (
-              <>
-                <Text style={styles.itemText}>Nenhum comprovante disponível.</Text>
-                <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
-              </>
-            )}
-          </Card>
-        )}
-
-        {page === 'card' && (
-          <Card>
-            <Text style={styles.title}>Cartão Virtual Nexa</Text>
-
-            <View style={styles.virtualCard}>
-              <Text style={styles.cardBrand}>NEXA CARD</Text>
-              <Text style={styles.cardNumber}>**** **** **** 2026</Text>
-              <Text style={styles.cardName}>{user.fullName}</Text>
-              <Text style={styles.cardStatus}>Status: Em breve</Text>
-            </View>
-
-            <Text style={styles.smallLabel}>Saldo disponível</Text>
-            <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
-
-            <Button title="Ativar cartão em breve" onPress={function () { show('Cartão virtual em preparação'); }} />
-            <Button title="Voltar para carteira" onPress={function () { setPage('wallet'); }} />
-          </Card>
-        )}
-
-        {page === 'nexaId' && (
-  <Card>
-    <Text style={styles.passportTopLabel}>NEXA PASSPORT</Text>
-
-    <View style={styles.passportCard}>
-      <View style={styles.passportHeader}>
-        <View style={styles.avatarLarge}>
-          <Text style={styles.avatarLargeText}>{getInitial()}</Text>
-        </View>
-
-        <Text style={styles.passportName} numberOfLines={1}>
-          {user.fullName}
-        </Text>
-
-        <Text style={styles.passportHandle}>
-          {getUsername()}
-        </Text>
-
-        <Text style={styles.passportNexaId}>
-          {getNexaId()}
-        </Text>
-      </View>
-
-      <View style={styles.passportQrBox}>
-        <QRCode value={getNexaPassportQrValue()} size={190} />
-      </View>
-
-      <View style={styles.passportInfoBox}>
-        <Text style={styles.passportInfoLabel}>Status de identidade</Text>
-        <Text style={isKycApproved() ? styles.passportVerified : styles.passportPending}>
-          {isKycApproved() ? '✅ KYC Verificado' : '⏳ KYC ' + getKycStatusLabel()}
-        </Text>
-      </View>
-
-      <View style={styles.passportInfoBox}>
-        <Text style={styles.passportInfoLabel}>Wallet</Text>
-        <Text style={styles.passportWallet} numberOfLines={2}>
-          {getWalletAddress()}
-        </Text>
-        <Text style={styles.passportNetwork}>
-          Rede: {getWalletNetwork()}
-        </Text>
-      </View>
-    </View>
-
-    <Text style={styles.rateText}>
-      Este QR identifica seu Nexa ID, @username, status KYC e carteira vinculada. Em breve será usado para conectar HealthWallet, DocWallet e Staff.
-    </Text>
-
-    <Button title="Atualizar Nexa ID" onPress={buscarPerfilAtualizado} />
-    <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
-  </Card>
-)}
-
+        {/* SUB-PÁGINA: DETALHES DO PERFIL (SÓ ABRE CLICANDO NO BOTÃO DO MENU) */}
         {page === 'profile' && (
           <Card>
             <View style={styles.avatarLarge}>
               <Text style={styles.avatarLargeText}>{getInitial()}</Text>
             </View>
-
             <Text style={styles.title}>Perfil</Text>
             <Text style={styles.itemText}>Nome: {user.fullName}</Text>
             <Text style={styles.itemText}>Username atual: {getUsername()}</Text>
@@ -3057,8 +1952,8 @@ const patrimonioTotal = saldoBrlEstimado;
               onChangeText={setNewUsername}
               autoCapitalize="none"
             />
-
             <Button title="Salvar @username" onPress={salvarUsername} />
+            
             {!isKycApproved() ? (
               <Button title="🪪 Verificação de identidade" onPress={iniciarKyc} />
             ) : (
@@ -3067,705 +1962,267 @@ const patrimonioTotal = saldoBrlEstimado;
               </View>
             )}
             <Button title="Atualizar perfil" onPress={buscarPerfilAtualizado} />
-            <Button title="Sair" onPress={logout} />
+            <Button title="Voltar para Menu" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
+
+        {/* SUB-PÁGINAS GERAIS DO APP (MANUTENÇÃO DE CÓDIGO) */}
+        {page === 'premium' && (
+          <Card>
+            <Text style={styles.title}>Nexa Premium</Text>
+            <Text style={styles.itemText}>Uma assinatura para acessar o ecossistema completo da Nexa.</Text>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>🚀 Nexa Rewards</Text>
+              <Text style={styles.rateText}>Recompensas em USDC via Aave V3 na Polygon.</Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>🔁 Cripto por assinatura</Text>
+              <Text style={styles.rateText}>Compras recorrentes automáticas em USDC, WBTC ou PAXG.</Text>
+            </View>
+            <Button title="Configurar cripto por assinatura" onPress={function () { setPage('recurringCrypto'); }} />
+            <Button title="Ativar Rewards" onPress={function () { setPage('rewards'); }} />
+            <Button title="Ver Ativos Digitais" onPress={function () { setPage('investments'); }} />
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
+
+        {page === 'ecosystem' && (
+          <Card>
+            <Text style={styles.title}>Ecossistema Nexa</Text>
+            <Text style={styles.itemText}>Sua vida digital sob seu controle.</Text>
+            <TouchableOpacity style={styles.item} onPress={function () { abrirLink('https://docwallet.netlify.app'); }}>
+              <Text style={styles.itemText}>📄 DocWallet</Text>
+              <Text style={styles.rateText}>Documentos, identidade e arquivos importantes sob seu controle.</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.item} onPress={function () { abrirLink('https://healthwallet1.netlify.app'); }}>
+              <Text style={styles.itemText}>🏥 HealthWallet</Text>
+              <Text style={styles.rateText}>Carteira de saúde com exames, histórico médico e IA para análise.</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.item} onPress={abrirMyDataMedComNexaId}>
+              <Text style={styles.itemText}>👨‍⚕️ MyDataMed</Text>
+              <Text style={styles.rateText}>Portal profissional para dados de saúde compartilhados pelo paciente.</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.item} onPress={abrirStaffPremium}>
+              <Text style={styles.itemText}>🤖 Staff Premium</Text>
+              <Text style={styles.rateText}>Assistente pessoal inteligente incluído para clientes Nexa.</Text>
+            </TouchableOpacity>
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
+
+        {page === 'kyc' && (
+          <Card>
+            <Text style={styles.title}>Verificação de identidade</Text>
+            <Text style={styles.itemText}>Status atual: {getKycStatusLabel()}</Text>
+            <View style={styles.kycBox}>
+              <Text style={kycStep === 'personal' ? styles.kycActive : styles.kycDone}>1. Dados pessoais</Text>
+              <Text style={kycStep === 'document' ? styles.kycActive : styles.kycDone}>2. Documento</Text>
+              <Text style={kycStep === 'selfie' ? styles.kycActive : styles.kycDone}>3. Selfie</Text>
+              <Text style={kycStep === 'review' ? styles.kycActive : styles.kycPending}>4. Análise</Text>
+            </View>
+            <Button title={kycStep === 'review' ? 'Concluir' : 'Continuar'} onPress={avancarKyc} />
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
+
+        {page === 'wallet' && (
+          <>
+            <Card>
+              <Text style={styles.title}>Carteira Nexa</Text>
+              <View style={styles.walletHeader}>
+                <View style={styles.avatarSmall}>
+                  <Text style={styles.avatarText}>{getInitial()}</Text>
+                </View>
+                <View style={styles.headerTextBox}>
+                  <Text style={styles.walletName} numberOfLines={1}>{user.fullName}</Text>
+                  <Text style={styles.usernameText}>{getUsername()}</Text>
+                  {isKycApproved() ? <Text style={styles.verifiedBadge}>✅ Verificado</Text> : null}
+                </View>
+              </View>
+              <Text style={styles.smallLabel}>Saldo disponível</Text>
+              <Text style={styles.totalBalance}>{saldoUsdc.toFixed(6)} USDC</Text>
+              <Text style={styles.rateText}>≈ R$ {saldoBrlEstimado.toFixed(2)}</Text>
+              <Button title="Atualizar carteira" onPress={function () { carregarDados(); buscarPerfilAtualizado(); }} />
+            </Card>
+
+            <Card>
+              <Text style={styles.title}>Receber USDC</Text>
+              <TouchableOpacity style={styles.item} onPress={function () { setPage('receive'); }}>
+                <Text style={styles.itemText}>✅ Receber de usuário Nexa</Text>
+                <Text style={styles.walletAddressText}>{getUsername()}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.item} onPress={function () { setPage('receive'); criarDepositoUsdcExterno(); }}>
+                <Text style={styles.itemText}>🌐 Receber USDC externo</Text>
+              </TouchableOpacity>
+            </Card>
+          </>
+        )}
+
+        {page === 'receive' && (
+          <Card>
+            <Text style={styles.title}>Receber USDC</Text>
+            <View style={styles.receiveBox}>
+              <Text style={styles.receiveHandle}>{getUsername()}</Text>
+            </View>
+            <View style={styles.pixBox}>
+              {usdcDepositAddress ? (
+                <>
+                  <View style={styles.qrBox}><QRCode value={usdcDepositAddress} size={180} /></View>
+                  <Text style={styles.copyText}>{usdcDepositAddress}</Text>
+                  <Input placeholder="Cole aqui o txHash Polygon" value={usdcTxHash} onChangeText={setUsdcTxHash} />
+                  <Button title="Confirmar recebimento" onPress={confirmarDepositoUsdcExterno} />
+                </>
+              ) : <Button title="Gerar endereço USDC" onPress={criarDepositoUsdcExterno} />}
+            </View>
+            <Button title="Voltar para carteira" onPress={function () { setPage('wallet'); }} />
+          </Card>
+        )}
+
+        {page === 'deposit' && (
+          <Card>
+            <Text style={styles.title}>Depositar via Pix</Text>
+            {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
+            <Input placeholder="Valor em R$" keyboardType="numeric" value={depositValue} onChangeText={setDepositValue} />
+            <Button title="Depositar via Pix" onPress={depositarPix} />
+            {pixCopyPaste ? (
+              <View style={styles.pixBox}>
+                <View style={styles.qrBox}><QRCode value={pixCopyPaste} size={180} /></View>
+                <Text style={styles.copyText}>{pixCopyPaste}</Text>
+              </View>
+            ) : null}
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
+
+        {page === 'pix' && (
+          <Card>
+            <Text style={styles.title}>Sacar Pix</Text>
+            <Input placeholder="Chave Pix" value={pixKey} onChangeText={setPixKey} />
+            <Input placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
+            <Button title="Solicitar Pix" onPress={sacarPix} />
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
+
+        {page === 'send' && (
+          <Card>
+            <Text style={styles.title}>Enviar USDC</Text>
+            <Input placeholder="@username" value={username} onChangeText={(v) => { setUsername(v); setRecipientUser(null); }} />
+            <Button title="Verificar usuário" onPress={buscarDestinatario} />
+            {recipientUser && <Text style={styles.recipientOk}>✅ {recipientUser.fullName}</Text>}
+            <Input placeholder="Valor USDC" keyboardType="numeric" value={valorUsdc} onChangeText={setValorUsdc} />
+            <Button title="Enviar para @username" onPress={enviarUsername} />
+            
+            <Input placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
+            <Button title="Enviar para carteira" onPress={enviarWallet} />
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
+
+        {page === 'receipt' && (
+          <Card>
+            <Text style={styles.receiptTitle}>✓ Transação concluída</Text>
+            <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
+          </Card>
+        )}
+
+        {page === 'card' && (
+          <Card>
+            <Text style={styles.title}>Cartão Virtual</Text>
+            <Button title="Voltar" onPress={function () { setPage('wallet'); }} />
+          </Card>
+        )}
+
+        {page === 'nexaId' && (
+          <Card>
+            <Text style={styles.passportTopLabel}>NEXA PASSPORT</Text>
+            <View style={styles.passportCard}>
+              <Text style={styles.passportName}>{user.fullName}</Text>
+              <Text style={styles.passportNexaId}>{getNexaId()}</Text>
+              <View style={styles.passportQrBox}><QRCode value={getNexaPassportQrValue()} size={190} /></View>
+            </View>
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
         )}
 
         {page === 'recurringCrypto' && (
-  <Card>
-    <Text style={styles.title}>Cripto por assinatura</Text>
-
-    <Text style={styles.itemText}>
-      Programe compras recorrentes automáticas com Pix mensal.
-    </Text>
-
-    <Text style={styles.rateText}>
-      A Nexa usa Pix recorrente para converter automaticamente em ativos digitais.
-    </Text>
-
-    <Text style={styles.smallLabel}>Valor mensal em R$</Text>
-
-    <Input
-      placeholder="Ex: 100"
-      keyboardType="numeric"
-      value={recurringAmountBrl}
-      onChangeText={setRecurringAmountBrl}
-    />
-
-    <Text style={styles.smallLabel}>Dia do mês</Text>
-
-    <Input
-      placeholder="Ex: 5"
-      keyboardType="numeric"
-      value={recurringDay}
-      onChangeText={setRecurringDay}
-    />
-
-    <Text style={styles.smallLabel}>Ativo escolhido</Text>
-
-    <Button
-      title={recurringAsset === 'USDC' ? '✅ 💵 USDC' : '💵 USDC'}
-      onPress={function () {
-        setRecurringAsset('USDC');
-      }}
-    />
-
-    <Button
-      title={recurringAsset === 'WBTC' ? '✅ 🟠 WBTC' : '🟠 WBTC'}
-      onPress={function () {
-        setRecurringAsset('WBTC');
-      }}
-    />
-
-    <Button
-      title={recurringAsset === 'PAXG' ? '✅ 🥇 PAXG' : '🥇 PAXG'}
-      onPress={function () {
-        setRecurringAsset('PAXG');
-      }}
-    />
-
-    <Button
-      title="Salvar assinatura recorrente"
-      onPress={salvarAssinaturaRecorrente}
-    />
-
-    <Button
-      title="Gerar autorização Pix recorrente"
-      onPress={gerarLinkAssinaturaWoovi}
-    />
-
-    <Button
-      title="Gerar link manual"
-      onPress={gerarLinkManualAssinatura}
-    />
-
-    {recurringPixLink ? (
-      <View style={styles.item}>
-        <Text style={styles.itemText}>Link da assinatura</Text>
-        <Text style={styles.copyText}>{recurringPixLink}</Text>
-      </View>
-    ) : null}
-
-    {recurringPlan ? (
-      <View style={styles.item}>
-        <Text style={styles.itemText}>Assinatura atual</Text>
-
-        <Text style={styles.rateText}>
-          Status: {recurringPlan.status || recurringPlan.recurringStatus || 'ativa'}
-        </Text>
-
-        <Text style={styles.rateText}>
-          Valor: R$ {Number(recurringPlan.amountBrl || recurringPlan.amount || 0).toFixed(2)}
-        </Text>
-
-        <Text style={styles.rateText}>
-          Ativo: {recurringPlan.asset || recurringPlan.targetAsset || recurringAsset}
-        </Text>
-
-        <Text style={styles.rateText}>
-          Dia: {recurringPlan.dayOfMonth || recurringPlan.day || recurringDay}
-        </Text>
-      </View>
-    ) : (
-      <Text style={styles.rateText}>
-        Nenhuma assinatura recorrente carregada.
-      </Text>
-    )}
-
-    <Button
-      title="Atualizar assinatura"
-      onPress={carregarAssinaturaRecorrente}
-    />
-
-    <Button
-      title="Pausar assinatura"
-      onPress={pausarAssinaturaRecorrente}
-    />
-
-    <Button
-      title="Cancelar assinatura"
-      onPress={cancelarAssinaturaRecorrente}
-    />
-
-    <Button
-      title="Voltar"
-      onPress={function () {
-        setPage('home');
-      }}
-    />
-  </Card>
-)}
+          <Card>
+            <Text style={styles.title}>Cripto por assinatura</Text>
+            <Input placeholder="Valor Mensal R$" keyboardType="numeric" value={recurringAmountBrl} onChangeText={setRecurringAmountBrl} />
+            <Input placeholder="Dia do Mês" keyboardType="numeric" value={recurringDay} onChangeText={setRecurringDay} />
+            <Button title="Salvar assinatura" onPress={salvarAssinaturaRecorrente} />
+            <Button title="Ativar Pix Automático" onPress={gerarLinkAssinaturaWoovi} />
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
 
         {page === 'rewards' && (
           <Card>
             <Text style={styles.title}>Nexa Rewards</Text>
-            <Text style={styles.rateText}>
-              Nexa Rewards permite que clientes Premium ativem recompensas em USDC via Aave V3 na Polygon. A Nexa retém 20% do retorno gerado
-            </Text>
-
-            <Text style={styles.smallLabel}>Saldo Livre</Text>
-            <Text style={styles.balanceMiniText}>{saldo.USDC} USDC</Text>
-
-            <Input
-              placeholder="Valor em USDC"
-              keyboardType="numeric"
-              value={rewardAmount}
-              onChangeText={setRewardAmount}
-            />
-
-            {rewardPlans.map(function (plan) {
-              return (
-                <Button
-                  key={plan.plan}
-                  title={
-                    (selectedRewardPlan === plan.plan ? '✅ ' : '') +
-                    plan.name +
-' · APY usuário ' +
-(Number(plan.userApy || 0) * 100).toFixed(2) +
-'% · Aave'
-                  }
-                  onPress={function () {
-                    setSelectedRewardPlan(plan.plan);
-                  }}
-                />
-              );
-            })}
-
-            <Button title="Ativar Nexa Rewards" onPress={ativarRewards} />
-
-            <Text style={styles.title}>Meus Boosts</Text>
-
-            {rewardPositions.length === 0 && (
-              <Text style={styles.itemText}>Nenhum Saldo Boost ativo.</Text>
-            )}
-
-            {rewardPositions.map(function (position) {
-              return (
-                <View key={position.id} style={styles.item}>
-                  <Text style={styles.itemText}>
-                    🚀 {position.plan} · {Number(position.principalUsdc || position.amountUsdc || 0).toFixed(4)} USDC
-                  </Text>
-
-                  <Text style={styles.rateText}>
-                    Início: {new Date(position.startedAt || position.createdAt).toLocaleDateString('pt-BR')}
-                  </Text>
-
-                  <Text style={styles.rateText}>Status: {position.status}</Text>
-                  {position.status === 'active' ? (
-  <Button
-    title="Resgatar Rewards"
-    onPress={function () {
-      resgatarRewards(position.id);
-    }}
-  />
-) : null}
-                </View>
-              );
-            })}
+            <Input placeholder="Valor USDC" keyboardType="numeric" value={rewardAmount} onChangeText={setRewardAmount} />
+            <Button title="Ativar Boost Aave" onPress={ativarRewards} />
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
         )}
 
         {page === 'legal' && (
-  <Card>
-    <Text style={styles.title}>Legal e Segurança</Text>
+          <Card>
+            <Text style={styles.title}>Legal e Riscos</Text>
+            <Button title="Aceitar Termos" onPress={aceitarDocumentosLegais} />
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
 
-    <Text style={styles.itemText}>
-      Documentos jurídicos e políticas de uso da Nexa.
-    </Text>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>📄 Termos de Uso v1</Text>
-      <Text style={styles.rateText}>
-        Regras gerais de uso da plataforma Nexa.
-      </Text>
-    </View>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>🔐 Política de Privacidade v1</Text>
-      <Text style={styles.rateText}>
-        Tratamento de dados pessoais conforme LGPD.
-      </Text>
-    </View>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>⚠️ Riscos dos Ativos Digitais v1</Text>
-      <Text style={styles.rateText}>
-        Ativos digitais possuem volatilidade, risco tecnológico,
-        risco regulatório e risco de liquidez.
-      </Text>
-    </View>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>🛡️ Política AML/KYC v1</Text>
-      <Text style={styles.rateText}>
-        Procedimentos de identificação, prevenção a fraudes
-        e prevenção à lavagem de dinheiro.
-      </Text>
-    </View>
-
-    <Text style={styles.rateText}>
-      Ao aceitar, você confirma ciência dos documentos jurídicos,
-      das políticas de segurança e dos riscos associados ao uso
-      de ativos digitais.
-    </Text>
-
-    <Button
-      title="Aceitar documentos legais"
-      onPress={aceitarDocumentosLegais}
-    />
-
-    <Button
-      title="Voltar para Home"
-      onPress={function () {
-        setPage('home');
-      }}
-    />
-  </Card>
-)}
-
-{page === 'compliance' && (
-  <Card>
-    <Text style={styles.title}>
-      Compliance Nexa
-    </Text>
-
-    <Text style={styles.itemText}>
-      Status regulatório da conta.
-    </Text>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>
-        KYC
-      </Text>
-
-      <Text style={styles.rateText}>
-        {getKycStatusLabel()}
-      </Text>
-    </View>
-
-    <View style={styles.item}>
-      <Text style={styles.itemText}>
-        Aceites Jurídicos
-      </Text>
-
-      <View style={styles.item}>
-  <Text style={styles.itemText}>Nível da conta</Text>
-  <Text style={styles.rateText}>
-    {isKycApproved() && compliance?.fullyAccepted
-      ? '✅ Conta validada'
-      : '⚠️ Pendente de validação'}
-  </Text>
-</View>
-
-<View style={styles.item}>
-  <Text style={styles.itemText}>Ativos digitais</Text>
-  <Text style={styles.rateText}>
-    {isKycApproved() && compliance?.fullyAccepted
-      ? '✅ Habilitados'
-      : '⚠️ Limitados'}
-  </Text>
-</View>
-
-<View style={styles.item}>
-  <Text style={styles.itemText}>Limite diário</Text>
-  <Text style={styles.rateText}>
-    {Number(spendingLimit?.limit?.dailyUsdcLimit || 100)} USDC/dia
-  </Text>
-</View>
-
-      <Text style={styles.rateText}>
-        {compliance?.fullyAccepted
-          ? '✅ Completo'
-          : '⚠️ Pendente'}
-      </Text>
-    </View>
-
-    <Button
-      title="Atualizar"
-      onPress={carregarCompliance}
-    />
-  </Card>
-)}
+        {page === 'compliance' && (
+          <Card>
+            <Text style={styles.title}>Compliance</Text>
+            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+          </Card>
+        )}
 
         {page === 'investments' && (
-  <Card>
-    <Text style={styles.title}>Ativos Digitais Nexa</Text>
-
-    <Button title="Atualizar portfolio" onPress={carregarPortfolio} />
-
-    <Button title="Atualizar atividades" onPress={carregarAtividadesAtivos} />
-
-    {portfolio ? (
-      <>
-        <Text style={styles.smallLabel}>
-  Composição em ativos digitais
-</Text>
-
-<Text style={styles.totalBalance}>
-  US$ {Number(portfolio.totalUsd || 0).toFixed(2)}
-</Text>
-
-<Text
-  style={{
-    color: '#94a3b8',
-    fontSize: 12,
-    marginTop: 8,
-    marginBottom: 16,
-    lineHeight: 18,
-  }}
->
-  Ativos digitais não são garantia de rendimento.
-  Os preços podem variar e a disponibilidade
-  depende dos emissores e da liquidez do mercado.
-</Text>
-
-<View style={styles.allocationBox}>
-  <Text style={styles.allocationTitle}>
-    Distribuição dos ativos
-  </Text>
-
-  {portfolio.positions.map(function (position) {
-    const percent = Number(
-      position.allocationPercent || 0,
-    );
-
-    return (
-      <View
-        key={'bar_' + position.asset}
-        style={styles.allocationItem}
-      >
-        <View style={styles.allocationHeader}>
-          <Text style={styles.allocationAsset}>
-            {position.asset}
-          </Text>
-
-          <Text style={styles.allocationPercent}>
-            {percent.toFixed(2)}%
-          </Text>
-        </View>
-
-        <View style={styles.allocationTrack}>
-          <View
-            style={{
-              height: 10,
-              borderRadius: 999,
-              width: percent + '%',
-              backgroundColor: getAssetColor(
-                position.asset,
-              ),
-            }}
-          />
-        </View>
-      </View>
-    );
-  })}
-</View>
-
-        {portfolio.positions.map(function (position) {
-          return (
-            <View key={position.asset} style={styles.item}>
-              <Text style={styles.itemText}>
-  {position.asset === 'USDC'
-    ? '💵 USD Coin'
-    : position.asset === 'PAXG'
-    ? '🥇 PAX Gold'
-    : 'Bitcoin tokenizado na rede Polygon.'}
-</Text>
-
-<Text style={styles.rateText}>
-  {position.asset === 'USDC'
-    ? 'Dólar digital usado como saldo base da Nexa.'
-    : position.asset === 'PAXG'
-    ? 'Ouro tokenizado emitido pela Paxos.'
-    : 'Bitcoin tokenizado na rede Polygon.'}
-</Text>
-
-              <Text style={styles.rateText}>
-                Quantidade: {Number(position.amount || 0).toFixed(8)}
-              </Text>
-
-              <Text style={styles.rateText}>
-                Valor: US$ {Number(position.valueUsd || 0).toFixed(2)}
-              </Text>
-
-              <Text style={styles.rateText}>
-                Alocação: {Number(position.allocationPercent || 0).toFixed(2)}%
-              </Text>
-            </View>
-          );
-        })}
-      </>
-    ) : (
-      <Text style={styles.itemText}>Portfolio ainda não carregado.</Text>
-    )}
-
-    <Text style={styles.title}>
-Resumo da Carteira
-</Text>
-
-<View style={styles.item}>
-  <Text style={styles.itemText}>
-    💵 USDC:
-    {' '}
-    {Number(
-      portfolio?.positions?.find(
-        p => p.asset === 'USDC',
-      )?.valueUsd || 0,
-    ).toFixed(2)}
-    {' '}USD
-  </Text>
-
-  <Text style={styles.itemText}>
-    🥇 PAX Gold:
-    {' '}
-    {Number(
-      portfolio?.positions?.find(
-        p => p.asset === 'PAXG',
-      )?.valueUsd || 0,
-    ).toFixed(2)}
-    {' '}USD
-  </Text>
-
-  <Text style={styles.itemText}>
-    🟠 WBTC:
-    {' '}
-    {Number(
-      portfolio?.positions?.find(
-        p =>p.asset === 'WBTC',
-      )?.valueUsd || 0,
-    ).toFixed(2)}
-    {' '}USD
-  </Text>
-</View>
-
-    <Text style={styles.title}>
-Atividades Recentes
-</Text>
-
-{assetActivities.length === 0 ? (
-  <Text style={styles.itemText}>
-    Nenhuma atividade encontrada.
-  </Text>
-) : (
-  assetActivities
-    .slice(0, 10)
-    .map(function (activity) {
-      const metadata = activity.metadata || {};
-      const isRedeem = metadata.kind === 'redeem_swap';
-
-      return (
-        <View key={activity.id} style={styles.item}>
-          <Text style={styles.itemText}>
-            {isRedeem
-              ? '🔄 Resgate de ativo'
-              : '🧩 Conversão de ativo'}
-          </Text>
-
-          <Text style={styles.rateText}>
-            {metadata.fromAsset} → {metadata.toAsset}
-          </Text>
-
-          <Text
-            style={
-              activity.direction === 'credit'
-                ? styles.creditText
-                : styles.debitText
-            }
-          >
-            {activity.direction === 'credit' ? '+' : '-'}{' '}
-            {Number(activity.amount || 0).toFixed(8)}{' '}
-            {activity.asset}
-          </Text>
-
-          <Text style={styles.rateText}>
-            {new Date(activity.createdAt).toLocaleString('pt-BR')}
-          </Text>
-        </View>
-      );
-    })
-)}
-
-    <Text style={styles.title}>Alocar saldo digital</Text>
-
-    <Button
-      title={
-  investmentAsset === 'PAXG'
-    ? '✅ 🥇 PAX Gold'
-    : '🥇 PAX Gold'
-}
-      onPress={function () {
-        setInvestmentAsset('PAXG');
-        setInvestmentQuote(null);
-      }}
-    />
-
-    <Button
-  title={
-    investmentAsset === 'WBTC'
-      ? '✅ 🟠 Wrapped Bitcoin'
-      : '🟠 Wrapped Bitcoin'
-  }
-  onPress={function () {
-    setInvestmentAsset('WBTC');
-    setInvestmentQuote(null);
-  }}
-/>
-
-    <Input
-      placeholder="Valor em USDC"
-      keyboardType="numeric"
-      value={investmentAmount}
-      onChangeText={function (value) {
-        setInvestmentAmount(value);
-        setInvestmentQuote(null);
-      }}
-    />
-
-    <Button title="Simular conversão" onPress={cotarInvestimento} />
-
-    {investmentQuote ? (
-      <View style={styles.item}>
-        <Text style={styles.itemText}>
-          Cotação {investmentQuote.fromAsset} → {investmentQuote.toAsset}
-        </Text>
-
-        <Text style={styles.rateText}>
-          Você investe: {investmentQuote.amountUsdc} USDC
-        </Text>
-
-        <Text style={styles.rateText}>
-          Você recebe: {investmentQuote.estimatedToAmount} {investmentQuote.toAsset}
-        </Text>
-
-        <Text style={styles.rateText}>
-          Spread Nexa: {(Number(investmentQuote.spread || 0) * 100).toFixed(2)}%
-        </Text>
-
-        <Text style={styles.rateText}>
-          Disponível para converter: {investmentQuote.availableToConvert} USDC
-        </Text>
-
-        {investmentQuote.allowed ? (
-          <Button title="Confirmar conversão" onPress={executarInvestimento} />
-        ) : (
-          <Text style={styles.debitText}>{investmentQuote.reason}</Text>
+          <Card>
+            <Text style={styles.title}>Ativos Digitais</Text>
+            {portfolio && <Text style={styles.totalBalance}>US$ {Number(portfolio.totalUsd || 0).toFixed(2)}</Text>}
+            <Input placeholder="Valor em USDC" keyboardType="numeric" value={investmentAmount} onChangeText={setInvestmentAmount} />
+            <Button title="Simular Compra" onPress={cotarInvestimento} />
+            {investmentQuote?.allowed && <Button title="Confirmar Conversão" onPress={executarInvestimento} />}
+            <Button title="Voltar" onPress={function () { setPage('home'); }} />
+          </Card>
         )}
-      </View>
-    ) : null}
 
-    <Text style={styles.title}>
-Converter para USDC
-</Text>
-
-<Button
-  title={
-    redeemAsset === 'PAXG'
-      ? '✅ PAXG'
-      : 'PAXG'
-  }
-  onPress={() =>
-    setRedeemAsset('PAXG')
-  }
-/>
-
-<Button
-  title={
-    redeemAsset === 'WBTC'
-      ? '✅ WBTC'
-      : 'WBTC'
-  }
-  onPress={() =>
-    setRedeemAsset('WBTC')
-  }
-/>
-
-<Input
-  placeholder="Quantidade"
-  value={redeemAmount}
-  onChangeText={setRedeemAmount}
-/>
-
-<Button title="Simular conversão para USDC" onPress={simularResgate} />
-
-{redeemQuote && (
-  <Card>
-    <Text>
-      USDC estimado:
-    </Text>
-
-    <Text>
-      {redeemQuote.estimatedUsdc}
-    </Text>
-
-    <Button
-      title="Confirmar conversão para USDC"
-      onPress={
-        executarResgate
-      }
-    />
-  </Card>
-)}
-
-    <Button title="Voltar para Home" onPress={function () { setPage('home'); }} />
-  </Card>
-)}
-
+        {/* SUB-PÁGINA EXTRATO: SÓ ABRE VIA CLIQUE NO BOTÃO DO MENU */}
         {page === 'extrato' && (
           <Card>
             <Text style={styles.title}>Histórico Premium</Text>
-
             <Button title="Atualizar histórico" onPress={carregarDados} />
-
-            {extrato.length === 0 && (
-              <Text style={styles.itemText}>Nenhuma movimentação encontrada.</Text>
-            )}
-
+            {extrato.length === 0 && <Text style={styles.itemText}>Nenhuma transação encontrada.</Text>}
             {extrato.map(function (item) {
-  return (
-    <View key={item.id} style={styles.transactionCard}>
-      <View style={styles.transactionIconBox}>
-        <Text style={styles.transactionIcon}>
-          {getIcon(item)}
-        </Text>
-      </View>
-
-      <View style={styles.transactionMiddle}>
-        <Text style={styles.transactionTitle}>
-          {getTransactionTitle(item)}
-        </Text>
-
-        <Text style={styles.transactionSubtitle}>
-          {getTransactionSubtitle(item)}
-        </Text>
-
-        <Text style={styles.transactionDescription}>
-          {item.description}
-        </Text>
-      </View>
-
-      <View style={styles.transactionRight}>
-        <Text style={getTransactionAmountStyle(item)}>
-          {getTransactionAmountText(item)}
-        </Text>
-
-        <Text style={styles.transactionStatus}>
-          Concluído
-        </Text>
-      </View>
-    </View>
-  );
-})}
+              return (
+                <View key={item.id} style={styles.transactionCard}>
+                  <View style={styles.transactionMiddle}>
+                    <Text style={styles.transactionTitle}>{getTransactionTitle(item)}</Text>
+                    <Text style={styles.transactionSubtitle}>{getTransactionSubtitle(item)}</Text>
+                  </View>
+                  <View style={styles.transactionRight}>
+                    <Text style={getTransactionAmountStyle(item)}>{getTransactionAmountText(item)}</Text>
+                  </View>
+                </View>
+              );
+            })}
+            <Button title="Voltar para Menu" onPress={function () { setPage('menuScreen'); }} />
           </Card>
         )}
       </ScrollView>
 
+      {/* A BARRA DE NAVEGAÇÃO DE 5 ABAS COM AS 3 BARRINHAS NO MENU */}
       <View style={styles.menu}>
-  <MenuItem icon="🏠" label="Home" onPress={function () { setPage('home'); }} />
-  <MenuItem icon="👛" label="Carteira" onPress={function () { setPage('wallet'); }} />
-  <MenuItem icon="🧩" label="Ativos" onPress={function () { setPage('investments'); }} />
-  <MenuItem icon="📤" label="Enviar" onPress={function () { setPage('send'); }} />
-  <MenuItem icon="👤" label="Perfil" onPress={function () { setPage('profile'); }} /> 
-</View>
+        <MenuItem icon="🏠" label="Home" onPress={function () { setPage('home'); }} />
+        <MenuItem icon="👛" label="Carteira" onPress={function () { setPage('wallet'); }} />
+        <MenuItem icon="🧩" label="Ativos" onPress={function () { setPage('investments'); }} />
+        <MenuItem icon="📤" label="Enviar" onPress={function () { setPage('send'); }} />
+        <MenuItem icon="☰" label="Menu" onPress={function () { setPage('menuScreen'); }} /> 
+      </View>
     </View>
   );
 }
@@ -3777,71 +2234,42 @@ const styles = {
   subtitle: { color: '#93c5fd', textAlign: 'center', marginBottom: 24, fontSize: 13 },
   card: { backgroundColor: '#0f172a', padding: 22, borderRadius: 24, marginBottom: 18, borderWidth: 1, borderColor: '#1e40af' },
   title: { color: 'white', fontSize: 21, fontWeight: '800', marginBottom: 16, marginTop: 6 },
-
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   headerTextBox: { flex: 1, minWidth: 0 },
-
   walletHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   walletName: { color: 'white', fontSize: 18, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
   walletAddressBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
   walletAddressText: { color: '#93c5fd', fontSize: 12, lineHeight: 18, fontWeight: '800' },
-
   welcome: { color: 'white', fontSize: 20, fontWeight: '900', marginBottom: 4, flexShrink: 1 },
   usernameText: { color: '#60a5fa', fontSize: 13, fontWeight: '700' },
   verifiedBadge: { color: '#22c55e', fontSize: 12, fontWeight: '900', marginTop: 4 },
-
-  savedLoginBox: {
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#1e40af',
-  },
-  savedLoginTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
-  savedLoginEmail: {
-    color: '#93c5fd',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
+  savedLoginBox: { backgroundColor: '#111827', borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#1e40af' },
+  savedLoginTitle: { color: 'white', fontSize: 18, fontWeight: '900', marginBottom: 4 },
+  savedLoginEmail: { color: '#93c5fd', fontSize: 13, fontWeight: '700' },
   avatarSmall: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   avatarText: { color: 'white', fontSize: 24, fontWeight: '900' },
   avatarLarge: { width: 92, height: 92, borderRadius: 46, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
   avatarLargeText: { color: 'white', fontSize: 38, fontWeight: '900' },
-
   smallLabel: { color: '#94a3b8', fontSize: 13, marginTop: 10, marginBottom: 4 },
   totalBalance: { color: '#ffffff', fontSize: 38, fontWeight: '900', marginBottom: 12 },
   balanceGrid: { flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 10 },
   balanceMiniCard: { flex: 1, backgroundColor: '#111827', borderRadius: 18, padding: 14 },
   balanceMiniText: { color: 'white', fontWeight: '900', fontSize: 18 },
-
   rateText: { color: '#93c5fd', fontSize: 12, marginBottom: 14 },
   loginMsg: { color: '#93c5fd', marginBottom: 15, textAlign: 'center', fontSize: 13 },
-
   marketBox: { backgroundColor: '#111827', borderRadius: 18, padding: 14, marginTop: 8, marginBottom: 14 },
   marketTitle: { color: '#94a3b8', fontSize: 12, fontWeight: '700' },
   marketPrice: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 4 },
   marketUp: { color: '#22c55e', fontSize: 12, fontWeight: '800', marginTop: 3 },
   marketDown: { color: '#f87171', fontSize: 12, fontWeight: '800', marginTop: 3 },
-
   kycBox: { backgroundColor: '#111827', borderRadius: 16, padding: 14, marginBottom: 14 },
   kycActive: { color: '#93c5fd', fontSize: 14, fontWeight: '900', marginBottom: 8 },
   kycDone: { color: '#22c55e', fontSize: 14, fontWeight: '800', marginBottom: 8 },
   kycPending: { color: '#94a3b8', fontSize: 14, fontWeight: '700', marginBottom: 8 },
-
   recipientBox: { backgroundColor: '#052e16', borderColor: '#22c55e', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
   recipientBoxError: { backgroundColor: '#450a0a', borderColor: '#ef4444', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
   recipientOk: { color: '#22c55e', fontSize: 12, fontWeight: '900', marginBottom: 5 },
-  recipientError: { color: '#fca5a5', fontSize: 12, fontWeight: '900' },
-  recipientName: { color: 'white', fontSize: 16, fontWeight: '900', marginBottom: 3 },
-  recipientHandle: { color: '#93c5fd', fontSize: 13, fontWeight: '700' },
-
+  recipientError: { color: '#f87171', fontSize: 12, fontWeight: '900' },
   receiptIcon: { width: 82, height: 82, borderRadius: 41, backgroundColor: '#16a34a', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 18 },
   receiptIconText: { color: 'white', fontSize: 42, fontWeight: '900' },
   receiptTitle: { color: 'white', fontSize: 24, fontWeight: '900', textAlign: 'center', marginBottom: 20 },
@@ -3851,274 +2279,36 @@ const styles = {
   receiptBox: { backgroundColor: '#020617', borderRadius: 14, padding: 13, marginBottom: 14, borderWidth: 1, borderColor: '#334155' },
   receiptSmallLabel: { color: '#94a3b8', fontSize: 11, marginBottom: 5 },
   receiptId: { color: '#93c5fd', fontSize: 12, fontWeight: '800' },
-
   verifiedProfileBox: { backgroundColor: '#052e16', borderColor: '#22c55e', borderWidth: 1, borderRadius: 14, padding: 13, marginBottom: 12 },
   verifiedProfileText: { color: '#22c55e', textAlign: 'center', fontWeight: '900', fontSize: 14 },
-
-  virtualCard: { backgroundColor: '#1e3a8a', borderRadius: 22, padding: 22, marginBottom: 18, minHeight: 190, justifyContent: 'space-between' },
-  cardBrand: { color: '#bfdbfe', fontSize: 13, fontWeight: '900', letterSpacing: 2 },
-  cardNumber: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 34, letterSpacing: 2 },
-  cardName: { color: '#e0f2fe', fontSize: 14, fontWeight: '800', marginTop: 24 },
-  cardStatus: { color: '#93c5fd', fontSize: 12, fontWeight: '700', marginTop: 8 },
-
   input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 14, marginBottom: 12, fontSize: 15 },
   button: { backgroundColor: '#2563eb', padding: 13, borderRadius: 14, marginBottom: 11 },
   buttonText: { color: 'white', textAlign: 'center', fontWeight: '800', fontSize: 15 },
-
   menu: { height: 78, backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: '#1e293b' },
   menuItem: { alignItems: 'center', justifyContent: 'center', flex: 1 },
   menuIcon: { color: '#e2e8f0', fontSize: 18 },
   menuLabel: { color: '#94a3b8', fontSize: 9, marginTop: 2, fontWeight: '700' },
-
   item: { backgroundColor: '#111827', borderRadius: 14, padding: 12, marginBottom: 10 },
   itemText: { color: '#f8fafc', marginBottom: 6, fontSize: 13 },
   creditText: { color: '#22c55e', fontWeight: '900', fontSize: 14 },
   debitText: { color: '#f87171', fontWeight: '900', fontSize: 14 },
-
   pixBox: { backgroundColor: '#020617', padding: 14, borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: '#1e293b' },
   copyText: { color: '#cbd5e1', fontSize: 11, lineHeight: 16 },
-qrBox: { backgroundColor: 'white', padding: 16, borderRadius: 18, alignSelf: 'center', marginBottom: 16 },
-
-transactionCard: {
-  backgroundColor: '#111827',
-  borderRadius: 18,
-  padding: 14,
-  marginBottom: 12,
-  borderWidth: 1,
-  borderColor: '#1e293b',
-  flexDirection: 'row',
-  alignItems: 'center',
-},
-
-transactionIconBox: {
-  width: 42,
-  height: 42,
-  borderRadius: 21,
-  backgroundColor: '#020617',
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginRight: 12,
-},
-
-transactionIcon: {
-  fontSize: 20,
-},
-
-transactionMiddle: {
-  flex: 1,
-  paddingRight: 8,
-},
-
-transactionTitle: {
-  color: 'white',
-  fontWeight: '900',
-  fontSize: 14,
-  marginBottom: 3,
-},
-
-transactionSubtitle: {
-  color: '#93c5fd',
-  fontWeight: '700',
-  fontSize: 11,
-  marginBottom: 3,
-},
-
-transactionDescription: {
-  color: '#64748b',
-  fontSize: 10,
-},
-
-transactionRight: {
-  alignItems: 'flex-end',
-  maxWidth: 110,
-},
-
-transactionAmountCredit: {
-  color: '#22c55e',
-  fontWeight: '900',
-  fontSize: 13,
-  textAlign: 'right',
-},
-
-transactionAmountDebit: {
-  color: '#f87171',
-  fontWeight: '900',
-  fontSize: 13,
-  textAlign: 'right',
-},
-
-transactionStatus: {
-  color: '#64748b',
-  fontSize: 10,
-  marginTop: 4,
-},
-
-receiveBox: {
-  backgroundColor: '#020617',
-  borderRadius: 18,
-  padding: 18,
-  marginBottom: 14,
-  borderWidth: 1,
-  borderColor: '#1e40af',
-  alignItems: 'center',
-},
-
-receiveLabel: {
-  color: '#94a3b8',
-  fontSize: 12,
-  marginBottom: 6,
-},
-
-receiveHandle: {
-  color: '#60a5fa',
-  fontSize: 28,
-  fontWeight: '900',
-},
-
-nexaIdText: {
-  color: '#c4b5fd',
-  fontSize: 12,
-  fontWeight: '900',
-  marginTop: 3,
-},
-
-passportTopLabel: {
-  color: '#c4b5fd',
-  fontSize: 12,
-  fontWeight: '900',
-  letterSpacing: 2,
-  textAlign: 'center',
-  marginBottom: 12,
-},
-
-passportCard: {
-  backgroundColor: '#111827',
-  borderRadius: 28,
-  padding: 20,
-  borderWidth: 1,
-  borderColor: '#4f46e5',
-  marginBottom: 16,
-},
-
-passportHeader: {
-  alignItems: 'center',
-  marginBottom: 18,
-},
-
-passportName: {
-  color: 'white',
-  fontSize: 20,
-  fontWeight: '900',
-  textAlign: 'center',
-  marginTop: 4,
-},
-
-passportHandle: {
-  color: '#60a5fa',
-  fontSize: 15,
-  fontWeight: '800',
-  marginTop: 4,
-},
-
-passportNexaId: {
-  color: '#c4b5fd',
-  fontSize: 22,
-  fontWeight: '900',
-  marginTop: 8,
-  letterSpacing: 1,
-},
-
-passportQrBox: {
-  backgroundColor: 'white',
-  padding: 18,
-  borderRadius: 22,
-  alignSelf: 'center',
-  marginBottom: 18,
-},
-
-passportInfoBox: {
-  backgroundColor: '#020617',
-  borderRadius: 16,
-  padding: 14,
-  marginBottom: 12,
-  borderWidth: 1,
-  borderColor: '#1e293b',
-},
-
-passportInfoLabel: {
-  color: '#94a3b8',
-  fontSize: 11,
-  marginBottom: 5,
-},
-
-passportVerified: {
-  color: '#22c55e',
-  fontSize: 14,
-  fontWeight: '900',
-},
-
-passportPending: {
-  color: '#facc15',
-  fontSize: 14,
-  fontWeight: '900',
-},
-
-passportWallet: {
-  color: '#93c5fd',
-  fontSize: 12,
-  fontWeight: '800',
-  lineHeight: 18,
-},
-
-passportNetwork: {
-  color: '#64748b',
-  fontSize: 11,
-  marginTop: 6,
-},
-
-allocationBox: {
-  backgroundColor: '#020617',
-  borderRadius: 18,
-  padding: 14,
-  marginBottom: 16,
-  borderWidth: 1,
-  borderColor: '#1e293b',
-},
-
-allocationTitle: {
-  color: 'white',
-  fontSize: 15,
-  fontWeight: '900',
-  marginBottom: 12,
-},
-
-allocationItem: {
-  marginBottom: 12,
-},
-
-allocationHeader: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  marginBottom: 6,
-},
-
-allocationAsset: {
-  color: '#f8fafc',
-  fontSize: 12,
-  fontWeight: '900',
-},
-
-allocationPercent: {
-  color: '#93c5fd',
-  fontSize: 12,
-  fontWeight: '800',
-},
-
-allocationTrack: {
-  height: 10,
-  borderRadius: 999,
-  backgroundColor: '#111827',
-  overflow: 'hidden',
-},
-
+  qrBox: { backgroundColor: 'white', padding: 16, borderRadius: 18, alignSelf: 'center', marginBottom: 16 },
+  transactionCard: { backgroundColor: '#111827', borderRadius: 18, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#1e293b', flexDirection: 'row', alignItems: 'center' },
+  transactionMiddle: { flex: 1, paddingRight: 8 },
+  transactionTitle: { color: 'white', fontWeight: '900', fontSize: 14, marginBottom: 3 },
+  transactionSubtitle: { color: '#93c5fd', fontWeight: '700', fontSize: 11, marginBottom: 3 },
+  transactionRight: { alignItems: 'flex-end', maxWidth: 110 },
+  transactionAmountCredit: { color: '#22c55e', fontWeight: '900', fontSize: 13, textAlign: 'right' },
+  transactionAmountDebit: { color: '#f87171', fontWeight: '900', fontSize: 13, textAlign: 'right' },
+  receiveBox: { backgroundColor: '#020617', borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: '#1e40af', alignItems: 'center' },
+  receiveLabel: { color: '#94a3b8', fontSize: 12, marginBottom: 6 },
+  receiveHandle: { color: '#60a5fa', fontSize: 28, fontWeight: '900' },
+  nexaIdText: { color: '#c4b5fd', fontSize: 12, fontWeight: '900', marginTop: 3 },
+  passportTopLabel: { color: '#c4b5fd', fontSize: 12, fontWeight: '900', letterSpacing: 2, textAlign: 'center', marginBottom: 12 },
+  passportCard: { backgroundColor: '#111827', borderRadius: 28, padding: 20, borderWidth: 1, borderColor: '#4f46e5', marginBottom: 16 },
+  allocationBox: { backgroundColor: '#020617', borderRadius: 18, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#1e293b' },
+  allocationItem: { marginBottom: 12 },
+  allocationTrack: { height: 10, borderRadius: 999, backgroundColor: '#111827', overflow: 'hidden' },
 };
