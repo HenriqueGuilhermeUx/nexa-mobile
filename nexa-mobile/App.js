@@ -61,7 +61,7 @@ export default function App() {
   const [rewardPlans, setRewardPlans] = useState([]);
   const [rewardPositions, setRewardPositions] = useState([]);
   const [rewardAmount, setRewardAmount] = useState('');
-  const [selectedRewardPlan, setSelectedRewardPlan] = useState('SPARK');
+  const [selectedRewardPlan, setSelectedRewardPlan] = useState('FLEX');
 
   const [marketPrice, setMarketPrice] = useState(DEFAULT_USDC_BRL_RATE);
   const [buyRate, setBuyRate] = useState(DEFAULT_USDC_BRL_RATE);
@@ -123,9 +123,13 @@ export default function App() {
 const [redeemAmount, setRedeemAmount] =
   useState('');
 
-const [redeemQuote, setRedeemQuote] =
-  useState(null);
-  const [assetActivities, setAssetActivities] = useState([]);
+const [redeemQuote, setRedeemQuote] =  useState(null);
+const [assetActivities, setAssetActivities] = useState([]);
+const [recurringPlan, setRecurringPlan] = useState(null);
+const [recurringAmountBrl, setRecurringAmountBrl] = useState('');
+const [recurringAsset, setRecurringAsset] = useState('USDC');
+const [recurringDay, setRecurringDay] = useState('5');
+const [recurringPixLink, setRecurringPixLink] = useState('');
 
   useEffect(function () {
     carregarLoginSalvo();
@@ -144,6 +148,7 @@ const [redeemQuote, setRedeemQuote] =
       carregarPortfolio();
       carregarAtividadesAtivos();
       carregarCompliance();
+      carregarAssinaturaRecorrente();
     }
   },
   [user && user.id],
@@ -399,6 +404,228 @@ async function abrirStaffPremium() {
       show('Erro ao ativar Rewards: ' + e.message);
     }
   }
+
+  async function carregarAssinaturaRecorrente() {
+  if (!user || !user.id) return;
+
+  try {
+    const r = await fetch(
+      API + '/recurring-pix/me?userId=' + user.id,
+      {
+        headers: {
+          Authorization: 'Bearer ' + token,
+        },
+      },
+    );
+
+    const data = await r.json();
+
+    if (data.success) {
+      setRecurringPlan(data.plan || data.recurring || data.data || data);
+    }
+  } catch (e) {
+    show('Erro assinatura recorrente: ' + e.message);
+  }
+}
+
+async function salvarAssinaturaRecorrente() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  const amount = parseAmount(recurringAmountBrl);
+
+  if (!amount || amount < 10) {
+    show('Informe valor mensal mínimo de R$ 10,00');
+    return;
+  }
+
+  try {
+    const payload = {
+      userId: user.id,
+      amountBrl: amount,
+      asset: recurringAsset,
+      targetAsset: recurringAsset,
+      dayOfMonth: Number(recurringDay || 5),
+      frequency: 'monthly',
+      status: 'active',
+    };
+
+    const r = await fetch(API + '/recurring-pix/upsert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await r.json();
+
+    show({
+      sentPayload: payload,
+      response: data,
+    });
+
+    if (data.success) {
+      setRecurringPlan(data.plan || data.recurring || data.data || data);
+      carregarAssinaturaRecorrente();
+    }
+  } catch (e) {
+    show('Erro ao salvar assinatura: ' + e.message);
+  }
+}
+
+async function pausarAssinaturaRecorrente() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/recurring-pix/pause', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({ userId: user.id }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      carregarAssinaturaRecorrente();
+    }
+  } catch (e) {
+    show('Erro ao pausar assinatura: ' + e.message);
+  }
+}
+
+async function cancelarAssinaturaRecorrente() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/recurring-pix/cancel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({ userId: user.id }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      setRecurringPlan(null);
+      carregarAssinaturaRecorrente();
+    }
+  } catch (e) {
+    show('Erro ao cancelar assinatura: ' + e.message);
+  }
+}
+
+async function gerarLinkAssinaturaWoovi() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/recurring-pix/link-woovi', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({ userId: user.id }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    const url =
+      data.url ||
+      data.link ||
+      data.paymentLinkUrl ||
+      data.checkoutUrl ||
+      data.data?.url;
+
+    if (url) {
+      setRecurringPixLink(url);
+      abrirLink(url);
+    }
+  } catch (e) {
+    show('Erro link Woovi: ' + e.message);
+  }
+}
+
+async function gerarLinkManualAssinatura() {
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
+  }
+
+  try {
+    const r = await fetch(API + '/recurring-pix/manual-link', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify({ userId: user.id }),
+    });
+
+    const data = await r.json();
+    show(data);
+
+    const url =
+      data.url ||
+      data.link ||
+      data.paymentLinkUrl ||
+      data.checkoutUrl ||
+      data.data?.url;
+
+    if (url) {
+      setRecurringPixLink(url);
+      abrirLink(url);
+    }
+  } catch (e) {
+    show('Erro link manual: ' + e.message);
+  }
+}
+
+async function resgatarRewards(positionId) {
+  if (!positionId) {
+    show('Posição Rewards inválida');
+    return;
+  }
+
+  try {
+    show('Resgatando Nexa Rewards via Aave...');
+
+    const r = await fetch(API + '/rewards/complete/' + positionId, {
+      method: 'POST',
+    });
+
+    const data = await r.json();
+    show(data);
+
+    if (data.success) {
+      carregarRewards();
+      carregarDados();
+    }
+  } catch (e) {
+    show('Erro ao resgatar Rewards: ' + e.message);
+  }
+}
 
   async function carregarCotacao() {
   try {
@@ -1036,76 +1263,68 @@ async function executarResgate() {
   }
 
   async function depositarPix() {
-    if (!user || !user.id) {
-      show('Faça login primeiro');
-      return;
-    }
-
-    if (getKycStatus() !== 'approved') {
-      show('Conclua sua verificação de identidade antes de depositar Pix');
-      setPage('profile');
-      return;
-    }
-
-    const amount = parseAmount(depositValue);
-
-    if (!amount || amount < 10) {
-      show('Depósito mínimo é R$ 10,00');
-      return;
-    }
-
-    try {
-      show('Gerando Pix real...');
-
-      const r = await fetch(API + '/deposit/woovi-pix', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          amountBrl: amount,
-          customer: {
-            name: user.fullName,
-            email: user.email,
-            phone: user.phone,
-            taxID: user.cpf,
-          },
-        }),
-      });
-
-      const data = await r.json();
-
-      if (data.success) {
-        setPixCopyPaste(data.copyPasteCode || '');
-        setTicketUrl(data.paymentLinkUrl || data.qrCodeImage || '');
-        show('Pix real gerado com sucesso');
-        return;
-      }
-
-      show('Pix Woovi ainda não autorizado. Usando Pix reserva...');
-
-      const fallback = await fetch(API + '/deposit/pix', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          amountBrl: amount,
-        }),
-      });
-
-      const fallbackData = await fallback.json();
-
-      setPixCopyPaste(fallbackData.copyPasteCode || '');
-      setTicketUrl(fallbackData.paymentLinkUrl || fallbackData.qrCodeImage || '');
-
-      if (fallbackData.success) {
-        show('Pix reserva gerado com sucesso');
-      } else {
-        show(fallbackData);
-      }
-    } catch (e) {
-      show('Erro depósito Pix: ' + e.message);
-    }
+  if (!user || !user.id) {
+    show('Faça login primeiro');
+    return;
   }
+
+  if (getKycStatus() !== 'approved') {
+    show('Conclua sua verificação de identidade antes de depositar Pix');
+    setPage('profile');
+    return;
+  }
+
+  const amount = parseAmount(depositValue);
+
+  if (!amount || amount < 10) {
+    show('Depósito mínimo é R$ 10,00');
+    return;
+  }
+
+  try {
+    show('Gerando Pix Nexa...');
+
+    const r = await fetch(API + '/fiat-deposit/woovi/create-charge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        amountBrl: amount,
+      }),
+    });
+
+    const data = await r.json();
+
+    if (!data.success) {
+      show(data);
+      return;
+    }
+
+    const charge = data.charge || {};
+    const pix = charge.paymentMethods?.pix || {};
+
+    const brCode =
+      pix.brCode ||
+      charge.brCode ||
+      '';
+
+    const qrImage =
+      pix.qrCodeImage ||
+      charge.qrCodeImage ||
+      '';
+
+    const paymentLink =
+      charge.paymentLinkUrl ||
+      '';
+
+    setPixCopyPaste(brCode);
+    setTicketUrl(paymentLink || qrImage);
+
+    show('Pix gerado com sucesso. Após o pagamento, a Nexa converte automaticamente para USDC.');
+  } catch (e) {
+    show('Erro depósito Pix: ' + e.message);
+  }
+}
 
   async function converter() {
     if (!user || !user.id) {
@@ -1636,7 +1855,7 @@ function formatMoney(value) {
 function getAssetColor(asset) {
   if (asset === 'USDC') return '#2563eb';
   if (asset === 'PAXG') return '#facc15';
-  if (asset === 'USDY') return '#22c55e';
+  if (asset === 'WBTC') return '#f97316';
 
   return '#64748b';
 }
@@ -1903,7 +2122,9 @@ function getTransactionAmountStyle(item) {
   );
 }
 
-  const patrimonioTotal = Number((saldo.BRL + saldo.USDC * marketPrice).toFixed(2));
+  const saldoUsdc = Number(saldo.USDC || 0);
+const saldoBrlEstimado = Number((saldoUsdc * buyRate).toFixed(2));
+const patrimonioTotal = saldoBrlEstimado;
   const walletAddress = getWalletAddress();
   const changePrefix = marketChange >= 0 ? '+' : '';
 
@@ -1915,7 +2136,7 @@ function getTransactionAmountStyle(item) {
         keyboardDismissMode="none"
       >
         <Text style={styles.logo}>NEXA</Text>
-        <Text style={styles.subtitle}>Pix + USDC + @username</Text>
+        <Text style={styles.subtitle}>Soberania digital no seu bolso</Text>
 
         {page === 'home' && (
           <>
@@ -1938,20 +2159,30 @@ function getTransactionAmountStyle(item) {
                 </View>
               </View>
 
-              <Text style={styles.smallLabel}>Patrimônio total estimado</Text>
-              <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
+              <Text style={styles.smallLabel}>Saldo disponível</Text>
+              <Text style={styles.totalBalance}>
+               {saldoUsdc.toFixed(6)} USDC
+              </Text>
+
+              <Text style={styles.rateText}>
+              ≈ R$ {saldoBrlEstimado.toFixed(2)}
+              </Text>
 
               <View style={styles.balanceGrid}>
-                <View style={styles.balanceMiniCard}>
-                  <Text style={styles.smallLabel}>BRL</Text>
-                  <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
-                </View>
+  <View style={styles.balanceMiniCard}>
+    <Text style={styles.smallLabel}>Uso diário</Text>
+    <Text style={styles.balanceMiniText}>
+      {saldoUsdc.toFixed(4)} USDC
+    </Text>
+  </View>
 
-                <View style={styles.balanceMiniCard}>
-                  <Text style={styles.smallLabel}>USDC</Text>
-                  <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
-                </View>
-              </View>
+  <View style={styles.balanceMiniCard}>
+    <Text style={styles.smallLabel}>Estimado em R$</Text>
+    <Text style={styles.balanceMiniText}>
+      R$ {saldoBrlEstimado.toFixed(2)}
+    </Text>
+  </View>
+</View>
 
               <View style={styles.marketBox}>
   <Text style={styles.marketTitle}>USDC</Text>
@@ -2017,11 +2248,12 @@ function getTransactionAmountStyle(item) {
   <Text style={styles.title}>Ações rápidas</Text>
   <Button title="👤 Meu Nexa ID" onPress={function () { setPage('nexaId'); }} />
   <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
-  <Button title="🔄 Converter para USDC" onPress={function () { setPage('convert'); }} />
   <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
   <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
   <Button title="📄 Ver histórico" onPress={function () { setPage('extrato'); }} />
   <Button title="🚀 Nexa Rewards" onPress={function () { setPage('rewards'); }} />
+  <Button title="⭐ Nexa Premium" onPress={function () { setPage('premium'); }} />
+  <Button title="🔁 Cripto por assinatura" onPress={function () { setPage('recurringCrypto'); }} />
   <Button title="🌐 Ecossistema Nexa" onPress={function () { setPage('ecosystem'); }} />
   <Button title="⚖️ Legal e Segurança" onPress={function () { setPage('legal'); }} />
   <Button title="🛡️ Compliance" onPress={() => setPage('compliance')} />
@@ -2071,6 +2303,86 @@ function getTransactionAmountStyle(item) {
           </>
         )}
 
+        {page === 'premium' && (
+  <Card>
+    <Text style={styles.title}>Nexa Premium</Text>
+
+    <Text style={styles.itemText}>
+      Uma assinatura para acessar o ecossistema completo da Nexa.
+    </Text>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>🚀 Nexa Rewards</Text>
+      <Text style={styles.rateText}>
+        Recompensas em USDC via Aave V3 na Polygon.
+      </Text>
+    </View>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>🔁 Cripto por assinatura</Text>
+      <Text style={styles.rateText}>
+        Compras recorrentes automáticas em USDC, WBTC ou PAXG.
+      </Text>
+    </View>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>🥇 PAXG e 🟠 WBTC</Text>
+      <Text style={styles.rateText}>
+        Compra de ouro digital e Bitcoin tokenizado com entrega on-chain.
+      </Text>
+    </View>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>🏥 HealthWallet</Text>
+      <Text style={styles.rateText}>
+        Carteira de saúde com exames, histórico e IA para análise.
+      </Text>
+    </View>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>📄 DocWallet</Text>
+      <Text style={styles.rateText}>
+        Documentos, contratos e certificados protegidos.
+      </Text>
+    </View>
+
+    <View style={styles.item}>
+      <Text style={styles.itemText}>🤖 Staff Premium</Text>
+      <Text style={styles.rateText}>
+        Assistente pessoal inteligente para rotina e produtividade.
+      </Text>
+    </View>
+
+    <Button
+      title="Configurar cripto por assinatura"
+      onPress={function () {
+        setPage('recurringCrypto');
+      }}
+    />
+
+    <Button
+      title="Ativar Rewards"
+      onPress={function () {
+        setPage('rewards');
+      }}
+    />
+
+    <Button
+      title="Ver Ativos Digitais"
+      onPress={function () {
+        setPage('investments');
+      }}
+    />
+
+    <Button
+      title="Voltar"
+      onPress={function () {
+        setPage('home');
+      }}
+    />
+  </Card>
+)}
+
       {page === 'ecosystem' && (
   <Card>
     <Text style={styles.title}>Ecossistema Nexa</Text>
@@ -2111,7 +2423,7 @@ function getTransactionAmountStyle(item) {
     >
       <Text style={styles.itemText}>🏥 HealthWallet</Text>
       <Text style={styles.rateText}>
-        Exames, carteirinhas, medicamentos e dados de saúde organizados.
+        Carteira de saúde com exames, histórico médico e IA para análise, tudo sob controle do usuário.
       </Text>
     </TouchableOpacity>
 
@@ -2228,20 +2540,30 @@ function getTransactionAmountStyle(item) {
                 </View>
               </View>
 
-              <Text style={styles.smallLabel}>Patrimônio total estimado</Text>
-              <Text style={styles.totalBalance}>R$ {patrimonioTotal.toFixed(2)}</Text>
+              <Text style={styles.smallLabel}>Saldo disponível</Text>
+<Text style={styles.totalBalance}>
+  {saldoUsdc.toFixed(6)} USDC
+</Text>
+
+<Text style={styles.rateText}>
+  ≈ R$ {saldoBrlEstimado.toFixed(2)}
+</Text>
 
               <View style={styles.balanceGrid}>
-                <View style={styles.balanceMiniCard}>
-                  <Text style={styles.smallLabel}>Saldo BRL</Text>
-                  <Text style={styles.balanceMiniText}>R$ {saldo.BRL.toFixed(2)}</Text>
-                </View>
+  <View style={styles.balanceMiniCard}>
+    <Text style={styles.smallLabel}>Saldo digital</Text>
+    <Text style={styles.balanceMiniText}>
+      {saldoUsdc.toFixed(4)} USDC
+    </Text>
+  </View>
 
-                <View style={styles.balanceMiniCard}>
-                  <Text style={styles.smallLabel}>Saldo USDC</Text>
-                  <Text style={styles.balanceMiniText}>{saldo.USDC}</Text>
-                </View>
-              </View>
+  <View style={styles.balanceMiniCard}>
+    <Text style={styles.smallLabel}>Equivalente</Text>
+    <Text style={styles.balanceMiniText}>
+      R$ {saldoBrlEstimado.toFixed(2)}
+    </Text>
+  </View>
+</View>
 
               <Button title="Atualizar carteira" onPress={function () { carregarDados(); buscarPerfilAtualizado(); }} />
             </Card>
@@ -2302,7 +2624,6 @@ function getTransactionAmountStyle(item) {
             <Card>
               <Text style={styles.title}>Atalhos da carteira</Text>
               <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
-              <Button title="🔄 Converter BRL para USDC" onPress={function () { setPage('convert'); }} />
               <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
               <Button title="💳 Cartão Virtual Nexa" onPress={function () { setPage('card'); }} />
               <Button title="📄 Ver extrato" onPress={function () { setPage('extrato'); }} />
@@ -2396,8 +2717,10 @@ function getTransactionAmountStyle(item) {
 
         {page === 'deposit' && (
           <Card>
-            <Text style={styles.title}>Adicionar saldo</Text>
-            <Text style={styles.rateText}>Deposite reais instantaneamente via Pix.</Text>
+            <Text style={styles.title}>Depositar via Pix</Text>
+<Text style={styles.rateText}>
+  Pague via Pix e receba USDC automaticamente na sua carteira Nexa.
+</Text>
 
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
 
@@ -2748,11 +3071,136 @@ function getTransactionAmountStyle(item) {
           </Card>
         )}
 
+        {page === 'recurringCrypto' && (
+  <Card>
+    <Text style={styles.title}>Cripto por assinatura</Text>
+
+    <Text style={styles.itemText}>
+      Programe compras recorrentes automáticas com Pix mensal.
+    </Text>
+
+    <Text style={styles.rateText}>
+      A Nexa usa Pix recorrente para converter automaticamente em ativos digitais.
+    </Text>
+
+    <Text style={styles.smallLabel}>Valor mensal em R$</Text>
+
+    <Input
+      placeholder="Ex: 100"
+      keyboardType="numeric"
+      value={recurringAmountBrl}
+      onChangeText={setRecurringAmountBrl}
+    />
+
+    <Text style={styles.smallLabel}>Dia do mês</Text>
+
+    <Input
+      placeholder="Ex: 5"
+      keyboardType="numeric"
+      value={recurringDay}
+      onChangeText={setRecurringDay}
+    />
+
+    <Text style={styles.smallLabel}>Ativo escolhido</Text>
+
+    <Button
+      title={recurringAsset === 'USDC' ? '✅ 💵 USDC' : '💵 USDC'}
+      onPress={function () {
+        setRecurringAsset('USDC');
+      }}
+    />
+
+    <Button
+      title={recurringAsset === 'WBTC' ? '✅ 🟠 WBTC' : '🟠 WBTC'}
+      onPress={function () {
+        setRecurringAsset('WBTC');
+      }}
+    />
+
+    <Button
+      title={recurringAsset === 'PAXG' ? '✅ 🥇 PAXG' : '🥇 PAXG'}
+      onPress={function () {
+        setRecurringAsset('PAXG');
+      }}
+    />
+
+    <Button
+      title="Salvar assinatura recorrente"
+      onPress={salvarAssinaturaRecorrente}
+    />
+
+    <Button
+      title="Gerar autorização Pix recorrente"
+      onPress={gerarLinkAssinaturaWoovi}
+    />
+
+    <Button
+      title="Gerar link manual"
+      onPress={gerarLinkManualAssinatura}
+    />
+
+    {recurringPixLink ? (
+      <View style={styles.item}>
+        <Text style={styles.itemText}>Link da assinatura</Text>
+        <Text style={styles.copyText}>{recurringPixLink}</Text>
+      </View>
+    ) : null}
+
+    {recurringPlan ? (
+      <View style={styles.item}>
+        <Text style={styles.itemText}>Assinatura atual</Text>
+
+        <Text style={styles.rateText}>
+          Status: {recurringPlan.status || recurringPlan.recurringStatus || 'ativa'}
+        </Text>
+
+        <Text style={styles.rateText}>
+          Valor: R$ {Number(recurringPlan.amountBrl || recurringPlan.amount || 0).toFixed(2)}
+        </Text>
+
+        <Text style={styles.rateText}>
+          Ativo: {recurringPlan.asset || recurringPlan.targetAsset || recurringAsset}
+        </Text>
+
+        <Text style={styles.rateText}>
+          Dia: {recurringPlan.dayOfMonth || recurringPlan.day || recurringDay}
+        </Text>
+      </View>
+    ) : (
+      <Text style={styles.rateText}>
+        Nenhuma assinatura recorrente carregada.
+      </Text>
+    )}
+
+    <Button
+      title="Atualizar assinatura"
+      onPress={carregarAssinaturaRecorrente}
+    />
+
+    <Button
+      title="Pausar assinatura"
+      onPress={pausarAssinaturaRecorrente}
+    />
+
+    <Button
+      title="Cancelar assinatura"
+      onPress={cancelarAssinaturaRecorrente}
+    />
+
+    <Button
+      title="Voltar"
+      onPress={function () {
+        setPage('home');
+      }}
+    />
+  </Card>
+)}
+
         {page === 'rewards' && (
           <Card>
             <Text style={styles.title}>Nexa Rewards</Text>
             <Text style={styles.rateText}>
-              Transforme parte do seu saldo em Saldo Boost e receba cashback de permanência.
+              Nexa Rewards permite que clientes Premium ativem recompensas em USDC via Aave V3 na Polygon. A Nexa retém 20% do retorno gerado
             </Text>
 
             <Text style={styles.smallLabel}>Saldo Livre</Text>
@@ -2772,11 +3220,9 @@ function getTransactionAmountStyle(item) {
                   title={
                     (selectedRewardPlan === plan.plan ? '✅ ' : '') +
                     plan.name +
-                    ' · ' +
-                    plan.days +
-                    ' dias · ' +
-                    (plan.cashbackRate * 100).toFixed(2) +
-                    '% cashback'
+' · APY usuário ' +
+(Number(plan.userApy || 0) * 100).toFixed(2) +
+'% · Aave'
                   }
                   onPress={function () {
                     setSelectedRewardPlan(plan.plan);
@@ -2785,7 +3231,7 @@ function getTransactionAmountStyle(item) {
               );
             })}
 
-            <Button title="Ativar Saldo Boost" onPress={ativarRewards} />
+            <Button title="Ativar Nexa Rewards" onPress={ativarRewards} />
 
             <Text style={styles.title}>Meus Boosts</Text>
 
@@ -2797,14 +3243,22 @@ function getTransactionAmountStyle(item) {
               return (
                 <View key={position.id} style={styles.item}>
                   <Text style={styles.itemText}>
-                    🚀 {position.plan} · {Number(position.amountUsdc).toFixed(4)} USDC
+                    🚀 {position.plan} · {Number(position.principalUsdc || position.amountUsdc || 0).toFixed(4)} USDC
                   </Text>
 
                   <Text style={styles.rateText}>
-                    Liberação: {new Date(position.unlockAt).toLocaleDateString('pt-BR')}
+                    Início: {new Date(position.startedAt || position.createdAt).toLocaleDateString('pt-BR')}
                   </Text>
 
                   <Text style={styles.rateText}>Status: {position.status}</Text>
+                  {position.status === 'active' ? (
+  <Button
+    title="Resgatar Rewards"
+    onPress={function () {
+      resgatarRewards(position.id);
+    }}
+  />
+) : null}
                 </View>
               );
             })}
@@ -3015,7 +3469,7 @@ function getTransactionAmountStyle(item) {
     ? '💵 USD Coin'
     : position.asset === 'PAXG'
     ? '🥇 PAX Gold'
-    : '💸 USDY Digital Dollar'}
+    : 'Bitcoin tokenizado na rede Polygon.'}
 </Text>
 
 <Text style={styles.rateText}>
@@ -3023,7 +3477,7 @@ function getTransactionAmountStyle(item) {
     ? 'Dólar digital usado como saldo base da Nexa.'
     : position.asset === 'PAXG'
     ? 'Ouro tokenizado emitido pela Paxos.'
-    : 'Ativo digital dolarizado emitido pela Ondo Finance.'}
+    : 'Bitcoin tokenizado na rede Polygon.'}
 </Text>
 
               <Text style={styles.rateText}>
@@ -3073,11 +3527,11 @@ Resumo da Carteira
   </Text>
 
   <Text style={styles.itemText}>
-    💸 USDY:
+    🟠 WBTC:
     {' '}
     {Number(
       portfolio?.positions?.find(
-        p => p.asset === 'USDY',
+        p =>p.asset === 'WBTC',
       )?.valueUsd || 0,
     ).toFixed(2)}
     {' '}USD
@@ -3146,16 +3600,16 @@ Atividades Recentes
     />
 
     <Button
-      title={
-  investmentAsset === 'USDY'
-    ? '✅ 💸 USDY Digital Dollar'
-    : '💸 USDY Digital Dollar'
-}
-      onPress={function () {
-        setInvestmentAsset('USDY');
-        setInvestmentQuote(null);
-      }}
-    />
+  title={
+    investmentAsset === 'WBTC'
+      ? '✅ 🟠 Wrapped Bitcoin'
+      : '🟠 Wrapped Bitcoin'
+  }
+  onPress={function () {
+    setInvestmentAsset('WBTC');
+    setInvestmentQuote(null);
+  }}
+/>
 
     <Input
       placeholder="Valor em USDC"
@@ -3216,12 +3670,12 @@ Converter para USDC
 
 <Button
   title={
-    redeemAsset === 'USDY'
-      ? '✅ USDY'
-      : 'USDY'
+    redeemAsset === 'WBTC'
+      ? '✅ WBTC'
+      : 'WBTC'
   }
   onPress={() =>
-    setRedeemAsset('USDY')
+    setRedeemAsset('WBTC')
   }
 />
 
