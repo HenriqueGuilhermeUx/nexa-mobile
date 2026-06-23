@@ -2,22 +2,18 @@
   "cli": {
     "version": ">= 16.0.0"
   },
-
   "build": {
     "preview": {
       "android": {
         "buildType": "apk"
       },
-
-      "node": "20.19.4"
+      "node": "22.x" 
     },
-
     "production": {
       "android": {
         "buildType": "app-bundle"
       },
-
-      "node": "20.19.4"
+      "node": "22.x"
     }
   }
 }
