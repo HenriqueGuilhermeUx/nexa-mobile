@@ -3,7 +3,7 @@
     "name": "Nexa",
     "slug": "nexa",
     "scheme": "nexa",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 10,
+      "versionCode": 11,
       "permissions": [
         "INTERNET"
       ],
