@@ -13,8 +13,9 @@
 
   "dependencies": {
     "expo": "~53.0.20",
+    "expo-font": "~13.3.2",
     "react": "19.0.0",
-    "react-native": "0.79.5",
+    "react-native": "0.79.6",
 
     "@expo/vector-icons": "^14.1.0",
 
