@@ -208,6 +208,46 @@ export default function App() {
     return getKycStatus() === 'approved';
   }
 
+  function isPremiumUser() {
+    const status = String(
+      user?.premiumStatus ||
+      user?.subscriptionStatus ||
+      user?.plan ||
+      user?.premium?.status ||
+      '',
+    ).toLowerCase();
+
+    return Boolean(
+      user?.isPremium === true ||
+      user?.premiumActive === true ||
+      user?.premium?.active === true ||
+      status === 'premium' ||
+      status === 'active' ||
+      status === 'ativo',
+    );
+  }
+
+  function isPremiumAsset(asset) {
+    return asset === 'PAXG' || asset === 'WBTC';
+  }
+
+  function canUseAsset(asset) {
+    if (asset === 'USDC') return true;
+    return isPremiumUser();
+  }
+
+  function getPremiumLabel() {
+    return isPremiumUser() ? 'Premium ativo' : 'Premium não ativo';
+  }
+
+  function selectInvestmentAsset(asset) {
+    setInvestmentAsset(asset);
+    setInvestmentQuote(null);
+    if (isPremiumAsset(asset) && !isPremiumUser()) {
+      show(asset + ' está disponível apenas para clientes Nexa Premium.');
+    }
+  }
+
   function getWalletAddress() {
     if (!user) return 'Carteira ainda não vinculada';
     if (user.wallet && user.wallet.address) return user.wallet.address;
@@ -400,8 +440,8 @@ export default function App() {
       const payload = {
         userId: user.id,
         amountBrl: amount,
-        asset: recurringAsset,
-        targetAsset: recurringAsset,
+        asset: 'USDC',
+        targetAsset: 'USDC',
         dayOfMonth: Number(recurringDay || 5),
         frequency: 'monthly',
         status: 'active',
@@ -936,6 +976,11 @@ export default function App() {
       show('Faça login primeiro');
       return;
     }
+    if (!canUseAsset(investmentAsset)) {
+      show(investmentAsset + ' é um ativo exclusivo para clientes Nexa Premium.');
+      setPage('premium');
+      return;
+    }
     const amount = parseAmount(investmentAmount);
     if (!amount || amount <= 0) {
       show('Informe um valor USDC válido');
@@ -967,6 +1012,11 @@ export default function App() {
   }
 
   async function executarInvestimento() {
+    if (!canUseAsset(investmentAsset)) {
+      show(investmentAsset + ' é um ativo exclusivo para clientes Nexa Premium.');
+      setPage('premium');
+      return;
+    }
     if (!investmentQuote || !investmentQuote.allowed) {
       show('Faça uma cotação válida primeiro');
       return;
@@ -1649,6 +1699,7 @@ export default function App() {
       <View style={styles.container}>
         <ScrollView
           style={styles.content}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="always"
           keyboardDismissMode="none"
         >
@@ -1806,6 +1857,7 @@ export default function App() {
     <View style={styles.container}>
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="none"
       >
@@ -1970,18 +2022,41 @@ export default function App() {
         {page === 'premium' && (
           <Card>
             <Text style={styles.title}>Nexa Premium</Text>
-            <Text style={styles.itemText}>Uma assinatura para acessar o ecossistema completo da Nexa.</Text>
+            <Text style={styles.itemText}>
+              Plano mensal para clientes que querem usar recursos avançados da Nexa.
+            </Text>
             <View style={styles.item}>
-              <Text style={styles.itemText}>🚀 Nexa Rewards</Text>
-              <Text style={styles.rateText}>Recompensas em USDC via Aave V3 na Polygon.</Text>
+              <Text style={styles.itemText}>💎 19,90 Reais/mês</Text>
+              <Text style={styles.rateText}>
+                Cobrança mensal em USDC pela cotação do dia.
+              </Text>
             </View>
             <View style={styles.item}>
-              <Text style={styles.itemText}>🔁 Cripto por assinatura</Text>
-              <Text style={styles.rateText}>Compras recorrentes automáticas em USDC, WBTC ou PAXG.</Text>
+              <Text style={styles.itemText}>🥇 PAXG e 🟠 WBTC liberados</Text>
+              <Text style={styles.rateText}>
+                Clientes Premium podem converter USDC para ouro digital PAXG e Bitcoin tokenizado WBTC.
+              </Text>
             </View>
-            <Button title="Configurar cripto por assinatura" onPress={function () { setPage('recurringCrypto'); }} />
-            <Button title="Ativar Rewards" onPress={function () { setPage('rewards'); }} />
-            <Button title="Ver Ativos Digitais" onPress={function () { setPage('investments'); }} />
+            <View style={styles.item}>
+              <Text style={styles.itemText}>🏷️ Desconto nas taxas</Text>
+              <Text style={styles.rateText}>
+                Menores taxas nas operações elegíveis dentro do app.
+              </Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>👑 Atendimento Premium</Text>
+              <Text style={styles.rateText}>
+                Canal prioritário para dúvidas, suporte e operações.
+              </Text>
+            </View>
+            <View style={isPremiumUser() ? styles.verifiedProfileBox : styles.recipientBoxError}>
+              <Text style={isPremiumUser() ? styles.verifiedProfileText : styles.recipientError}>
+                {getPremiumLabel()}
+              </Text>
+            </View>
+            <Button title="Ver Ativos Premium" onPress={function () { setPage('investments'); }} />
+            <Button title="Configurar compra mensal de USDC" onPress={function () { setPage('recurringCrypto'); }} />
+            <Button title="Falar com suporte Premium" onPress={function () { abrirLink('mailto:henriquecampos66@gmail.com?subject=Nexa Premium'); }} />
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
         )}
@@ -2148,10 +2223,35 @@ export default function App() {
         {page === 'recurringCrypto' && (
           <Card>
             <Text style={styles.title}>Cripto por assinatura</Text>
-            <Input placeholder="Valor Mensal R$" keyboardType="numeric" value={recurringAmountBrl} onChangeText={setRecurringAmountBrl} />
-            <Input placeholder="Dia do Mês" keyboardType="numeric" value={recurringDay} onChangeText={setRecurringDay} />
-            <Button title="Salvar assinatura" onPress={salvarAssinaturaRecorrente} />
+            <Text style={styles.itemText}>
+              Programe uma compra mensal automática de USDC.
+            </Text>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>💵 Ativo da assinatura: USDC</Text>
+              <Text style={styles.rateText}>
+                Para manter a experiência simples, a compra recorrente é feita apenas em USDC.
+                PAXG e WBTC ficam na aba Ativos e são exclusivos para clientes Premium.
+              </Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>🔁 Como funciona</Text>
+              <Text style={styles.rateText}>
+                Você escolhe o valor mensal e o dia do mês. A Nexa gera a autorização Pix para automatizar a compra recorrente.
+              </Text>
+            </View>
+            <Input placeholder="Valor mensal em R$" keyboardType="numeric" value={recurringAmountBrl} onChangeText={setRecurringAmountBrl} />
+            <Input placeholder="Dia do mês. Ex: 5" keyboardType="numeric" value={recurringDay} onChangeText={setRecurringDay} />
+            <Button title="Salvar compra mensal de USDC" onPress={salvarAssinaturaRecorrente} />
             <Button title="Ativar Pix Automático" onPress={gerarLinkAssinaturaWoovi} />
+            {recurringPlan ? (
+              <View style={styles.verifiedProfileBox}>
+                <Text style={styles.verifiedProfileText}>
+                  Assinatura configurada para USDC
+                </Text>
+              </View>
+            ) : null}
+            <Button title="Pausar assinatura" onPress={pausarAssinaturaRecorrente} />
+            <Button title="Cancelar assinatura" onPress={cancelarAssinaturaRecorrente} />
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
         )}
@@ -2159,8 +2259,47 @@ export default function App() {
         {page === 'rewards' && (
           <Card>
             <Text style={styles.title}>Nexa Rewards</Text>
-            <Input placeholder="Valor USDC" keyboardType="numeric" value={rewardAmount} onChangeText={setRewardAmount} />
-            <Button title="Ativar Boost Aave" onPress={ativarRewards} />
+            <Text style={styles.itemText}>
+              Use seu saldo em USDC na infraestrutura DeFi da Nexa.
+            </Text>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>🟢 Como funciona</Text>
+              <Text style={styles.rateText}>
+                Você ativa um valor em USDC. A infraestrutura da Nexa utiliza Aave V3 na Polygon.
+                Os benefícios gerados são compartilhados em Rewards.
+              </Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>🎁 Divisão dos Rewards</Text>
+              <Text style={styles.rateText}>
+                Você recebe até 80% dos Rewards gerados. A Nexa retém até 20% para custear infraestrutura, liquidez e operação.
+              </Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>⚠️ Importante</Text>
+              <Text style={styles.rateText}>
+                Rewards não são promessa de rentabilidade, investimento garantido ou juros. Podem variar conforme a infraestrutura utilizada.
+              </Text>
+            </View>
+            <Input placeholder="Valor em USDC para ativar Rewards" keyboardType="numeric" value={rewardAmount} onChangeText={setRewardAmount} />
+            <Button title="Ativar Nexa Rewards" onPress={ativarRewards} />
+            {rewardPositions.length > 0 ? (
+              <View style={styles.item}>
+                <Text style={styles.itemText}>Posições Rewards</Text>
+                {rewardPositions.map(function (position) {
+                  return (
+                    <View key={position.id || position.positionId || String(position.createdAt)} style={styles.receiptRow}>
+                      <Text style={styles.receiptLabel}>Saldo ativado</Text>
+                      <Text style={styles.receiptValue}>
+                        {Number(position.amountUsdc || position.principalUsdc || 0).toFixed(6)} USDC
+                      </Text>
+                      <Text style={styles.rateText}>Status: {position.status || 'ativo'}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+            <Button title="Atualizar Rewards" onPress={carregarRewards} />
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
         )}
@@ -2183,10 +2322,59 @@ export default function App() {
         {page === 'investments' && (
           <Card>
             <Text style={styles.title}>Ativos Digitais</Text>
+            <Text style={styles.itemText}>
+              Gerencie USDC, PAXG e WBTC dentro da Nexa.
+            </Text>
             {portfolio && <Text style={styles.totalBalance}>US$ {Number(portfolio.totalUsd || 0).toFixed(2)}</Text>}
-            <Input placeholder="Valor em USDC" keyboardType="numeric" value={investmentAmount} onChangeText={setInvestmentAmount} />
-            <Button title="Simular Compra" onPress={cotarInvestimento} />
-            {investmentQuote?.allowed && <Button title="Confirmar Conversão" onPress={executarInvestimento} />}
+
+            <TouchableOpacity
+              style={investmentAsset === 'USDC' ? styles.recipientBox : styles.item}
+              onPress={function () { selectInvestmentAsset('USDC'); }}
+            >
+              <Text style={styles.itemText}>💵 USDC</Text>
+              <Text style={styles.rateText}>
+                Disponível para todos. Base para saldo, assinatura, Rewards e conversões.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={investmentAsset === 'PAXG' ? styles.recipientBox : styles.item}
+              onPress={function () { selectInvestmentAsset('PAXG'); }}
+            >
+              <Text style={styles.itemText}>🥇 PAXG · Ouro digital</Text>
+              <Text style={styles.rateText}>
+                {isPremiumUser() ? 'Disponível para conversão a partir de USDC.' : '🔒 Disponível apenas para clientes Nexa Premium.'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={investmentAsset === 'WBTC' ? styles.recipientBox : styles.item}
+              onPress={function () { selectInvestmentAsset('WBTC'); }}
+            >
+              <Text style={styles.itemText}>🟠 WBTC · Bitcoin tokenizado</Text>
+              <Text style={styles.rateText}>
+                {isPremiumUser() ? 'Disponível para conversão a partir de USDC.' : '🔒 Disponível apenas para clientes Nexa Premium.'}
+              </Text>
+            </TouchableOpacity>
+
+            {!canUseAsset(investmentAsset) ? (
+              <View style={styles.recipientBoxError}>
+                <Text style={styles.recipientError}>
+                  {investmentAsset} é exclusivo para clientes Nexa Premium.
+                </Text>
+                <Text style={styles.rateText}>
+                  Assine por R$19,90/mês (cobrados em USDC/Cotação do dia) para liberar PAXG, WBTC, taxas menores e atendimento Premium.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Input placeholder={'Valor em USDC para converter em ' + investmentAsset} keyboardType="numeric" value={investmentAmount} onChangeText={setInvestmentAmount} />
+                <Button title={'Simular conversão para ' + investmentAsset} onPress={cotarInvestimento} />
+                {investmentQuote?.allowed && <Button title="Confirmar conversão" onPress={executarInvestimento} />}
+              </>
+            )}
+
+            <Button title="Ver Nexa Premium" onPress={function () { setPage('premium'); }} />
             <Button title="Voltar" onPress={function () { setPage('home'); }} />
           </Card>
         )}
@@ -2230,6 +2418,7 @@ export default function App() {
 const styles = {
   container: { flex: 1, backgroundColor: '#020617' },
   content: { flex: 1, padding: 20, paddingTop: 55 },
+  scrollContent: { paddingBottom: 130 },
   logo: { color: 'white', fontSize: 36, fontWeight: '900', textAlign: 'center', letterSpacing: 2 },
   subtitle: { color: '#93c5fd', textAlign: 'center', marginBottom: 24, fontSize: 13 },
   card: { backgroundColor: '#0f172a', padding: 22, borderRadius: 24, marginBottom: 18, borderWidth: 1, borderColor: '#1e40af' },
