@@ -69,14 +69,9 @@ export default function AppleModeHome({
       </View>
 
       <View style={styles.hero}>
-        <Text style={styles.heroEyebrow}>SEU SALDO</Text>
-        <Text style={styles.heroValue}>
-          R$ {Number(saldoBrl || 0).toLocaleString('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </Text>
-        <Text style={styles.heroUsdc}>≈ {Number(saldoUsdc || 0).toFixed(6)} USDC</Text>
+        <Text style={styles.heroEyebrow}>SEU PATRIMÔNIO EM DÓLAR</Text>
+        <Text style={styles.heroValue}>{Number(saldoUsdc || 0).toFixed(4)}</Text>
+        <Text style={styles.heroUsdc}>USDC</Text>
         <View style={styles.heroFooter}>
           <Text style={styles.heroHint}>Patrimônio em dólar, disponível quando você precisar.</Text>
           <TouchableOpacity onPress={onRefresh}><Text style={styles.refresh}>Atualizar</Text></TouchableOpacity>
@@ -153,7 +148,7 @@ export default function AppleModeHome({
 
       <View style={styles.freedomCard}>
         <Text style={styles.freedomEyebrow}>LIBERDADE FINANCEIRA</Text>
-        <Text style={styles.freedomTitle}>Você já protegeu R$ {protectedValue.toFixed(2)} em dólar digital.</Text>
+        <Text style={styles.freedomTitle}>Você já acumulou {Number(saldoUsdc || 0).toFixed(4)} USDC em dólar digital.</Text>
         <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${freedomProgress}%` }]} /></View>
         <Text style={styles.freedomHint}>Cada aporte deixa seu patrimônio mais forte.</Text>
       </View>

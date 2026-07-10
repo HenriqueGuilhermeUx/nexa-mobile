@@ -72,6 +72,7 @@ export default function App() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
@@ -1707,7 +1708,7 @@ export default function App() {
           keyboardDismissMode="none"
         >
           <Text style={styles.logo}>NEXA</Text>
-          <Text style={styles.subtitle}>Cripto sem complicação</Text>
+          <Text style={styles.subtitle}>Seu patrimônio em dólar, simples.</Text>
 
           <Card>
             {authPage === 'forgot' ? (
@@ -1756,7 +1757,7 @@ export default function App() {
             ) : (
               <>
                 <Text style={styles.title}>
-                  {authPage === 'login' ? 'Entrar' : 'Criar conta'}
+                  {authPage === 'login' ? 'Acesse sua Nexa' : 'Abra sua conta'}
                 </Text>
                 {savedEmail && authPage === 'login' ? (
                   <View style={styles.savedLoginBox}>
@@ -1776,12 +1777,41 @@ export default function App() {
                     autoCapitalize="none"
                   />
                 )}
-                <Input
-                  placeholder="Senha"
-                  secureTextEntry={true}
-                  value={password}
-                  onChangeText={setPassword}
-                />
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#07101e',
+                  borderWidth: 1,
+                  borderColor: password ? '#36516f' : '#263650',
+                  borderRadius: 16,
+                  marginTop: 10,
+                  paddingLeft: 14,
+                }}>
+                  <TextInput
+                    style={{ flex: 1, color: '#ffffff', paddingVertical: 15, fontSize: 16 }}
+                    placeholder="Senha"
+                    placeholderTextColor="#64748b"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity
+                    onPress={function () { setShowPassword(!showPassword); }}
+                    style={{ paddingHorizontal: 15, paddingVertical: 14 }}
+                  >
+                    <Text style={{ color: '#93c5fd', fontSize: 12, fontWeight: '900' }}>
+                      {showPassword ? 'OCULTAR' : 'MOSTRAR'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {password ? (
+                  <Text style={{ color: '#475569', fontSize: 11, marginTop: 7 }}>
+                    {showPassword ? 'Senha visível' : 'Senha preenchida com segurança'}
+                  </Text>
+                ) : null}
                 {authPage === 'register' && (
                   <>
                     <Input
@@ -1809,39 +1839,58 @@ export default function App() {
                 ) : (
                   <Button title="Criar conta" onPress={cadastrar} />
                 )}
-                {authPage === 'login' && savedEmail ? (
-                  <Button
-                    title="Trocar conta"
-                    onPress={async function () {
-                      await AsyncStorage.removeItem('nexa_last_email');
-                      await AsyncStorage.removeItem('nexa_last_name');
-                      setSavedEmail('');
-                      setSavedName('');
-                      setEmail('');
-                      setPassword('');
-                      setMsg('');
-                    }}
-                  />
-                ) : null}
                 {authPage === 'login' ? (
-                  <>
-                    <Button
-                      title="Esqueci minha senha"
+                  <View style={{ marginTop: 18, alignItems: 'center' }}>
+                    <TouchableOpacity
                       onPress={function () {
                         setResetEmail(savedEmail || email);
                         setAuthPage('forgot');
                       }}
-                    />
-                    <Button
-                      title="Não tenho conta"
-                      onPress={function () { setAuthPage('register'); }}
-                    />
-                  </>
+                      style={{ paddingVertical: 8, paddingHorizontal: 12 }}
+                    >
+                      <Text style={{ color: '#7c8da3', fontSize: 13, fontWeight: '700' }}>
+                        Esqueci minha senha
+                      </Text>
+                    </TouchableOpacity>
+
+                    {savedEmail ? (
+                      <TouchableOpacity
+                        onPress={async function () {
+                          await AsyncStorage.removeItem('nexa_last_email');
+                          await AsyncStorage.removeItem('nexa_last_name');
+                          setSavedEmail('');
+                          setSavedName('');
+                          setEmail('');
+                          setPassword('');
+                          setShowPassword(false);
+                          setMsg('');
+                        }}
+                        style={{ paddingVertical: 8, paddingHorizontal: 12 }}
+                      >
+                        <Text style={{ color: '#64748b', fontSize: 12, fontWeight: '700' }}>
+                          Entrar com outra conta
+                        </Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={function () { setAuthPage('register'); }}
+                        style={{ marginTop: 8, paddingVertical: 10, paddingHorizontal: 18 }}
+                      >
+                        <Text style={{ color: '#93c5fd', fontSize: 14, fontWeight: '900' }}>
+                          Abra sua conta Nexa
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 ) : (
-                  <Button
-                    title="Já tenho conta"
+                  <TouchableOpacity
                     onPress={function () { setAuthPage('login'); }}
-                  />
+                    style={{ marginTop: 18, alignSelf: 'center', padding: 10 }}
+                  >
+                    <Text style={{ color: '#7c8da3', fontSize: 13, fontWeight: '700' }}>
+                      Já tenho uma conta
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </>
             )}
