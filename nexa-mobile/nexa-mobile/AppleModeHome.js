@@ -69,7 +69,7 @@ export default function AppleModeHome({
       </View>
 
       <View style={styles.hero}>
-        <Text style={styles.heroEyebrow}>SEU PATRIMÔNIO</Text>
+        <Text style={styles.heroEyebrow}>SEU SALDO</Text>
         <Text style={styles.heroValue}>
           R$ {Number(saldoBrl || 0).toLocaleString('pt-BR', {
             minimumFractionDigits: 2,
@@ -158,7 +158,7 @@ export default function AppleModeHome({
         <Text style={styles.freedomHint}>Cada aporte deixa seu patrimônio mais forte.</Text>
       </View>
 
-      <TouchableOpacity style={styles.custodyLine} onPress={() => onNavigate('wallet')}>
+      <TouchableOpacity style={styles.custodyLine} onPress={() => onNavigate('custody')}>
         <View style={{ flex: 1 }}>
           <Text style={styles.custodyTitle}>Onde guardar seus ativos?</Text>
           <Text style={styles.custodyText}>Modo Nexa para simplicidade. Carteira própria para liberdade total.</Text>

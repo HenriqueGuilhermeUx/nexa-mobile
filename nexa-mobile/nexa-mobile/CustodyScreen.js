@@ -51,9 +51,9 @@ function Field(props) {
   );
 }
 
-function ChoiceCard({ active, title, subtitle, bullets, accent }) {
+function ChoiceCard({ active, title, subtitle, bullets, accent, onPress }) {
   return (
-    <View style={{
+    <TouchableOpacity onPress={onPress} activeOpacity={0.84} style={{
       backgroundColor: active ? '#12213e' : '#0b1220',
       borderWidth: 1,
       borderColor: active ? accent : '#1e293b',
@@ -71,7 +71,7 @@ function ChoiceCard({ active, title, subtitle, bullets, accent }) {
       {bullets.map((item) => (
         <Text key={item} style={{ color: '#cbd5e1', marginTop: 8 }}>✓ {item}</Text>
       ))}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -83,6 +83,7 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
   const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [selectedMode, setSelectedMode] = useState('nexa');
 
   const authHeaders = {
     'Content-Type': 'application/json',
@@ -235,6 +236,7 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
         subtitle="Mais simples para o dia a dia."
         bullets={['Pix e transferências por @username', 'Compra automática e Premium', 'Operações instantâneas no app']}
         accent="#60a5fa"
+        onPress={() => setSelectedMode('nexa')}
       />
 
       <ChoiceCard
@@ -243,8 +245,10 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
         subtitle="Mais liberdade e controle on-chain."
         bullets={['Uso em qualquer app compatível', 'Controle direto dos ativos', 'Rede Polygon e carteira individual']}
         accent="#34d399"
+        onPress={() => setSelectedMode('own_wallet')}
       />
 
+      {selectedMode === 'own_wallet' ? (
       <View style={{ backgroundColor: '#0b1220', borderRadius: 22, padding: 18, marginTop: 14, borderWidth: 1, borderColor: '#1e293b' }}>
         <Text style={{ color: '#fff', fontSize: 19, fontWeight: '900' }}>Mover para minha carteira</Text>
         <Text style={{ color: '#94a3b8', marginTop: 6, lineHeight: 19 }}>
@@ -257,7 +261,9 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
           <Text selectable style={{ color: '#64748b', fontSize: 11, marginTop: 11 }}>Sua carteira: {walletAddress}</Text>
         ) : null}
       </View>
+      ) : null}
 
+      {selectedMode === 'nexa' ? (
       <View style={{ backgroundColor: '#0b1220', borderRadius: 22, padding: 18, marginTop: 14, borderWidth: 1, borderColor: '#1e293b' }}>
         <Text style={{ color: '#fff', fontSize: 19, fontWeight: '900' }}>Trazer para o Modo Nexa</Text>
         <Text style={{ color: '#94a3b8', marginTop: 6, lineHeight: 19 }}>
@@ -277,6 +283,7 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
           </View>
         ) : null}
       </View>
+      ) : null}
 
       {message ? (
         <View style={{ backgroundColor: '#111827', borderRadius: 16, padding: 14, marginTop: 14, borderWidth: 1, borderColor: '#263650' }}>
