@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import QRCode from 'react-native-qrcode-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AppleModeHome from './AppleModeHome';
 import {
   View,
   Text,
@@ -1114,14 +1115,14 @@ export default function App() {
     }
     try {
       const statementResponse = await fetch(
-        API + '/ledger/statement?userId=' + user.id + '&limit=50&mode=real',
+        API + '/ledger/statement?userId=' + user.id + '&limit=50&mode=portfolio',
       );
       const statementData = await statementResponse.json();
       if (statementData.statement) {
         setExtrato(statementData.statement);
       }
       const balanceResponse = await fetch(
-        API + '/ledger/balance?userId=' + user.id + '&mode=real',
+        API + '/ledger/balance?userId=' + user.id + '&mode=portfolio',
       );
       const balanceData = await balanceResponse.json();
       setSaldo({
@@ -1292,6 +1293,7 @@ export default function App() {
           toUsername: recipientUser.username || normalizeUsername(username),
           amountUsdc: amountToSend,
           note: 'envio app',
+          clientRequestId: 'mobile_' + user.id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2),
         }),
       });
       const data = await r.json();
@@ -1864,8 +1866,32 @@ export default function App() {
         <Text style={styles.logo}>NEXA</Text>
         <Text style={styles.subtitle}>Soberania digital no seu bolso</Text>
 
-        {/* ABA 1: HOME (ULTRA LIMPA) */}
+        {/* HOME APPLE MODE: patrimônio, assinatura e Premium em primeiro plano */}
         {page === 'home' && (
+          <AppleModeHome
+            user={user}
+            username={getUsername()}
+            saldoUsdc={saldoUsdc}
+            saldoBrl={saldoBrlEstimado}
+            buyRate={buyRate}
+            marketChange={marketChange}
+            isPremium={isPremiumUser()}
+            recurringPlan={recurringPlan}
+            rewardsTotal={(rewardPositions || []).reduce(function (total, position) {
+              return total + Number(position.earnedUsdc || position.rewardUsdc || position.yieldEarned || 0);
+            }, 0)}
+            onNavigate={setPage}
+            onRefresh={function () {
+              carregarDados();
+              carregarCotacao();
+              carregarRewards();
+              carregarAssinaturaRecorrente();
+            }}
+          />
+        )}
+
+        {/* Home anterior preservada para auditoria visual, sem exposição ao usuário */}
+        {page === 'legacyHome' && (
           <>
             <Card>
               <View style={styles.headerRow}>
@@ -2023,12 +2049,12 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Nexa Premium</Text>
             <Text style={styles.itemText}>
-              Plano mensal para clientes que querem usar recursos avançados da Nexa.
+              Sua experiência completa para construir patrimônio em dólar com menos taxas e mais possibilidades.
             </Text>
             <View style={styles.item}>
-              <Text style={styles.itemText}>💎 19,90 Reais/mês</Text>
+              <Text style={styles.itemText}>💎 R$ 19,90 por mês</Text>
               <Text style={styles.rateText}>
-                Cobrança mensal em USDC pela cotação do dia.
+                Uma assinatura simples para economizar nas operações e acessar benefícios exclusivos.
               </Text>
             </View>
             <View style={styles.item}>
@@ -2054,8 +2080,8 @@ export default function App() {
                 {getPremiumLabel()}
               </Text>
             </View>
-            <Button title="Ver Ativos Premium" onPress={function () { setPage('investments'); }} />
-            <Button title="Configurar compra mensal de USDC" onPress={function () { setPage('recurringCrypto'); }} />
+            <Button title="Quero conhecer meus benefícios" onPress={function () { setPage('investments'); }} />
+            <Button title="Ativar meu dólar todo mês" onPress={function () { setPage('recurringCrypto'); }} />
             <Button title="Falar com suporte Premium" onPress={function () { abrirLink('mailto:henriquecampos66@gmail.com?subject=Nexa Premium'); }} />
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
