@@ -1,0 +1,106 @@
+name: Apply Apple Mode to production App
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/apply-apple-mode.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch official Expo App.js
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('nexa-mobile/nexa-mobile/App.js')
+          text = path.read_text(encoding='utf-8')
+
+          if "import AppleModeHome from './AppleModeHome';" not in text:
+              anchor = "import AsyncStorage from '@react-native-async-storage/async-storage';"
+              text = text.replace(anchor, anchor + "\nimport AppleModeHome from './AppleModeHome';", 1)
+
+          # Make the installed app use the complete customer portfolio balance.
+          text = text.replace("&limit=50&mode=real", "&limit=50&mode=portfolio")
+          text = text.replace("&mode=real", "&mode=portfolio")
+
+          # Add transfer idempotency without changing the existing flow.
+          old = """          amountUsdc: amountToSend,
+          note: 'envio app',
+"""
+          new = """          amountUsdc: amountToSend,
+          note: 'envio app',
+          clientRequestId: 'mobile_' + user.id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+"""
+          if old in text and 'clientRequestId:' not in text:
+              text = text.replace(old, new, 1)
+
+          marker = """        {/* ABA 1: HOME (ULTRA LIMPA) */}
+        {page === 'home' && (
+"""
+          if marker not in text:
+              raise SystemExit('Home marker not found; App.js structure changed')
+
+          apple = """        {/* HOME APPLE MODE: patrimônio, assinatura e Premium em primeiro plano */}
+        {page === 'home' && (
+          <AppleModeHome
+            user={user}
+            username={getUsername()}
+            saldoUsdc={saldoUsdc}
+            saldoBrl={saldoBrlEstimado}
+            buyRate={buyRate}
+            marketChange={marketChange}
+            isPremium={isPremiumUser()}
+            recurringPlan={recurringPlan}
+            rewardsTotal={(rewardPositions || []).reduce(function (total, position) {
+              return total + Number(position.earnedUsdc || position.rewardUsdc || position.yieldEarned || 0);
+            }, 0)}
+            onNavigate={setPage}
+            onRefresh={function () {
+              carregarDados();
+              carregarCotacao();
+              carregarRewards();
+              carregarAssinaturaRecorrente();
+            }}
+          />
+        )}
+
+        {/* Home anterior preservada para auditoria visual, sem exposição ao usuário */}
+        {page === 'legacyHome' && (
+"""
+          text = text.replace(marker, apple, 1)
+
+          # Premium copy: sell outcome instead of technical features.
+          text = text.replace(
+              'Plano mensal para clientes que querem usar recursos avançados da Nexa.',
+              'Sua experiência completa para construir patrimônio em dólar com menos taxas e mais possibilidades.'
+          )
+          text = text.replace('💎 19,90 Reais/mês', '💎 R$ 19,90 por mês')
+          text = text.replace(
+              'Cobrança mensal em USDC pela cotação do dia.',
+              'Uma assinatura simples para economizar nas operações e acessar benefícios exclusivos.'
+          )
+          text = text.replace('Ver Ativos Premium', 'Quero conhecer meus benefícios')
+          text = text.replace('Configurar compra mensal de USDC', 'Ativar meu dólar todo mês')
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit Apple Mode
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add nexa-mobile/nexa-mobile/App.js
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Transform production app into Nexa Apple Mode"
+            git push
+          fi
