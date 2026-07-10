@@ -6,6 +6,7 @@ on:
     paths:
       - 'scripts/apply_apple_mode.py'
       - 'nexa-mobile/nexa-mobile/AppleModeHome.js'
+      - 'nexa-mobile/nexa-mobile/CustodyScreen.js'
       - '.github/workflows/apply-apple-mode.yml'
 
 permissions:
@@ -19,19 +20,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Apply Apple Mode to official App.js
+      - name: Apply production fixes
         run: python3 scripts/apply_apple_mode.py
 
-      - name: Commit production App.js
+      - name: Commit production files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add nexa-mobile/nexa-mobile/App.js
+          git add nexa-mobile/nexa-mobile/App.js nexa-mobile/nexa-mobile/AppleModeHome.js nexa-mobile/nexa-mobile/CustodyScreen.js
 
           if git diff --cached --quiet; then
-            echo "Apple Mode already applied. No commit needed."
+            echo "Production fixes already applied."
             exit 0
           fi
 
-          git commit -m "Transform production app into Nexa Apple Mode"
+          git commit -m "Fix mobile balance, custody navigation and USDC home"
           git push
