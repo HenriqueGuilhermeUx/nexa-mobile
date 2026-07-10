@@ -16,8 +16,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Patch official Expo App.js
-        shell: python
+        shell: bash
         run: |
+          python3 - <<'PY'
           from pathlib import Path
 
           path = Path('nexa-mobile/nexa-mobile/App.js')
@@ -25,13 +26,13 @@ jobs:
 
           if "import AppleModeHome from './AppleModeHome';" not in text:
               anchor = "import AsyncStorage from '@react-native-async-storage/async-storage';"
+              if anchor not in text:
+                  raise SystemExit('Import anchor not found')
               text = text.replace(anchor, anchor + "\nimport AppleModeHome from './AppleModeHome';", 1)
 
-          # Make the installed app use the complete customer portfolio balance.
-          text = text.replace("&limit=50&mode=real", "&limit=50&mode=portfolio")
-          text = text.replace("&mode=real", "&mode=portfolio")
+          text = text.replace('&limit=50&mode=real', '&limit=50&mode=portfolio')
+          text = text.replace('&mode=real', '&mode=portfolio')
 
-          # Add transfer idempotency without changing the existing flow.
           old = """          amountUsdc: amountToSend,
           note: 'envio app',
 """
@@ -45,10 +46,12 @@ jobs:
           marker = """        {/* ABA 1: HOME (ULTRA LIMPA) */}
         {page === 'home' && (
 """
-          if marker not in text:
-              raise SystemExit('Home marker not found; App.js structure changed')
 
-          apple = """        {/* HOME APPLE MODE: patrimônio, assinatura e Premium em primeiro plano */}
+          if "<AppleModeHome" not in text:
+              if marker not in text:
+                  raise SystemExit('Home marker not found; App.js structure changed')
+
+              apple = """        {/* HOME APPLE MODE: patrimônio, assinatura e Premium em primeiro plano */}
         {page === 'home' && (
           <AppleModeHome
             user={user}
@@ -75,9 +78,8 @@ jobs:
         {/* Home anterior preservada para auditoria visual, sem exposição ao usuário */}
         {page === 'legacyHome' && (
 """
-          text = text.replace(marker, apple, 1)
+              text = text.replace(marker, apple, 1)
 
-          # Premium copy: sell outcome instead of technical features.
           text = text.replace(
               'Plano mensal para clientes que querem usar recursos avançados da Nexa.',
               'Sua experiência completa para construir patrimônio em dólar com menos taxas e mais possibilidades.'
@@ -91,6 +93,7 @@ jobs:
           text = text.replace('Configurar compra mensal de USDC', 'Ativar meu dólar todo mês')
 
           path.write_text(text, encoding='utf-8')
+          PY
 
       - name: Commit Apple Mode
         shell: bash
