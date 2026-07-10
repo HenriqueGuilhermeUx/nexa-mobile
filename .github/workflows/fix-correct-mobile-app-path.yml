@@ -1,0 +1,262 @@
+name: Fix production mobile App.js path
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/fix-correct-mobile-app-path.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch production App.js
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('nexa-mobile/nexa-mobile/App.js')
+          text = path.read_text(encoding='utf-8')
+
+          text = text.replace(
+              "  ScrollView,\n  Linking,\n} from 'react-native';",
+              "  ScrollView,\n  Linking,\n  AppState,\n} from 'react-native';",
+              1,
+          )
+
+          recurring = "  const [recurringPixLink, setRecurringPixLink] = useState('');"
+          if 'pendingTransferRequestId' not in text:
+              text = text.replace(
+                  recurring,
+                  recurring + "\n  const [pendingTransferRequestId, setPendingTransferRequestId] = useState('');",
+                  1,
+              )
+
+          effect_marker = """  useEffect(
+            function () {
+              if (user && user.id) {
+                carregarDados();
+                buscarPerfilAtualizado();
+                carregarCotacao();
+                carregarRewards();
+                carregarSegurancaWallet();
+                carregarPortfolio();
+                carregarAtividadesAtivos();
+                carregarCompliance();
+                carregarAssinaturaRecorrente();
+              }
+            },
+            [user && user.id],
+          );
+          """
+
+          auto_effect = effect_marker + """
+
+          useEffect(
+            function () {
+              if (!user || !user.id) return undefined;
+
+              const interval = setInterval(function () {
+                carregarDados(false);
+              }, 15000);
+
+              const subscription = AppState.addEventListener('change', function (state) {
+                if (state === 'active') {
+                  carregarDados(false);
+                }
+              });
+
+              return function () {
+                clearInterval(interval);
+                subscription.remove();
+              };
+            },
+            [user && user.id, token],
+          );
+          """
+
+          if "AppState.addEventListener('change'" not in text:
+              if effect_marker not in text:
+                  raise SystemExit('Main user effect marker not found')
+              text = text.replace(effect_marker, auto_effect, 1)
+
+          start = text.index('  async function carregarDados() {')
+          end = text.index('\n  async function depositarPix()', start)
+          new_load = """  async function carregarDados(showMessage = true) {
+            if (!user || !user.id) {
+              if (showMessage) show('Faça login primeiro');
+              return;
+            }
+
+            try {
+              const savedToken = token || (await AsyncStorage.getItem('nexa_token')) || '';
+              const requestId = Date.now();
+              const headers = savedToken
+                ? {
+                    Authorization: 'Bearer ' + savedToken,
+                    'Cache-Control': 'no-cache',
+                  }
+                : {
+                    'Cache-Control': 'no-cache',
+                  };
+
+              const statementResponse = await fetch(
+                API +
+                  '/ledger/statement?userId=' +
+                  user.id +
+                  '&limit=50&mode=portfolio&_=' +
+                  requestId,
+                { headers },
+              );
+              const statementData = await statementResponse.json();
+
+              if (statementResponse.ok && statementData.statement) {
+                setExtrato(statementData.statement);
+              }
+
+              const balanceResponse = await fetch(
+                API +
+                  '/ledger/balance?userId=' +
+                  user.id +
+                  '&mode=portfolio&_=' +
+                  requestId,
+                { headers },
+              );
+              const balanceData = await balanceResponse.json();
+
+              if (!balanceResponse.ok || !balanceData.balances) {
+                throw new Error(
+                  balanceData.message ||
+                    balanceData.error ||
+                    'Não foi possível atualizar o saldo',
+                );
+              }
+
+              const nextBrl = Number(balanceData.balances.BRL || 0);
+              const nextUsdc = Number(balanceData.balances.USDC || 0);
+
+              setSaldo({
+                BRL: Number.isFinite(nextBrl) ? nextBrl : 0,
+                USDC: Number.isFinite(nextUsdc) ? nextUsdc : 0,
+              });
+
+              if (showMessage) {
+                show('Saldo atualizado');
+              }
+            } catch (e) {
+              if (showMessage) {
+                show('Falha ao carregar dados: ' + e.message);
+              }
+            }
+          }
+          """
+          text = text[:start] + new_load + text[end:]
+
+          start = text.index('  async function enviarUsername() {')
+          end = text.index('\n  async function carregarSegurancaWallet()', start)
+          new_send = """  async function enviarUsername() {
+            if (getKycStatus() !== 'approved') {
+              show('Conclua sua verificação de identidade antes de enviar USDC');
+              setPage('menuScreen');
+              return;
+            }
+            if (!user || !user.id) {
+              show('Faça login primeiro');
+              return;
+            }
+            if (!recipientUser) {
+              show('Verifique o @username antes de enviar');
+              return;
+            }
+
+            const amountToSend = parseAmount(valorUsdc);
+            if (!amountToSend || amountToSend <= 0) {
+              show('Informe um valor USDC válido');
+              return;
+            }
+
+            const clientRequestId =
+              pendingTransferRequestId ||
+              'mobile_' + user.id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+
+            setPendingTransferRequestId(clientRequestId);
+
+            try {
+              const savedToken = token || (await AsyncStorage.getItem('nexa_token')) || '';
+              const r = await fetch(API + '/internal-transfer/send-by-username', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(savedToken ? { Authorization: 'Bearer ' + savedToken } : {}),
+                },
+                body: JSON.stringify({
+                  fromUserId: user.id,
+                  toUsername: recipientUser.username || normalizeUsername(username),
+                  amountUsdc: amountToSend,
+                  note: 'envio app',
+                  clientRequestId,
+                }),
+              });
+              const data = await r.json();
+
+              if (!r.ok || !data.success) {
+                throw new Error(data.message || data.error || 'Falha na transferência');
+              }
+
+              show(data);
+
+              const receipt = {
+                type: 'internal_transfer',
+                status: 'completed',
+                transferId: data.transferId || clientRequestId,
+                amountUsdc: data.amountUsdc || amountToSend,
+                destinationName: recipientUser.fullName,
+                destinationHandle: data.handle || recipientUser.handle,
+                destinationUsername: data.toUsername || recipientUser.username,
+                fromHandle: getUsername(),
+                date: getNowLabel(),
+                message: data.message || 'Transferência interna concluída',
+              };
+
+              setLastReceipt(receipt);
+              setPendingTransferRequestId('');
+              setUsername('');
+              setRecipientUser(null);
+              setRecipientChecked(false);
+              setValorUsdc('');
+              await carregarDados(false);
+              setPage('receipt');
+            } catch (e) {
+              show(
+                'Erro envio: ' +
+                  e.message +
+                  '. Se tentar novamente, o mesmo identificador será reutilizado para evitar débito duplicado.',
+              );
+            }
+          }
+          """
+          text = text[:start] + new_send + text[end:]
+
+          path.write_text(text, encoding='utf-8')
+
+          wrong_root = Path('App.js')
+          if wrong_root.exists():
+              wrong_root.unlink()
+
+      - name: Commit production path fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Fix production App.js balance refresh and idempotency"
+            git push
+          fi
