@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import QRCode from 'react-native-qrcode-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppleModeHome from './AppleModeHome';
+import CustodyScreen from './CustodyScreen';
 import {
   View,
   Text,
@@ -902,7 +903,7 @@ export default function App() {
     if (!user || !user.id) return;
     try {
       const r = await fetch(
-        API + '/ledger/statement?userId=' + user.id + '&limit=50&mode=portfolio',
+        API + '/ledger/statement?userId=' + user.id + '&limit=50&mode=real',
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -1115,14 +1116,14 @@ export default function App() {
     }
     try {
       const statementResponse = await fetch(
-        API + '/ledger/statement?userId=' + user.id + '&limit=50&mode=portfolio',
+        API + '/ledger/statement?userId=' + user.id + '&limit=50&mode=real',
       );
       const statementData = await statementResponse.json();
       if (statementData.statement) {
         setExtrato(statementData.statement);
       }
       const balanceResponse = await fetch(
-        API + '/ledger/balance?userId=' + user.id + '&mode=portfolio',
+        API + '/ledger/balance?userId=' + user.id + '&mode=real',
       );
       const balanceData = await balanceResponse.json();
       setSaldo({
@@ -1865,6 +1866,15 @@ export default function App() {
       >
         <Text style={styles.logo}>NEXA</Text>
         <Text style={styles.subtitle}>Soberania digital no seu bolso</Text>
+
+        {page === 'custody' && (
+          <CustodyScreen
+            user={user}
+            token={token}
+            onBack={function () { setPage('home'); }}
+            onBalanceRefresh={carregarDados}
+          />
+        )}
 
         {/* HOME APPLE MODE: patrimônio, assinatura e Premium em primeiro plano */}
         {page === 'home' && (
