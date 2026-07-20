@@ -9,6 +9,7 @@ import {
   ScrollView,
   Linking,
   AppState,
+  Image,
 } from 'react-native';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
@@ -98,6 +99,7 @@ export default function App() {
 
   const [depositValue, setDepositValue] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
+  const [pixQrImage, setPixQrImage] = useState('');
   const [ticketUrl, setTicketUrl] = useState('');
 
   const [kycStarted, setKycStarted] = useState(false);
@@ -916,6 +918,7 @@ export default function App() {
     setSaldo({ BRL: 0, USDC: 0 });
     setExtrato([]);
     setPixCopyPaste('');
+    setPixQrImage('');
     setTicketUrl('');
     setLastReceipt(null);
     setPage('home');
@@ -1207,8 +1210,7 @@ export default function App() {
       return;
     }
     if (getKycStatus() !== 'approved') {
-      show('Conclua sua verificação de identidade antes de depositar Pix');
-      setPage('menuScreen');
+      show('Conclua sua verificação de identidade antes de depositar Pix. Status atual: ' + getKycStatusLabel());
       return;
     }
     const amount = parseAmount(depositValue);
@@ -1217,6 +1219,9 @@ export default function App() {
       return;
     }
     try {
+      setPixCopyPaste('');
+      setPixQrImage('');
+      setTicketUrl('');
       show('Gerando Pix Nexa...');
       const r = await fetch(API + '/fiat-deposit/woovi/create-charge', {
         method: 'POST',
@@ -1233,12 +1238,24 @@ export default function App() {
       }
       const charge = data.charge || {};
       const pix = charge.paymentMethods?.pix || {};
-      const brCode = pix.brCode || charge.brCode || '';
-      const qrImage = pix.qrCodeImage || charge.qrCodeImage || '';
-      const paymentLink = charge.paymentLinkUrl || '';
+      const brCode = pix.brCode || charge.brCode || data.copyPasteCode || data.brCode || '';
+      const qrImage = pix.qrCodeImage || charge.qrCodeImage || data.qrCodeImage || '';
+      const paymentLink = charge.paymentLinkUrl || data.paymentLinkUrl || '';
+
       setPixCopyPaste(brCode);
-      setTicketUrl(paymentLink || qrImage);
-      show('Pix gerado com sucesso. Após o pagamento, a Nexa converte automaticamente para USDC.');
+      setPixQrImage(qrImage);
+      setTicketUrl(paymentLink);
+
+      if (!brCode && !qrImage && !paymentLink) {
+        show({
+          success: false,
+          message: 'Pix gerado, mas a resposta não trouxe QR Code, Pix copia e cola ou link de pagamento.',
+          response: data,
+        });
+        return;
+      }
+
+      show('Pix gerado com sucesso. Use o QR Code, o Pix copia e cola ou o link de pagamento.');
     } catch (e) {
       show('Erro depósito Pix: ' + e.message);
     }
@@ -2261,10 +2278,42 @@ export default function App() {
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
             <Input placeholder="Valor em R$" keyboardType="numeric" value={depositValue} onChangeText={setDepositValue} />
             <Button title="Depositar via Pix" onPress={depositarPix} />
-            {pixCopyPaste ? (
+            {pixCopyPaste || pixQrImage || ticketUrl ? (
               <View style={styles.pixBox}>
-                <View style={styles.qrBox}><QRCode value={pixCopyPaste} size={180} /></View>
-                <Text style={styles.copyText}>{pixCopyPaste}</Text>
+                {pixQrImage ? (
+                  <Image
+                    source={{ uri: pixQrImage }}
+                    style={{
+                      width: 220,
+                      height: 220,
+                      alignSelf: 'center',
+                      borderRadius: 16,
+                      backgroundColor: 'white',
+                      marginBottom: 12,
+                    }}
+                    resizeMode="contain"
+                  />
+                ) : pixCopyPaste && pixCopyPaste.length <= 1000 ? (
+                  <View style={styles.qrBox}>
+                    <QRCode value={pixCopyPaste} size={180} />
+                  </View>
+                ) : (
+                  <View style={styles.receiptBox}>
+                    <Text style={styles.itemText}>QR Code muito grande para renderizar no app.</Text>
+                    <Text style={styles.rateText}>Use o Pix copia e cola abaixo ou abra o link de pagamento.</Text>
+                  </View>
+                )}
+
+                {pixCopyPaste ? (
+                  <>
+                    <Text style={styles.receiptSmallLabel}>Pix copia e cola</Text>
+                    <Text style={styles.copyText}>{pixCopyPaste}</Text>
+                  </>
+                ) : null}
+
+                {ticketUrl ? (
+                  <Button title="Abrir link de pagamento" onPress={function () { abrirLink(ticketUrl); }} />
+                ) : null}
               </View>
             ) : null}
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
