@@ -42,8 +42,19 @@ jobs:
         working-directory: nexa-mobile/nexa-mobile
         run: npm install
 
-      - name: Install EAS CLI
-        run: npm install --global eas-cli@latest
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo authentication
+        working-directory: nexa-mobile/nexa-mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN is missing" && exit 1)
+          eas whoami
 
       - name: Verify release configuration
         working-directory: nexa-mobile/nexa-mobile
@@ -57,7 +68,6 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          test -n "$EXPO_TOKEN" || (echo "Missing repository secret EXPO_TOKEN" && exit 1)
           eas build --platform android --profile production --non-interactive --wait --json > eas-build.json
           cat eas-build.json
           ARTIFACT_URL=$(node -e "const fs=require('fs'); const raw=fs.readFileSync('eas-build.json','utf8'); const start=raw.indexOf('['); const data=JSON.parse(raw.slice(start)); const url=data[0]?.artifacts?.buildUrl; if(!url) process.exit(1); process.stdout.write(url)")
