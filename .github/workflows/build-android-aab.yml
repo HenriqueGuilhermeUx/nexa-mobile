@@ -1,0 +1,56 @@
+name: Build Android AAB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.4
+          cache: npm
+          cache-dependency-path: nexa-mobile/nexa-mobile/package.json
+
+      - name: Install dependencies
+        working-directory: nexa-mobile/nexa-mobile
+        run: npm install
+
+      - name: Install EAS CLI
+        run: npm install --global eas-cli@latest
+
+      - name: Verify release configuration
+        working-directory: nexa-mobile/nexa-mobile
+        run: |
+          node -e "const app=require('./app.json').expo; if(app.version!=='1.4.3'||app.android.versionCode!==17){throw new Error('Release config mismatch: expected 1.4.3 / 17')} console.log('Building Nexa', app.version, 'versionCode', app.android.versionCode)"
+
+      - name: Build production AAB on EAS
+        id: eas_build
+        working-directory: nexa-mobile/nexa-mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          test -n "$EXPO_TOKEN" || (echo "Missing repository secret EXPO_TOKEN" && exit 1)
+          eas build --platform android --profile production --non-interactive --wait --json > eas-build.json
+          cat eas-build.json
+          ARTIFACT_URL=$(node -e "const fs=require('fs'); const raw=fs.readFileSync('eas-build.json','utf8'); const start=raw.indexOf('['); const data=JSON.parse(raw.slice(start)); const url=data[0]?.artifacts?.buildUrl; if(!url) process.exit(1); process.stdout.write(url)")
+          echo "artifact_url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Download generated AAB
+        working-directory: nexa-mobile/nexa-mobile
+        run: curl --fail --location "${{ steps.eas_build.outputs.artifact_url }}" --output Nexa-1.4.3-versionCode-17.aab
+
+      - name: Upload AAB to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-1.4.3-versionCode-17
+          path: nexa-mobile/nexa-mobile/Nexa-1.4.3-versionCode-17.aab
+          if-no-files-found: error
+          retention-days: 30
