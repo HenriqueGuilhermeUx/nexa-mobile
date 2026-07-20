@@ -3,7 +3,7 @@
     "name": "Nexa",
     "slug": "nexa",
     "scheme": "nexa",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -18,11 +18,12 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "br.com.trynexa.app"
+      "bundleIdentifier": "br.com.trynexa.app",
+      "buildNumber": "16"
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 15,
+      "versionCode": 16,
       "permissions": [
         "INTERNET"
       ],
