@@ -42,8 +42,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.19.4
-          cache: npm
-          cache-dependency-path: nexa-mobile/nexa-mobile/package.json
 
       - name: Setup Expo and EAS
         uses: expo/expo-github-action@v8
@@ -105,35 +103,30 @@ jobs:
             console.log(`${label}: aplicado`);
           }
 
-          // 1) Importa Image para exibir o QR Code pronto da Woovi/backend.
           replaceRequired(
             'Import Image',
             "  Linking,\n} from 'react-native';",
             "  Linking,\n  Image,\n} from 'react-native';"
           );
 
-          // 2) Estado separado para imagem do QR.
           replaceRequired(
             'Pix QR image state',
             "  const [depositValue, setDepositValue] = useState('');\n  const [pixCopyPaste, setPixCopyPaste] = useState('');\n  const [ticketUrl, setTicketUrl] = useState('');",
             "  const [depositValue, setDepositValue] = useState('');\n  const [pixCopyPaste, setPixCopyPaste] = useState('');\n  const [pixQrImage, setPixQrImage] = useState('');\n  const [ticketUrl, setTicketUrl] = useState('');"
           );
 
-          // 3) Limpa também a imagem de QR no logout.
           replaceRequired(
             'Logout clears pix image',
             "    setPixCopyPaste('');\n    setTicketUrl('');",
             "    setPixCopyPaste('');\n    setPixQrImage('');\n    setTicketUrl('');"
           );
 
-          // 4) Corrige bug silencioso do resgate que usava variável e fora do catch.
           replaceRequired(
             'Redeem quote show data',
             "      setRedeemQuote(data);\n      show(e.message);",
             "      setRedeemQuote(data);\n      show(data);"
           );
 
-          // 5) Troca a função inteira de depósito Pix.
           const oldDeposit = `  async function depositarPix() {
     if (!user || !user.id) {
       show('Faça login primeiro');
@@ -237,7 +230,6 @@ jobs:
 `;
           replaceRequired('Deposit Pix function', oldDeposit, newDeposit);
 
-          // 6) Render seguro: usa imagem da Woovi primeiro e não quebra com Pix copia-e-cola grande.
           const oldRender = `            {pixCopyPaste ? (
               <View style={styles.pixBox}>
                 <View style={styles.qrBox}><QRCode value={pixCopyPaste} size={180} /></View>
@@ -322,7 +314,24 @@ jobs:
             --wait \
             --json > eas-build.json
           cat eas-build.json
-          ARTIFACT_URL=$(node -e "const fs=require('fs'); const raw=fs.readFileSync('eas-build.json','utf8'); const start=raw.indexOf('['); const data=JSON.parse(raw.slice(start)); const url=data[0]?.artifacts?.buildUrl || data[0]?.artifacts?.applicationArchiveUrl; if(!url){console.error(raw); process.exit(1)}; process.stdout.write(url)")
+          ARTIFACT_URL=$(node <<'NODE'
+          const fs = require('fs');
+          const raw = fs.readFileSync('eas-build.json', 'utf8').trim();
+          const starts = [raw.indexOf('['), raw.indexOf('{')].filter((i) => i >= 0).sort((a, b) => a - b);
+          if (!starts.length) {
+            console.error(raw);
+            process.exit(1);
+          }
+          const data = JSON.parse(raw.slice(starts[0]));
+          const build = Array.isArray(data) ? data[0] : data;
+          const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl || build?.artifactUrl || build?.url;
+          if (!url) {
+            console.error(JSON.stringify(data, null, 2));
+            process.exit(1);
+          }
+          process.stdout.write(url);
+          NODE
+          )
           echo "artifact_url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
 
       - name: Download generated AAB
