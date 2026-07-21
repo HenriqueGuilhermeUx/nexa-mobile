@@ -8,15 +8,13 @@
       "android": {
         "buildType": "apk"
       },
-      "node": "20.19.4",
-      "installCommand": "npm install --legacy-peer-deps"
+      "node": "20.19.4"
     },
     "production": {
       "android": {
         "buildType": "app-bundle"
       },
-      "node": "20.19.4",
-      "installCommand": "npm install --legacy-peer-deps"
+      "node": "20.19.4"
     }
   }
 }
