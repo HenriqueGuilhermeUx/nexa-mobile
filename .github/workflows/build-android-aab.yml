@@ -91,6 +91,12 @@ jobs:
           npx expo export --platform android --output-dir dist
           test -f dist/_expo/static/js/android/index-*.js || find dist -maxdepth 5 -type f | sort
 
+      - name: Remove generated npm lock before EAS upload
+        run: |
+          rm -f package-lock.json npm-shrinkwrap.json
+          echo "Lockfile temporário removido. EAS_BUILD_SKIP_LOCKFILE_CHECK=1 fará o EAS usar npm install em vez de npm ci."
+          test ! -f package-lock.json
+
       - name: Build production AAB on EAS
         id: eas_build
         env:
