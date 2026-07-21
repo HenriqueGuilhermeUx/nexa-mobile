@@ -47,7 +47,9 @@ writeJson(pkgPath, pkg);
 const app = readJson(appPath);
 app.expo = app.expo || {};
 app.expo.version = versionName;
-app.expo.runtimeVersion = app.expo.runtimeVersion || { policy: 'appVersion' };
+// OTA/EAS Update não está ativo neste app. Removemos runtimeVersion para evitar
+// erro do EAS: "use expo-updates >= 0.14.4 to use appVersion runtime policy".
+delete app.expo.runtimeVersion;
 app.expo.android = app.expo.android || {};
 app.expo.android.package = 'br.com.trynexa.app';
 app.expo.android.versionCode = versionCode;
@@ -219,4 +221,5 @@ console.log('Release preparado com sucesso:', {
   versionCode,
   packageName: app.expo.android.package,
   easProjectId: app.expo.extra?.eas?.projectId,
+  runtimeVersionRemoved: !app.expo.runtimeVersion,
 });
