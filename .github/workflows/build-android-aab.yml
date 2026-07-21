@@ -76,11 +76,22 @@ jobs:
           grep -q "Status atual" App.js
           node -e "const app=require('./app.json').expo; console.log('Release config:', app.version, app.android.versionCode, app.android.package); if(app.android.versionCode<=25) throw new Error('versionCode inválido');"
 
+      - name: Fast JS bundle validation
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+        run: |
+          rm -rf dist
+          npx expo export --platform android --output-dir dist
+          test -f dist/_expo/static/js/android/index-*.js || find dist -maxdepth 5 -type f | sort
+
       - name: Build production AAB on EAS
         id: eas_build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_BUILD_NO_EXPO_GO_WARNING: "true"
         run: |
+          set +e
           eas build \
             --platform android \
             --profile "${{ inputs.profile }}" \
@@ -88,7 +99,12 @@ jobs:
             --clear-cache \
             --wait \
             --json > eas-build.json
-          cat eas-build.json
+          STATUS=$?
+          cat eas-build.json || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "::error::EAS remoto falhou. Abra o link de logs exibido acima e copie a primeira linha vermelha do passo que falhou."
+            exit "$STATUS"
+          fi
           ARTIFACT_URL=$(node -e "const fs=require('fs'); const raw=fs.readFileSync('eas-build.json','utf8').trim(); const start=raw.indexOf('['); const data=JSON.parse(raw.slice(start)); const build=Array.isArray(data)?data[0]:data; const url=build?.artifacts?.buildUrl||build?.artifacts?.applicationArchiveUrl; if(!url){console.error(raw); process.exit(1)}; process.stdout.write(url)")
           echo "artifact_url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
 
