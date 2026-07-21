@@ -2,34 +2,41 @@ name: Build Android AAB
 
 on:
   workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Nome da versão. Ex: 1.4.6"
+        required: true
+        default: "1.4.6"
+      version_code:
+        description: "Código Android. Precisa ser maior que o último enviado na Play Console. Ex: 26"
+        required: true
+        default: "26"
+      profile:
+        description: "Perfil EAS"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - preview
+
+concurrency:
+  group: nexa-android-aab
+  cancel-in-progress: false
 
 jobs:
   build-android:
+    name: Build Android AAB
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
+
+    defaults:
+      run:
+        working-directory: nexa-mobile/nexa-mobile
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Force release configuration
-        working-directory: nexa-mobile/nexa-mobile
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const appPath = './app.json';
-          const pkgPath = './package.json';
-          const app = JSON.parse(fs.readFileSync(appPath, 'utf8'));
-          app.expo.version = '1.4.5';
-          app.expo.android.versionCode = 25;
-          app.expo.ios = app.expo.ios || {};
-          app.expo.ios.buildNumber = '25';
-          fs.writeFileSync(appPath, JSON.stringify(app, null, 2) + '\n');
-          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-          pkg.version = '1.4.5';
-          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
-          console.log('Release forced to', app.expo.version, 'versionCode', app.expo.android.versionCode);
-          NODE
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -38,49 +45,299 @@ jobs:
           cache: npm
           cache-dependency-path: nexa-mobile/nexa-mobile/package.json
 
-      - name: Install dependencies
-        working-directory: nexa-mobile/nexa-mobile
-        run: npm install
-
       - name: Setup Expo and EAS
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Verify Expo authentication
-        working-directory: nexa-mobile/nexa-mobile
+      - name: Verify Expo token
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN is missing" && exit 1)
+          test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN ausente. Crie o secret EXPO_TOKEN no GitHub." && exit 1)
           eas whoami
 
-      - name: Verify release configuration
-        working-directory: nexa-mobile/nexa-mobile
+      - name: Apply version and Pix fix
+        env:
+          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ inputs.version_code }}
         run: |
-          node -e "const app=require('./app.json').expo; console.log('Detected release config:', app.version, app.android.versionCode); if(app.version!=='1.4.5'||app.android.versionCode!==25){throw new Error('Release config mismatch: expected 1.4.5 / 25')}"
-          npx expo config --type public
+          node <<'NODE'
+          const fs = require('fs');
+
+          const versionName = process.env.VERSION_NAME;
+          const versionCode = Number(process.env.VERSION_CODE);
+
+          if (!versionName) throw new Error('VERSION_NAME ausente');
+          if (!Number.isInteger(versionCode) || versionCode <= 25) {
+            throw new Error('VERSION_CODE precisa ser inteiro e maior que 25');
+          }
+
+          const pkgPath = './package.json';
+          const appPath = './app.json';
+          const appJsPath = './App.js';
+
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          pkg.version = versionName;
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+
+          const app = JSON.parse(fs.readFileSync(appPath, 'utf8'));
+          app.expo.version = versionName;
+          app.expo.android = app.expo.android || {};
+          app.expo.android.package = 'br.com.trynexa.app';
+          app.expo.android.versionCode = versionCode;
+          app.expo.ios = app.expo.ios || {};
+          app.expo.ios.buildNumber = String(versionCode);
+          fs.writeFileSync(appPath, JSON.stringify(app, null, 2) + '\n');
+
+          let text = fs.readFileSync(appJsPath, 'utf8');
+
+          function replaceRequired(label, from, to) {
+            if (text.includes(to)) {
+              console.log(`${label}: já aplicado`);
+              return;
+            }
+            if (!text.includes(from)) {
+              throw new Error(`${label}: bloco esperado não encontrado`);
+            }
+            text = text.replace(from, to);
+            console.log(`${label}: aplicado`);
+          }
+
+          // 1) Importa Image para exibir o QR Code pronto da Woovi/backend.
+          replaceRequired(
+            'Import Image',
+            "  Linking,\n} from 'react-native';",
+            "  Linking,\n  Image,\n} from 'react-native';"
+          );
+
+          // 2) Estado separado para imagem do QR.
+          replaceRequired(
+            'Pix QR image state',
+            "  const [depositValue, setDepositValue] = useState('');\n  const [pixCopyPaste, setPixCopyPaste] = useState('');\n  const [ticketUrl, setTicketUrl] = useState('');",
+            "  const [depositValue, setDepositValue] = useState('');\n  const [pixCopyPaste, setPixCopyPaste] = useState('');\n  const [pixQrImage, setPixQrImage] = useState('');\n  const [ticketUrl, setTicketUrl] = useState('');"
+          );
+
+          // 3) Limpa também a imagem de QR no logout.
+          replaceRequired(
+            'Logout clears pix image',
+            "    setPixCopyPaste('');\n    setTicketUrl('');",
+            "    setPixCopyPaste('');\n    setPixQrImage('');\n    setTicketUrl('');"
+          );
+
+          // 4) Corrige bug silencioso do resgate que usava variável e fora do catch.
+          replaceRequired(
+            'Redeem quote show data',
+            "      setRedeemQuote(data);\n      show(e.message);",
+            "      setRedeemQuote(data);\n      show(data);"
+          );
+
+          // 5) Troca a função inteira de depósito Pix.
+          const oldDeposit = `  async function depositarPix() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    if (getKycStatus() !== 'approved') {
+      show('Conclua sua verificação de identidade antes de depositar Pix');
+      setPage('menuScreen');
+      return;
+    }
+    const amount = parseAmount(depositValue);
+    if (!amount || amount < 10) {
+      show('Depósito mínimo é R$ 10,00');
+      return;
+    }
+    try {
+      show('Gerando Pix Nexa...');
+      const r = await fetch(API + '/fiat-deposit/woovi/create-charge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amountBrl: amount,
+        }),
+      });
+      const data = await r.json();
+      if (!data.success) {
+        show(data);
+        return;
+      }
+      const charge = data.charge || {};
+      const pix = charge.paymentMethods?.pix || {};
+      const brCode = pix.brCode || charge.brCode || '';
+      const qrImage = pix.qrCodeImage || charge.qrCodeImage || '';
+      const paymentLink = charge.paymentLinkUrl || '';
+      setPixCopyPaste(brCode);
+      setTicketUrl(paymentLink || qrImage);
+      show('Pix gerado com sucesso. Após o pagamento, a Nexa converte automaticamente para USDC.');
+    } catch (e) {
+      show('Erro depósito Pix: ' + e.message);
+    }
+  }
+`;
+
+          const newDeposit = `  async function depositarPix() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    if (getKycStatus() !== 'approved') {
+      show('Conclua sua verificação de identidade antes de depositar Pix. Status atual: ' + getKycStatusLabel());
+      return;
+    }
+    const amount = parseAmount(depositValue);
+    if (!amount || amount < 10) {
+      show('Depósito mínimo é R$ 10,00');
+      return;
+    }
+    try {
+      setPixCopyPaste('');
+      setPixQrImage('');
+      setTicketUrl('');
+      show('Gerando Pix Nexa...');
+      const r = await fetch(API + '/fiat-deposit/woovi/create-charge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          amountBrl: amount,
+        }),
+      });
+      const data = await r.json();
+      if (!data.success) {
+        show(data);
+        return;
+      }
+      const charge = data.charge || {};
+      const pix = charge.paymentMethods?.pix || {};
+      const brCode = pix.brCode || charge.brCode || data.copyPasteCode || data.brCode || '';
+      const qrImage = pix.qrCodeImage || charge.qrCodeImage || data.qrCodeImage || '';
+      const paymentLink = charge.paymentLinkUrl || data.paymentLinkUrl || '';
+
+      setPixCopyPaste(brCode);
+      setPixQrImage(qrImage);
+      setTicketUrl(paymentLink);
+
+      if (!brCode && !qrImage && !paymentLink) {
+        show({
+          success: false,
+          message: 'Pix gerado, mas a resposta não trouxe QR Code, Pix copia e cola ou link de pagamento.',
+          response: data,
+        });
+        return;
+      }
+
+      show('Pix gerado com sucesso. Use o QR Code, o Pix copia e cola ou o link de pagamento.');
+    } catch (e) {
+      show('Erro depósito Pix: ' + e.message);
+    }
+  }
+`;
+          replaceRequired('Deposit Pix function', oldDeposit, newDeposit);
+
+          // 6) Render seguro: usa imagem da Woovi primeiro e não quebra com Pix copia-e-cola grande.
+          const oldRender = `            {pixCopyPaste ? (
+              <View style={styles.pixBox}>
+                <View style={styles.qrBox}><QRCode value={pixCopyPaste} size={180} /></View>
+                <Text style={styles.copyText}>{pixCopyPaste}</Text>
+              </View>
+            ) : null}`;
+
+          const newRender = `            {pixCopyPaste || pixQrImage || ticketUrl ? (
+              <View style={styles.pixBox}>
+                {pixQrImage ? (
+                  <Image
+                    source={{ uri: pixQrImage }}
+                    style={{
+                      width: 220,
+                      height: 220,
+                      alignSelf: 'center',
+                      borderRadius: 16,
+                      backgroundColor: 'white',
+                      marginBottom: 12,
+                    }}
+                    resizeMode="contain"
+                  />
+                ) : pixCopyPaste && pixCopyPaste.length <= 1000 ? (
+                  <View style={styles.qrBox}>
+                    <QRCode value={pixCopyPaste} size={180} />
+                  </View>
+                ) : (
+                  <View style={styles.receiptBox}>
+                    <Text style={styles.itemText}>QR Code muito grande para renderizar no app.</Text>
+                    <Text style={styles.rateText}>Use o Pix copia e cola abaixo ou abra o link de pagamento.</Text>
+                  </View>
+                )}
+
+                {pixCopyPaste ? (
+                  <>
+                    <Text style={styles.receiptSmallLabel}>Pix copia e cola</Text>
+                    <Text style={styles.copyText}>{pixCopyPaste}</Text>
+                  </>
+                ) : null}
+
+                {ticketUrl ? (
+                  <Button title="Abrir link de pagamento" onPress={function () { abrirLink(ticketUrl); }} />
+                ) : null}
+              </View>
+            ) : null}`;
+          replaceRequired('Deposit Pix render', oldRender, newRender);
+
+          fs.writeFileSync(appJsPath, text);
+
+          console.log('Config final:', {
+            versionName,
+            versionCode,
+            packageName: app.expo.android.package,
+            easProjectId: app.expo.extra?.eas?.projectId,
+          });
+          NODE
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Validate project without blocking build
+        run: npx expo-doctor@latest || true
+
+      - name: Confirm patched App.js before build
+        run: |
+          grep -q "Image," App.js
+          grep -q "pixQrImage" App.js
+          grep -q "QR Code muito grande" App.js
+          grep -q "Status atual" App.js
+          node -e "const app=require('./app.json').expo; console.log('Release config:', app.version, app.android.versionCode, app.android.package); if(app.android.versionCode<=25) throw new Error('versionCode inválido');"
 
       - name: Build production AAB on EAS
         id: eas_build
-        working-directory: nexa-mobile/nexa-mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          eas build --platform android --profile production --non-interactive --wait --json > eas-build.json
+          eas build \
+            --platform android \
+            --profile "${{ inputs.profile }}" \
+            --non-interactive \
+            --clear-cache \
+            --wait \
+            --json > eas-build.json
           cat eas-build.json
-          ARTIFACT_URL=$(node -e "const fs=require('fs'); const raw=fs.readFileSync('eas-build.json','utf8'); const start=raw.indexOf('['); const data=JSON.parse(raw.slice(start)); const url=data[0]?.artifacts?.buildUrl; if(!url) process.exit(1); process.stdout.write(url)")
+          ARTIFACT_URL=$(node -e "const fs=require('fs'); const raw=fs.readFileSync('eas-build.json','utf8'); const start=raw.indexOf('['); const data=JSON.parse(raw.slice(start)); const url=data[0]?.artifacts?.buildUrl || data[0]?.artifacts?.applicationArchiveUrl; if(!url){console.error(raw); process.exit(1)}; process.stdout.write(url)")
           echo "artifact_url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
 
       - name: Download generated AAB
-        working-directory: nexa-mobile/nexa-mobile
-        run: curl --fail --location "${{ steps.eas_build.outputs.artifact_url }}" --output Nexa-1.4.5-versionCode-25.aab
+        env:
+          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          AAB_NAME="Nexa-${VERSION_NAME}-versionCode-${VERSION_CODE}.aab"
+          curl --fail --location "${{ steps.eas_build.outputs.artifact_url }}" --output "$AAB_NAME"
+          ls -lh "$AAB_NAME"
 
       - name: Upload AAB to GitHub Actions
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-1.4.5-versionCode-25
-          path: nexa-mobile/nexa-mobile/Nexa-1.4.5-versionCode-25.aab
+          name: Nexa-${{ inputs.version_name }}-versionCode-${{ inputs.version_code }}
+          path: nexa-mobile/nexa-mobile/Nexa-${{ inputs.version_name }}-versionCode-${{ inputs.version_code }}.aab
           if-no-files-found: error
           retention-days: 30
