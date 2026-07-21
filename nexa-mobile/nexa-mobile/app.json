@@ -3,7 +3,7 @@
     "name": "Nexa",
     "slug": "nexa",
     "scheme": "nexa",
-    "version": "1.4.6",
+    "version": "1.4.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 26,
+      "versionCode": 15,
       "permissions": [
         "INTERNET"
       ],
