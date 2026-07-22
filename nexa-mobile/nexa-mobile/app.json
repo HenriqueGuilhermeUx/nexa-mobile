@@ -3,7 +3,7 @@
     "name": "Nexa",
     "slug": "nexa",
     "scheme": "nexa",
-    "version": "1.4.1",
+    "version": "1.4.7",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,11 +16,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "26"
+      "buildNumber": "27"
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 15,
+      "versionCode": 27,
       "permissions": [
         "INTERNET"
       ],
@@ -29,7 +29,7 @@
         "backgroundColor": "#020617"
       }
     },
-    "sdkVersion": "53.0.0",
+    "sdkVersion": "54.0.0",
     "platforms": [
       "ios",
       "android"
