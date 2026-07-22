@@ -1,11 +1,11 @@
 const fs = require('fs');
 
-const versionName = process.env.VERSION_NAME || '1.4.6';
-const versionCode = Number(process.env.VERSION_CODE || 26);
+const versionName = process.env.VERSION_NAME || '1.4.7';
+const versionCode = Number(process.env.VERSION_CODE || 27);
 
 if (!versionName) throw new Error('VERSION_NAME ausente');
-if (!Number.isInteger(versionCode) || versionCode <= 25) {
-  throw new Error('VERSION_CODE precisa ser inteiro e maior que 25');
+if (!Number.isInteger(versionCode) || versionCode <= 26) {
+  throw new Error('VERSION_CODE precisa ser inteiro e maior que 26 para a versão Android 16');
 }
 
 const pkgPath = './package.json';
@@ -42,11 +42,30 @@ function replaceByRegexRequired(label, regex, to, text) {
 
 const pkg = readJson(pkgPath);
 pkg.version = versionName;
+pkg.dependencies = pkg.dependencies || {};
+Object.assign(pkg.dependencies, {
+  expo: '~54.0.0',
+  'expo-font': '~14.0.0',
+  react: '19.1.0',
+  'react-native': '0.81.5',
+  '@expo/vector-icons': '^15.0.0',
+  '@react-native-async-storage/async-storage': '2.2.0',
+  'expo-local-authentication': '~17.0.0',
+  'expo-secure-store': '~15.0.0',
+  'expo-status-bar': '~3.0.0',
+  'react-native-safe-area-context': '5.6.0',
+  'react-native-svg': '15.12.1',
+});
+pkg.devDependencies = pkg.devDependencies || {};
+pkg.devDependencies['@babel/core'] = pkg.devDependencies['@babel/core'] || '^7.25.2';
+pkg.devDependencies['eas-cli'] = pkg.devDependencies['eas-cli'] || 'latest';
+pkg.devDependencies['expo-doctor'] = pkg.devDependencies['expo-doctor'] || 'latest';
 writeJson(pkgPath, pkg);
 
 const app = readJson(appPath);
 app.expo = app.expo || {};
 app.expo.version = versionName;
+app.expo.sdkVersion = '54.0.0';
 // OTA/EAS Update não está ativo neste app. Removemos runtimeVersion para evitar
 // erro do EAS: "use expo-updates >= 0.14.4 to use appVersion runtime policy".
 delete app.expo.runtimeVersion;
@@ -216,10 +235,14 @@ for (const check of checks) {
   }
 }
 
-console.log('Release preparado com sucesso:', {
+console.log('Release Android 16 preparado com sucesso:', {
   versionName,
   versionCode,
   packageName: app.expo.android.package,
+  sdkVersion: app.expo.sdkVersion,
+  expo: pkg.dependencies.expo,
+  react: pkg.dependencies.react,
+  reactNative: pkg.dependencies['react-native'],
   easProjectId: app.expo.extra?.eas?.projectId,
   runtimeVersionRemoved: !app.expo.runtimeVersion,
 });
