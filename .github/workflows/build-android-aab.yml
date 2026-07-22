@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: "Nome da versão. Ex: 1.4.6"
+        description: "Nome da versão. Ex: 1.4.7"
         required: true
-        default: "1.4.6"
+        default: "1.4.7"
       version_code:
-        description: "Código Android. Precisa ser maior que o último enviado na Play Console. Ex: 26"
+        description: "Código Android. Precisa ser maior que o último enviado na Play Console. Ex: 27"
         required: true
-        default: "26"
+        default: "27"
       profile:
         description: "Perfil EAS"
         required: true
@@ -56,7 +56,7 @@ jobs:
           test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN ausente. Crie o secret EXPO_TOKEN no GitHub." && exit 1)
           eas whoami
 
-      - name: Prepare release and Pix fix
+      - name: Prepare Android 16 release and Pix fix
         env:
           VERSION_NAME: ${{ inputs.version_name }}
           VERSION_CODE: ${{ inputs.version_code }}
@@ -71,16 +71,52 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Align Expo SDK 54 dependencies
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+        run: |
+          npx expo install --fix
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          const deps = pkg.dependencies || {};
+          console.log('Dependências alinhadas:', {
+            expo: deps.expo,
+            react: deps.react,
+            reactNative: deps['react-native'],
+            expoFont: deps['expo-font'],
+            expoStatusBar: deps['expo-status-bar'],
+          });
+          NODE
+
       - name: Validate project without blocking build
         run: npx expo-doctor@latest || true
 
-      - name: Confirm patched App.js before build
+      - name: Confirm Android 16 release config
         run: |
           grep -q "Image," App.js
           grep -q "pixQrImage" App.js
           grep -q "QR Code muito grande" App.js
           grep -q "Status atual" App.js
-          node -e "const app=require('./app.json').expo; console.log('Release config:', app.version, app.android.versionCode, app.android.package); if(app.android.versionCode<=25) throw new Error('versionCode inválido');"
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          const app = require('./app.json').expo;
+          const deps = pkg.dependencies || {};
+          console.log('Release config:', {
+            appVersion: app.version,
+            versionCode: app.android.versionCode,
+            packageName: app.android.package,
+            sdkVersion: app.sdkVersion,
+            expo: deps.expo,
+            react: deps.react,
+            reactNative: deps['react-native'],
+          });
+          if (Number(app.android.versionCode) <= 26) throw new Error('versionCode precisa ser maior que 26');
+          if (!String(deps.expo || '').startsWith('~54')) throw new Error('Expo SDK 54 não configurado');
+          if (deps.react !== '19.1.0') throw new Error('React 19.1.0 não configurado');
+          if (!String(deps['react-native'] || '').startsWith('0.81')) throw new Error('React Native 0.81 não configurado');
+          if (app.sdkVersion !== '54.0.0') throw new Error('app.json sdkVersion precisa ser 54.0.0');
+          NODE
 
       - name: Fast JS bundle validation
         env:
@@ -94,7 +130,7 @@ jobs:
       - name: Remove generated npm lock before EAS upload
         run: |
           rm -f package-lock.json npm-shrinkwrap.json
-          echo "Lockfile temporário removido. EAS_BUILD_SKIP_LOCKFILE_CHECK=1 fará o EAS usar npm install em vez de npm ci."
+          echo "Lockfile temporário removido. EAS_BUILD_SKIP_LOCKFILE_CHECK=1 fará o EAS instalar sem npm ci quebrado."
           test ! -f package-lock.json
 
       - name: Build production AAB on EAS
