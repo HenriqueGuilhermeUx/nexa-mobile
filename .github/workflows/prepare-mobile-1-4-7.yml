@@ -1,0 +1,57 @@
+name: Prepare Nexa Mobile 1.4.7
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/prepare_release_1_4_7.py
+      - .github/workflows/prepare-mobile-1-4-7.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply financial and legal flow patch
+        run: python3 scripts/prepare_release_1_4_7.py
+
+      - name: Validate JavaScript syntax
+        run: |
+          cd nexa-mobile/nexa-mobile
+          node --check index.js
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('App.js').read_text(encoding='utf-8')
+          required = [
+            "/withdrawal/pix-quote",
+            "/withdrawal/pix-request",
+            "expectedNetBrl",
+            "Quantidade de USDC para vender",
+            "Cotação Nexa atual",
+            "Legal, Cotações e Riscos",
+          ]
+          missing = [item for item in required if item not in text]
+          if missing:
+            raise SystemExit('Itens ausentes no App.js: ' + ', '.join(missing))
+          print('Validação textual concluída.')
+          PY
+
+      - name: Commit prepared release
+        run: |
+          if git diff --quiet; then
+            echo "No changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nexa-mobile/nexa-mobile/App.js nexa-mobile/nexa-mobile/app.json nexa-mobile/nexa-mobile/package.json
+          git commit -m "Prepare Nexa mobile 1.4.7 financial flows and Android API 36"
+          git push
