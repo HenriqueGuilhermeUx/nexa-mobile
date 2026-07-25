@@ -101,6 +101,9 @@ export default function App() {
   const [depositValue, setDepositValue] = useState('');
   const [pixCopyPaste, setPixCopyPaste] = useState('');
   const [ticketUrl, setTicketUrl] = useState('');
+  const [withdrawalQuote, setWithdrawalQuote] = useState(null);
+  const [withdrawalLoading, setWithdrawalLoading] = useState(false);
+  const [legalDocuments, setLegalDocuments] = useState([]);
 
   const [kycStarted, setKycStarted] = useState(false);
   const [kycStep, setKycStep] = useState('personal');
@@ -146,6 +149,7 @@ export default function App() {
         carregarPortfolio();
         carregarAtividadesAtivos();
         carregarCompliance();
+        carregarDocumentosLegais();
         carregarAssinaturaRecorrente();
       }
     },
@@ -937,6 +941,17 @@ export default function App() {
     }
   }
 
+  async function carregarDocumentosLegais() {
+    try {
+      const r = await fetch(API + '/legal/documents');
+      const data = await r.json();
+      const documents = data.documents || data.requiredDocuments || [];
+      setLegalDocuments(Array.isArray(documents) ? documents : []);
+    } catch (e) {
+      setLegalDocuments([]);
+    }
+  }
+
   async function carregarPortfolio() {
     if (!user || !user.id) return;
     try {
@@ -1208,6 +1223,42 @@ export default function App() {
     }
   }
 
+  async function cotarSaquePix() {
+    if (!user || !user.id) {
+      show('Faça login primeiro');
+      return;
+    }
+    const amountUsdc = parseAmount(valorUsdc);
+    if (!amountUsdc || amountUsdc <= 0) {
+      show('Informe a quantidade de USDC que deseja vender');
+      return;
+    }
+    if (amountUsdc > Number(saldo.USDC || 0)) {
+      show('O valor informado é maior que seu saldo USDC disponível');
+      return;
+    }
+    try {
+      setWithdrawalLoading(true);
+      setWithdrawalQuote(null);
+      show('Buscando a cotação real de venda...');
+      const r = await fetch(API + '/withdrawal/pix-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, amountUsdc }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.success) {
+        throw new Error(data.message || data.error || 'Não foi possível cotar o saque');
+      }
+      setWithdrawalQuote(data);
+      show('Cotação pronta. Confira o valor líquido antes de confirmar.');
+    } catch (e) {
+      show('Erro cotação saque: ' + e.message);
+    } finally {
+      setWithdrawalLoading(false);
+    }
+  }
+
   async function sacarPix() {
     if (!user || !user.id) {
       show('Faça login primeiro');
@@ -1222,48 +1273,58 @@ export default function App() {
       show('Informe a chave Pix');
       return;
     }
-    const amount = parseAmount(valorBrl);
-    if (!amount || amount <= 0) {
-      show('Informe um valor válido em R$');
+    if (!withdrawalQuote || !withdrawalQuote.success) {
+      show('Faça uma cotação válida antes de confirmar o saque');
+      return;
+    }
+    const amountUsdc = Number(withdrawalQuote.amountUsdc || withdrawalQuote.from?.amount || 0);
+    const expectedNetBrl = Number(withdrawalQuote.netBrl || withdrawalQuote.to?.netBrl || withdrawalQuote.maximumWithdrawableBrl || 0);
+    if (!amountUsdc || !expectedNetBrl) {
+      show('Cotação inválida. Faça uma nova cotação.');
+      setWithdrawalQuote(null);
       return;
     }
     try {
-      show('Processando saque Pix...');
-      const r = await fetch(API + '/payment/pix', {
+      setWithdrawalLoading(true);
+      show('Registrando solicitação de saque Pix...');
+      const r = await fetch(API + '/withdrawal/pix-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id,
-          amountBrl: amount,
+          amountUsdc,
+          expectedNetBrl,
           pixKey,
         }),
       });
       const data = await r.json();
-      if (!r.ok) {
+      if (!r.ok || !data.success) {
+        setWithdrawalQuote(null);
         throw new Error(data.message || data.error || 'Erro ao solicitar saque Pix');
       }
-      show(data);
-      if (data.success) {
-        setValorBrl('');
-        setPixKey('');
-        carregarDados();
-        const receipt = {
-          type: 'pix_withdraw',
-          status: data.status || 'completed',
-          transferId: data.paymentId || data.transactionId || 'pix_' + Date.now(),
-          amountUsdc: data.debitedUSDC,
-          amountBrl: data.amountBRL,
-          destinationName: 'Chave Pix',
-          destinationHandle: pixKey,
-          fromHandle: getUsername(),
-          date: getNowLabel(),
-          message: data.message || 'Saque Pix solicitado',
-        };
-        setLastReceipt(receipt);
-        setPage('receipt');
-      }
+      const finalNetBrl = Number(data.to?.netBrl || data.netBrl || expectedNetBrl);
+      const receipt = {
+        type: 'pix_withdraw',
+        status: data.status || 'pending',
+        transferId: data.referenceId || 'pix_' + Date.now(),
+        amountUsdc,
+        amountBrl: finalNetBrl,
+        destinationName: 'Chave Pix',
+        destinationHandle: pixKey,
+        fromHandle: getUsername(),
+        date: getNowLabel(),
+        message: data.message || 'Saque Pix solicitado para processamento',
+      };
+      setLastReceipt(receipt);
+      setValorUsdc('');
+      setPixKey('');
+      setWithdrawalQuote(null);
+      carregarDados();
+      setPage('receipt');
     } catch (e) {
       show('Erro saque Pix: ' + e.message);
+    } finally {
+      setWithdrawalLoading(false);
     }
   }
 
@@ -2241,9 +2302,18 @@ export default function App() {
         {page === 'deposit' && (
           <Card>
             <Text style={styles.title}>Depositar via Pix</Text>
+            <Text style={styles.itemText}>Seu Pix será convertido automaticamente para USDC pela Cotação Nexa vigente.</Text>
+            <Text style={styles.rateText}>A cotação apresentada já considera custos do provedor, liquidez, execução e margem comercial da Nexa. O valor final em USDC é confirmado após a liquidação do Pix.</Text>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>Cotação Nexa atual</Text>
+              <Text style={styles.totalBalance}>R$ {Number(buyRate || 0).toFixed(4)} / USDC</Text>
+              {parseAmount(depositValue) > 0 ? (
+                <Text style={styles.rateText}>Estimativa: {(parseAmount(depositValue) / Number(buyRate || 1)).toFixed(6)} USDC antes de eventuais tarifas externas identificadas na liquidação.</Text>
+              ) : null}
+            </View>
             {msg ? <Text style={styles.loginMsg}>{msg}</Text> : null}
             <Input placeholder="Valor em R$" keyboardType="numeric" value={depositValue} onChangeText={setDepositValue} />
-            <Button title="Depositar via Pix" onPress={depositarPix} />
+            <Button title="Gerar Pix com Cotação Nexa" onPress={depositarPix} />
             {pixCopyPaste ? (
               <View style={styles.pixBox}>
                 <View style={styles.qrBox}><QRCode value={pixCopyPaste} size={180} /></View>
@@ -2257,10 +2327,28 @@ export default function App() {
         {page === 'pix' && (
           <Card>
             <Text style={styles.title}>Sacar Pix</Text>
+            <Text style={styles.itemText}>Venda seu USDC pela cotação real disponível e receba o valor líquido via Pix.</Text>
+            <Text style={styles.rateText}>O valor em reais pode ser menor que o valor originalmente depositado. Ele depende do livro de ofertas, liquidez, custos de execução, margem operacional e tarifa Pix.</Text>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>Saldo disponível</Text>
+              <Text style={styles.totalBalance}>{Number(saldo.USDC || 0).toFixed(6)} USDC</Text>
+            </View>
+            <Input placeholder="Quantidade de USDC para vender" keyboardType="numeric" value={valorUsdc} onChangeText={function (value) { setValorUsdc(value); setWithdrawalQuote(null); }} />
+            <Button title="Usar saldo total" onPress={function () { setValorUsdc(Number(saldo.USDC || 0).toFixed(6)); setWithdrawalQuote(null); }} />
+            <Button title={withdrawalLoading ? 'Cotando...' : 'Calcular valor líquido'} onPress={cotarSaquePix} />
+            {withdrawalQuote ? (
+              <View style={styles.pixBox}>
+                <Text style={styles.itemText}>Resumo da cotação</Text>
+                <Text style={styles.rateText}>USDC vendido: {Number(withdrawalQuote.amountUsdc || withdrawalQuote.from?.amount || 0).toFixed(6)}</Text>
+                <Text style={styles.rateText}>Cotação executável: R$ {Number(withdrawalQuote.executableRate || withdrawalQuote.sellRate || 0).toFixed(6)}</Text>
+                <Text style={styles.rateText}>Valor bruto: R$ {formatMoney(withdrawalQuote.grossBrl || withdrawalQuote.to?.grossBrl || 0)}</Text>
+                <Text style={styles.totalBalance}>Você receberá aproximadamente R$ {formatMoney(withdrawalQuote.netBrl || withdrawalQuote.to?.netBrl || withdrawalQuote.maximumWithdrawableBrl || 0)}</Text>
+                <Text style={styles.rateText}>A cotação será validada novamente na confirmação. Se o mercado mudar, será necessário cotar de novo.</Text>
+              </View>
+            ) : null}
             <Input placeholder="Chave Pix" value={pixKey} onChangeText={setPixKey} />
-            <Input placeholder="Valor em R$" keyboardType="numeric" value={valorBrl} onChangeText={setValorBrl} />
-            <Button title="Solicitar Pix" onPress={sacarPix} />
-            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+            {withdrawalQuote ? <Button title="Confirmar solicitação de Pix" onPress={sacarPix} /> : null}
+            <Button title="Voltar" onPress={function () { setWithdrawalQuote(null); setPage('menuScreen'); }} />
           </Card>
         )}
 
@@ -2391,8 +2479,31 @@ export default function App() {
 
         {page === 'legal' && (
           <Card>
-            <Text style={styles.title}>Legal e Riscos</Text>
-            <Button title="Aceitar Termos" onPress={aceitarDocumentosLegais} />
+            <Text style={styles.title}>Legal, Cotações e Riscos</Text>
+            <Text style={styles.itemText}>Antes de operar, leia e aceite os documentos vigentes.</Text>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>Entrada por Pix</Text>
+              <Text style={styles.rateText}>O valor líquido, após custos do provedor Pix, é convertido pela Cotação Nexa. A cotação incorpora custos de liquidez, execução, risco e margem comercial, e pode diferir de referências públicas.</Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>Saída por Pix</Text>
+              <Text style={styles.rateText}>O limite de saque corresponde ao valor líquido realizável na venda do USDC no momento da solicitação, descontadas tarifas, margem operacional e custos de execução. Não há garantia de recompra pelo valor depositado.</Text>
+            </View>
+            <View style={styles.item}>
+              <Text style={styles.itemText}>Risco de mercado e liquidez</Text>
+              <Text style={styles.rateText}>Os preços de compra e venda podem apresentar diferenças relevantes. A quantidade de reais recebida depende das ofertas efetivamente disponíveis.</Text>
+            </View>
+            {legalDocuments.map(function (document, index) {
+              return (
+                <View key={document.documentType || document.type || index} style={styles.item}>
+                  <Text style={styles.itemText}>{document.title || document.documentType || document.type || 'Documento legal'}</Text>
+                  <Text style={styles.rateText}>Versão {document.version || document.documentVersion || 'vigente'}</Text>
+                  {document.content ? <Text style={styles.rateText}>{document.content}</Text> : null}
+                </View>
+              );
+            })}
+            <Button title="Atualizar documentos" onPress={carregarDocumentosLegais} />
+            <Button title="Li e aceito os documentos vigentes" onPress={aceitarDocumentosLegais} />
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
         )}
