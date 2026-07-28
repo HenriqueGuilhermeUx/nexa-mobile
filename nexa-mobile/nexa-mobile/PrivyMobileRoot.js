@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  getAccessToken,
   PrivyProvider,
   useEmbeddedEthereumWallet,
   useLoginWithEmail,
   usePrivy,
 } from '@privy-io/expo';
+import App from './App';
 import ForceUpdateRoot from './ForceUpdateRoot';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
@@ -24,7 +26,7 @@ const PRIVY_CLIENT_ID =
   'client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3';
 
 const POLL_INTERVAL_MS = 2000;
-const WALLET_WAIT_ATTEMPTS = 20;
+const WALLET_WAIT_ATTEMPTS = 30;
 const WALLET_WAIT_MS = 500;
 
 function delay(ms) {
@@ -45,14 +47,33 @@ function normalizeProfile(payload) {
 function walletIdentity(wallet) {
   if (!wallet) return null;
   const address = String(wallet.address || '').trim();
-  const id = String(wallet.id || wallet.walletId || wallet.wallet_id || '').trim();
+  const id = String(
+    wallet.id || wallet.walletId || wallet.wallet_id || wallet.meta?.id || '',
+  ).trim();
   if (!address || !id) return null;
   return { address, id };
 }
 
+function FullScreenStatus({ title, message, loading, actionLabel, onAction }) {
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.statusCard}>
+        <Text style={styles.logo}>NEXA</Text>
+        {loading ? <ActivityIndicator size="large" /> : null}
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.description}>{message}</Text>
+        {actionLabel && onAction ? (
+          <TouchableOpacity style={styles.button} onPress={onAction}>
+            <Text style={styles.buttonText}>{actionLabel}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </SafeAreaView>
+  );
+}
+
 function PrivyOnboardingBoundary({ children }) {
-  const { isReady, user: privyUser, getAccessToken, logout: privyLogout } =
-    usePrivy();
+  const { isReady, user: privyUser, logout: privyLogout } = usePrivy();
   const { sendCode, loginWithCode } = useLoginWithEmail();
   const { wallets } = useEmbeddedEthereumWallet();
 
@@ -60,12 +81,21 @@ function PrivyOnboardingBoundary({ children }) {
   const [nexaToken, setNexaToken] = useState('');
   const [profile, setProfile] = useState(null);
   const [checking, setChecking] = useState(false);
+  const [profileError, setProfileError] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [completed, setCompleted] = useState(false);
+  const [completionMessage, setCompletionMessage] = useState('');
+
   const lastSessionKey = useRef('');
+  const walletsRef = useRef(wallets);
+
+  useEffect(() => {
+    walletsRef.current = wallets;
+  }, [wallets]);
 
   const readNexaSession = useCallback(async () => {
     const [storedUser, storedToken] = await Promise.all([
@@ -73,7 +103,13 @@ function PrivyOnboardingBoundary({ children }) {
       AsyncStorage.getItem('nexa_token'),
     ]);
 
-    const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+    let parsedUser = null;
+    try {
+      parsedUser = storedUser ? JSON.parse(storedUser) : null;
+    } catch (_) {
+      parsedUser = null;
+    }
+
     const token = storedToken || '';
     const sessionKey = `${parsedUser?.id || ''}:${token ? '1' : '0'}`;
 
@@ -83,10 +119,13 @@ function PrivyOnboardingBoundary({ children }) {
     if (lastSessionKey.current !== sessionKey) {
       lastSessionKey.current = sessionKey;
       setProfile(null);
+      setProfileError('');
       setCodeSent(false);
       setOtpCode('');
       setMessage('');
       setError('');
+      setCompleted(false);
+      setCompletionMessage('');
 
       if (!token && privyUser && typeof privyLogout === 'function') {
         try {
@@ -105,19 +144,30 @@ function PrivyOnboardingBoundary({ children }) {
   }, [readNexaSession]);
 
   const loadProfile = useCallback(async () => {
-    if (!nexaToken || !nexaUser?.id) return;
+    if (!nexaToken || !nexaUser?.id) return null;
     setChecking(true);
+    setProfileError('');
     try {
       const response = await fetch(API + '/direct-settlement/profile', {
         headers: { Authorization: 'Bearer ' + nexaToken },
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(safeMessage(data, 'Não foi possível consultar o perfil da carteira.'));
+        throw new Error(
+          safeMessage(data, 'Não foi possível consultar o perfil da carteira.'),
+        );
       }
-      setProfile(normalizeProfile(data));
+      const nextProfile = normalizeProfile(data);
+      if (!nextProfile) {
+        throw new Error('O backend não retornou o perfil de liquidação da conta.');
+      }
+      setProfile(nextProfile);
+      return nextProfile;
     } catch (requestError) {
-      setError(requestError.message || 'Falha ao consultar o perfil da carteira.');
+      const nextError =
+        requestError?.message || 'Falha ao consultar o perfil da carteira.';
+      setProfileError(nextError);
+      return null;
     } finally {
       setChecking(false);
     }
@@ -148,11 +198,30 @@ function PrivyOnboardingBoundary({ children }) {
 
   async function waitForWallet() {
     for (let attempt = 0; attempt < WALLET_WAIT_ATTEMPTS; attempt += 1) {
-      const current = walletIdentity(wallets?.[0]);
+      const current = walletIdentity(walletsRef.current?.[0]);
       if (current) return current;
       await delay(WALLET_WAIT_MS);
     }
-    return walletIdentity(wallets?.[0]);
+    return walletIdentity(walletsRef.current?.[0]);
+  }
+
+  async function saveWalletLocally(wallet) {
+    const storedUser = await AsyncStorage.getItem('nexa_user');
+    let parsedUser = {};
+    try {
+      parsedUser = storedUser ? JSON.parse(storedUser) : {};
+    } catch (_) {
+      parsedUser = {};
+    }
+
+    const updatedUser = {
+      ...parsedUser,
+      walletAddress: wallet.address,
+      walletProvider: 'privy',
+      walletNetwork: 'polygon',
+    };
+    await AsyncStorage.setItem('nexa_user', JSON.stringify(updatedUser));
+    setNexaUser(updatedUser);
   }
 
   async function linkAndAuditWallet(wallet) {
@@ -175,35 +244,34 @@ function PrivyOnboardingBoundary({ children }) {
     });
     const linkData = await linkResponse.json().catch(() => ({}));
     if (!linkResponse.ok) {
-      throw new Error(safeMessage(linkData, 'A carteira não pôde ser vinculada à conta Nexa.'));
+      throw new Error(
+        safeMessage(linkData, 'A carteira não pôde ser vinculada à conta Nexa.'),
+      );
     }
+
+    await saveWalletLocally(wallet);
 
     const auditResponse = await fetch(API + '/direct-settlement/wallet/audit', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + nexaToken },
     });
     const auditData = await auditResponse.json().catch(() => ({}));
-    if (!auditResponse.ok) {
-      throw new Error(
+
+    await loadProfile();
+
+    if (auditResponse.ok) {
+      setCompletionMessage(
+        'Carteira individual criada, vinculada e auditada. A execução financeira continua desativada durante a homologação.',
+      );
+    } else {
+      setCompletionMessage(
         safeMessage(
           auditData,
-          'A carteira foi vinculada, mas a auditoria ainda não foi concluída.',
+          'A carteira foi criada e vinculada. A auditoria de custódia permanece pendente e nenhuma movimentação financeira foi liberada.',
         ),
       );
     }
-
-    await loadProfile();
-    const storedUser = await AsyncStorage.getItem('nexa_user');
-    const parsedUser = storedUser ? JSON.parse(storedUser) : {};
-    const updatedUser = {
-      ...parsedUser,
-      walletAddress: wallet.address,
-      walletProvider: 'privy',
-      walletNetwork: 'polygon',
-    };
-    await AsyncStorage.setItem('nexa_user', JSON.stringify(updatedUser));
-    setNexaUser(updatedUser);
-    setMessage('Carteira individual criada, vinculada e auditada com sucesso.');
+    setCompleted(true);
   }
 
   async function confirmOtpAndLink() {
@@ -221,7 +289,7 @@ function PrivyOnboardingBoundary({ children }) {
       const wallet = await waitForWallet();
       if (!wallet) {
         throw new Error(
-          'A autenticação foi concluída, mas a carteira ainda não ficou disponível. Tente concluir novamente.',
+          'A autenticação foi concluída, mas a carteira ainda não ficou disponível. Toque em concluir vínculo para tentar novamente.',
         );
       }
       await linkAndAuditWallet(wallet);
@@ -235,6 +303,7 @@ function PrivyOnboardingBoundary({ children }) {
   async function retryExistingPrivySession() {
     setBusy(true);
     setError('');
+    setMessage('Localizando sua carteira Privy...');
     try {
       const wallet = await waitForWallet();
       if (!wallet) {
@@ -248,14 +317,71 @@ function PrivyOnboardingBoundary({ children }) {
     }
   }
 
+  async function resetPrivySession() {
+    setBusy(true);
+    setError('');
+    try {
+      if (typeof privyLogout === 'function') await privyLogout();
+      setCodeSent(false);
+      setOtpCode('');
+      setMessage('Sessão Privy encerrada. Solicite um novo código para o e-mail Nexa.');
+    } catch (logoutError) {
+      setError(logoutError?.message || 'Não foi possível trocar a conta Privy.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!nexaToken || !nexaUser?.id) return children;
-  if (checking && !profile) return children;
-  if (!profile) return children;
+
+  if ((checking || !profile) && !profileError) {
+    return (
+      <FullScreenStatus
+        loading
+        title="Validando sua carteira"
+        message="Confirmando o perfil da conta antes de liberar o painel."
+      />
+    );
+  }
+
+  if (!profile) {
+    return (
+      <FullScreenStatus
+        title="Não foi possível validar a carteira"
+        message={profileError || 'Tente novamente com a conexão ativa.'}
+        actionLabel="Tentar novamente"
+        onAction={loadProfile}
+      />
+    );
+  }
+
   if (profile.isLegacyBeta || profile.settlementProfile === 'legacy_beta') {
     return children;
   }
+
+  if (completed) {
+    return (
+      <FullScreenStatus
+        title="Carteira conectada"
+        message={completionMessage}
+        actionLabel="Continuar para a Nexa"
+        onAction={() => setCompleted(false)}
+      />
+    );
+  }
+
   if (profile.wallet?.linked) return children;
-  if (profile.settlementProfile !== 'direct_settlement') return children;
+
+  if (profile.settlementProfile !== 'direct_settlement') {
+    return (
+      <FullScreenStatus
+        title="Perfil de carteira não reconhecido"
+        message="A conta não foi alterada. Entre em contato com o suporte antes de continuar."
+        actionLabel="Consultar novamente"
+        onAction={loadProfile}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -324,15 +450,24 @@ function PrivyOnboardingBoundary({ children }) {
           ) : null}
 
           {isReady && privyUser ? (
-            <TouchableOpacity
-              style={[styles.button, busy && styles.disabled]}
-              disabled={busy}
-              onPress={retryExistingPrivySession}
-            >
-              <Text style={styles.buttonText}>
-                {busy ? 'Vinculando...' : 'Concluir vínculo da carteira'}
-              </Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={[styles.button, busy && styles.disabled]}
+                disabled={busy}
+                onPress={retryExistingPrivySession}
+              >
+                <Text style={styles.buttonText}>
+                  {busy ? 'Vinculando...' : 'Concluir vínculo da carteira'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                disabled={busy}
+                onPress={resetPrivySession}
+              >
+                <Text style={styles.secondaryText}>Usar outra conta Privy</Text>
+              </TouchableOpacity>
+            </>
           ) : null}
 
           {message ? <Text style={styles.success}>{message}</Text> : null}
@@ -361,9 +496,11 @@ export default function PrivyMobileRoot() {
         },
       }}
     >
-      <PrivyOnboardingBoundary>
-        <ForceUpdateRoot />
-      </PrivyOnboardingBoundary>
+      <ForceUpdateRoot>
+        <PrivyOnboardingBoundary>
+          <App />
+        </PrivyOnboardingBoundary>
+      </ForceUpdateRoot>
     </PrivyProvider>
   );
 }
@@ -387,6 +524,16 @@ const styles = StyleSheet.create({
     borderColor: '#1d4ed8',
     borderRadius: 24,
     padding: 24,
+  },
+  statusCard: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#1d4ed8',
+    borderRadius: 24,
+    padding: 28,
   },
   logo: {
     color: '#ffffff',
