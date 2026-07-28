@@ -1,0 +1,168 @@
+name: Build Nexa Android 1.4.8
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/build-android-1.4.8.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-android-production-1.4.8
+  cancel-in-progress: false
+
+jobs:
+  build-android:
+    name: Build signed Android AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: nexa-mobile/nexa-mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+
+      - name: Verify Expo authentication secret
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "Repository secret EXPO_TOKEN is required."
+            exit 1
+          fi
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate secure Privy contract
+        run: node scripts/validate-privy-mobile.js
+
+      - name: Validate Expo project
+        run: npx expo-doctor
+
+      - name: Export Android JavaScript bundle
+        env:
+          EXPO_NO_TELEMETRY: '1'
+        run: npx expo export --platform android --output-dir dist-check
+
+      - name: Build signed production AAB on EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_NO_TELEMETRY: '1'
+        run: |
+          set -o pipefail
+          eas build \
+            --platform android \
+            --profile production \
+            --non-interactive \
+            --wait \
+            --json > eas-build.json
+
+      - name: Resolve and download AAB
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('eas-build.json', 'utf8'));
+          const builds = Array.isArray(payload) ? payload : [payload];
+          const build = builds.find(Boolean);
+
+          function findArtifactUrl(value) {
+            if (!value) return null;
+            if (typeof value === 'string') {
+              return /^https?:\/\//.test(value) &&
+                (value.includes('/artifacts/') || value.includes('builds.expo.dev'))
+                ? value
+                : null;
+            }
+            if (Array.isArray(value)) {
+              for (const item of value) {
+                const found = findArtifactUrl(item);
+                if (found) return found;
+              }
+              return null;
+            }
+            if (typeof value === 'object') {
+              const preferred =
+                value.buildUrl ||
+                value.applicationArchiveUrl ||
+                value.artifactUrl ||
+                value.downloadUrl;
+              if (typeof preferred === 'string' && /^https?:\/\//.test(preferred)) {
+                return preferred;
+              }
+              for (const nested of Object.values(value)) {
+                const found = findArtifactUrl(nested);
+                if (found) return found;
+              }
+            }
+            return null;
+          }
+
+          const artifactUrl =
+            build?.artifacts?.buildUrl ||
+            build?.artifacts?.applicationArchiveUrl ||
+            findArtifactUrl(build);
+
+          if (!artifactUrl) {
+            console.error('EAS completed but no Android artifact URL was found.');
+            console.error(JSON.stringify(payload, null, 2));
+            process.exit(1);
+          }
+
+          fs.writeFileSync('build-url.txt', artifactUrl + '\n');
+          fs.writeFileSync(
+            'build-metadata.json',
+            JSON.stringify(
+              {
+                product: 'Nexa',
+                version: '1.4.8',
+                androidVersionCode: 28,
+                package: 'br.com.trynexa.app',
+                profile: 'production',
+                gitCommit: process.env.GITHUB_SHA,
+                easBuildId: build?.id || null,
+                easStatus: build?.status || null,
+                createdAt: new Date().toISOString(),
+              },
+              null,
+              2,
+            ) + '\n',
+          );
+          NODE
+
+          curl --fail --location \
+            --retry 5 \
+            --retry-delay 5 \
+            "$(cat build-url.txt)" \
+            --output Nexa-1.4.8-android-v28.aab
+
+          test -s Nexa-1.4.8-android-v28.aab
+          sha256sum Nexa-1.4.8-android-v28.aab > SHA256SUMS.txt
+
+      - name: Upload Google Play artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-1.4.8-Android-v28-Google-Play
+          path: |
+            nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v28.aab
+            nexa-mobile/nexa-mobile/SHA256SUMS.txt
+            nexa-mobile/nexa-mobile/build-metadata.json
+          if-no-files-found: error
+          retention-days: 30
