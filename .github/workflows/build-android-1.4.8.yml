@@ -53,8 +53,8 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install dependencies without modifying the repository
+        run: npm install --no-package-lock --no-audit --no-fund
 
       - name: Validate secure Privy contract
         run: node scripts/validate-privy-mobile.js
@@ -65,20 +65,42 @@ jobs:
       - name: Export Android JavaScript bundle
         env:
           EXPO_NO_TELEMETRY: '1'
-        run: npx expo export --platform android --output-dir dist-check
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/nexa-dist-check"
 
       - name: Build signed production AAB on EAS
+        id: eas_build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_NO_TELEMETRY: '1'
+        shell: bash
         run: |
-          set -o pipefail
+          set +e
           eas build \
             --platform android \
             --profile production \
             --non-interactive \
             --wait \
-            --json > eas-build.json
+            --json \
+            > eas-build.json \
+            2> >(tee eas-build.log >&2)
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload EAS build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-1.4.8-EAS-build-diagnostics
+          path: |
+            nexa-mobile/nexa-mobile/eas-build.json
+            nexa-mobile/nexa-mobile/eas-build.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail when EAS build fails
+        if: steps.eas_build.outputs.status != '0'
+        run: exit 1
 
       - name: Resolve and download AAB
         run: |
