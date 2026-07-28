@@ -30,7 +30,10 @@ function compareVersions(a, b) {
   return 0;
 }
 
-export default function ForceUpdateRoot() {
+export default function ForceUpdateRoot({
+  privyEnabled = false,
+  privyConfigurationError = '',
+}) {
   const [checking, setChecking] = useState(true);
   const [required, setRequired] = useState(false);
   const [policy, setPolicy] = useState(null);
@@ -111,7 +114,12 @@ export default function ForceUpdateRoot() {
     );
   }
 
-  return <App />;
+  return (
+    <App
+      privyEnabled={privyEnabled}
+      privyConfigurationError={privyConfigurationError}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
