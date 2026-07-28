@@ -9,7 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "check": "expo-doctor && npx expo export --platform android --output-dir dist-check",
-    "build:android": "eas build --platform android --profile production --non-interactive --clear-cache --wait"
+    "build:android": "npx eas-cli@latest build --platform android --profile production --non-interactive --clear-cache --wait"
   },
   "dependencies": {
     "@ethersproject/shims": "^5.8.0",
@@ -42,7 +42,6 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
-    "eas-cli": "latest",
     "expo-doctor": "latest"
   }
 }
