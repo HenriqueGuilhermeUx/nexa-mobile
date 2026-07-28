@@ -29,11 +29,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
-          cache-dependency-path: nexa-mobile/nexa-mobile/package.json
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Validate secure Privy contract
+        run: node scripts/validate-privy-mobile.js
 
       - name: Resolve Expo 54 compatible versions
         run: npx expo install --fix --npm
@@ -90,11 +91,3 @@ jobs:
       - name: Fail on Android export errors
         if: steps.android_export.outputs.status != '0'
         run: exit 1
-
-      - name: Verify Privy integration files
-        run: |
-          test -f PrivyMobileRoot.js
-          grep -q "cmpen2gm3007v0cjswjlyefji" PrivyMobileRoot.js
-          grep -q "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3" PrivyMobileRoot.js
-          grep -q "x-privy-access-token" PrivyMobileRoot.js
-          grep -q "direct-settlement/wallet/audit" PrivyMobileRoot.js
