@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import App from './App';
+import SettlementAwareApp from './SettlementAwareApp';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
 const CURRENT_VERSION = '1.4.7';
@@ -115,7 +115,7 @@ export default function ForceUpdateRoot({
   }
 
   return (
-    <App
+    <SettlementAwareApp
       privyEnabled={privyEnabled}
       privyConfigurationError={privyConfigurationError}
     />
