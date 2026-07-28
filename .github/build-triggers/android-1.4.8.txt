@@ -1,7 +1,7 @@
 Nexa Android verified rebuild
 version=1.4.8
-versionCode=28
+versionCode=29
 expectedPackage=br.com.trynexa.app
-reason=replace rejected binary compiled with stale versionCode 15
+reason=Google Play reports versionCode 28 already used; next valid code is 29
 publishTarget=Google Play internal testing
 financialExecution=false

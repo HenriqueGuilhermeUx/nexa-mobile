@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: nexa-android-production-1.4.8
+  group: nexa-android-production-1.4.8-v29
   cancel-in-progress: false
 
 jobs:
@@ -74,7 +74,7 @@ jobs:
           const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
           const expected = {
             version: '1.4.8',
-            versionCode: 28,
+            versionCode: 29,
             package: 'br.com.trynexa.app',
           };
 
@@ -120,13 +120,13 @@ jobs:
             --profile production \
             --local \
             --non-interactive \
-            --output "$GITHUB_WORKSPACE/nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v28-verified.aab"
+            --output "$GITHUB_WORKSPACE/nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v29-verified.aab"
 
       - name: Upload local build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-1.4.8-v28-local-build-diagnostics
+          name: Nexa-1.4.8-v29-local-build-diagnostics
           path: |
             ${{ runner.temp }}/nexa-eas-local/logs
             nexa-mobile/nexa-mobile/local-build-artifacts
@@ -140,7 +140,7 @@ jobs:
       - name: Verify package and version inside AAB
         run: |
           set -euo pipefail
-          test -s Nexa-1.4.8-android-v28-verified.aab
+          test -s Nexa-1.4.8-android-v29-verified.aab
 
           BUNDLETOOL_VERSION=1.17.2
           curl --fail --location --retry 5 --retry-delay 3 \
@@ -148,19 +148,19 @@ jobs:
             --output "$RUNNER_TEMP/bundletool.jar"
 
           java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest \
-            --bundle=Nexa-1.4.8-android-v28-verified.aab \
+            --bundle=Nexa-1.4.8-android-v29-verified.aab \
             --module=base \
             > aab-manifest.xml
 
           grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
-          grep -Eq 'android:versionCode="28"' aab-manifest.xml
+          grep -Eq 'android:versionCode="29"' aab-manifest.xml
           grep -Eq 'android:versionName="1\.4\.8"' aab-manifest.xml
 
           {
             echo 'verified=true'
             echo 'package=br.com.trynexa.app'
             echo 'versionName=1.4.8'
-            echo 'versionCode=28'
+            echo 'versionCode=29'
             echo "sourceCommit=$GITHUB_SHA"
           } > aab-version-verification.txt
 
@@ -168,7 +168,7 @@ jobs:
 
       - name: Create release metadata
         run: |
-          sha256sum Nexa-1.4.8-android-v28-verified.aab > SHA256SUMS.txt
+          sha256sum Nexa-1.4.8-android-v29-verified.aab > SHA256SUMS.txt
           node <<'NODE'
           const fs = require('node:fs');
           fs.writeFileSync(
@@ -177,7 +177,7 @@ jobs:
               {
                 product: 'Nexa',
                 version: '1.4.8',
-                androidVersionCode: 28,
+                androidVersionCode: 29,
                 package: 'br.com.trynexa.app',
                 profile: 'production',
                 buildMode: 'eas-local-on-github-actions',
@@ -195,9 +195,9 @@ jobs:
       - name: Upload verified Google Play artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-1.4.8-Android-v28-VERIFIED-Google-Play
+          name: Nexa-1.4.8-Android-v29-VERIFIED-Google-Play
           path: |
-            nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v28-verified.aab
+            nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v29-verified.aab
             nexa-mobile/nexa-mobile/SHA256SUMS.txt
             nexa-mobile/nexa-mobile/build-metadata.json
             nexa-mobile/nexa-mobile/aab-version-verification.txt
