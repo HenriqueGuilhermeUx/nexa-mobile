@@ -11,7 +11,7 @@ import {
 import App from './App';
 
 const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
-const CURRENT_VERSION = '1.4.7';
+const CURRENT_VERSION = '1.4.8';
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=br.com.trynexa.app';
 
@@ -30,7 +30,7 @@ function compareVersions(a, b) {
   return 0;
 }
 
-export default function ForceUpdateRoot() {
+export default function ForceUpdateRoot({ children }) {
   const [checking, setChecking] = useState(true);
   const [required, setRequired] = useState(false);
   const [policy, setPolicy] = useState(null);
@@ -111,7 +111,7 @@ export default function ForceUpdateRoot() {
     );
   }
 
-  return <App />;
+  return children || <App />;
 }
 
 const styles = StyleSheet.create({

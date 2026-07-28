@@ -3,7 +3,7 @@
     "name": "Nexa",
     "slug": "nexa",
     "scheme": "nexa",
-    "version": "1.4.7",
+    "version": "1.4.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,11 +16,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "28"
+      "buildNumber": "29"
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 27,
+      "versionCode": 28,
       "permissions": [
         "INTERNET"
       ],
@@ -30,6 +30,7 @@
       }
     },
     "plugins": [
+      "expo-secure-store",
       [
         "expo-build-properties",
         {
@@ -48,6 +49,8 @@
     ],
     "extra": {
       "apiUrl": "https://nexa-backend-p2u0.onrender.com/api/v1",
+      "privyAppId": "cmpen2gm3007v0cjswjlyefji",
+      "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       }
