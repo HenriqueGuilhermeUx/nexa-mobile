@@ -1,5 +1,8 @@
+import 'fast-text-encoding';
+import 'react-native-get-random-values';
+import '@ethersproject/shims';
 import { registerRootComponent } from 'expo';
-import ForceUpdateRoot from './ForceUpdateRoot';
+import PrivyRoot from './PrivyRoot';
 
 const CURRENT_VERSION = '1.4.7';
 const API_HOST = 'nexa-backend-p2u0.onrender.com';
@@ -24,4 +27,4 @@ global.fetch = function nexaFetch(resource, options = {}) {
   });
 };
 
-registerRootComponent(ForceUpdateRoot);
+registerRootComponent(PrivyRoot);
