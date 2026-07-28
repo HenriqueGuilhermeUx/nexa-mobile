@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 28,
+      "versionCode": 29,
       "permissions": [
         "INTERNET"
       ],
