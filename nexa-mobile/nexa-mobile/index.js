@@ -4,7 +4,7 @@ import '@ethersproject/shims';
 import { registerRootComponent } from 'expo';
 import PrivyMobileRoot from './PrivyMobileRoot';
 
-const CURRENT_VERSION = '1.4.7';
+const CURRENT_VERSION = '1.4.8';
 const API_HOST = 'nexa-backend-p2u0.onrender.com';
 const nativeFetch = global.fetch;
 
