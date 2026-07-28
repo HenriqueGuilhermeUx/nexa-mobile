@@ -53,11 +53,14 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Install dependencies without modifying the repository
-        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Validate secure Privy contract
         run: node scripts/validate-privy-mobile.js
+
+      - name: Resolve Expo 54 compatible versions
+        run: npx expo install --fix --npm
 
       - name: Validate Expo project
         run: npx expo-doctor
@@ -72,6 +75,7 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_NO_TELEMETRY: '1'
+          EAS_NO_VCS: '1'
         shell: bash
         run: |
           set +e
