@@ -66,6 +66,39 @@ jobs:
       - name: Validate Expo project
         run: npx expo-doctor
 
+      - name: Verify release configuration before build
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const app = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
+          const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+          const expected = {
+            version: '1.4.8',
+            versionCode: 28,
+            package: 'br.com.trynexa.app',
+          };
+
+          const failures = [];
+          if (app.version !== expected.version) failures.push(`version=${app.version}`);
+          if (Number(app.android?.versionCode) !== expected.versionCode) {
+            failures.push(`versionCode=${app.android?.versionCode}`);
+          }
+          if (app.android?.package !== expected.package) failures.push(`package=${app.android?.package}`);
+          if (eas.cli?.appVersionSource !== 'local') {
+            failures.push(`appVersionSource=${eas.cli?.appVersionSource}`);
+          }
+          if (eas.build?.production?.android?.buildType !== 'app-bundle') {
+            failures.push(`buildType=${eas.build?.production?.android?.buildType}`);
+          }
+
+          if (failures.length) {
+            console.error('Release configuration mismatch:', failures.join(', '));
+            process.exit(1);
+          }
+
+          console.log(JSON.stringify({ ok: true, ...expected }, null, 2));
+          NODE
+
       - name: Export Android JavaScript bundle
         env:
           EXPO_NO_TELEMETRY: '1'
@@ -87,13 +120,13 @@ jobs:
             --profile production \
             --local \
             --non-interactive \
-            --output "$GITHUB_WORKSPACE/nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v28.aab"
+            --output "$GITHUB_WORKSPACE/nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v28-verified.aab"
 
       - name: Upload local build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-1.4.8-local-build-diagnostics
+          name: Nexa-1.4.8-v28-local-build-diagnostics
           path: |
             ${{ runner.temp }}/nexa-eas-local/logs
             nexa-mobile/nexa-mobile/local-build-artifacts
@@ -104,10 +137,38 @@ jobs:
         if: steps.local_build.outcome == 'failure'
         run: exit 1
 
+      - name: Verify package and version inside AAB
+        run: |
+          set -euo pipefail
+          test -s Nexa-1.4.8-android-v28-verified.aab
+
+          BUNDLETOOL_VERSION=1.17.2
+          curl --fail --location --retry 5 --retry-delay 3 \
+            "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar" \
+            --output "$RUNNER_TEMP/bundletool.jar"
+
+          java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest \
+            --bundle=Nexa-1.4.8-android-v28-verified.aab \
+            --module=base \
+            > aab-manifest.xml
+
+          grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
+          grep -Eq 'android:versionCode="28"' aab-manifest.xml
+          grep -Eq 'android:versionName="1\.4\.8"' aab-manifest.xml
+
+          {
+            echo 'verified=true'
+            echo 'package=br.com.trynexa.app'
+            echo 'versionName=1.4.8'
+            echo 'versionCode=28'
+            echo "sourceCommit=$GITHUB_SHA"
+          } > aab-version-verification.txt
+
+          cat aab-version-verification.txt
+
       - name: Create release metadata
         run: |
-          test -s Nexa-1.4.8-android-v28.aab
-          sha256sum Nexa-1.4.8-android-v28.aab > SHA256SUMS.txt
+          sha256sum Nexa-1.4.8-android-v28-verified.aab > SHA256SUMS.txt
           node <<'NODE'
           const fs = require('node:fs');
           fs.writeFileSync(
@@ -120,6 +181,7 @@ jobs:
                 package: 'br.com.trynexa.app',
                 profile: 'production',
                 buildMode: 'eas-local-on-github-actions',
+                binaryManifestVerified: true,
                 gitCommit: process.env.GITHUB_SHA,
                 financialExecutionEnabled: false,
                 createdAt: new Date().toISOString(),
@@ -130,13 +192,15 @@ jobs:
           );
           NODE
 
-      - name: Upload Google Play artifact
+      - name: Upload verified Google Play artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-1.4.8-Android-v28-Google-Play
+          name: Nexa-1.4.8-Android-v28-VERIFIED-Google-Play
           path: |
-            nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v28.aab
+            nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v28-verified.aab
             nexa-mobile/nexa-mobile/SHA256SUMS.txt
             nexa-mobile/nexa-mobile/build-metadata.json
+            nexa-mobile/nexa-mobile/aab-version-verification.txt
+            nexa-mobile/nexa-mobile/aab-manifest.xml
           if-no-files-found: error
           retention-days: 30
