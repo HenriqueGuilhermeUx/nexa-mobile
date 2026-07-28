@@ -1,0 +1,74 @@
+name: Mobile CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: nexa-mobile/nexa-mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.4'
+          cache: npm
+          cache-dependency-path: nexa-mobile/nexa-mobile/package.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate Expo configuration
+        run: npx expo config --type public
+
+      - name: Verify direct-settlement safety gates
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const index = fs.readFileSync('index.js', 'utf8');
+          const root = fs.readFileSync('SettlementAwareApp.js', 'utf8');
+          const onboarding = fs.readFileSync('PrivyWalletOnboarding.js', 'utf8');
+          const appConfig = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+
+          const assertions = [
+            [index.includes('MANAGED_WALLET_CREATION_BLOCKED'), 'managed wallet guard missing'],
+            [index.includes('/direct-settlement/profile'), 'auth profile classification missing'],
+            [root.includes("profile.settlementProfile === 'legacy_beta'"), 'legacy beta routing missing'],
+            [root.includes('PrivyWalletOnboarding'), 'direct settlement onboarding gate missing'],
+            [onboarding.includes("'/direct-settlement/wallet/link'"), 'secure wallet link endpoint missing'],
+            [onboarding.includes("'x-privy-access-token'"), 'separate Privy token header missing'],
+            [!onboarding.includes('PRIVY_APP_SECRET'), 'frontend references Privy App Secret'],
+            [!onboarding.includes('seed phrase'), 'frontend asks for seed phrase'],
+            [appConfig.expo.extra.privyAppId === 'cmpen2gm3007v0cjswjlyefji', 'Privy App ID mismatch'],
+          ];
+
+          for (const [ok, message] of assertions) {
+            if (!ok) throw new Error(message);
+          }
+
+          console.log('Direct-settlement mobile safety gates validated.');
+          NODE
+
+      - name: Export Android bundle
+        run: npm run validate:bundle
