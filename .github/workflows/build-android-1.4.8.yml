@@ -2,11 +2,6 @@ name: Build Nexa Android 1.4.8
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/build-android-1.4.8.yml
   pull_request:
     branches:
       - main
@@ -37,6 +32,12 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 20.19.4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Verify Expo authentication secret
         env:
@@ -70,94 +71,45 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
         run: npx expo export --platform android --output-dir "$RUNNER_TEMP/nexa-dist-check"
 
-      - name: Build signed production AAB on EAS
-        id: eas_build
+      - name: Build signed production AAB locally
+        id: local_build
+        continue-on-error: true
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_NO_TELEMETRY: '1'
-          EAS_NO_VCS: '1'
-        shell: bash
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/nexa-mobile/nexa-mobile/local-build-artifacts
         run: |
-          set +e
           eas build \
             --platform android \
             --profile production \
+            --local \
             --non-interactive \
-            --wait \
-            --json \
-            > eas-build.json \
-            2> >(tee eas-build.log >&2)
-          status=$?
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit 0
+            --output "$GITHUB_WORKSPACE/nexa-mobile/nexa-mobile/Nexa-1.4.8-android-v28.aab"
 
-      - name: Upload EAS build diagnostics
+      - name: Upload local build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-1.4.8-EAS-build-diagnostics
+          name: Nexa-1.4.8-local-build-diagnostics
           path: |
-            nexa-mobile/nexa-mobile/eas-build.json
-            nexa-mobile/nexa-mobile/eas-build.log
+            ${{ runner.temp }}/nexa-eas-local/logs
+            nexa-mobile/nexa-mobile/local-build-artifacts
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Fail when EAS build fails
-        if: steps.eas_build.outputs.status != '0'
+      - name: Fail when local build fails
+        if: steps.local_build.outcome == 'failure'
         run: exit 1
 
-      - name: Resolve and download AAB
+      - name: Create release metadata
         run: |
+          test -s Nexa-1.4.8-android-v28.aab
+          sha256sum Nexa-1.4.8-android-v28.aab > SHA256SUMS.txt
           node <<'NODE'
           const fs = require('node:fs');
-          const payload = JSON.parse(fs.readFileSync('eas-build.json', 'utf8'));
-          const builds = Array.isArray(payload) ? payload : [payload];
-          const build = builds.find(Boolean);
-
-          function findArtifactUrl(value) {
-            if (!value) return null;
-            if (typeof value === 'string') {
-              return /^https?:\/\//.test(value) &&
-                (value.includes('/artifacts/') || value.includes('builds.expo.dev'))
-                ? value
-                : null;
-            }
-            if (Array.isArray(value)) {
-              for (const item of value) {
-                const found = findArtifactUrl(item);
-                if (found) return found;
-              }
-              return null;
-            }
-            if (typeof value === 'object') {
-              const preferred =
-                value.buildUrl ||
-                value.applicationArchiveUrl ||
-                value.artifactUrl ||
-                value.downloadUrl;
-              if (typeof preferred === 'string' && /^https?:\/\//.test(preferred)) {
-                return preferred;
-              }
-              for (const nested of Object.values(value)) {
-                const found = findArtifactUrl(nested);
-                if (found) return found;
-              }
-            }
-            return null;
-          }
-
-          const artifactUrl =
-            build?.artifacts?.buildUrl ||
-            build?.artifacts?.applicationArchiveUrl ||
-            findArtifactUrl(build);
-
-          if (!artifactUrl) {
-            console.error('EAS completed but no Android artifact URL was found.');
-            console.error(JSON.stringify(payload, null, 2));
-            process.exit(1);
-          }
-
-          fs.writeFileSync('build-url.txt', artifactUrl + '\n');
           fs.writeFileSync(
             'build-metadata.json',
             JSON.stringify(
@@ -167,9 +119,9 @@ jobs:
                 androidVersionCode: 28,
                 package: 'br.com.trynexa.app',
                 profile: 'production',
+                buildMode: 'eas-local-on-github-actions',
                 gitCommit: process.env.GITHUB_SHA,
-                easBuildId: build?.id || null,
-                easStatus: build?.status || null,
+                financialExecutionEnabled: false,
                 createdAt: new Date().toISOString(),
               },
               null,
@@ -177,15 +129,6 @@ jobs:
             ) + '\n',
           );
           NODE
-
-          curl --fail --location \
-            --retry 5 \
-            --retry-delay 5 \
-            "$(cat build-url.txt)" \
-            --output Nexa-1.4.8-android-v28.aab
-
-          test -s Nexa-1.4.8-android-v28.aab
-          sha256sum Nexa-1.4.8-android-v28.aab > SHA256SUMS.txt
 
       - name: Upload Google Play artifact
         uses: actions/upload-artifact@v4
