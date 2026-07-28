@@ -1,0 +1,7 @@
+Nexa Android production build
+version=1.4.8
+versionCode=28
+package=br.com.trynexa.app
+sourceCommit=054d05893fed2cc2baa9a25b41130a23652030aa
+publishTarget=Google Play internal testing
+financialExecution=false
