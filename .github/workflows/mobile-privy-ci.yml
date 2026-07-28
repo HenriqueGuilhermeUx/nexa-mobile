@@ -1,0 +1,52 @@
+name: Mobile Privy CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-privy-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: nexa-mobile/nexa-mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: nexa-mobile/nexa-mobile/package.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate Expo project
+        run: npx expo-doctor
+
+      - name: Export Android bundle
+        env:
+          EXPO_NO_TELEMETRY: '1'
+        run: npx expo export --platform android --output-dir dist-check
+
+      - name: Verify Privy integration files
+        run: |
+          test -f PrivyMobileRoot.js
+          grep -q "cmpen2gm3007v0cjswjlyefji" PrivyMobileRoot.js
+          grep -q "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3" PrivyMobileRoot.js
+          grep -q "x-privy-access-token" PrivyMobileRoot.js
+          grep -q "direct-settlement/wallet/audit" PrivyMobileRoot.js
