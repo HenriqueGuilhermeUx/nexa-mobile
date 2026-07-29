@@ -1,0 +1,44 @@
+name: PR apply mobile fixes
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/fix-decimal-pix-withdrawal
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply branch patch
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/apply-decimal-privy-fixes.yml').read_text()
+          start = source.index('      - name: Patch mobile sources\n')
+          run = source.index('        run: |\n', start) + len('        run: |\n')
+          end = source.index('\n      - name: Validate source patch', run)
+          lines = source[run:end].splitlines()
+          Path('/tmp/apply.sh').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
+          PY
+          bash /tmp/apply.sh
+          node scripts/validate-decimal-and-privy-onboarding.js
+      - name: Commit source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add App.js nexa-mobile/nexa-mobile/App.js app/onboarding-wallet.tsx 'app/(app)/new-order.tsx' .github/workflows/mobile-ci.yml
+          if ! git diff --cached --quiet; then
+            git commit -m "Fix decimal inputs and make Privy audit non-blocking"
+            git push origin HEAD:agent/fix-decimal-pix-withdrawal
+          fi
