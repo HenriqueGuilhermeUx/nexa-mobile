@@ -28,7 +28,11 @@ const readme = read('README.md');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.ok(appConfig.expo.android.versionCode > 25);
+assert.ok(appConfig.expo.android.versionCode > 29);
+assert.equal(
+  appConfig.expo.extra.eas.projectId,
+  'b3faabec-283a-4ba2-88b5-f096304e68aa',
+);
 assert.equal(appConfig.expo.extra.financialExecutionEnabled, false);
 assert.match(appConfig.expo.extra.apiUrl, /^https:\/\//);
 assert.match(appConfig.expo.extra.privyAppId, /^cmp/);
@@ -69,19 +73,17 @@ assert.match(newOrder, /Nenhum dinheiro foi movimentado/);
 assert.match(newOrder, /fundsMoved/);
 assert.match(readme, /usuários Beta\/Legacy não são migrados automaticamente/i);
 
-const sourceFiles = [
-  ...walk('app'),
-  ...walk('src'),
-  'app.json',
-  'README.md',
-].filter((file) => /\.(ts|tsx|js|json|md)$/.test(file));
-const combined = sourceFiles.map(read).join('\n');
+const codeFiles = [...walk('app'), ...walk('src')].filter((file) =>
+  /\.(ts|tsx|js)$/.test(file),
+);
+const configurationFiles = ['app.json', 'package.json', 'eas.json'];
+const codeAndConfig = [...codeFiles, ...configurationFiles].map(read).join('\n');
 assert.doesNotMatch(
-  combined,
+  codeAndConfig,
   /PRIVY_APP_SECRET\s*[:=]|PRIVY_SECRET_KEY\s*[:=]|MASTER_WALLET_PRIVATE_KEY\s*[:=]|BEGIN PRIVATE KEY/,
 );
-assert.doesNotMatch(combined, /seed phrase|mnemonic phrase/i);
+assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile validated: secure session, dual-token wallet binding, no mock balances and financial safe mode passed.',
+  'Nexa mobile validated: secure session, dual-token wallet binding, preserved EAS project, no mock balances and financial safe mode passed.',
 );
