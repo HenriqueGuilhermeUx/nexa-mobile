@@ -1,0 +1,7 @@
+Nexa Android 2.0.1
+versionCode=31
+package=br.com.trynexa.app
+financialExecutionEnabled=false
+actualSaleRedemptionHistory=true
+strategy=primeiros-nexa
+releaseRun=2026-07-29T11:20:00-03:00
