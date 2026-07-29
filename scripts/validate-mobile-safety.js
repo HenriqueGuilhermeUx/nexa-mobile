@@ -38,8 +38,27 @@ assert.equal(
 );
 assert.equal(appConfig.expo.extra.financialExecutionEnabled, false);
 assert.match(appConfig.expo.extra.apiUrl, /^https:\/\//);
-assert.match(appConfig.expo.extra.privyAppId, /^cmp/);
-assert.match(appConfig.expo.extra.privyClientId, /^client-/);
+assert.equal(appConfig.expo.extra.privyAppId, 'cmpen2gm3007v0cjswjlyefji');
+assert.equal(
+  appConfig.expo.extra.privyClientId,
+  'client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3',
+);
+assert.notEqual(
+  appConfig.expo.extra.privyClientId,
+  'client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcSgXg6CWaMyT',
+  'O aplicativo móvel não pode usar o Client ID Web.',
+);
+
+const splashPlugin = appConfig.expo.plugins.find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen',
+);
+assert.ok(splashPlugin, 'Plugin expo-splash-screen ausente.');
+const splashImage = splashPlugin[1]?.image;
+assert.ok(splashImage, 'Imagem do splash não configurada.');
+assert.ok(
+  fs.existsSync(splashImage.replace(/^\.\//, '')),
+  `Imagem do splash ausente: ${splashImage}`,
+);
 
 assert.equal(packageJson.version, '2.0.1');
 assert.equal(packageJson.main, 'entrypoint.js');
@@ -102,6 +121,7 @@ assert.match(activity, /nexaFeeBrl/);
 assert.match(activity, /pixOutFeeBrl/);
 assert.match(activity, /ESTIMATIVA/);
 assert.match(activity, /PIX ENVIADO/);
+assert.match(activity, /PIX EM PROCESSAMENTO/);
 
 assert.match(readme, /usuários Beta\/Legacy não são migrados automaticamente/i);
 
@@ -117,5 +137,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.1 validated: Privy security, profile-aware redemption, actual-sale settlement display, versionCode 31, no mock balances and financial safe mode passed.',
+  'Nexa mobile 2.0.1 validated: mobile Privy client, splash resource, profile-aware redemption, actual-sale settlement display, versionCode 31, no mock balances and financial safe mode passed.',
 );
