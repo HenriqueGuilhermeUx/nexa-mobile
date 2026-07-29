@@ -3,17 +3,7 @@ import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import {
-  ActionButton,
-  Badge,
-  Brand,
-  Card,
-  Eyebrow,
-  Field,
-  Paragraph,
-  Screen,
-  Title,
-} from '@/components/ui';
+import { ActionButton, Brand, Field, Paragraph, Screen, Title } from '@/components/ui';
 import { nexaApi, tokensFromLogin } from '@/lib/api';
 import { clearNexaSession, saveNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
@@ -32,7 +22,7 @@ export default function SignInScreen() {
     const normalizedEmail = email.trim().toLowerCase();
     setError('');
     if (!normalizedEmail || !password) {
-      setError('Informe e-mail e senha da Nexa.');
+      setError('Informe seu e-mail e sua senha.');
       return;
     }
 
@@ -77,7 +67,7 @@ export default function SignInScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'O código não pôde ser validado pela Privy.',
+          : 'O código não pôde ser validado.',
       );
     } finally {
       setLoading(false);
@@ -101,20 +91,18 @@ export default function SignInScreen() {
   return (
     <Screen>
       <Brand />
-      <Badge tone="info">CONVITE NEXA</Badge>
       <View style={styles.topSpace} />
-      <Eyebrow>Uma conta, duas verificações</Eyebrow>
-      <Title>{step === 'credentials' ? 'Entre na sua conta.' : 'Confirme seu e-mail.'}</Title>
+      <Title>{step === 'credentials' ? 'Entrar' : 'Confirmar e-mail'}</Title>
       <Paragraph>
         {step === 'credentials'
-          ? 'Primeiro validamos sua conta Nexa. Depois, a Privy confirma o mesmo e-mail para proteger a carteira individual.'
-          : `Enviamos um código para ${email.trim().toLowerCase()}. O mesmo e-mail precisa existir na Nexa e na Privy.`}
+          ? 'Acesse sua conta Nexa.'
+          : `Digite o código enviado para ${email.trim().toLowerCase()}.`}
       </Paragraph>
 
       {step === 'credentials' ? (
         <>
           <Field
-            label="E-mail Nexa"
+            label="E-mail"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -124,23 +112,25 @@ export default function SignInScreen() {
             placeholder="voce@email.com"
           />
           <Field
-            label="Senha Nexa"
+            label="Senha"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoComplete="current-password"
             placeholder="Sua senha"
           />
+          <ActionButton label="Entrar" loading={loading} onPress={authenticateNexa} />
           <ActionButton
-            label="Continuar com segurança"
-            loading={loading}
-            onPress={authenticateNexa}
+            label="Criar conta"
+            variant="secondary"
+            disabled={loading}
+            onPress={() => router.push('/sign-up')}
           />
         </>
       ) : (
         <>
           <Field
-            label="Código de acesso"
+            label="Código"
             value={code}
             onChangeText={setCode}
             keyboardType="number-pad"
@@ -148,13 +138,9 @@ export default function SignInScreen() {
             maxLength={8}
             placeholder="000000"
           />
+          <ActionButton label="Confirmar" loading={loading} onPress={authenticatePrivy} />
           <ActionButton
-            label="Validar e preparar carteira"
-            loading={loading}
-            onPress={authenticatePrivy}
-          />
-          <ActionButton
-            label="Recomeçar"
+            label="Voltar"
             variant="secondary"
             disabled={loading}
             onPress={restart}
@@ -163,14 +149,6 @@ export default function SignInScreen() {
       )}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <Card style={styles.securityCard}>
-        <Text style={styles.securityTitle}>O app nunca pede sua chave privada.</Text>
-        <Text style={styles.securityBody}>
-          O token da Nexa fica no armazenamento seguro do aparelho. O token da
-          Privy é usado apenas no momento da vinculação e não é salvo pelo app.
-        </Text>
-      </Card>
     </Screen>
   );
 }
@@ -183,12 +161,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.md,
-  },
-  securityCard: { marginTop: spacing.xl },
-  securityTitle: { color: colors.text, fontWeight: '900', fontSize: 16 },
-  securityBody: {
-    color: colors.muted,
-    lineHeight: 20,
-    marginTop: spacing.sm,
   },
 });
