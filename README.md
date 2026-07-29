@@ -2,6 +2,17 @@
 
 Aplicativo oficial da Nexa para Android e iOS, construído com Expo e Privy.
 
+## Fonte oficial
+
+A aplicação atual está na raiz deste repositório (`app/`, `src/`, `app.json` e `package.json`). A pasta histórica `nexa-mobile/nexa-mobile` permanece temporariamente apenas para auditoria da versão anterior e não deve ser usada em novos builds.
+
+O projeto EAS existente foi preservado:
+
+- EAS Project ID: `b3faabec-283a-4ba2-88b5-f096304e68aa`;
+- Android package: `br.com.trynexa.app`;
+- iOS bundle identifier: `br.com.trynexa.app`;
+- próximo Android `versionCode`: `30`.
+
 ## Posicionamento
 
 **Nexa. Cripto sem complicação.**
@@ -34,9 +45,10 @@ O `app.json` contém somente valores públicos:
 
 - Privy App ID;
 - Privy Client ID;
-- URL HTTPS da API.
+- URL HTTPS da API;
+- EAS Project ID.
 
-Nunca adicione `PRIVY_APP_SECRET`, chaves privadas, seed phrases ou tokens ao repositório.
+Nunca adicione `PRIVY_APP_SECRET`, chaves privadas, frases de recuperação ou tokens ao repositório.
 
 ## Privy App Client
 
@@ -63,8 +75,6 @@ npx eas build --profile development --platform android
 ```
 
 ## Produção Android
-
-O identificador existente foi preservado e o `versionCode` inicial desta nova base é `26`.
 
 ```bash
 npx eas build --profile production --platform android
