@@ -17,7 +17,6 @@ import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
 type Operation = 'entry' | 'exit';
-type Plan = 'FREE' | 'PRO';
 
 function parseAmount(value: string) {
   const trimmed = value.trim().replace(/R\$/gi, '').replace(/\s/g, '');
@@ -51,7 +50,6 @@ function Choice({
 
 export default function NewOrderScreen() {
   const [operation, setOperation] = useState<Operation>('entry');
-  const [plan, setPlan] = useState<Plan>('FREE');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -73,16 +71,14 @@ export default function NewOrderScreen() {
       const response =
         operation === 'entry'
           ? await nexaApi.createEntryOrder(session.accessToken, {
-              amountBrl: parsed,
+              grossBrl: parsed,
               clientRequestId,
-              plan,
             })
           : await nexaApi.createExitOrder(session.accessToken, {
               amountUsdc: parsed,
               clientRequestId,
-              plan,
             });
-      setResult(response?.order || response);
+      setResult(response);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -95,7 +91,9 @@ export default function NewOrderScreen() {
   }
 
   if (result) {
+    const order = result.order || result;
     const fundsMoved = result.fundsMoved === true;
+    const executionEnabled = result.executionEnabled === true;
     return (
       <Screen>
         <Badge tone={fundsMoved ? 'danger' : 'success'}>
@@ -110,13 +108,15 @@ export default function NewOrderScreen() {
         <Card>
           <Text style={styles.resultLabel}>Identificador</Text>
           <Text selectable style={styles.resultValue}>
-            {result.id || result.orderId || '—'}
+            {order.id || order.orderId || '—'}
           </Text>
           <Text style={styles.resultLabel}>Status</Text>
-          <Text style={styles.resultValue}>{result.status || 'created'}</Text>
+          <Text style={styles.resultValue}>{order.status || 'created'}</Text>
+          <Text style={styles.resultLabel}>Plano aplicado pelo backend</Text>
+          <Text style={styles.resultValue}>{order.plan || 'FREE'}</Text>
           <Text style={styles.resultLabel}>Execução habilitada</Text>
           <Text style={styles.resultValue}>
-            {result.executionEnabled === true ? 'Sim' : 'Não'}
+            {executionEnabled ? 'Sim' : 'Não'}
           </Text>
           <Text style={styles.resultLabel}>Fundos movimentados</Text>
           <Text style={styles.resultValue}>{fundsMoved ? 'Sim' : 'Não'}</Text>
@@ -138,8 +138,8 @@ export default function NewOrderScreen() {
       <Eyebrow>Ordem em modo seguro</Eyebrow>
       <Title>Registre sua intenção.</Title>
       <Paragraph>
-        A Nexa mostra as regras e cria uma ordem auditável. O app não movimenta
-        fundos enquanto a execução financeira estiver desativada.
+        A Nexa mostra as regras e cria uma ordem auditável. O plano Free ou Pro
+        é resolvido pelo backend a partir da situação real da sua conta.
       </Paragraph>
 
       <Text style={styles.sectionLabel}>Operação</Text>
@@ -174,34 +174,11 @@ export default function NewOrderScreen() {
         placeholder={operation === 'entry' ? 'Ex.: 500,00' : 'Ex.: 100,00'}
       />
 
-      <Text style={styles.sectionLabel}>Plano</Text>
-      <View style={styles.row}>
-        <View style={styles.flex}>
-          <Choice
-            label="Nexa Free"
-            selected={plan === 'FREE'}
-            onPress={() => setPlan('FREE')}
-          />
-        </View>
-        <View style={styles.flex}>
-          <Choice
-            label="Nexa Pro"
-            selected={plan === 'PRO'}
-            onPress={() => setPlan('PRO')}
-          />
-        </View>
-      </View>
-
       <Card>
         <Text style={styles.ruleTitle}>Regras atuais</Text>
         <Text style={styles.ruleText}>
-          {operation === 'entry'
-            ? plan === 'PRO'
-              ? 'Entrada Pro: 2%, mínimo de R$ 9,90 e teto de R$ 750,00.'
-              : 'Entrada Free: 8%.'
-            : plan === 'PRO'
-              ? 'Saída Pro: 1%, além dos custos reais de liquidação.'
-              : 'Saída Free: 1,5%, além dos custos reais de liquidação.'}
+          Entrada Free: 8%. Entrada Pro: 2%, mínimo de R$ 9,90 e teto de
+          R$ 750,00. Saída Free: 1,5%. Saída Pro: 1%.
         </Text>
         <Text style={styles.ruleText}>
           A cotação é informativa. O valor final nasce da operação real e da
