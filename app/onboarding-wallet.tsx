@@ -19,7 +19,7 @@ import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
 function valueFromProfile(response: any) {
-  return response?.profile || response?.user || response || {};
+  return response?.profile || response || {};
 }
 
 export default function WalletOnboardingScreen() {
@@ -55,17 +55,13 @@ export default function WalletOnboardingScreen() {
         setProfile(nextProfile);
 
         const settlementProfile = String(
-          nextProfile.settlementProfile || nextProfile.profile || '',
+          nextProfile.settlementProfile || '',
         ).toLowerCase();
         if (settlementProfile.includes('legacy')) {
           router.replace('/(app)');
           return;
         }
-        if (
-          nextProfile.walletAddress &&
-          nextProfile.privyWalletId &&
-          nextProfile.privyUserId
-        ) {
+        if (nextProfile.wallet?.linked === true) {
           router.replace('/(app)');
         }
       } catch (caught) {
@@ -177,7 +173,7 @@ export default function WalletOnboardingScreen() {
         />
         <KeyValue
           label="Rede patrimonial"
-          value={profile?.walletNetwork || 'Polygon'}
+          value={profile?.wallet?.network || 'Polygon'}
         />
         <KeyValue
           label="Perfil Nexa"
