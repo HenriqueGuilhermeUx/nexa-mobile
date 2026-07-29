@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  type ReactElement,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -14,12 +15,16 @@ import {
 
 import { colors, radius, spacing } from '@/theme';
 
-export function Screen({ children }: PropsWithChildren) {
+export function Screen({
+  children,
+  refreshControl,
+}: PropsWithChildren<{ refreshControl?: ReactElement }>) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
         contentContainerStyle={styles.screen}
         keyboardShouldPersistTaps="handled"
+        refreshControl={refreshControl}
       >
         {children}
       </ScrollView>
@@ -228,7 +233,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   button_primary: { backgroundColor: colors.primary },
-  button_secondary: { backgroundColor: colors.panelSoft, borderWidth: 1, borderColor: colors.border },
+  button_secondary: {
+    backgroundColor: colors.panelSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   button_success: { backgroundColor: '#059669' },
   button_danger: { backgroundColor: '#BE123C' },
   buttonDisabled: { opacity: 0.45 },
