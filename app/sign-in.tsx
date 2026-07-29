@@ -8,6 +8,15 @@ import { nexaApi, tokensFromLogin } from '@/lib/api';
 import { clearNexaSession, saveNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
+function profileFrom(response: any) {
+  return response?.profile || response || {};
+}
+
+function isLegacyProfile(profile: any) {
+  const value = String(profile?.settlementProfile || '').toLowerCase();
+  return profile?.isLegacyBeta === true || value.includes('legacy');
+}
+
 export default function SignInScreen() {
   const privy = usePrivy() as any;
   const { sendCode, loginWithCode } = useLoginWithEmail();
@@ -36,6 +45,23 @@ export default function SignInScreen() {
         email: normalizedEmail,
       });
 
+      const profileResponse = await nexaApi.directProfile(tokens.accessToken);
+      const profile = profileFrom(profileResponse);
+
+      // Contas antigas continuam no app normal. Nenhuma autenticação Privy é
+      // exigida e nenhuma migração de carteira é iniciada para elas.
+      if (isLegacyProfile(profile)) {
+        router.replace('/(app)');
+        return;
+      }
+
+      // Uma carteira já vinculada não precisa refazer o onboarding a cada login.
+      if (profile?.wallet?.linked === true) {
+        router.replace('/(app)');
+        return;
+      }
+
+      // Privy só entra no fluxo de contas novas que ainda não possuem carteira.
       if (privy.user) {
         router.replace('/onboarding-wallet');
         return;
