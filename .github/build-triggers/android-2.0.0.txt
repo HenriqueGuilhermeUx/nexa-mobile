@@ -3,3 +3,4 @@ versionCode=30
 package=br.com.trynexa.app
 financialExecutionEnabled=false
 strategy=primeiros-nexa
+releaseRun=2026-07-29T10:50:00-03:00
