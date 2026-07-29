@@ -36,7 +36,7 @@ O app transforma a estratégia Primeiros Nexa em produto:
   - corpo somente com `privyWalletId` e `walletAddress`;
 - o app não envia `privyUserId` informado pelo cliente;
 - nenhum saldo mock é exibido;
-- novas ordens continuam com `fundsMoved: false` enquanto o backend estiver em modo seguro;
+- novas ordens continuam sem movimentação enquanto o backend estiver em modo seguro;
 - usuários Beta/Legacy não são migrados automaticamente.
 
 ## Configuração pública
@@ -73,6 +73,26 @@ A integração Privy usa módulos nativos. Para validar o comportamento real, ut
 ```bash
 npx eas build --profile development --platform android
 ```
+
+## Build nativo pelo GitHub
+
+O workflow manual **EAS Native Build** permite disparar builds `development`, `preview` ou `production` para Android, iOS ou ambos.
+
+Antes do primeiro uso, configure em **GitHub → Settings → Secrets and variables → Actions**:
+
+```text
+EXPO_TOKEN=<token da conta Expo vinculada ao projeto Nexa>
+```
+
+O workflow:
+
+- exige confirmação adicional para o perfil `production`;
+- executa validações de segurança, TypeScript e Expo Doctor antes do envio;
+- usa `--non-interactive --no-wait`;
+- apenas envia o build para o EAS;
+- não publica automaticamente na Play Store ou App Store.
+
+A Expo recomenda concluir ao menos um build interativo por plataforma antes de depender do modo não interativo em CI, para que credenciais e configurações nativas já estejam inicializadas.
 
 ## Produção Android
 
