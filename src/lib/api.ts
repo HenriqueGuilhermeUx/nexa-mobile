@@ -73,6 +73,29 @@ export interface LoginResponse {
   };
 }
 
+export interface PixRedemption {
+  id: string;
+  userId: string;
+  amountBrl: number | string;
+  amountUsdc: number | string;
+  exchangeRate: number | string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | string;
+  payoutModel?: 'actual_sale_net' | 'fixed_brl_legacy' | string;
+  estimatedAmountBrl?: number | string | null;
+  settledAmountBrl?: number | string | null;
+  saleProceedsBrl?: number | string | null;
+  nexaFeeBrl?: number | string | null;
+  pixOutFeeBrl?: number | string | null;
+  pixKey?: string | null;
+  pixReference?: string | null;
+  externalId?: string | null;
+  endToEndId?: string | null;
+  failureReason?: string | null;
+  settlementMetadata?: Record<string, unknown> | null;
+  createdAt?: string | null;
+  completedAt?: string | null;
+}
+
 export function tokensFromLogin(response: LoginResponse) {
   const accessToken =
     response.accessToken ||
@@ -129,6 +152,17 @@ export const nexaApi = {
     return request<any>('/direct-settlement/orders', { accessToken });
   },
 
+  listPixRedemptions(accessToken: string) {
+    return request<PixRedemption[]>('/payment/user', { accessToken });
+  },
+
+  getPixRedemption(accessToken: string, paymentId: string) {
+    return request<PixRedemption>(
+      `/payment/status/${encodeURIComponent(paymentId)}`,
+      { accessToken },
+    );
+  },
+
   createEntryOrder(
     accessToken: string,
     data: { grossBrl: number; clientRequestId: string },
@@ -145,6 +179,17 @@ export const nexaApi = {
     data: { amountUsdc: number; clientRequestId: string },
   ) {
     return request<any>('/direct-settlement/orders/exit', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(data),
+    });
+  },
+
+  requestPixRedemption(
+    accessToken: string,
+    data: { amountUsdc: number; pixKey: string },
+  ) {
+    return request<any>('/payment/pix/redemption', {
       method: 'POST',
       accessToken,
       body: JSON.stringify(data),
