@@ -1,8 +1,7 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  type ReactElement,
   SafeAreaView,
   ScrollView,
   StyleSheet,
