@@ -19,7 +19,7 @@ import { clearNexaSession, loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
 function profileFrom(response: any) {
-  return response?.profile || response?.user || response || {};
+  return response?.profile || response || {};
 }
 
 export default function HomeScreen() {
@@ -67,19 +67,22 @@ export default function HomeScreen() {
     router.replace('/');
   }
 
-  const executionEnabled = profile.executionEnabled === true;
+  const executionEnabled = profile.executable === true;
   const directReady = profile.directSettlementReady === true;
   const settlementProfile = String(profile.settlementProfile || 'direct');
-  const walletAddress = profile.walletAddress || me.walletAddress || null;
-  const onchainBalance =
-    profile.onchainBalanceUsdc ??
-    profile.walletBalanceUsdc ??
-    profile.balanceUsdc ??
-    null;
+  const walletAddress = profile.wallet?.address || me.walletAddress || null;
+  const walletLinked = profile.wallet?.linked === true || Boolean(walletAddress);
 
   return (
-    <Screen>
-      <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
+    <Screen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => load(true)}
+          tintColor={colors.primary}
+        />
+      }
+    >
       <View style={styles.topRow}>
         <Brand />
         <Badge tone={executionEnabled ? 'success' : 'warning'}>
@@ -96,13 +99,9 @@ export default function HomeScreen() {
 
       <Card style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Saldo USDC na carteira</Text>
-        <Text style={styles.balanceValue}>
-          {onchainBalance === null
-            ? 'Aguardando sincronização'
-            : `${Number(onchainBalance).toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 8,
-              })} USDC`}
+        <Text style={styles.balanceValue}>Aguardando leitura on-chain</Text>
+        <Text style={styles.balanceExplanation}>
+          O app não substitui a leitura da blockchain por um saldo interno.
         </Text>
         <Text style={styles.walletText} numberOfLines={1}>
           {walletAddress || 'Carteira ainda não vinculada'}
@@ -113,7 +112,7 @@ export default function HomeScreen() {
         <View style={styles.actionItem}>
           <ActionButton
             label="Nova operação"
-            disabled={!walletAddress}
+            disabled={!walletLinked || profile.isLegacyBeta === true}
             onPress={() => router.push('/(app)/new-order')}
           />
         </View>
@@ -132,8 +131,8 @@ export default function HomeScreen() {
         <KeyValue
           label="Carteira vinculada"
           valueNode={
-            <Badge tone={walletAddress ? 'success' : 'warning'}>
-              {walletAddress ? 'Sim' : 'Pendente'}
+            <Badge tone={walletLinked ? 'success' : 'warning'}>
+              {walletLinked ? 'Sim' : 'Pendente'}
             </Badge>
           }
         />
@@ -164,7 +163,7 @@ export default function HomeScreen() {
           <View key={order.id} style={styles.orderRow}>
             <View>
               <Text style={styles.orderTitle}>
-                {String(order.type || order.operation || 'ordem').toUpperCase()}
+                {String(order.type || 'ordem').toUpperCase()}
               </Text>
               <Text style={styles.orderDate}>
                 {order.createdAt
@@ -174,8 +173,8 @@ export default function HomeScreen() {
             </View>
             <View style={styles.orderRight}>
               <Text style={styles.orderAmount}>
-                {order.amountBrl
-                  ? Number(order.amountBrl).toLocaleString('pt-BR', {
+                {order.grossBrl
+                  ? Number(order.grossBrl).toLocaleString('pt-BR', {
                       style: 'currency',
                       currency: 'BRL',
                     })
@@ -206,10 +205,11 @@ const styles = StyleSheet.create({
   balanceLabel: { color: colors.muted, fontSize: 13 },
   balanceValue: {
     color: colors.text,
-    fontSize: 30,
+    fontSize: 27,
     fontWeight: '900',
     marginTop: spacing.sm,
   },
+  balanceExplanation: { color: colors.muted, fontSize: 12, marginTop: 7 },
   walletText: { color: colors.cyan, fontSize: 12, marginTop: spacing.md },
   actionGrid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   actionItem: { flex: 1 },
