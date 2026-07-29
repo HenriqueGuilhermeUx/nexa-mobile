@@ -30,6 +30,8 @@
       [
         "expo-splash-screen",
         {
+          "image": "./nexa-mobile/nexa-mobile/assets/icon.png",
+          "imageWidth": 180,
           "backgroundColor": "#020617",
           "resizeMode": "contain"
         }
@@ -41,7 +43,7 @@
     "extra": {
       "apiUrl": "https://nexa-backend-p2u0.onrender.com/api/v1",
       "privyAppId": "cmpen2gm3007v0cjswjlyefji",
-      "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcSgXg6CWaMyT",
+      "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3",
       "financialExecutionEnabled": false,
       "releaseChannel": "profit-safe-redemption",
       "eas": {
