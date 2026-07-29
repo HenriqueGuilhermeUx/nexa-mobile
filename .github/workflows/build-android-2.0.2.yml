@@ -1,0 +1,233 @@
+name: Build Nexa Android 2.0.2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - release/android-2.0.2-v32-artifact
+      - main
+    paths:
+      - .github/workflows/build-android-2.0.2.yml
+      - app.json
+      - eas.json
+      - package.json
+      - app/**
+      - src/**
+      - nexa-mobile/nexa-mobile/App.js
+      - scripts/validate-mobile-safety.js
+      - scripts/validate-release-assets.js
+      - scripts/validate-decimal-and-privy-onboarding.js
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/build-android-2.0.2.yml
+      - app.json
+      - eas.json
+      - package.json
+      - app/**
+      - src/**
+      - nexa-mobile/nexa-mobile/App.js
+      - scripts/validate-mobile-safety.js
+      - scripts/validate-release-assets.js
+      - scripts/validate-decimal-and-privy-onboarding.js
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-android-production-2.0.2-v32-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    name: Build signed Android AAB v32
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20.20.0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Verify Expo authentication secret
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "Repository secret EXPO_TOKEN is required."
+            exit 1
+          fi
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate source, decimal handling, assets and security contracts
+        run: |
+          node scripts/validate-mobile-safety.js
+          node scripts/validate-decimal-and-privy-onboarding.js
+          node scripts/validate-release-assets.js
+          npm run typecheck
+          npx expo-doctor
+
+      - name: Verify release configuration before build
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const app = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+          const expected = {
+            version: '2.0.2',
+            versionCode: 32,
+            iosBuildNumber: '32',
+            package: 'br.com.trynexa.app',
+            appId: 'cmpen2gm3007v0cjswjlyefji',
+            mobileClientId: 'client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3',
+          };
+          const failures = [];
+          if (app.version !== expected.version) failures.push(`version=${app.version}`);
+          if (pkg.version !== expected.version) failures.push(`packageVersion=${pkg.version}`);
+          if (Number(app.android?.versionCode) !== expected.versionCode) failures.push(`versionCode=${app.android?.versionCode}`);
+          if (String(app.ios?.buildNumber) !== expected.iosBuildNumber) failures.push(`iosBuildNumber=${app.ios?.buildNumber}`);
+          if (app.android?.package !== expected.package) failures.push(`package=${app.android?.package}`);
+          if (app.ios?.bundleIdentifier !== expected.package) failures.push(`bundleIdentifier=${app.ios?.bundleIdentifier}`);
+          if (app.extra?.privyAppId !== expected.appId) failures.push(`privyAppId=${app.extra?.privyAppId}`);
+          if (app.extra?.privyClientId !== expected.mobileClientId) failures.push(`privyClientId=${app.extra?.privyClientId}`);
+          if (app.extra?.financialExecutionEnabled !== false) failures.push('financialExecutionEnabled must be false');
+          if (app.extra?.releaseChannel !== 'profit-safe-redemption') failures.push(`releaseChannel=${app.extra?.releaseChannel}`);
+          if (eas.cli?.appVersionSource !== 'local') failures.push(`appVersionSource=${eas.cli?.appVersionSource}`);
+          if (eas.build?.production?.autoIncrement !== false) failures.push(`autoIncrement=${eas.build?.production?.autoIncrement}`);
+          if (eas.build?.production?.android?.buildType !== 'app-bundle') failures.push(`buildType=${eas.build?.production?.android?.buildType}`);
+          const splash = app.plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen');
+          if (!splash?.[1]?.image) failures.push('splash image missing');
+          if (failures.length) {
+            console.error('Release configuration mismatch:', failures.join(', '));
+            process.exit(1);
+          }
+          console.log(JSON.stringify({ ok: true, ...expected, splashImage: splash[1].image }, null, 2));
+          NODE
+
+      - name: Export Android JavaScript bundle
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+        run: npm run export:android
+
+      - name: Build signed production AAB locally
+        id: local_build
+        continue-on-error: true
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v32
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v32
+        run: |
+          eas build \
+            --platform android \
+            --profile production \
+            --local \
+            --non-interactive \
+            --output "$GITHUB_WORKSPACE/Nexa-2.0.2-android-v32-verified.aab"
+
+      - name: Upload local build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.2-v32-local-build-diagnostics
+          path: |
+            ${{ runner.temp }}/nexa-eas-local-v32/logs
+            local-build-artifacts-v32
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail when local build fails
+        if: steps.local_build.outcome == 'failure'
+        run: exit 1
+
+      - name: Verify package and version inside AAB
+        run: |
+          set -euo pipefail
+          test -s Nexa-2.0.2-android-v32-verified.aab
+          BUNDLETOOL_VERSION=1.18.1
+          curl --fail --location --retry 5 --retry-delay 3 \
+            "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar" \
+            --output "$RUNNER_TEMP/bundletool.jar"
+          java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest \
+            --bundle=Nexa-2.0.2-android-v32-verified.aab \
+            --module=base \
+            > aab-manifest.xml
+          grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
+          grep -Eq 'android:versionCode="32"' aab-manifest.xml
+          grep -Eq 'android:versionName="2\.0\.2"' aab-manifest.xml
+          {
+            echo 'verified=true'
+            echo 'package=br.com.trynexa.app'
+            echo 'versionName=2.0.2'
+            echo 'versionCode=32'
+            echo 'privyPlatformClient=mobile'
+            echo 'financialExecutionEnabled=false'
+            echo 'decimalInputs=dot_and_comma'
+            echo 'privyAudit=non_blocking_after_verified_link'
+            echo 'legacyRedemption=usdc_request_then_actual_sale_then_pix'
+            echo 'redemptionRule=actual_sale_net_minus_nexa_fee_and_pix_out'
+            echo "sourceCommit=$GITHUB_SHA"
+          } > aab-version-verification.txt
+          cat aab-version-verification.txt
+
+      - name: Create release metadata
+        run: |
+          sha256sum Nexa-2.0.2-android-v32-verified.aab > SHA256SUMS.txt
+          node <<'NODE'
+          const fs = require('node:fs');
+          fs.writeFileSync('build-metadata.json', JSON.stringify({
+            product: 'Nexa',
+            version: '2.0.2',
+            androidVersionCode: 32,
+            package: 'br.com.trynexa.app',
+            privyPlatformClient: 'mobile',
+            releaseChannel: 'profit-safe-redemption',
+            profile: 'production',
+            buildMode: 'eas-local-on-github-actions',
+            binaryManifestVerified: true,
+            decimalInputs: 'dot_and_comma',
+            privyAudit: 'non_blocking_after_verified_link',
+            legacyRedemption: 'usdc_request_then_actual_sale_then_pix',
+            actualSaleRedemptionHistory: true,
+            gitCommit: process.env.GITHUB_SHA,
+            financialExecutionEnabled: false,
+            redemptionRule: 'actual_sale_net_minus_nexa_fee_and_pix_out',
+            createdAt: new Date().toISOString(),
+          }, null, 2) + '\n');
+          NODE
+
+      - name: Upload verified Google Play artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.2-Android-v32-VERIFIED-Google-Play
+          path: |
+            Nexa-2.0.2-android-v32-verified.aab
+            SHA256SUMS.txt
+            build-metadata.json
+            aab-version-verification.txt
+            aab-manifest.xml
+          if-no-files-found: error
+          retention-days: 30
