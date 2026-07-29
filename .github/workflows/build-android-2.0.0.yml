@@ -6,20 +6,7 @@ on:
     branches:
       - main
     paths:
-      - .github/workflows/build-android-2.0.0.yml
       - .github/build-triggers/android-2.0.0.txt
-  pull_request:
-    branches:
-      - main
-    paths:
-      - .github/workflows/build-android-2.0.0.yml
-      - .github/build-triggers/android-2.0.0.txt
-      - app.json
-      - eas.json
-      - package.json
-      - app/**
-      - components/**
-      - lib/**
 
 permissions:
   contents: read
