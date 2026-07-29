@@ -24,6 +24,8 @@ jobs:
         run: npm ls --depth=0
       - name: Validate mobile safety contracts
         run: node scripts/validate-mobile-safety.js
+      - name: Validate Android release assets
+        run: node scripts/validate-release-assets.js
       - name: Validate TypeScript
         run: npm run typecheck
       - name: Validate Expo project
