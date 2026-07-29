@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: nexa-android-production-2.0.1-v31
+  group: nexa-android-production-2.0.1-v31-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
