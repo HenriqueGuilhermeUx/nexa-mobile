@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   type TextInputProps,
+  type RefreshControlProps,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -17,7 +18,9 @@ import { colors, radius, spacing } from '@/theme';
 export function Screen({
   children,
   refreshControl,
-}: PropsWithChildren<{ refreshControl?: ReactElement }>) {
+}: PropsWithChildren<{
+  refreshControl?: ReactElement<RefreshControlProps>;
+}>) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
