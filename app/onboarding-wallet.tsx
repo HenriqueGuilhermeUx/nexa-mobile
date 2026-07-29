@@ -3,23 +3,18 @@ import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import {
-  ActionButton,
-  Badge,
-  Brand,
-  Card,
-  Eyebrow,
-  KeyValue,
-  Paragraph,
-  Screen,
-  Title,
-} from '@/components/ui';
+import { ActionButton, Brand, Paragraph, Screen, Title } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
 function valueFromProfile(response: any) {
   return response?.profile || response || {};
+}
+
+function isLegacyProfile(profile: any) {
+  const value = String(profile?.settlementProfile || '').toLowerCase();
+  return profile?.isLegacyBeta === true || value.includes('legacy');
 }
 
 export default function WalletOnboardingScreen() {
@@ -34,9 +29,9 @@ export default function WalletOnboardingScreen() {
     [wallets],
   );
 
-  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [linking, setLinking] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [linkWhenReady, setLinkWhenReady] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -49,171 +44,145 @@ export default function WalletOnboardingScreen() {
           router.replace('/sign-in');
           return;
         }
+
         const response = await nexaApi.directProfile(session.accessToken);
         if (!mounted) return;
-        const nextProfile = valueFromProfile(response);
-        setProfile(nextProfile);
+        const profile = valueFromProfile(response);
 
-        const settlementProfile = String(
-          nextProfile.settlementProfile || '',
-        ).toLowerCase();
-        if (settlementProfile.includes('legacy')) {
+        // Usuários antigos permanecem no app normal, sem criação ou login Privy.
+        if (isLegacyProfile(profile)) {
           router.replace('/(app)');
           return;
         }
-        if (nextProfile.wallet?.linked === true) {
+
+        if (profile?.wallet?.linked === true) {
           router.replace('/(app)');
+          return;
         }
       } catch (caught) {
         if (mounted) {
           setError(
             caught instanceof Error
               ? caught.message
-              : 'Não foi possível carregar o perfil de liquidação.',
+              : 'Não foi possível preparar sua carteira.',
           );
         }
       } finally {
         if (mounted) setLoading(false);
       }
     }
+
     void load();
     return () => {
       mounted = false;
     };
   }, [privy.isReady]);
 
-  async function createWallet() {
+  async function linkWallet(currentWallet: any) {
     setError('');
-    setLinking(true);
-    try {
-      if (!embedded.create) {
-        throw new Error('A criação de carteira não está disponível nesta sessão.');
-      }
-      await embedded.create({ createAdditional: false });
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Não foi possível criar a carteira individual.',
-      );
-    } finally {
-      setLinking(false);
-    }
-  }
-
-  async function linkWallet() {
-    setError('');
-    setLinking(true);
+    setWorking(true);
     try {
       const session = await loadNexaSession();
       if (!session) {
         router.replace('/sign-in');
         return;
       }
-      if (!wallet?.address) {
-        throw new Error('A carteira Privy ainda não está pronta.');
+      if (!currentWallet?.address) {
+        throw new Error('A carteira ainda não ficou pronta. Tente novamente.');
       }
 
       const getAccessToken = privy.getAccessToken;
       if (typeof getAccessToken !== 'function') {
-        throw new Error('A sessão Privy não disponibilizou o token de acesso.');
+        throw new Error('Sua sessão expirou. Entre novamente.');
       }
       const privyAccessToken = await getAccessToken();
       if (!privyAccessToken) {
-        throw new Error('A sessão Privy expirou. Entre novamente.');
+        throw new Error('Sua sessão expirou. Entre novamente.');
       }
 
       const privyWalletId = String(
-        wallet.id || wallet.walletId || wallet.address,
+        currentWallet.id || currentWallet.walletId || currentWallet.address,
       );
       await nexaApi.linkWallet(session.accessToken, privyAccessToken, {
         privyWalletId,
-        walletAddress: wallet.address,
+        walletAddress: currentWallet.address,
       });
 
-      const walletLinkSucceeded = true;
-      try {
-        await nexaApi.auditWallet(session.accessToken);
-      } catch (auditError) {
-        console.warn(
-          'A carteira foi vinculada, mas a auditoria complementar ficou pendente.',
-          auditError instanceof Error ? auditError.message : auditError,
-        );
-      }
-
-      const updated = await nexaApi.directProfile(session.accessToken);
-      setProfile(valueFromProfile(updated));
-      if (walletLinkSucceeded) router.replace('/(app)');
+      // A carteira já está válida após o vínculo. A auditoria complementar é
+      // executada em segundo plano e nunca impede o cliente de entrar no app.
+      void nexaApi.auditWallet(session.accessToken).catch(() => undefined);
+      router.replace('/(app)');
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível vincular a carteira.',
+          : 'Não foi possível concluir a carteira. Tente novamente.',
       );
     } finally {
-      setLinking(false);
+      setWorking(false);
     }
   }
+
+  async function prepareWallet() {
+    setError('');
+    if (wallet) {
+      await linkWallet(wallet);
+      return;
+    }
+
+    setWorking(true);
+    try {
+      if (!embedded.create) {
+        throw new Error('A criação da carteira não está disponível.');
+      }
+      setLinkWhenReady(true);
+      await embedded.create({ createAdditional: false });
+    } catch (caught) {
+      setLinkWhenReady(false);
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível criar sua carteira. Tente novamente.',
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!linkWhenReady || !wallet || working) return;
+    setLinkWhenReady(false);
+    void linkWallet(wallet);
+  }, [linkWhenReady, wallet?.address, working]);
 
   if (loading || !privy.isReady) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loaderText}>Verificando seu perfil e sua carteira...</Text>
+        <Text style={styles.loaderText}>Preparando sua conta...</Text>
       </View>
     );
   }
 
   return (
     <Screen>
-      <Brand />
-      <Badge tone="info">CARTEIRA INDIVIDUAL</Badge>
-      <View style={styles.topSpace} />
-      <Eyebrow>Última etapa do acesso</Eyebrow>
-      <Title>Conecte sua conta à carteira correta.</Title>
-      <Paragraph>
-        A Nexa deriva sua identidade do token da Privy, confere o mesmo e-mail e
-        valida a propriedade da carteira antes de salvar o vínculo.
-      </Paragraph>
+      <View style={styles.content}>
+        <Brand />
+        <View style={styles.hero}>
+          <Title>Sua carteira Nexa</Title>
+          <Paragraph>
+            Crie sua carteira individual e continue. O processo leva apenas alguns segundos.
+          </Paragraph>
+        </View>
 
-      <Card>
-        <KeyValue
-          label="Carteira Privy detectada"
-          value={wallet?.address || 'Aguardando criação'}
-        />
-        <KeyValue
-          label="Rede patrimonial"
-          value={profile?.wallet?.network || 'Polygon'}
-        />
-        <KeyValue
-          label="Perfil Nexa"
-          value={profile?.settlementProfile || 'Direto'}
-        />
-      </Card>
-
-      {!wallet ? (
         <ActionButton
-          label="Criar minha carteira individual"
-          loading={linking}
-          onPress={createWallet}
+          label={wallet ? 'Continuar' : 'Criar carteira e continuar'}
+          loading={working || linkWhenReady}
+          onPress={prepareWallet}
         />
-      ) : (
-        <ActionButton
-          label="Validar e vincular carteira"
-          loading={linking}
-          onPress={linkWallet}
-        />
-      )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <Card style={styles.ruleCard}>
-        <Text style={styles.ruleTitle}>Proteções desta etapa</Text>
-        <Text style={styles.ruleItem}>• o token Privy não entra no corpo da requisição;</Text>
-        <Text style={styles.ruleItem}>• o app não envia privyUserId informado pelo cliente;</Text>
-        <Text style={styles.ruleItem}>• a mesma wallet não pode pertencer a duas contas Nexa;</Text>
-        <Text style={styles.ruleItem}>• usuários Beta/Legacy não são migrados automaticamente.</Text>
-      </Card>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+      </View>
     </Screen>
   );
 }
@@ -228,7 +197,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   loaderText: { color: colors.muted, textAlign: 'center' },
-  topSpace: { height: spacing.lg },
+  content: { flex: 1, justifyContent: 'center' },
+  hero: { marginVertical: spacing.xl },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerSoft,
@@ -236,7 +206,4 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.md,
   },
-  ruleCard: { marginTop: spacing.xl },
-  ruleTitle: { color: colors.text, fontWeight: '900', fontSize: 16 },
-  ruleItem: { color: colors.muted, lineHeight: 21, marginTop: 5 },
 });
