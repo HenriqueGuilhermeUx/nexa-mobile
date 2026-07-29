@@ -38,7 +38,12 @@ export default function WelcomeScreen() {
         if (!mounted) return;
         const profile = profileFrom(response);
 
-        if (isLegacyProfile(profile) || profile?.wallet?.linked === true) {
+        if (isLegacyProfile(profile)) {
+          router.replace('/legacy' as any);
+          return;
+        }
+
+        if (profile?.wallet?.linked === true) {
           router.replace('/(app)');
           return;
         }
