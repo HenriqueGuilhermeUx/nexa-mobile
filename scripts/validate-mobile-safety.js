@@ -59,18 +59,25 @@ assert.doesNotMatch(api, /linkWallet[\s\S]{0,800}privyUserId/);
 assert.match(api, /\/direct-settlement\/wallet\/audit/);
 assert.match(api, /\/direct-settlement\/orders\/entry/);
 assert.match(api, /\/direct-settlement\/orders\/exit/);
+assert.match(api, /data: \{ grossBrl: number; clientRequestId: string \}/);
+assert.doesNotMatch(api, /createEntryOrder[\s\S]{0,300}amountBrl/);
 
 assert.match(onboarding, /wallets\.find/);
 assert.doesNotMatch(onboarding, /wallets\[0\]/);
 assert.match(onboarding, /getAccessToken/);
 assert.match(onboarding, /auditWallet/);
+assert.match(onboarding, /wallet\?\.linked/);
 assert.match(onboarding, /includes\('legacy'\)/);
 assert.doesNotMatch(onboarding, /console\.log.*Token/i);
 
-assert.match(home, /Aguardando sincronização/);
+assert.match(home, /Aguardando leitura on-chain/);
+assert.match(home, /profile\.wallet\?\.address/);
+assert.match(home, /profile\.executable/);
 assert.doesNotMatch(home, /Mock|mock balance|842\.30/i);
 assert.match(newOrder, /Nenhum dinheiro foi movimentado/);
+assert.match(newOrder, /grossBrl: parsed/);
 assert.match(newOrder, /fundsMoved/);
+assert.doesNotMatch(newOrder, /plan,\s*\n/);
 assert.match(readme, /usuários Beta\/Legacy não são migrados automaticamente/i);
 
 const codeFiles = [...walk('app'), ...walk('src')].filter((file) =>
@@ -85,5 +92,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile validated: secure session, dual-token wallet binding, preserved EAS project, no mock balances and financial safe mode passed.',
+  'Nexa mobile validated: secure session, dual-token wallet binding, official API contracts, preserved EAS project, no mock balances and financial safe mode passed.',
 );
