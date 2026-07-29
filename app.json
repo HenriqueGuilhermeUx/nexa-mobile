@@ -1,22 +1,31 @@
 {
   "expo": {
     "name": "Nexa",
-    "slug": "nexa-mobile",
+    "slug": "nexa",
     "version": "2.0.0",
     "orientation": "portrait",
     "scheme": "nexa",
+    "icon": "./nexa-mobile/nexa-mobile/assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#020617"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "2.0.0",
+      "buildNumber": "30",
       "usesAppleSignIn": true
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 26,
-      "permissions": []
+      "versionCode": 30,
+      "permissions": [],
+      "adaptiveIcon": {
+        "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
+        "backgroundColor": "#020617"
+      }
     },
     "plugins": [
       "expo-router",
@@ -32,7 +41,10 @@
       "privyAppId": "cmpen2gm3007v0cjswjlyefji",
       "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcSgXg6CWaMyT",
       "financialExecutionEnabled": false,
-      "releaseChannel": "primeiros-nexa"
+      "releaseChannel": "primeiros-nexa",
+      "eas": {
+        "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
+      }
     }
   }
 }
