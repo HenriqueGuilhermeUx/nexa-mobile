@@ -48,10 +48,10 @@ export default function SignInScreen() {
       const profileResponse = await nexaApi.directProfile(tokens.accessToken);
       const profile = profileFrom(profileResponse);
 
-      // Contas antigas continuam no app normal. Nenhuma autenticação Privy é
-      // exigida e nenhuma migração de carteira é iniciada para elas.
+      // Contas antigas continuam na experiência completa já conhecida, sem
+      // autenticação Privy e sem migração de carteira, saldo ou operações.
       if (isLegacyProfile(profile)) {
-        router.replace('/(app)');
+        router.replace('/legacy' as any);
         return;
       }
 
