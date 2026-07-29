@@ -21,6 +21,7 @@ const session = read('src/lib/session.ts');
 const onboarding = read('app/onboarding-wallet.tsx');
 const home = read('app/(app)/index.tsx');
 const newOrder = read('app/(app)/new-order.tsx');
+const activity = read('app/(app)/activity.tsx');
 const entrypoint = read('entrypoint.js');
 const metro = read('metro.config.js');
 const readme = read('README.md');
@@ -28,7 +29,9 @@ const readme = read('README.md');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.ok(appConfig.expo.android.versionCode > 29);
+assert.equal(appConfig.expo.version, '2.0.1');
+assert.equal(appConfig.expo.android.versionCode, 31);
+assert.equal(appConfig.expo.ios.buildNumber, '31');
 assert.equal(
   appConfig.expo.extra.eas.projectId,
   'b3faabec-283a-4ba2-88b5-f096304e68aa',
@@ -38,6 +41,7 @@ assert.match(appConfig.expo.extra.apiUrl, /^https:\/\//);
 assert.match(appConfig.expo.extra.privyAppId, /^cmp/);
 assert.match(appConfig.expo.extra.privyClientId, /^client-/);
 
+assert.equal(packageJson.version, '2.0.1');
 assert.equal(packageJson.main, 'entrypoint.js');
 assert.ok(packageJson.dependencies['@privy-io/expo']);
 assert.ok(packageJson.dependencies['expo-secure-store']);
@@ -61,6 +65,10 @@ assert.match(api, /\/direct-settlement\/orders\/entry/);
 assert.match(api, /\/direct-settlement\/orders\/exit/);
 assert.match(api, /data: \{ grossBrl: number; clientRequestId: string \}/);
 assert.doesNotMatch(api, /createEntryOrder[\s\S]{0,300}amountBrl/);
+assert.match(api, /\/payment\/pix\/redemption/);
+assert.match(api, /amountUsdc: number; pixKey: string/);
+assert.match(api, /\/payment\/user/);
+assert.doesNotMatch(api, /requestPixRedemption[\s\S]{0,300}amountBrl/);
 
 assert.match(onboarding, /wallets\.find/);
 assert.doesNotMatch(onboarding, /wallets\[0\]/);
@@ -71,13 +79,30 @@ assert.match(onboarding, /includes\('legacy'\)/);
 assert.doesNotMatch(onboarding, /console\.log.*Token/i);
 
 assert.match(home, /Aguardando leitura on-chain/);
-assert.match(home, /profile\.wallet\?\.address/);
-assert.match(home, /profile\.executable/);
+assert.match(home, /availableBalanceUsdc/);
+assert.match(home, /Resgatar USDC/);
+assert.match(home, /Conta existente preservada sem migração automática/);
 assert.doesNotMatch(home, /Mock|mock balance|842\.30/i);
+
+assert.match(newOrder, /requestPixRedemption/);
+assert.match(newOrder, /amountUsdc: parsed/);
+assert.match(newOrder, /pixKey: pixKey\.trim\(\)/);
+assert.match(newOrder, /ESTIMATIVA — NÃO GARANTIDA/);
+assert.match(newOrder, /BRL líquido realmente recebido na venda/);
+assert.match(newOrder, /fee Nexa de 1,5%/);
 assert.match(newOrder, /Nenhum dinheiro foi movimentado/);
 assert.match(newOrder, /grossBrl: parsed/);
 assert.match(newOrder, /fundsMoved/);
-assert.doesNotMatch(newOrder, /plan,\s*\n/);
+assert.doesNotMatch(newOrder, /requestPixRedemption[\s\S]{0,600}amountBrl/);
+assert.doesNotMatch(newOrder, /cliente recebe exatamente a estimativa/i);
+
+assert.match(activity, /saleProceedsBrl/);
+assert.match(activity, /settledAmountBrl/);
+assert.match(activity, /nexaFeeBrl/);
+assert.match(activity, /pixOutFeeBrl/);
+assert.match(activity, /ESTIMATIVA/);
+assert.match(activity, /PIX ENVIADO/);
+
 assert.match(readme, /usuários Beta\/Legacy não são migrados automaticamente/i);
 
 const codeFiles = [...walk('app'), ...walk('src')].filter((file) =>
@@ -92,5 +117,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile validated: secure session, dual-token wallet binding, official API contracts, preserved EAS project, no mock balances and financial safe mode passed.',
+  'Nexa mobile 2.0.1 validated: Privy security, profile-aware redemption, actual-sale settlement display, versionCode 31, no mock balances and financial safe mode passed.',
 );
