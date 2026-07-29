@@ -25,33 +25,56 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  async function createAccount() {
+  function validateForm() {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCpf = digits(cpf);
+
+    if (fullName.trim().length < 3) return 'Informe seu nome completo.';
+    if (!normalizedEmail.includes('@')) return 'Informe um e-mail válido.';
+    if (normalizedCpf.length !== 11) return 'Informe um CPF com 11 números.';
+    if (password.length < 6) return 'A senha precisa ter pelo menos 6 caracteres.';
+    return '';
+  }
+
+  async function requestEmailCode() {
+    const validationError = validateForm();
+    setError(validationError);
+    if (validationError) return;
+
+    const normalizedEmail = email.trim().toLowerCase();
+    setLoading(true);
+    try {
+      if (privy.user && privy.logout) await privy.logout();
+      await clearNexaSession();
+      await sendCode({ email: normalizedEmail });
+      setStep('otp');
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível enviar o código de confirmação.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function confirmEmailAndCreateAccount() {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedCpf = digits(cpf);
     const normalizedPhone = digits(phone);
 
     setError('');
-    if (fullName.trim().length < 3) {
-      setError('Informe seu nome completo.');
-      return;
-    }
-    if (!normalizedEmail.includes('@')) {
-      setError('Informe um e-mail válido.');
-      return;
-    }
-    if (normalizedCpf.length !== 11) {
-      setError('Informe um CPF com 11 números.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('A senha precisa ter pelo menos 6 caracteres.');
+    if (code.trim().length < 4) {
+      setError('Informe o código enviado ao seu e-mail.');
       return;
     }
 
     setLoading(true);
     try {
-      if (privy.user && privy.logout) await privy.logout();
-      await clearNexaSession();
+      // O cadastro financeiro só é criado depois que o e-mail foi validado na
+      // Privy. Assim uma falha de OTP não deixa um usuário incompleto no banco.
+      await loginWithCode({ email: normalizedEmail, code: code.trim() });
 
       const response = await nexaApi.register({
         fullName: fullName.trim(),
@@ -67,36 +90,13 @@ export default function SignUpScreen() {
         email: normalizedEmail,
       });
 
-      await sendCode({ email: normalizedEmail });
-      setStep('otp');
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Não foi possível criar sua conta.',
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function confirmEmail() {
-    const normalizedEmail = email.trim().toLowerCase();
-    setError('');
-    if (code.trim().length < 4) {
-      setError('Informe o código enviado ao seu e-mail.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await loginWithCode({ email: normalizedEmail, code: code.trim() });
       router.replace('/onboarding-wallet');
     } catch (caught) {
+      await clearNexaSession();
       setError(
         caught instanceof Error
           ? caught.message
-          : 'O código não pôde ser validado.',
+          : 'Não foi possível concluir seu cadastro.',
       );
     } finally {
       setLoading(false);
@@ -156,7 +156,11 @@ export default function SignUpScreen() {
             autoComplete="new-password"
             placeholder="Mínimo de 6 caracteres"
           />
-          <ActionButton label="Criar conta" loading={loading} onPress={createAccount} />
+          <ActionButton
+            label="Continuar"
+            loading={loading}
+            onPress={requestEmailCode}
+          />
           <ActionButton
             label="Já tenho conta"
             variant="secondary"
@@ -175,12 +179,20 @@ export default function SignUpScreen() {
             maxLength={8}
             placeholder="000000"
           />
-          <ActionButton label="Confirmar" loading={loading} onPress={confirmEmail} />
           <ActionButton
-            label="Entrar depois"
+            label="Criar conta"
+            loading={loading}
+            onPress={confirmEmailAndCreateAccount}
+          />
+          <ActionButton
+            label="Voltar"
             variant="secondary"
             disabled={loading}
-            onPress={() => router.replace('/sign-in')}
+            onPress={() => {
+              setCode('');
+              setError('');
+              setStep('form');
+            }}
           />
         </>
       )}
