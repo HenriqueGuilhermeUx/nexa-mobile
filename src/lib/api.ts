@@ -131,7 +131,7 @@ export const nexaApi = {
 
   createEntryOrder(
     accessToken: string,
-    data: { amountBrl: number; clientRequestId: string; plan?: 'FREE' | 'PRO' },
+    data: { grossBrl: number; clientRequestId: string },
   ) {
     return request<any>('/direct-settlement/orders/entry', {
       method: 'POST',
@@ -142,7 +142,7 @@ export const nexaApi = {
 
   createExitOrder(
     accessToken: string,
-    data: { amountUsdc: number; clientRequestId: string; plan?: 'FREE' | 'PRO' },
+    data: { amountUsdc: number; clientRequestId: string },
   ) {
     return request<any>('/direct-settlement/orders/exit', {
       method: 'POST',
