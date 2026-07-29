@@ -151,6 +151,27 @@ export const nexaApi = {
     });
   },
 
+  requestPixRedemption(
+    accessToken: string,
+    data: { amountUsdc: number; pixKey: string },
+  ) {
+    return request<any>('/payment/pix/redemption', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(data),
+    });
+  },
+
+  listPayments(accessToken: string) {
+    return request<any>('/payment/user', { accessToken });
+  },
+
+  paymentStatus(accessToken: string, paymentId: string) {
+    return request<any>(`/payment/status/${encodeURIComponent(paymentId)}`, {
+      accessToken,
+    });
+  },
+
   joinEarlyAccess(data: Record<string, unknown>) {
     return request<any>('/early-access/join', {
       method: 'POST',
