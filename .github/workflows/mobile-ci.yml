@@ -1,6 +1,10 @@
 name: Nexa Mobile CI
 
 on:
+  push:
+    branches:
+      - feat/profit-safe-redemption-v31
+      - main
   pull_request:
     branches:
       - main
@@ -8,6 +12,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: nexa-mobile-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
