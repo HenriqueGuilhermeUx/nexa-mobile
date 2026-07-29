@@ -130,10 +130,20 @@ export default function WalletOnboardingScreen() {
         privyWalletId,
         walletAddress: wallet.address,
       });
-      await nexaApi.auditWallet(session.accessToken);
+
+      const walletLinkSucceeded = true;
+      try {
+        await nexaApi.auditWallet(session.accessToken);
+      } catch (auditError) {
+        console.warn(
+          'A carteira foi vinculada, mas a auditoria complementar ficou pendente.',
+          auditError instanceof Error ? auditError.message : auditError,
+        );
+      }
+
       const updated = await nexaApi.directProfile(session.accessToken);
       setProfile(valueFromProfile(updated));
-      router.replace('/(app)');
+      if (walletLinkSucceeded) router.replace('/(app)');
     } catch (caught) {
       setError(
         caught instanceof Error
