@@ -1,0 +1,101 @@
+name: EAS Native Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Plataforma nativa
+        required: true
+        default: android
+        type: choice
+        options:
+          - android
+          - ios
+          - all
+      profile:
+        description: Perfil definido em eas.json
+        required: true
+        default: preview
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+      confirm_production:
+        description: Confirme explicitamente para permitir profile=production
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eas-native-build-${{ inputs.platform }}-${{ inputs.profile }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Trigger ${{ inputs.profile }} build for ${{ inputs.platform }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Validate production confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.profile }}" = "production" ] && [ "${{ inputs.confirm_production }}" != "true" ]; then
+            echo "Production build blocked: confirm_production must be true."
+            exit 1
+          fi
+
+      - name: Validate Expo authentication secret
+        shell: bash
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EXPO_TOKEN is not configured in GitHub Actions secrets."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate source before native build
+        run: |
+          node scripts/validate-mobile-safety.js
+          npm run typecheck
+          npx expo-doctor
+
+      - name: Trigger EAS Build
+        env:
+          CI: 'true'
+        run: >-
+          eas build
+          --platform ${{ inputs.platform }}
+          --profile ${{ inputs.profile }}
+          --non-interactive
+          --no-wait
+
+      - name: Deployment boundary
+        run: |
+          echo "The build was only submitted to EAS."
+          echo "This workflow does not submit binaries to Google Play or App Store Connect."
