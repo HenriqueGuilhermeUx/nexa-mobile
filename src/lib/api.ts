@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { config } from '@/config';
 
 interface ApiOptions extends RequestInit {
@@ -31,6 +33,10 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   if (options.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+
+  headers.set('X-Nexa-App-Version', config.appVersion);
+  headers.set('X-Nexa-Platform', Platform.OS);
+
   if (options.accessToken) {
     headers.set('Authorization', `Bearer ${options.accessToken}`);
   }
@@ -73,6 +79,14 @@ export interface LoginResponse {
   };
 }
 
+export interface RegistrationData {
+  fullName: string;
+  email: string;
+  cpf: string;
+  phone?: string;
+  password: string;
+}
+
 export interface PixRedemption {
   id: string;
   userId: string;
@@ -107,11 +121,18 @@ export function tokensFromLogin(response: LoginResponse) {
     response.refresh_token ||
     response.tokens?.refreshToken ||
     null;
-  if (!accessToken) throw new Error('O login Nexa não retornou uma sessão válida.');
+  if (!accessToken) throw new Error('A Nexa não retornou uma sessão válida.');
   return { accessToken, refreshToken };
 }
 
 export const nexaApi = {
+  register(data: RegistrationData) {
+    return request<LoginResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
   login(email: string, password: string) {
     return request<LoginResponse>('/auth/login', {
       method: 'POST',
@@ -192,13 +213,6 @@ export const nexaApi = {
     return request<any>('/payment/pix/redemption', {
       method: 'POST',
       accessToken,
-      body: JSON.stringify(data),
-    });
-  },
-
-  joinEarlyAccess(data: Record<string, unknown>) {
-    return request<any>('/early-access/join', {
-      method: 'POST',
       body: JSON.stringify(data),
     });
   },
