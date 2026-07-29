@@ -1,0 +1,35 @@
+name: Nexa Mobile CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.0'
+          cache: npm
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate dependency tree
+        run: npm ls --depth=0
+      - name: Validate mobile safety contracts
+        run: node scripts/validate-mobile-safety.js
+      - name: Validate TypeScript
+        run: npm run typecheck
+      - name: Validate Expo project
+        run: npx expo-doctor
+      - name: Export Android JavaScript bundle
+        env:
+          CI: 'true'
+        run: npm run export:android
