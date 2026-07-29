@@ -22,6 +22,7 @@ const onboarding = read('app/onboarding-wallet.tsx');
 const home = read('app/(app)/index.tsx');
 const newOrder = read('app/(app)/new-order.tsx');
 const activity = read('app/(app)/activity.tsx');
+const legacyPixApp = read('nexa-mobile/nexa-mobile/App.js');
 const entrypoint = read('entrypoint.js');
 const metro = read('metro.config.js');
 const readme = read('README.md');
@@ -29,10 +30,10 @@ const readme = read('README.md');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.equal(appConfig.expo.version, '2.0.1');
-assert.equal(packageJson.version, '2.0.1');
-assert.equal(appConfig.expo.android.versionCode, 31);
-assert.equal(appConfig.expo.ios.buildNumber, '31');
+assert.equal(appConfig.expo.version, '2.0.2');
+assert.equal(packageJson.version, '2.0.2');
+assert.equal(appConfig.expo.android.versionCode, 32);
+assert.equal(appConfig.expo.ios.buildNumber, '32');
 assert.equal(
   appConfig.expo.extra.eas.projectId,
   'b3faabec-283a-4ba2-88b5-f096304e68aa',
@@ -99,6 +100,9 @@ assert.match(onboarding, /wallets\.find/);
 assert.doesNotMatch(onboarding, /wallets\[0\]/);
 assert.match(onboarding, /getAccessToken/);
 assert.match(onboarding, /auditWallet/);
+assert.match(onboarding, /walletLinkSucceeded/);
+assert.match(onboarding, /catch \(auditError\)/);
+assert.match(onboarding, /router\.replace\('\/\(app\)'\)/);
 assert.match(onboarding, /wallet\?\.linked/);
 assert.match(onboarding, /includes\('legacy'\)/);
 assert.doesNotMatch(onboarding, /console\.log.*Token/i);
@@ -113,6 +117,8 @@ assert.doesNotMatch(home, /Mock|mock balance|842\.30/i);
 assert.match(newOrder, /requestPixRedemption/);
 assert.match(newOrder, /amountUsdc: parsed/);
 assert.match(newOrder, /pixKey: pixKey\.trim\(\)/);
+assert.match(newOrder, /lastIndexOf\(','\)/);
+assert.match(newOrder, /lastIndexOf\('\.'\)/);
 assert.match(newOrder, /ESTIMATIVA — NÃO GARANTIDA/);
 assert.match(newOrder, /BRL líquido realmente recebido na venda/);
 assert.match(newOrder, /fee Nexa de 1,5%/);
@@ -121,6 +127,14 @@ assert.match(newOrder, /grossBrl: parsed/);
 assert.match(newOrder, /fundsMoved/);
 assert.doesNotMatch(newOrder, /requestPixRedemption[\s\S]{0,600}amountBrl/);
 assert.doesNotMatch(newOrder, /cliente recebe exatamente a estimativa/i);
+
+assert.match(legacyPixApp, /function formatInputAmount\(value\)/);
+assert.match(
+  legacyPixApp,
+  /setValorUsdc\(formatInputAmount\(saldo\.USDC\)\)/,
+);
+assert.match(legacyPixApp, /lastIndexOf\(','\)/);
+assert.match(legacyPixApp, /lastIndexOf\('\.'\)/);
 
 assert.match(activity, /listPixRedemptions/);
 assert.match(activity, /BRL líquido da venda/);
@@ -147,5 +161,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.1 validated: mobile Privy client, splash asset, legacy USDC redemption, actual-sale history, direct safe mode, versionCode 31 and no secrets passed.',
+  'Nexa mobile 2.0.2 validated: decimal-safe USDC inputs, non-blocking Privy audit, versionCode 32, legacy redemption safety and no secrets passed.',
 );
