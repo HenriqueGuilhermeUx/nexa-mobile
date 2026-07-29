@@ -4,23 +4,38 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - release/android-2.0.1-v31-artifact
       - main
     paths:
       - .github/workflows/build-android-2.0.1.yml
       - .github/build-triggers/android-2.0.1.txt
+      - app.json
+      - eas.json
+      - package.json
+      - app/**
+      - src/**
+      - scripts/validate-mobile-safety.js
+      - scripts/validate-release-assets.js
   pull_request:
     branches:
       - main
     paths:
       - .github/workflows/build-android-2.0.1.yml
       - .github/build-triggers/android-2.0.1.txt
+      - app.json
+      - eas.json
+      - package.json
+      - app/**
+      - src/**
+      - scripts/validate-mobile-safety.js
+      - scripts/validate-release-assets.js
 
 permissions:
   contents: read
 
 concurrency:
-  group: nexa-android-production-2.0.1-v31-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: nexa-android-production-2.0.1-v31-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-android:
@@ -73,25 +88,37 @@ jobs:
           node <<'NODE'
           const fs = require('node:fs');
           const app = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
           const expected = {
             version: '2.0.1',
             versionCode: 31,
+            iosBuildNumber: '31',
             package: 'br.com.trynexa.app',
+            appId: 'cmpen2gm3007v0cjswjlyefji',
+            mobileClientId: 'client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3',
           };
           const failures = [];
           if (app.version !== expected.version) failures.push(`version=${app.version}`);
+          if (pkg.version !== expected.version) failures.push(`packageVersion=${pkg.version}`);
           if (Number(app.android?.versionCode) !== expected.versionCode) failures.push(`versionCode=${app.android?.versionCode}`);
+          if (String(app.ios?.buildNumber) !== expected.iosBuildNumber) failures.push(`iosBuildNumber=${app.ios?.buildNumber}`);
           if (app.android?.package !== expected.package) failures.push(`package=${app.android?.package}`);
+          if (app.ios?.bundleIdentifier !== expected.package) failures.push(`bundleIdentifier=${app.ios?.bundleIdentifier}`);
+          if (app.extra?.privyAppId !== expected.appId) failures.push(`privyAppId=${app.extra?.privyAppId}`);
+          if (app.extra?.privyClientId !== expected.mobileClientId) failures.push(`privyClientId=${app.extra?.privyClientId}`);
           if (app.extra?.financialExecutionEnabled !== false) failures.push('financialExecutionEnabled must be false');
+          if (app.extra?.releaseChannel !== 'profit-safe-redemption') failures.push(`releaseChannel=${app.extra?.releaseChannel}`);
           if (eas.cli?.appVersionSource !== 'local') failures.push(`appVersionSource=${eas.cli?.appVersionSource}`);
           if (eas.build?.production?.autoIncrement !== false) failures.push(`autoIncrement=${eas.build?.production?.autoIncrement}`);
           if (eas.build?.production?.android?.buildType !== 'app-bundle') failures.push(`buildType=${eas.build?.production?.android?.buildType}`);
+          const splash = app.plugins.find((plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen');
+          if (!splash?.[1]?.image) failures.push('splash image missing');
           if (failures.length) {
             console.error('Release configuration mismatch:', failures.join(', '));
             process.exit(1);
           }
-          console.log(JSON.stringify({ ok: true, ...expected }, null, 2));
+          console.log(JSON.stringify({ ok: true, ...expected, splashImage: splash[1].image }, null, 2));
           NODE
 
       - name: Export Android JavaScript bundle
@@ -153,7 +180,10 @@ jobs:
             echo 'package=br.com.trynexa.app'
             echo 'versionName=2.0.1'
             echo 'versionCode=31'
+            echo 'privyPlatformClient=mobile'
             echo 'financialExecutionEnabled=false'
+            echo 'legacyRedemption=usdc_request_then_actual_sale_then_pix'
+            echo 'redemptionRule=actual_sale_net_minus_nexa_fee_and_pix_out'
             echo "sourceCommit=$GITHUB_SHA"
           } > aab-version-verification.txt
           cat aab-version-verification.txt
@@ -168,13 +198,16 @@ jobs:
             version: '2.0.1',
             androidVersionCode: 31,
             package: 'br.com.trynexa.app',
-            releaseChannel: 'primeiros-nexa',
+            privyPlatformClient: 'mobile',
+            releaseChannel: 'profit-safe-redemption',
             profile: 'production',
             buildMode: 'eas-local-on-github-actions',
             binaryManifestVerified: true,
+            legacyRedemption: 'usdc_request_then_actual_sale_then_pix',
             actualSaleRedemptionHistory: true,
             gitCommit: process.env.GITHUB_SHA,
             financialExecutionEnabled: false,
+            redemptionRule: 'actual_sale_net_minus_nexa_fee_and_pix_out',
             createdAt: new Date().toISOString(),
           }, null, 2) + '\n');
           NODE
