@@ -1,0 +1,48 @@
+{
+  "name": "nexa-mobile",
+  "version": "2.0.0",
+  "private": true,
+  "main": "entrypoint.js",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "doctor": "expo-doctor",
+    "export:android": "expo export --platform android --output-dir dist-ci"
+  },
+  "dependencies": {
+    "@ethersproject/shims": "^5.8.0",
+    "@privy-io/expo": "0.70.4",
+    "@privy-io/expo-native-extensions": "0.0.12",
+    "expo": "~56.0.17",
+    "expo-apple-authentication": "~56.0.4",
+    "expo-application": "~56.0.3",
+    "expo-constants": "~56.0.22",
+    "expo-crypto": "~56.0.4",
+    "expo-dev-client": "~56.0.24",
+    "expo-linking": "~56.0.16",
+    "expo-router": "~56.2.16",
+    "expo-secure-store": "~56.0.4",
+    "expo-splash-screen": "~56.0.14",
+    "expo-status-bar": "~56.0.4",
+    "expo-system-ui": "~56.0.5",
+    "expo-web-browser": "~56.0.6",
+    "fast-text-encoding": "^1.0.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-get-random-values": "^1.11.0",
+    "react-native-passkeys": "^0.4.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0",
+    "react-native-webview": "13.16.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~19.2.2",
+    "babel-preset-expo": "~56.0.6",
+    "typescript": "~6.0.3"
+  }
+}
