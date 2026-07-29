@@ -4,8 +4,18 @@ import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton, Brand, Paragraph, Screen, Title } from '@/components/ui';
+import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, spacing } from '@/theme';
+
+function profileFrom(response: any) {
+  return response?.profile || response || {};
+}
+
+function isLegacyProfile(profile: any) {
+  const value = String(profile?.settlementProfile || '').toLowerCase();
+  return profile?.isLegacyBeta === true || value.includes('legacy');
+}
 
 export default function WelcomeScreen() {
   const privy = usePrivy() as any;
@@ -15,14 +25,35 @@ export default function WelcomeScreen() {
     let mounted = true;
     async function resolveSession() {
       if (!privy.isReady) return;
+
       const session = await loadNexaSession();
       if (!mounted) return;
-      if (session && privy.user) {
-        router.replace('/onboarding-wallet');
+      if (!session) {
+        setChecking(false);
         return;
       }
-      setChecking(false);
+
+      try {
+        const response = await nexaApi.directProfile(session.accessToken);
+        if (!mounted) return;
+        const profile = profileFrom(response);
+
+        if (isLegacyProfile(profile) || profile?.wallet?.linked === true) {
+          router.replace('/(app)');
+          return;
+        }
+
+        if (privy.user) {
+          router.replace('/onboarding-wallet');
+          return;
+        }
+
+        router.replace('/sign-in');
+      } catch {
+        if (mounted) setChecking(false);
+      }
     }
+
     void resolveSession();
     return () => {
       mounted = false;
