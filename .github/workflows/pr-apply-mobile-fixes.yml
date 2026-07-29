@@ -22,16 +22,7 @@ jobs:
           node-version: '20'
       - name: Apply branch patch
         run: |
-          python <<'PY'
-          from pathlib import Path
-          source = Path('.github/workflows/apply-decimal-privy-fixes.yml').read_text()
-          start = source.index('      - name: Patch mobile sources\n')
-          run = source.index('        run: |\n', start) + len('        run: |\n')
-          end = source.index('\n      - name: Validate source patch', run)
-          lines = source[run:end].splitlines()
-          Path('/tmp/apply.sh').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
-          PY
-          bash /tmp/apply.sh
+          node scripts/apply-decimal-privy-fixes.js
           node scripts/validate-decimal-and-privy-onboarding.js
       - name: Commit source changes
         run: |
