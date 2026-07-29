@@ -49,9 +49,9 @@ export default function WalletOnboardingScreen() {
         if (!mounted) return;
         const profile = valueFromProfile(response);
 
-        // Usuários antigos permanecem no app normal, sem criação ou login Privy.
+        // Usuários antigos permanecem na experiência completa já existente.
         if (isLegacyProfile(profile)) {
-          router.replace('/(app)');
+          router.replace('/legacy' as any);
           return;
         }
 
