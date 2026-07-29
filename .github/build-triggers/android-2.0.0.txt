@@ -1,0 +1,5 @@
+Nexa Android 2.0.0
+versionCode=30
+package=br.com.trynexa.app
+financialExecutionEnabled=false
+strategy=primeiros-nexa
