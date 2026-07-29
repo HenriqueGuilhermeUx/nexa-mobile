@@ -43,9 +43,9 @@
     "extra": {
       "apiUrl": "https://nexa-backend-p2u0.onrender.com/api/v1",
       "privyAppId": "cmpen2gm3007v0cjswjlyefji",
-      "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcSgXg6CWaMyT",
+      "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3",
       "financialExecutionEnabled": false,
-      "releaseChannel": "primeiros-nexa",
+      "releaseChannel": "profit-safe-redemption",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       }

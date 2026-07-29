@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -22,11 +22,31 @@ function profileFrom(response: any) {
   return response?.profile || response || {};
 }
 
+function isLegacyProfile(profile: any) {
+  const value = String(profile?.settlementProfile || '').toLowerCase();
+  return profile?.isLegacyBeta === true || value.includes('legacy');
+}
+
+function formatBrl(value: unknown) {
+  return Number(value || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
+function formatUsdc(value: unknown) {
+  return `${Number(value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  })} USDC`;
+}
+
 export default function HomeScreen() {
   const privy = usePrivy() as any;
   const [me, setMe] = useState<any>({});
   const [profile, setProfile] = useState<any>({});
   const [orders, setOrders] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -41,14 +61,17 @@ export default function HomeScreen() {
         router.replace('/sign-in');
         return;
       }
-      const [meResponse, profileResponse, ordersResponse] = await Promise.all([
-        nexaApi.me(session.accessToken),
-        nexaApi.directProfile(session.accessToken),
-        nexaApi.listOrders(session.accessToken),
-      ]);
+      const [meResponse, profileResponse, ordersResponse, paymentsResponse] =
+        await Promise.all([
+          nexaApi.me(session.accessToken),
+          nexaApi.directProfile(session.accessToken),
+          nexaApi.listOrders(session.accessToken),
+          nexaApi.listPixRedemptions(session.accessToken),
+        ]);
       setMe(meResponse?.user || meResponse || {});
       setProfile(profileFrom(profileResponse));
       setOrders(ordersResponse?.orders || []);
+      setPayments(Array.isArray(paymentsResponse) ? paymentsResponse : []);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Falha ao carregar a conta.');
     } finally {
@@ -67,11 +90,53 @@ export default function HomeScreen() {
     router.replace('/');
   }
 
+  const legacy = isLegacyProfile(profile);
   const executionEnabled = profile.executable === true;
   const directReady = profile.directSettlementReady === true;
-  const settlementProfile = String(profile.settlementProfile || 'direct');
   const walletAddress = profile.wallet?.address || me.walletAddress || null;
   const walletLinked = profile.wallet?.linked === true || Boolean(walletAddress);
+  const legacyBalance = Number(me.availableBalanceUsdc || 0);
+
+  const latest = useMemo(
+    () =>
+      [
+        ...payments.map((payment) => ({
+          id: `payment-${payment.id}`,
+          title: 'RESGATE PIX',
+          createdAt: payment.createdAt,
+          amount: formatUsdc(payment.amountUsdc),
+          status:
+            String(payment.status).toLowerCase() === 'completed'
+              ? `Pix enviado: ${formatBrl(
+                  payment.settledAmountBrl ?? payment.amountBrl,
+                )}`
+              : Number(payment.settledAmountBrl || 0) > 0
+                ? `Valor final: ${formatBrl(payment.settledAmountBrl)}`
+                : `Estimativa: ${formatBrl(
+                    payment.estimatedAmountBrl ?? payment.amountBrl,
+                  )}`,
+        })),
+        ...orders.map((order) => ({
+          id: `order-${order.id}`,
+          title: String(order.type || 'solicitação').toUpperCase(),
+          createdAt: order.createdAt,
+          amount: order.grossBrl
+            ? formatBrl(order.grossBrl)
+            : formatUsdc(order.amountUsdc),
+          status:
+            order.executionEnabled === true
+              ? String(order.status || 'em processamento')
+              : 'Solicitação registrada',
+        })),
+      ]
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        )
+        .slice(0, 3),
+    [orders, payments],
+  );
 
   return (
     <Screen
@@ -85,34 +150,47 @@ export default function HomeScreen() {
     >
       <View style={styles.topRow}>
         <Brand />
-        <Badge tone={executionEnabled ? 'success' : 'warning'}>
-          {executionEnabled ? 'OPERAÇÃO LIBERADA' : 'MODO SEGURO'}
+        <Badge tone={legacy || executionEnabled ? 'success' : 'warning'}>
+          {legacy
+            ? 'CONTA NEXA'
+            : executionEnabled
+              ? 'OPERAÇÃO LIBERADA'
+              : 'ABERTURA GRADUAL'}
         </Badge>
       </View>
 
       <Eyebrow>Olá, {me.fullName?.split(' ')[0] || 'Nexa'}</Eyebrow>
       <Title>Seu acesso aos ativos digitais.</Title>
       <Paragraph>
-        A conta mostra apenas informações registradas pela API e pela carteira.
-        Nenhum saldo é criado por estimativa no aplicativo.
+        A conta mostra apenas informações registradas pela API, pelo ledger ou
+        pela carteira. Estimativas nunca são apresentadas como dinheiro
+        liquidado.
       </Paragraph>
 
       <Card style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Saldo USDC na carteira</Text>
-        <Text style={styles.balanceValue}>Aguardando leitura on-chain</Text>
+        <Text style={styles.balanceLabel}>
+          {legacy ? 'Saldo USDC disponível' : 'Saldo USDC na carteira'}
+        </Text>
+        <Text style={styles.balanceValue}>
+          {legacy ? formatUsdc(legacyBalance) : 'Aguardando leitura on-chain'}
+        </Text>
         <Text style={styles.balanceExplanation}>
-          O app não substitui a leitura da blockchain por um saldo interno.
+          {legacy
+            ? 'Saldo oficial preservado no ledger da sua conta existente.'
+            : 'O app não substitui a leitura da blockchain por um saldo interno.'}
         </Text>
         <Text style={styles.walletText} numberOfLines={1}>
-          {walletAddress || 'Carteira ainda não vinculada'}
+          {legacy
+            ? 'Conta existente preservada sem migração automática'
+            : walletAddress || 'Carteira ainda não vinculada'}
         </Text>
       </Card>
 
       <View style={styles.actionGrid}>
         <View style={styles.actionItem}>
           <ActionButton
-            label="Nova operação"
-            disabled={!walletLinked || profile.isLegacyBeta === true}
+            label={legacy ? 'Resgatar USDC' : 'Nova solicitação'}
+            disabled={!legacy && !walletLinked}
             onPress={() => router.push('/(app)/new-order')}
           />
         </View>
@@ -127,25 +205,32 @@ export default function HomeScreen() {
 
       <Card>
         <Text style={styles.sectionTitle}>Status da conta</Text>
-        <KeyValue label="Perfil" value={settlementProfile} />
         <KeyValue
-          label="Carteira vinculada"
+          label="Modelo"
+          value={legacy ? 'Conta Nexa existente' : 'Carteira individual'}
+        />
+        <KeyValue
+          label={legacy ? 'Histórico' : 'Carteira vinculada'}
           valueNode={
-            <Badge tone={walletLinked ? 'success' : 'warning'}>
-              {walletLinked ? 'Sim' : 'Pendente'}
+            <Badge tone={legacy || walletLinked ? 'success' : 'warning'}>
+              {legacy ? 'Preservado' : walletLinked ? 'Sim' : 'Pendente'}
             </Badge>
           }
         />
         <KeyValue
-          label="Prontidão direta"
+          label="Operação disponível"
           valueNode={
-            <Badge tone={directReady ? 'success' : 'warning'}>
-              {directReady ? 'Validada' : 'Aguardando auditoria completa'}
+            <Badge tone={legacy || directReady ? 'success' : 'warning'}>
+              {legacy
+                ? 'Resgate conciliado'
+                : directReady
+                  ? 'Carteira validada'
+                  : 'Aguardando homologação'}
             </Badge>
           }
         />
         <KeyValue
-          label="Movimentação financeira"
+          label="Movimentação automática"
           valueNode={
             <Badge tone={executionEnabled ? 'success' : 'warning'}>
               {executionEnabled ? 'Liberada' : 'Desativada'}
@@ -156,38 +241,27 @@ export default function HomeScreen() {
 
       <Card>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Últimas intenções</Text>
-          <Text style={styles.sectionCount}>{orders.length}</Text>
+          <Text style={styles.sectionTitle}>Atividade recente</Text>
+          <Text style={styles.sectionCount}>{orders.length + payments.length}</Text>
         </View>
-        {orders.slice(0, 3).map((order) => (
-          <View key={order.id} style={styles.orderRow}>
-            <View>
-              <Text style={styles.orderTitle}>
-                {String(order.type || 'ordem').toUpperCase()}
-              </Text>
+        {latest.map((item) => (
+          <View key={item.id} style={styles.orderRow}>
+            <View style={styles.orderLeft}>
+              <Text style={styles.orderTitle}>{item.title}</Text>
               <Text style={styles.orderDate}>
-                {order.createdAt
-                  ? new Date(order.createdAt).toLocaleString('pt-BR')
+                {item.createdAt
+                  ? new Date(item.createdAt).toLocaleString('pt-BR')
                   : '—'}
               </Text>
             </View>
             <View style={styles.orderRight}>
-              <Text style={styles.orderAmount}>
-                {order.grossBrl
-                  ? Number(order.grossBrl).toLocaleString('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    })
-                  : `${Number(order.amountUsdc || 0).toLocaleString('pt-BR', {
-                      maximumFractionDigits: 8,
-                    })} USDC`}
-              </Text>
-              <Text style={styles.orderStatus}>{order.status || 'criada'}</Text>
+              <Text style={styles.orderAmount}>{item.amount}</Text>
+              <Text style={styles.orderStatus}>{item.status}</Text>
             </View>
           </View>
         ))}
-        {!orders.length ? (
-          <Text style={styles.empty}>Nenhuma intenção registrada.</Text>
+        {!latest.length ? (
+          <Text style={styles.empty}>Nenhuma atividade registrada.</Text>
         ) : null}
       </Card>
 
@@ -228,11 +302,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingVertical: spacing.md,
   },
+  orderLeft: { flex: 1 },
   orderTitle: { color: colors.text, fontWeight: '900' },
   orderDate: { color: colors.muted, fontSize: 11, marginTop: 4 },
-  orderRight: { alignItems: 'flex-end', flexShrink: 1 },
+  orderRight: { alignItems: 'flex-end', flex: 1 },
   orderAmount: { color: colors.text, fontWeight: '800' },
-  orderStatus: { color: colors.warning, fontSize: 11, marginTop: 4 },
+  orderStatus: {
+    color: colors.warning,
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: 'right',
+  },
   empty: { color: colors.muted, marginTop: spacing.md },
   error: {
     color: colors.danger,
