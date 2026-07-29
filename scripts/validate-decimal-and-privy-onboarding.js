@@ -8,6 +8,7 @@ function read(path) {
 const legacyRoot = read('App.js');
 const legacyNested = read('nexa-mobile/nexa-mobile/App.js');
 const newOrder = read('app/(app)/new-order.tsx');
+const signIn = read('app/sign-in.tsx');
 const onboarding = read('app/onboarding-wallet.tsx');
 
 for (const [label, source] of [
@@ -38,11 +39,22 @@ assert.match(
 );
 assert.match(newOrder, /lastIndexOf\(','\)/);
 assert.match(newOrder, /lastIndexOf\('\.'\)/);
-assert.match(onboarding, /walletLinkSucceeded/);
+
+assert.match(signIn, /isLegacyProfile/);
+assert.ok(
+  signIn.indexOf('isLegacyProfile(profile)') < signIn.indexOf('await sendCode'),
+  'legacy users must enter before any Privy OTP requirement',
+);
+assert.match(onboarding, /Criar carteira e continuar/);
+assert.match(onboarding, /linkWhenReady/);
 assert.match(onboarding, /auditWallet/);
-assert.match(onboarding, /catch \(auditError\)/);
+assert.match(onboarding, /\.catch\(\(\) => undefined\)/);
 assert.match(onboarding, /router\.replace\('\/\(app\)'\)/);
+assert.doesNotMatch(
+  onboarding,
+  /Proteções desta etapa|custódia pendente|auditoria complementar ficou pendente/i,
+);
 
 console.log(
-  'Decimal inputs, total-balance formatting and non-blocking Privy audit validated.',
+  'Decimal inputs, total-balance formatting, legacy access and one-step non-blocking Privy onboarding validated.',
 );
