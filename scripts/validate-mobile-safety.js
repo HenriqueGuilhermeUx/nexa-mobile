@@ -29,16 +29,38 @@ const readme = read('README.md');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.equal(appConfig.expo.version, packageJson.version);
-assert.ok(appConfig.expo.android.versionCode > 30);
+assert.equal(appConfig.expo.version, '2.0.1');
+assert.equal(packageJson.version, '2.0.1');
+assert.equal(appConfig.expo.android.versionCode, 31);
+assert.equal(appConfig.expo.ios.buildNumber, '31');
 assert.equal(
   appConfig.expo.extra.eas.projectId,
   'b3faabec-283a-4ba2-88b5-f096304e68aa',
 );
 assert.equal(appConfig.expo.extra.financialExecutionEnabled, false);
+assert.equal(appConfig.expo.extra.releaseChannel, 'profit-safe-redemption');
 assert.match(appConfig.expo.extra.apiUrl, /^https:\/\//);
-assert.match(appConfig.expo.extra.privyAppId, /^cmp/);
-assert.match(appConfig.expo.extra.privyClientId, /^client-/);
+assert.equal(appConfig.expo.extra.privyAppId, 'cmpen2gm3007v0cjswjlyefji');
+assert.equal(
+  appConfig.expo.extra.privyClientId,
+  'client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3',
+);
+assert.notEqual(
+  appConfig.expo.extra.privyClientId,
+  'client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcSgXg6CWaMyT',
+  'O app móvel não pode usar o Client ID Web.',
+);
+
+const splashPlugin = appConfig.expo.plugins.find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen',
+);
+assert.ok(splashPlugin, 'Plugin expo-splash-screen ausente.');
+const splashImage = splashPlugin[1]?.image;
+assert.ok(splashImage, 'Imagem do splash não configurada.');
+assert.ok(
+  fs.existsSync(splashImage.replace(/^\.\//, '')),
+  `Imagem do splash ausente: ${splashImage}`,
+);
 
 assert.equal(packageJson.main, 'entrypoint.js');
 assert.ok(packageJson.dependencies['@privy-io/expo']);
@@ -64,12 +86,14 @@ assert.match(api, /\/direct-settlement\/orders\/exit/);
 assert.match(api, /\/payment\/user/);
 assert.match(api, /\/payment\/status\//);
 assert.match(api, /\/payment\/pix\/redemption/);
+assert.match(api, /amountUsdc: number; pixKey: string/);
 assert.match(api, /saleProceedsBrl/);
 assert.match(api, /settledAmountBrl/);
 assert.match(api, /nexaFeeBrl/);
 assert.match(api, /pixOutFeeBrl/);
 assert.match(api, /data: \{ grossBrl: number; clientRequestId: string \}/);
 assert.doesNotMatch(api, /createEntryOrder[\s\S]{0,300}amountBrl/);
+assert.doesNotMatch(api, /requestPixRedemption[\s\S]{0,300}amountBrl/);
 
 assert.match(onboarding, /wallets\.find/);
 assert.doesNotMatch(onboarding, /wallets\[0\]/);
@@ -80,13 +104,23 @@ assert.match(onboarding, /includes\('legacy'\)/);
 assert.doesNotMatch(onboarding, /console\.log.*Token/i);
 
 assert.match(home, /Aguardando leitura on-chain/);
-assert.match(home, /profile\.wallet\?\.address/);
-assert.match(home, /profile\.executable/);
+assert.match(home, /availableBalanceUsdc/);
+assert.match(home, /Resgatar USDC/);
+assert.match(home, /Conta existente preservada sem migração automática/);
+assert.match(home, /listPixRedemptions/);
 assert.doesNotMatch(home, /Mock|mock balance|842\.30/i);
+
+assert.match(newOrder, /requestPixRedemption/);
+assert.match(newOrder, /amountUsdc: parsed/);
+assert.match(newOrder, /pixKey: pixKey\.trim\(\)/);
+assert.match(newOrder, /ESTIMATIVA — NÃO GARANTIDA/);
+assert.match(newOrder, /BRL líquido realmente recebido na venda/);
+assert.match(newOrder, /fee Nexa de 1,5%/);
 assert.match(newOrder, /Nenhum dinheiro foi movimentado/);
 assert.match(newOrder, /grossBrl: parsed/);
 assert.match(newOrder, /fundsMoved/);
-assert.doesNotMatch(newOrder, /plan,\s*\n/);
+assert.doesNotMatch(newOrder, /requestPixRedemption[\s\S]{0,600}amountBrl/);
+assert.doesNotMatch(newOrder, /cliente recebe exatamente a estimativa/i);
 
 assert.match(activity, /listPixRedemptions/);
 assert.match(activity, /BRL líquido da venda/);
@@ -113,5 +147,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile validated: secure session, Privy binding, actual-sale Pix redemption history, no mock balances and financial safe mode passed.',
+  'Nexa mobile 2.0.1 validated: mobile Privy client, splash asset, legacy USDC redemption, actual-sale history, direct safe mode, versionCode 31 and no secrets passed.',
 );
