@@ -23,12 +23,27 @@ type Result =
   | { kind: 'direct-order'; payload: any };
 
 function parseAmount(value: string) {
-  const trimmed = value.trim().replace(/R\$/gi, '').replace(/\s/g, '');
-  return Number(
-    trimmed.includes(',')
-      ? trimmed.replace(/\./g, '').replace(',', '.')
-      : trimmed,
-  );
+  const text = value.trim().replace(/R\$/gi, '').replace(/\s/g, '');
+  if (!text) return 0;
+
+  const lastComma = text.lastIndexOf(',');
+  const lastDot = text.lastIndexOf('.');
+  let normalized = text;
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimalSeparator = lastComma > lastDot ? ',' : '.';
+    const thousandsSeparator = decimalSeparator === ',' ? '.' : ',';
+    normalized = text.split(thousandsSeparator).join('');
+    if (decimalSeparator === ',') normalized = normalized.replace(',', '.');
+  } else if (lastComma >= 0) {
+    normalized = text.replace(/\./g, '').replace(',', '.');
+  } else if (lastDot >= 0) {
+    const dotCount = (text.match(/\./g) || []).length;
+    normalized = dotCount === 1 ? text : text.replace(/\.(?=.*\.)/g, '');
+  }
+
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : 0;
 }
 
 function profileFrom(response: any) {

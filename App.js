@@ -181,17 +181,41 @@ export default function App() {
   }
 
   function parseAmount(value) {
-    const text = String(value || '').trim();
-    if (!text) return 0;
-    const clean = text
+    const text = String(value || '')
+      .trim()
       .replace(/\s/g, '')
       .replace(/R\$/gi, '')
-      .replace(/USDC/gi, '')
-      .replace(/\./g, '')
-      .replace(',', '.');
-    const number = Number(clean);
-    if (!Number.isFinite(number)) return 0;
-    return number;
+      .replace(/USDC/gi, '');
+    if (!text) return 0;
+
+    const lastComma = text.lastIndexOf(',');
+    const lastDot = text.lastIndexOf('.');
+    let normalized = text;
+
+    if (lastComma >= 0 && lastDot >= 0) {
+      const decimalSeparator = lastComma > lastDot ? ',' : '.';
+      const thousandsSeparator = decimalSeparator === ',' ? '.' : ',';
+      normalized = text.split(thousandsSeparator).join('');
+      if (decimalSeparator === ',') normalized = normalized.replace(',', '.');
+    } else if (lastComma >= 0) {
+      normalized = text.replace(/\./g, '').replace(',', '.');
+    } else if (lastDot >= 0) {
+      const dotCount = (text.match(/\./g) || []).length;
+      normalized = dotCount === 1 ? text : text.replace(/\.(?=.*\.)/g, '');
+    }
+
+    const number = Number(normalized);
+    return Number.isFinite(number) ? number : 0;
+  }
+
+  function formatInputAmount(value) {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return '';
+    return number
+      .toFixed(8)
+      .replace(/0+$/, '')
+      .replace(/\.$/, '')
+      .replace('.', ',');
   }
 
   function getUsername() {
@@ -782,6 +806,18 @@ export default function App() {
   }
 
   async function cadastrar() {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const duplicatedProviderDomain = /@((?:gmail|hotmail|outlook|yahoo|icloud)\.com)\1$/i.test(
+      normalizedEmail,
+    );
+    const duplicatedCom = /\.com\.com$/i.test(normalizedEmail);
+    const basicEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(
+      normalizedEmail,
+    );
+    if (!basicEmailValid || duplicatedProviderDomain || duplicatedCom) {
+      show('Confira o e-mail. Ele parece digitado incorretamente.');
+      return;
+    }
     if (!email || !password || !fullName || !cpf || !phone) {
       show('Preencha todos os campos do cadastro');
       return;
@@ -790,7 +826,7 @@ export default function App() {
       const response = await fetch(API + '/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, cpf, fullName, phone }),
+        body: JSON.stringify({ email: normalizedEmail, password, cpf, fullName, phone }),
       });
       const data = await response.json();
       if (data.accessToken) {
