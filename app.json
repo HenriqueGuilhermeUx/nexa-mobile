@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Nexa",
+    "slug": "nexa-mobile",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "scheme": "nexa",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "br.com.trynexa.app",
+      "buildNumber": "2.0.0",
+      "usesAppleSignIn": true
+    },
+    "android": {
+      "package": "br.com.trynexa.app",
+      "versionCode": 26,
+      "permissions": []
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "https://nexa-backend-p2u0.onrender.com/api/v1",
+      "privyAppId": "cmpen2gm3007v0cjswjlyefji",
+      "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcSgXg6CWaMyT",
+      "financialExecutionEnabled": false,
+      "releaseChannel": "primeiros-nexa"
+    }
+  }
+}
