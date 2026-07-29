@@ -7,8 +7,8 @@ import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
 function formatAmount(order: any) {
-  if (order.amountBrl !== undefined && order.amountBrl !== null) {
-    return Number(order.amountBrl).toLocaleString('pt-BR', {
+  if (order.grossBrl !== undefined && order.grossBrl !== null) {
+    return Number(order.grossBrl).toLocaleString('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     });
@@ -46,8 +46,15 @@ export default function ActivityScreen() {
   }, []);
 
   return (
-    <Screen>
-      <RefreshControl refreshing={loading} onRefresh={load} />
+    <Screen
+      refreshControl={
+        <RefreshControl
+          refreshing={loading}
+          onRefresh={load}
+          tintColor={colors.primary}
+        />
+      }
+    >
       <Eyebrow>Histórico auditável</Eyebrow>
       <Title>Atividade da sua conta.</Title>
       <Paragraph>
@@ -56,13 +63,13 @@ export default function ActivityScreen() {
       </Paragraph>
 
       {orders.map((order) => {
-        const fundsMoved = order.fundsMoved === true;
+        const executionEnabled = order.executionEnabled === true;
         return (
           <Card key={order.id}>
             <View style={styles.header}>
               <View style={styles.headerText}>
                 <Text style={styles.type}>
-                  {String(order.type || order.operation || 'ordem').toUpperCase()}
+                  {String(order.type || 'ordem').toUpperCase()}
                 </Text>
                 <Text style={styles.date}>
                   {order.createdAt
@@ -70,8 +77,8 @@ export default function ActivityScreen() {
                     : '—'}
                 </Text>
               </View>
-              <Badge tone={fundsMoved ? 'success' : 'warning'}>
-                {fundsMoved ? 'LIQUIDADA' : 'SEM MOVIMENTAÇÃO'}
+              <Badge tone={executionEnabled ? 'info' : 'warning'}>
+                {executionEnabled ? 'EXECUÇÃO PENDENTE' : 'MODO SEGURO'}
               </Badge>
             </View>
             <Text style={styles.amount}>{formatAmount(order)}</Text>
@@ -80,15 +87,19 @@ export default function ActivityScreen() {
               <Text style={styles.ruleValue}>{order.status || 'created'}</Text>
             </View>
             <View style={styles.rule}>
+              <Text style={styles.ruleLabel}>Plano aplicado</Text>
+              <Text style={styles.ruleValue}>{order.plan || 'FREE'}</Text>
+            </View>
+            <View style={styles.rule}>
               <Text style={styles.ruleLabel}>Execução habilitada</Text>
               <Text style={styles.ruleValue}>
-                {order.executionEnabled === true ? 'Sim' : 'Não'}
+                {executionEnabled ? 'Sim' : 'Não'}
               </Text>
             </View>
             <View style={styles.rule}>
               <Text style={styles.ruleLabel}>Referência</Text>
               <Text selectable style={styles.reference}>
-                {order.reference || order.clientRequestId || order.id}
+                {order.clientRequestId || order.id}
               </Text>
             </View>
           </Card>
