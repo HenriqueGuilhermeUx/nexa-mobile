@@ -1,6 +1,6 @@
 {
   "name": "nexa-mobile",
-  "version": "2.0.2",
+  "version": "2.0.4",
   "private": true,
   "main": "entrypoint.js",
   "scripts": {
@@ -15,6 +15,7 @@
     "@ethersproject/shims": "^5.8.0",
     "@privy-io/expo": "0.70.4",
     "@privy-io/expo-native-extensions": "0.0.12",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~56.0.17",
     "expo-apple-authentication": "~56.0.4",
     "expo-application": "~56.0.3",
@@ -34,8 +35,10 @@
     "react-native": "0.85.3",
     "react-native-get-random-values": "^1.11.0",
     "react-native-passkeys": "^0.4.1",
+    "react-native-qrcode-svg": "^6.3.15",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
     "react-native-webview": "13.16.1"
   },

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nexa",
     "slug": "nexa",
-    "version": "2.0.2",
+    "version": "2.0.4",
     "orientation": "portrait",
     "scheme": "nexa",
     "icon": "./nexa-mobile/nexa-mobile/assets/icon.png",
@@ -10,12 +10,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "32",
+      "buildNumber": "34",
       "usesAppleSignIn": true
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 32,
+      "versionCode": 34,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
@@ -45,7 +45,10 @@
       "privyAppId": "cmpen2gm3007v0cjswjlyefji",
       "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3",
       "financialExecutionEnabled": false,
-      "releaseChannel": "profit-safe-redemption",
+      "ledgerOperationsEnabled": true,
+      "balanceSource": "ledger",
+      "privyOptional": true,
+      "releaseChannel": "production",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       }

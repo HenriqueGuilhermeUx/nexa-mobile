@@ -30,11 +30,9 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="primeiros-nexa"
-          options={{ title: 'Primeiros Nexa' }}
-        />
-        <Stack.Screen name="sign-in" options={{ title: 'Entrar na Nexa' }} />
+        <Stack.Screen name="sign-in" options={{ title: 'Entrar' }} />
+        <Stack.Screen name="sign-up" options={{ title: 'Criar conta' }} />
+        <Stack.Screen name="legacy" options={{ headerShown: false }} />
         <Stack.Screen
           name="onboarding-wallet"
           options={{ title: 'Carteira Nexa' }}
