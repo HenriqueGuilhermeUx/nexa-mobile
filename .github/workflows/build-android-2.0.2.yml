@@ -1,4 +1,4 @@
-name: Build Nexa Android 2.0.4
+name: Build Nexa Android 2.0.5
 
 on:
   workflow_dispatch:
@@ -35,12 +35,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: nexa-android-production-2.0.4-v34-${{ github.ref }}
+  group: nexa-android-production-2.0.5-v35-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-android:
-    name: Build signed Android AAB v34
+    name: Build signed Android AAB v35
     runs-on: ubuntu-latest
     timeout-minutes: 75
 
@@ -77,7 +77,7 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Validate ledger release, compatibility, assets and security
+      - name: Validate ledger release, official Pix queue, assets and security
         run: |
           node scripts/validate-mobile-safety.js
           node scripts/validate-decimal-and-privy-onboarding.js
@@ -93,9 +93,9 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
           const expected = {
-            version: '2.0.4',
-            versionCode: 34,
-            iosBuildNumber: '34',
+            version: '2.0.5',
+            versionCode: 35,
+            iosBuildNumber: '35',
             package: 'br.com.trynexa.app',
           };
           const failures = [];
@@ -119,7 +119,7 @@ jobs:
             console.error('Release configuration mismatch:', failures.join(', '));
             process.exit(1);
           }
-          console.log(JSON.stringify({ ok: true, ...expected, balanceSource: 'ledger', privyOptional: true }, null, 2));
+          console.log(JSON.stringify({ ok: true, ...expected, balanceSource: 'ledger', officialPixPaymentQueue: true }, null, 2));
           NODE
 
       - name: Export Android JavaScript bundle
@@ -136,24 +136,24 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
           EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
           EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
-          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v34
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v34
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v35
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v35
         run: |
           eas build \
             --platform android \
             --profile production \
             --local \
             --non-interactive \
-            --output "$GITHUB_WORKSPACE/Nexa-2.0.4-android-v34-verified.aab"
+            --output "$GITHUB_WORKSPACE/Nexa-2.0.5-android-v35-verified.aab"
 
       - name: Upload local build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.4-v34-local-build-diagnostics
+          name: Nexa-2.0.5-v35-local-build-diagnostics
           path: |
-            ${{ runner.temp }}/nexa-eas-local-v34/logs
-            local-build-artifacts-v34
+            ${{ runner.temp }}/nexa-eas-local-v35/logs
+            local-build-artifacts-v35
           if-no-files-found: warn
           retention-days: 14
 
@@ -164,23 +164,23 @@ jobs:
       - name: Verify package and version inside AAB
         run: |
           set -euo pipefail
-          test -s Nexa-2.0.4-android-v34-verified.aab
+          test -s Nexa-2.0.5-android-v35-verified.aab
           BUNDLETOOL_VERSION=1.18.1
           curl --fail --location --retry 5 --retry-delay 3 \
             "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar" \
             --output "$RUNNER_TEMP/bundletool.jar"
           java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest \
-            --bundle=Nexa-2.0.4-android-v34-verified.aab \
+            --bundle=Nexa-2.0.5-android-v35-verified.aab \
             --module=base \
             > aab-manifest.xml
           grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
-          grep -Eq 'android:versionCode="34"' aab-manifest.xml
-          grep -Eq 'android:versionName="2\.0\.4"' aab-manifest.xml
+          grep -Eq 'android:versionCode="35"' aab-manifest.xml
+          grep -Eq 'android:versionName="2\.0\.5"' aab-manifest.xml
           {
             echo 'verified=true'
             echo 'package=br.com.trynexa.app'
-            echo 'versionName=2.0.4'
-            echo 'versionCode=34'
+            echo 'versionName=2.0.5'
+            echo 'versionCode=35'
             echo 'entry=simple_login_and_create_account'
             echo 'balanceSource=ledger'
             echo 'kycRequiredForFinancialOperations=true'
@@ -188,6 +188,8 @@ jobs:
             echo 'privyRequiredForLogin=false'
             echo 'ledgerOperationsEnabled=true'
             echo 'financialExecutionEnabled=false'
+            echo 'pixWithdrawalQueue=official_authenticated_payment'
+            echo 'legacyPixRequestBridge=authenticated'
             echo 'decimalInputs=dot_and_comma'
             echo 'fullLegacyOperations=preserved'
             echo "sourceCommit=$GITHUB_SHA"
@@ -196,13 +198,13 @@ jobs:
 
       - name: Create release metadata
         run: |
-          sha256sum Nexa-2.0.4-android-v34-verified.aab > SHA256SUMS.txt
+          sha256sum Nexa-2.0.5-android-v35-verified.aab > SHA256SUMS.txt
           node <<'NODE'
           const fs = require('node:fs');
           fs.writeFileSync('build-metadata.json', JSON.stringify({
             product: 'Nexa',
-            version: '2.0.4',
-            androidVersionCode: 34,
+            version: '2.0.5',
+            androidVersionCode: 35,
             package: 'br.com.trynexa.app',
             releaseChannel: 'production',
             profile: 'production',
@@ -215,6 +217,8 @@ jobs:
             privyRequiredForLogin: false,
             ledgerOperationsEnabled: true,
             financialExecutionEnabled: false,
+            pixWithdrawalQueue: 'official_authenticated_payment',
+            legacyPixRequestBridge: 'authenticated',
             decimalInputs: 'dot_and_comma',
             fullLegacyOperations: true,
             appVersionHeaders: true,
@@ -226,9 +230,9 @@ jobs:
       - name: Upload verified Google Play artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.4-Android-v34-VERIFIED-Google-Play
+          name: Nexa-2.0.5-Android-v35-VERIFIED-Google-Play
           path: |
-            Nexa-2.0.4-android-v34-verified.aab
+            Nexa-2.0.5-android-v35-verified.aab
             SHA256SUMS.txt
             build-metadata.json
             aab-version-verification.txt
