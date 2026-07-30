@@ -21,15 +21,21 @@ assert.ok(splashPlugin, 'Plugin expo-splash-screen não configurado.');
 
 const assets = [
   requireAsset('Ícone do aplicativo', app.icon),
-  requireAsset('Ícone adaptativo Android', app.android?.adaptiveIcon?.foregroundImage),
+  requireAsset(
+    'Ícone adaptativo Android',
+    app.android?.adaptiveIcon?.foregroundImage,
+  ),
   requireAsset('Logo do splash Android', splashPlugin[1]?.image),
 ];
 
-assert.equal(app.version, '2.0.3');
-assert.equal(Number(app.android?.versionCode), 33);
-assert.equal(String(app.ios?.buildNumber), '33');
+assert.equal(app.version, '2.0.4');
+assert.equal(Number(app.android?.versionCode), 34);
+assert.equal(String(app.ios?.buildNumber), '34');
 assert.equal(app.android?.package, 'br.com.trynexa.app');
 assert.equal(app.extra?.financialExecutionEnabled, false);
+assert.equal(app.extra?.ledgerOperationsEnabled, true);
+assert.equal(app.extra?.balanceSource, 'ledger');
+assert.equal(app.extra?.privyOptional, true);
 assert.ok(Number(splashPlugin[1]?.imageWidth || 0) > 0);
 
 console.log(
@@ -40,6 +46,8 @@ console.log(
       versionCode: app.android.versionCode,
       iosBuildNumber: app.ios.buildNumber,
       package: app.android.package,
+      balanceSource: app.extra.balanceSource,
+      privyOptional: app.extra.privyOptional,
       assets,
     },
     null,
