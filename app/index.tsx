@@ -1,71 +1,41 @@
 import { useEffect, useState } from 'react';
-import { usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { ActionButton, Brand, Paragraph, Screen, Title } from '@/components/ui';
-import { nexaApi } from '@/lib/api';
+import {
+  ActionButton,
+  Brand,
+  Paragraph,
+  Screen,
+  Title,
+} from '@/components/ui';
 import { loadNexaSession } from '@/lib/session';
 import { colors, spacing } from '@/theme';
 
-function profileFrom(response: any) {
-  return response?.profile || response || {};
-}
-
-function isLegacyProfile(profile: any) {
-  const value = String(profile?.settlementProfile || '').toLowerCase();
-  return profile?.isLegacyBeta === true || value.includes('legacy');
-}
-
 export default function WelcomeScreen() {
-  const privy = usePrivy() as any;
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    async function resolveSession() {
-      if (!privy.isReady) return;
 
+    async function resolveSession() {
       const session = await loadNexaSession();
       if (!mounted) return;
-      if (!session) {
-        setChecking(false);
+
+      if (session) {
+        router.replace('/legacy' as any);
         return;
       }
-
-      try {
-        const response = await nexaApi.directProfile(session.accessToken);
-        if (!mounted) return;
-        const profile = profileFrom(response);
-
-        if (isLegacyProfile(profile)) {
-          router.replace('/legacy' as any);
-          return;
-        }
-
-        if (profile?.wallet?.linked === true) {
-          router.replace('/(app)');
-          return;
-        }
-
-        if (privy.user) {
-          router.replace('/onboarding-wallet');
-          return;
-        }
-
-        router.replace('/sign-in');
-      } catch {
-        if (mounted) setChecking(false);
-      }
+      setChecking(false);
     }
 
     void resolveSession();
     return () => {
       mounted = false;
     };
-  }, [privy.isReady, privy.user]);
+  }, []);
 
-  if (checking || !privy.isReady) {
+  if (checking) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator color={colors.primary} size="large" />
