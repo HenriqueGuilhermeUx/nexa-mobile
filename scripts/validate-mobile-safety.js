@@ -26,6 +26,7 @@ const rootLayout = read('app/_layout.tsx');
 const appLayout = read('app/(app)/_layout.tsx');
 const onboarding = read('app/onboarding-wallet.tsx');
 const legacyBridge = read('app/legacy.js');
+const financialBridge = read('src/lib/legacy-financial-fetch-bridge.js');
 const legacyPixApp = read('nexa-mobile/nexa-mobile/App.js');
 const entrypoint = read('entrypoint.js');
 const metro = read('metro.config.js');
@@ -33,10 +34,10 @@ const metro = read('metro.config.js');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.equal(appConfig.expo.version, '2.0.4');
-assert.equal(packageJson.version, '2.0.4');
-assert.equal(appConfig.expo.android.versionCode, 34);
-assert.equal(appConfig.expo.ios.buildNumber, '34');
+assert.equal(appConfig.expo.version, '2.0.5');
+assert.equal(packageJson.version, '2.0.5');
+assert.equal(appConfig.expo.android.versionCode, 35);
+assert.equal(appConfig.expo.ios.buildNumber, '35');
 assert.equal(
   appConfig.expo.extra.eas.projectId,
   'b3faabec-283a-4ba2-88b5-f096304e68aa',
@@ -113,6 +114,17 @@ assert.match(legacyBridge, /LegacyApp/);
 assert.match(legacyBridge, /nexa_token/);
 assert.match(legacyBridge, /nexa_user/);
 assert.match(legacyBridge, /nexaApi\.me/);
+assert.match(legacyBridge, /installLegacyFinancialFetchBridge/);
+assert.match(legacyBridge, /session\.accessToken/);
+
+// A experiência visual legada permanece, mas saques usam a fila oficial e JWT.
+assert.match(financialBridge, /\/payment\/pix\/redemption/);
+assert.match(financialBridge, /Authorization/);
+assert.match(financialBridge, /Bearer \$\{accessToken\}/);
+assert.match(financialBridge, /paymentId/);
+assert.match(financialBridge, /estimatedPayoutBrl/);
+assert.match(financialBridge, /processingDeadlineHours:\s*24/);
+assert.doesNotMatch(financialBridge, /userId:\s*legacyBody\.userId/);
 
 // Privy permanece disponível apenas como recurso voluntário.
 assert.match(onboarding, /Criar carteira e continuar/);
@@ -141,5 +153,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.4 validated: simple entry, full ledger operations, KYC backend contract, optional Privy and decimal-safe Pix.',
+  'Nexa mobile 2.0.5 validated: simple entry, ledger operations, authenticated official Pix redemption, KYC and optional Privy.',
 );
