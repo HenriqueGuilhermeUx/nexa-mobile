@@ -28,9 +28,9 @@ const assets = [
   requireAsset('Logo do splash Android', splashPlugin[1]?.image),
 ];
 
-assert.equal(app.version, '2.0.4');
-assert.equal(Number(app.android?.versionCode), 34);
-assert.equal(String(app.ios?.buildNumber), '34');
+assert.equal(app.version, '2.0.5');
+assert.equal(Number(app.android?.versionCode), 35);
+assert.equal(String(app.ios?.buildNumber), '35');
 assert.equal(app.android?.package, 'br.com.trynexa.app');
 assert.equal(app.extra?.financialExecutionEnabled, false);
 assert.equal(app.extra?.ledgerOperationsEnabled, true);
