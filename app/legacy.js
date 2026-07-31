@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import LegacyApp from '../nexa-mobile/nexa-mobile/App';
 import { nexaApi } from '../src/lib/api';
+import { installLegacyFinancialFetchBridge } from '../src/lib/legacy-financial-fetch-bridge';
 import { clearNexaSession, loadNexaSession } from '../src/lib/session';
 import { colors, spacing } from '../src/theme';
 
@@ -14,6 +15,7 @@ export default function LegacyExperience() {
 
   useEffect(() => {
     let mounted = true;
+    let restoreFinancialBridge = null;
 
     async function bridgeSession() {
       try {
@@ -34,6 +36,10 @@ export default function LegacyExperience() {
           ['nexa_last_name', user.fullName || ''],
         ]);
 
+        restoreFinancialBridge = installLegacyFinancialFetchBridge(
+          session.accessToken,
+        );
+
         if (mounted) setReady(true);
       } catch (caught) {
         if (mounted) {
@@ -49,6 +55,7 @@ export default function LegacyExperience() {
     void bridgeSession();
     return () => {
       mounted = false;
+      restoreFinancialBridge?.();
     };
   }, []);
 

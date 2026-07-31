@@ -26,17 +26,21 @@ const rootLayout = read('app/_layout.tsx');
 const appLayout = read('app/(app)/_layout.tsx');
 const onboarding = read('app/onboarding-wallet.tsx');
 const legacyBridge = read('app/legacy.js');
+const financialBridge = read('src/lib/legacy-financial-fetch-bridge.js');
 const legacyPixApp = read('nexa-mobile/nexa-mobile/App.js');
+const babelConfig = read('babel.config.js');
+const pixRouteTransform = read('scripts/babel-replace-legacy-pix-route.js');
+const artifactValidator = read('scripts/validate-built-artifact.js');
 const entrypoint = read('entrypoint.js');
 const metro = read('metro.config.js');
 
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.equal(appConfig.expo.version, '2.0.4');
-assert.equal(packageJson.version, '2.0.4');
-assert.equal(appConfig.expo.android.versionCode, 34);
-assert.equal(appConfig.expo.ios.buildNumber, '34');
+assert.equal(appConfig.expo.version, '2.0.6');
+assert.equal(packageJson.version, '2.0.6');
+assert.equal(appConfig.expo.android.versionCode, 36);
+assert.equal(appConfig.expo.ios.buildNumber, '36');
 assert.equal(
   appConfig.expo.extra.eas.projectId,
   'b3faabec-283a-4ba2-88b5-f096304e68aa',
@@ -73,6 +77,7 @@ assert.match(session, /AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY/);
 assert.doesNotMatch(session, /AsyncStorage/);
 
 assert.match(config, /appVersion/);
+assert.match(config, /2\.0\.6/);
 assert.match(config, /ledgerOperationsEnabled/);
 assert.match(config, /balanceSource/);
 assert.match(config, /privyOptional/);
@@ -82,6 +87,7 @@ assert.match(api, /X-Nexa-Platform/);
 assert.match(api, /Authorization/);
 assert.match(api, /register\(data: RegistrationData\)/);
 
+// A experiência aprovada permanece simples: Entrar, Criar conta e o app completo.
 assert.match(welcome, /Cripto sem complicação/);
 assert.match(welcome, /label="Entrar"/);
 assert.match(welcome, /label="Criar conta"/);
@@ -113,6 +119,33 @@ assert.match(legacyBridge, /LegacyApp/);
 assert.match(legacyBridge, /nexa_token/);
 assert.match(legacyBridge, /nexa_user/);
 assert.match(legacyBridge, /nexaApi\.me/);
+assert.match(legacyBridge, /installLegacyFinancialFetchBridge/);
+assert.match(legacyBridge, /session\.accessToken/);
+
+// O código visual legado não é redesenhado; a rota antiga é trocada no bundle.
+assert.match(legacyPixApp, /\/withdrawal\/pix-request/);
+assert.match(babelConfig, /babel-replace-legacy-pix-route/);
+assert.match(pixRouteTransform, /\/withdrawal\/pix-request/);
+assert.match(pixRouteTransform, /\/payment\/pix\/redemption/);
+
+// Saque e transferência ganham autenticação sem mudar componentes ou menus.
+assert.match(financialBridge, /\/payment\/pix\/redemption/);
+assert.match(financialBridge, /\/internal-transfer\/send-by-username/);
+assert.match(financialBridge, /Authorization/);
+assert.match(financialBridge, /Bearer \$\{accessToken\}/);
+assert.match(financialBridge, /paymentId/);
+assert.match(financialBridge, /estimatedPayoutBrl/);
+assert.match(financialBridge, /processingDeadlineHours:\s*24/);
+assert.match(financialBridge, /toUsername/);
+assert.match(financialBridge, /clientRequestId/);
+assert.doesNotMatch(financialBridge, /fromUserId:\s*legacyBody\.fromUserId/);
+assert.doesNotMatch(financialBridge, /userId:\s*legacyBody\.userId/);
+
+assert.match(artifactValidator, /\/withdrawal\/pix-request/);
+assert.match(artifactValidator, /Primeiros Nexa/);
+assert.match(artifactValidator, /Já recebi meu convite/);
+assert.match(artifactValidator, /direct_settlement/);
+assert.match(artifactValidator, /\/payment\/pix\/redemption/);
 
 // Privy permanece disponível apenas como recurso voluntário.
 assert.match(onboarding, /Criar carteira e continuar/);
@@ -141,5 +174,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.4 validated: simple entry, full ledger operations, KYC backend contract, optional Privy and decimal-safe Pix.',
+  'Nexa mobile 2.0.6 validated: approved visuals preserved, official authenticated Pix route, authenticated transfers, KYC, ledger and optional Privy.',
 );
