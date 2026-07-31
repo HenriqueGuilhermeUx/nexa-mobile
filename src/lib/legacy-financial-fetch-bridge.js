@@ -33,9 +33,8 @@ function responseWithCompatibleJson(response, transform) {
 }
 
 /**
- * A experiência visual legada continua intacta, mas os dois pedidos de saque
- * deixam de usar a antiga fila paralela. A cotação recebe autenticação e a
- * confirmação é enviada diretamente para /payment/pix/redemption.
+ * A experiência visual permanece intacta. A camada financeira adiciona o JWT,
+ * remove campos antigos controlados pelo cliente e usa somente o Payment oficial.
  */
 export function installLegacyFinancialFetchBridge(accessToken) {
   if (activeRestore) activeRestore();
@@ -49,9 +48,9 @@ export function installLegacyFinancialFetchBridge(accessToken) {
         ? input
         : String(input?.url || input || '');
     const isPixQuote = url.includes('/withdrawal/pix-quote');
-    const isPixRequest = url.includes('/withdrawal/pix-request');
+    const isOfficialPixRequest = url.includes('/payment/pix/redemption');
 
-    if (!isPixQuote && !isPixRequest) {
+    if (!isPixQuote && !isOfficialPixRequest) {
       return originalFetch(input, init);
     }
 
@@ -66,11 +65,7 @@ export function installLegacyFinancialFetchBridge(accessToken) {
     }
 
     const legacyBody = asJsonObject(init.body);
-    const targetUrl = url.replace(
-      '/withdrawal/pix-request',
-      '/payment/pix/redemption',
-    );
-    const response = await originalFetch(targetUrl, {
+    const response = await originalFetch(input, {
       ...init,
       headers,
       body: JSON.stringify({
