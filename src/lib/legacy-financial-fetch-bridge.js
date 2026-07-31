@@ -34,7 +34,7 @@ function responseWithCompatibleJson(response, transform) {
 
 /**
  * A experiência visual permanece intacta. A camada financeira adiciona o JWT,
- * remove campos antigos controlados pelo cliente e usa somente o Payment oficial.
+ * remove identidades controladas pelo cliente e usa somente filas oficiais.
  */
 export function installLegacyFinancialFetchBridge(accessToken) {
   if (activeRestore) activeRestore();
@@ -49,8 +49,11 @@ export function installLegacyFinancialFetchBridge(accessToken) {
         : String(input?.url || input || '');
     const isPixQuote = url.includes('/withdrawal/pix-quote');
     const isOfficialPixRequest = url.includes('/payment/pix/redemption');
+    const isInternalTransfer = url.includes(
+      '/internal-transfer/send-by-username',
+    );
 
-    if (!isPixQuote && !isOfficialPixRequest) {
+    if (!isPixQuote && !isOfficialPixRequest && !isInternalTransfer) {
       return originalFetch(input, init);
     }
 
@@ -65,6 +68,20 @@ export function installLegacyFinancialFetchBridge(accessToken) {
     }
 
     const legacyBody = asJsonObject(init.body);
+
+    if (isInternalTransfer) {
+      return originalFetch(input, {
+        ...init,
+        headers,
+        body: JSON.stringify({
+          toUsername: String(legacyBody.toUsername || '').trim(),
+          amountUsdc: Number(legacyBody.amountUsdc || 0),
+          note: String(legacyBody.note || '').trim() || undefined,
+          clientRequestId: String(legacyBody.clientRequestId || '').trim(),
+        }),
+      });
+    }
+
     const response = await originalFetch(input, {
       ...init,
       headers,
