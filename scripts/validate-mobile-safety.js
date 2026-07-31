@@ -39,8 +39,8 @@ assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
 assert.equal(appConfig.expo.version, '2.0.6');
 assert.equal(packageJson.version, '2.0.6');
-assert.equal(appConfig.expo.android.versionCode, 36);
-assert.equal(appConfig.expo.ios.buildNumber, '36');
+assert.equal(appConfig.expo.android.versionCode, 37);
+assert.equal(appConfig.expo.ios.buildNumber, '37');
 assert.equal(
   appConfig.expo.extra.eas.projectId,
   'b3faabec-283a-4ba2-88b5-f096304e68aa',
@@ -77,12 +77,15 @@ assert.match(session, /AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY/);
 assert.doesNotMatch(session, /AsyncStorage/);
 
 assert.match(config, /appVersion/);
+assert.match(config, /appBuild/);
 assert.match(config, /2\.0\.6/);
+assert.match(config, /37/);
 assert.match(config, /ledgerOperationsEnabled/);
 assert.match(config, /balanceSource/);
 assert.match(config, /privyOptional/);
 assert.doesNotMatch(config, /Configuração pública da Privy ausente/);
 assert.match(api, /X-Nexa-App-Version/);
+assert.match(api, /X-Nexa-App-Build/);
 assert.match(api, /X-Nexa-Platform/);
 assert.match(api, /Authorization/);
 assert.match(api, /register\(data: RegistrationData\)/);
@@ -133,6 +136,9 @@ assert.match(financialBridge, /\/payment\/pix\/redemption/);
 assert.match(financialBridge, /\/internal-transfer\/send-by-username/);
 assert.match(financialBridge, /Authorization/);
 assert.match(financialBridge, /Bearer \$\{accessToken\}/);
+assert.match(financialBridge, /X-Nexa-App-Version/);
+assert.match(financialBridge, /X-Nexa-App-Build/);
+assert.match(financialBridge, /X-Nexa-Platform/);
 assert.match(financialBridge, /paymentId/);
 assert.match(financialBridge, /estimatedPayoutBrl/);
 assert.match(financialBridge, /processingDeadlineHours:\s*24/);
@@ -174,5 +180,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.6 validated: approved visuals preserved, official authenticated Pix route, authenticated transfers, KYC, ledger and optional Privy.',
+  'Nexa mobile 2.0.6 v37 validated: approved visuals preserved, official authenticated Pix route, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
 );
