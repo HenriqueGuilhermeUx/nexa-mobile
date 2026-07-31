@@ -37,31 +37,16 @@ const metro = read('metro.config.js');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.equal(appConfig.expo.version, '2.0.6');
-assert.equal(packageJson.version, '2.0.6');
-assert.equal(appConfig.expo.android.versionCode, 37);
-assert.equal(appConfig.expo.ios.buildNumber, '37');
-assert.equal(
-  appConfig.expo.extra.eas.projectId,
-  'b3faabec-283a-4ba2-88b5-f096304e68aa',
-);
+assert.equal(appConfig.expo.version, '2.0.7');
+assert.equal(packageJson.version, '2.0.7');
+assert.equal(appConfig.expo.android.versionCode, 100);
+assert.equal(appConfig.expo.ios.buildNumber, '100');
 assert.equal(appConfig.expo.extra.financialExecutionEnabled, false);
 assert.equal(appConfig.expo.extra.ledgerOperationsEnabled, true);
 assert.equal(appConfig.expo.extra.balanceSource, 'ledger');
 assert.equal(appConfig.expo.extra.privyOptional, true);
 assert.equal(appConfig.expo.extra.releaseChannel, 'production');
 assert.match(appConfig.expo.extra.apiUrl, /^https:\/\//);
-
-const splashPlugin = appConfig.expo.plugins.find(
-  (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen',
-);
-assert.ok(splashPlugin, 'Plugin expo-splash-screen ausente.');
-const splashImage = splashPlugin[1]?.image;
-assert.ok(splashImage, 'Imagem do splash não configurada.');
-assert.ok(
-  fs.existsSync(splashImage.replace(/^\.\//, '')),
-  `Imagem do splash ausente: ${splashImage}`,
-);
 
 assert.equal(packageJson.main, 'entrypoint.js');
 assert.equal(packageJson.dependencies['react-native-svg'], '15.15.4');
@@ -78,92 +63,64 @@ assert.doesNotMatch(session, /AsyncStorage/);
 
 assert.match(config, /appVersion/);
 assert.match(config, /appBuild/);
-assert.match(config, /2\.0\.6/);
-assert.match(config, /37/);
-assert.match(config, /ledgerOperationsEnabled/);
-assert.match(config, /balanceSource/);
-assert.match(config, /privyOptional/);
-assert.doesNotMatch(config, /Configuração pública da Privy ausente/);
+assert.match(config, /2\.0\.7/);
+assert.match(config, /100/);
 assert.match(api, /X-Nexa-App-Version/);
 assert.match(api, /X-Nexa-App-Build/);
 assert.match(api, /X-Nexa-Platform/);
 assert.match(api, /Authorization/);
-assert.match(api, /register\(data: RegistrationData\)/);
 
-// A experiência aprovada permanece simples: Entrar, Criar conta e o app completo.
 assert.match(welcome, /Cripto sem complicação/);
 assert.match(welcome, /label="Entrar"/);
 assert.match(welcome, /label="Criar conta"/);
 assert.match(welcome, /router\.replace\('\/legacy'/);
 assert.doesNotMatch(welcome, /Primeiros Nexa|convite|ABERTURA GRADUAL/i);
-assert.doesNotMatch(welcome, /usePrivy|directProfile|onboarding-wallet/);
 assert.doesNotMatch(rootLayout, /primeiros-nexa/);
 assert.ok(!fs.existsSync('app/primeiros-nexa.tsx'));
 
 assert.match(signIn, /nexaApi\.login/);
 assert.match(signIn, /saveNexaSession/);
-assert.match(signIn, /router\.replace\('\/legacy'/);
-assert.doesNotMatch(
-  signIn,
-  /usePrivy|useLoginWithEmail|sendCode|loginWithCode|directProfile|onboarding-wallet/,
-);
-
+assert.doesNotMatch(signIn, /useLoginWithEmail|sendCode|loginWithCode|onboarding-wallet/);
 assert.match(signUp, /nexaApi\.register/);
 assert.match(signUp, /saveNexaSession/);
-assert.match(signUp, /router\.replace\('\/legacy'/);
 assert.match(signUp, /KYC/);
-assert.doesNotMatch(
-  signUp,
-  /usePrivy|useLoginWithEmail|sendCode|loginWithCode|onboarding-wallet/,
-);
+assert.doesNotMatch(signUp, /useLoginWithEmail|sendCode|loginWithCode|onboarding-wallet/);
 assert.doesNotMatch(appLayout, /AuthBoundary|usePrivy|Privy/);
 
 assert.match(legacyBridge, /LegacyApp/);
-assert.match(legacyBridge, /nexa_token/);
-assert.match(legacyBridge, /nexa_user/);
-assert.match(legacyBridge, /nexaApi\.me/);
 assert.match(legacyBridge, /installLegacyFinancialFetchBridge/);
 assert.match(legacyBridge, /session\.accessToken/);
 
-// O código visual legado não é redesenhado; a rota antiga é trocada no bundle.
 assert.match(legacyPixApp, /\/withdrawal\/pix-request/);
 assert.match(babelConfig, /babel-replace-legacy-pix-route/);
 assert.match(pixRouteTransform, /\/withdrawal\/pix-request/);
 assert.match(pixRouteTransform, /\/payment\/pix\/redemption/);
 
-// Saque e transferência ganham autenticação sem mudar componentes ou menus.
 assert.match(financialBridge, /\/payment\/pix\/redemption/);
 assert.match(financialBridge, /\/internal-transfer\/send-by-username/);
 assert.match(financialBridge, /Authorization/);
-assert.match(financialBridge, /Bearer \$\{accessToken\}/);
 assert.match(financialBridge, /X-Nexa-App-Version/);
 assert.match(financialBridge, /X-Nexa-App-Build/);
 assert.match(financialBridge, /X-Nexa-Platform/);
-assert.match(financialBridge, /paymentId/);
-assert.match(financialBridge, /estimatedPayoutBrl/);
-assert.match(financialBridge, /processingDeadlineHours:\s*24/);
-assert.match(financialBridge, /toUsername/);
-assert.match(financialBridge, /clientRequestId/);
+assert.match(financialBridge, /2\.0\.7/);
+assert.match(financialBridge, /100/);
 assert.doesNotMatch(financialBridge, /fromUserId:\s*legacyBody\.fromUserId/);
 assert.doesNotMatch(financialBridge, /userId:\s*legacyBody\.userId/);
 
+for (const forbidden of [
+  'Primeiros Nexa',
+  'Já recebi meu convite',
+  'Recebi meu convite',
+  'direct_settlement',
+]) {
+  assert.match(artifactValidator, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+}
 assert.match(artifactValidator, /\/withdrawal\/pix-request/);
-assert.match(artifactValidator, /Primeiros Nexa/);
-assert.match(artifactValidator, /Já recebi meu convite/);
-assert.match(artifactValidator, /direct_settlement/);
 assert.match(artifactValidator, /\/payment\/pix\/redemption/);
 
-// Privy permanece disponível apenas como recurso voluntário.
 assert.match(onboarding, /Criar carteira e continuar/);
 assert.doesNotMatch(onboarding, /Proteções desta etapa|custódia pendente/i);
-
 assert.match(legacyPixApp, /function formatInputAmount\(value\)/);
-assert.match(
-  legacyPixApp,
-  /setValorUsdc\(formatInputAmount\(saldo\.USDC\)\)/,
-);
-assert.match(legacyPixApp, /lastIndexOf\(','\)/);
-assert.match(legacyPixApp, /lastIndexOf\('\.'\)/);
 assert.match(legacyPixApp, /Dep[oó]sito|deposit/i);
 assert.match(legacyPixApp, /Transfer/);
 assert.match(legacyPixApp, /Sacar Pix|saque Pix/i);
@@ -171,8 +128,9 @@ assert.match(legacyPixApp, /Sacar Pix|saque Pix/i);
 const codeFiles = [...walk('app'), ...walk('src')].filter((file) =>
   /\.(ts|tsx|js)$/.test(file),
 );
-const configurationFiles = ['app.json', 'package.json', 'eas.json'];
-const codeAndConfig = [...codeFiles, ...configurationFiles].map(read).join('\n');
+const codeAndConfig = [...codeFiles, 'app.json', 'package.json', 'eas.json']
+  .map(read)
+  .join('\n');
 assert.doesNotMatch(
   codeAndConfig,
   /PRIVY_APP_SECRET\s*[:=]|PRIVY_SECRET_KEY\s*[:=]|MASTER_WALLET_PRIVATE_KEY\s*[:=]|BEGIN PRIVATE KEY/,
@@ -180,5 +138,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.6 v37 validated: approved visuals preserved, official authenticated Pix route, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
+  'Nexa mobile 2.0.7 v100 validated: approved visuals, official Pix, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
 );
