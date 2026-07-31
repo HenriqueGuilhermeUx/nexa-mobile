@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 
 let activeRestore = null;
 
-const APP_VERSION = Constants.expoConfig?.version || '2.0.6';
-const APP_BUILD = String(Constants.expoConfig?.android?.versionCode || '37');
+const APP_VERSION = Constants.expoConfig?.version || '2.0.7';
+const APP_BUILD = String(Constants.expoConfig?.android?.versionCode || '100');
 
 function asJsonObject(value) {
   if (!value || typeof value !== 'string') return {};
