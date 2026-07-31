@@ -29,8 +29,8 @@ const assets = [
 ];
 
 assert.equal(app.version, '2.0.6');
-assert.equal(Number(app.android?.versionCode), 36);
-assert.equal(String(app.ios?.buildNumber), '36');
+assert.equal(Number(app.android?.versionCode), 37);
+assert.equal(String(app.ios?.buildNumber), '37');
 assert.equal(app.android?.package, 'br.com.trynexa.app');
 assert.equal(app.extra?.financialExecutionEnabled, false);
 assert.equal(app.extra?.ledgerOperationsEnabled, true);

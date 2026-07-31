@@ -1,4 +1,10 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
 let activeRestore = null;
+
+const APP_VERSION = Constants.expoConfig?.version || '2.0.6';
+const APP_BUILD = String(Constants.expoConfig?.android?.versionCode || '37');
 
 function asJsonObject(value) {
   if (!value || typeof value !== 'string') return {};
@@ -35,6 +41,8 @@ function responseWithCompatibleJson(response, transform) {
 /**
  * A experiência visual permanece intacta. A camada financeira adiciona o JWT,
  * remove identidades controladas pelo cliente e usa somente filas oficiais.
+ * Toda chamada à API Nexa também declara versão, build e plataforma para a
+ * política obrigatória de atualização.
  */
 export function installLegacyFinancialFetchBridge(accessToken) {
   if (activeRestore) activeRestore();
@@ -47,20 +55,33 @@ export function installLegacyFinancialFetchBridge(accessToken) {
       typeof input === 'string'
         ? input
         : String(input?.url || input || '');
+    const isNexaApi =
+      url.includes('nexa-backend-p2u0.onrender.com/api/v1') ||
+      url.includes('/api/v1/');
+
+    if (!isNexaApi) {
+      return originalFetch(input, init);
+    }
+
     const isPixQuote = url.includes('/withdrawal/pix-quote');
     const isOfficialPixRequest = url.includes('/payment/pix/redemption');
     const isInternalTransfer = url.includes(
       '/internal-transfer/send-by-username',
     );
 
-    if (!isPixQuote && !isOfficialPixRequest && !isInternalTransfer) {
-      return originalFetch(input, init);
+    const headers = new Headers(init.headers || {});
+    headers.set('X-Nexa-App-Version', APP_VERSION);
+    headers.set('X-Nexa-App-Build', APP_BUILD);
+    headers.set('X-Nexa-Platform', Platform.OS);
+    if (accessToken && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${accessToken}`);
+    }
+    if (!headers.has('Content-Type') && init.body !== undefined) {
+      headers.set('Content-Type', 'application/json');
     }
 
-    const headers = new Headers(init.headers || {});
-    headers.set('Authorization', `Bearer ${accessToken}`);
-    if (!headers.has('Content-Type')) {
-      headers.set('Content-Type', 'application/json');
+    if (!isPixQuote && !isOfficialPixRequest && !isInternalTransfer) {
+      return originalFetch(input, { ...init, headers });
     }
 
     if (isPixQuote) {

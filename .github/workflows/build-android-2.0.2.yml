@@ -41,12 +41,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: nexa-android-production-2.0.6-v36-${{ github.ref }}
+  group: nexa-android-production-2.0.6-v37-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-android:
-    name: Build signed Android AAB v36
+    name: Build signed Android AAB v37
     runs-on: ubuntu-latest
     timeout-minutes: 75
 
@@ -100,8 +100,8 @@ jobs:
           const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
           const expected = {
             version: '2.0.6',
-            versionCode: 36,
-            iosBuildNumber: '36',
+            versionCode: 37,
+            iosBuildNumber: '37',
             package: 'br.com.trynexa.app',
           };
           const failures = [];
@@ -152,24 +152,24 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
           EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
           EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
-          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v36
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v36
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v37
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v37
         run: |
           eas build \
             --platform android \
             --profile production \
             --local \
             --non-interactive \
-            --output "$GITHUB_WORKSPACE/Nexa-2.0.6-android-v36-verified.aab"
+            --output "$GITHUB_WORKSPACE/Nexa-2.0.6-android-v37-verified.aab"
 
       - name: Upload local build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.6-v36-local-build-diagnostics
+          name: Nexa-2.0.6-v37-local-build-diagnostics
           path: |
-            ${{ runner.temp }}/nexa-eas-local-v36/logs
-            local-build-artifacts-v36
+            ${{ runner.temp }}/nexa-eas-local-v37/logs
+            local-build-artifacts-v37
           if-no-files-found: warn
           retention-days: 14
 
@@ -180,27 +180,27 @@ jobs:
       - name: Verify package, version and content inside AAB
         run: |
           set -euo pipefail
-          test -s Nexa-2.0.6-android-v36-verified.aab
+          test -s Nexa-2.0.6-android-v37-verified.aab
           BUNDLETOOL_VERSION=1.18.1
           curl --fail --location --retry 5 --retry-delay 3 \
             "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar" \
             --output "$RUNNER_TEMP/bundletool.jar"
           java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest \
-            --bundle=Nexa-2.0.6-android-v36-verified.aab \
+            --bundle=Nexa-2.0.6-android-v37-verified.aab \
             --module=base \
             > aab-manifest.xml
           grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
-          grep -Eq 'android:versionCode="36"' aab-manifest.xml
+          grep -Eq 'android:versionCode="37"' aab-manifest.xml
           grep -Eq 'android:versionName="2\.0\.6"' aab-manifest.xml
-          rm -rf "$RUNNER_TEMP/nexa-aab-v36"
-          mkdir -p "$RUNNER_TEMP/nexa-aab-v36"
-          unzip -q Nexa-2.0.6-android-v36-verified.aab -d "$RUNNER_TEMP/nexa-aab-v36"
-          node scripts/validate-built-artifact.js "$RUNNER_TEMP/nexa-aab-v36"
+          rm -rf "$RUNNER_TEMP/nexa-aab-v37"
+          mkdir -p "$RUNNER_TEMP/nexa-aab-v37"
+          unzip -q Nexa-2.0.6-android-v37-verified.aab -d "$RUNNER_TEMP/nexa-aab-v37"
+          node scripts/validate-built-artifact.js "$RUNNER_TEMP/nexa-aab-v37"
           {
             echo 'verified=true'
             echo 'package=br.com.trynexa.app'
             echo 'versionName=2.0.6'
-            echo 'versionCode=36'
+            echo 'versionCode=37'
             echo 'entry=simple_login_and_create_account'
             echo 'approvedVisualExperiencePreserved=true'
             echo 'balanceSource=ledger'
@@ -221,13 +221,13 @@ jobs:
 
       - name: Create release metadata
         run: |
-          sha256sum Nexa-2.0.6-android-v36-verified.aab > SHA256SUMS.txt
+          sha256sum Nexa-2.0.6-android-v37-verified.aab > SHA256SUMS.txt
           node <<'NODE'
           const fs = require('node:fs');
           fs.writeFileSync('build-metadata.json', JSON.stringify({
             product: 'Nexa',
             version: '2.0.6',
-            androidVersionCode: 36,
+            androidVersionCode: 37,
             package: 'br.com.trynexa.app',
             releaseChannel: 'production',
             profile: 'production',
@@ -257,9 +257,9 @@ jobs:
       - name: Upload verified Google Play artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.6-Android-v36-VERIFIED-Google-Play
+          name: Nexa-2.0.6-Android-v37-VERIFIED-Google-Play
           path: |
-            Nexa-2.0.6-android-v36-verified.aab
+            Nexa-2.0.6-android-v37-verified.aab
             SHA256SUMS.txt
             build-metadata.json
             aab-version-verification.txt
