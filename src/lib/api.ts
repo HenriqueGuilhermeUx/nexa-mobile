@@ -35,6 +35,7 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   headers.set('X-Nexa-App-Version', config.appVersion);
+  headers.set('X-Nexa-App-Build', config.appBuild);
   headers.set('X-Nexa-Platform', Platform.OS);
 
   if (options.accessToken) {
