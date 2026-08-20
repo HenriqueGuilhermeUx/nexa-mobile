@@ -6,12 +6,17 @@ on:
     branches:
       - main
     paths:
+      - '.github/workflows/release-android-api36.yml'
       - 'app.json'
       - 'package.json'
+      - 'eas.json'
       - 'src/config.ts'
       - 'src/lib/legacy-financial-fetch-bridge.js'
       - 'nexa-mobile/nexa-mobile/App.js'
       - 'scripts/validate-mobile-safety.js'
+      - 'scripts/validate-decimal-and-privy-onboarding.js'
+      - 'scripts/validate-release-assets.js'
+      - 'scripts/validate-built-artifact.js'
 
 permissions:
   contents: write
@@ -22,7 +27,7 @@ concurrency:
 
 jobs:
   build:
-    name: Nexa Android 16 production AAB
+    name: Nexa 2.0.8 Android 16 API 36 production AAB
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -36,6 +41,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.20.0'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Set up Expo and EAS
         uses: expo/expo-github-action@v8
@@ -65,6 +76,14 @@ jobs:
         id: safety
         run: node scripts/validate-mobile-safety.js
 
+      - name: Validate decimal inputs and optional Privy
+        id: decimal_privy
+        run: node scripts/validate-decimal-and-privy-onboarding.js
+
+      - name: Validate release assets and metadata
+        id: release_assets
+        run: node scripts/validate-release-assets.js
+
       - name: Validate TypeScript
         id: typecheck
         run: npm run typecheck
@@ -74,8 +93,28 @@ jobs:
         continue-on-error: true
         run: npx expo-doctor
 
-      - name: Prove Android 16 / API 36 target from Gradle model
-        id: api36
+      - name: Validate explicit Android 16 API 36 configuration
+        id: api36_config
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const app = require('./app.json').expo;
+          const plugin = (app.plugins || []).find(
+            (item) => Array.isArray(item) && item[0] === 'expo-build-properties',
+          );
+          assert.ok(plugin, 'expo-build-properties não configurado');
+          const android = plugin[1]?.android || {};
+          assert.equal(Number(android.compileSdkVersion), 36);
+          assert.equal(Number(android.targetSdkVersion), 36);
+          assert.equal(String(android.buildToolsVersion), '36.0.0');
+          assert.equal(Number(app.extra?.androidTargetApi), 36);
+          assert.equal(app.version, '2.0.8');
+          assert.equal(Number(app.android?.versionCode), 101);
+          console.log('Android API 36 explicitamente configurado no app.json.');
+          NODE
+
+      - name: Prove API 36 was applied by Expo prebuild
+        id: api36_prebuild
         env:
           CI: 'true'
           EXPO_NO_TELEMETRY: '1'
@@ -83,47 +122,16 @@ jobs:
           set -euo pipefail
           rm -rf android
           npx expo prebuild --platform android --no-install --clean
-
-          cat >/tmp/nexa-print-sdk.gradle <<'GRADLE'
-          allprojects {
-            afterEvaluate { project ->
-              if (project.path == ':app') {
-                def androidExt = project.extensions.findByName('android')
-                if (androidExt == null) {
-                  throw new GradleException('Android extension not found for :app')
-                }
-                def compileValue
-                try {
-                  compileValue = androidExt.compileSdk
-                } catch (ignored) {
-                  compileValue = androidExt.compileSdkVersion
-                }
-                def targetValue
-                try {
-                  targetValue = androidExt.defaultConfig.targetSdk
-                } catch (ignored) {
-                  targetValue = androidExt.defaultConfig.targetSdkVersion
-                }
-                println("NEXA_COMPILE_SDK=${compileValue}")
-                println("NEXA_TARGET_SDK=${targetValue}")
-              }
-            }
-          }
-          GRADLE
-
-          (
-            cd android
-            chmod +x gradlew
-            ./gradlew -I /tmp/nexa-print-sdk.gradle :app:properties --no-daemon --console=plain
-          ) 2>&1 | tee gradle-api36.log
-
-          grep -E 'NEXA_COMPILE_SDK=.*36' gradle-api36.log \
-            || (echo 'compileSdk 36 não confirmado pelo modelo Gradle' && exit 1)
-          grep -E 'NEXA_TARGET_SDK=.*36' gradle-api36.log \
-            || (echo 'targetSdk 36 não confirmado pelo modelo Gradle' && exit 1)
-
-          echo 'Android 16 confirmado: compileSdk=36 e targetSdk=36.'
-          rm -rf android gradle-api36.log /tmp/nexa-print-sdk.gradle
+          echo '--- Android gradle.properties ---'
+          cat android/gradle.properties
+          grep -Eq '^android\.compileSdkVersion=36$' android/gradle.properties \
+            || (echo 'android.compileSdkVersion=36 não aplicado pelo prebuild' && exit 1)
+          grep -Eq '^android\.targetSdkVersion=36$' android/gradle.properties \
+            || (echo 'android.targetSdkVersion=36 não aplicado pelo prebuild' && exit 1)
+          grep -Eq '^android\.buildToolsVersion=36\.0\.0$' android/gradle.properties \
+            || (echo 'android.buildToolsVersion=36.0.0 não aplicado pelo prebuild' && exit 1)
+          echo 'Expo prebuild confirmou compileSdk=36, targetSdk=36 e buildTools=36.0.0.'
+          rm -rf android
 
       - name: Export Android JavaScript bundle
         id: export_bundle
@@ -132,11 +140,16 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
         run: npm run export:android
 
+      - name: Inspect exported bundle for regressions
+        id: artifact_source
+        run: node scripts/validate-built-artifact.js dist-ci
+
       - name: Build production AAB on EAS
         id: eas_build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: 'true'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
         run: |
           set -euo pipefail
           eas build \
@@ -150,9 +163,9 @@ jobs:
           ARTIFACT_URL=$(node - <<'NODE'
           const fs = require('fs');
           const raw = fs.readFileSync('eas-build.json', 'utf8').trim();
-          const start = raw.indexOf('[');
+          const arrayStart = raw.indexOf('[');
           const objectStart = raw.indexOf('{');
-          const jsonStart = start >= 0 && (objectStart < 0 || start < objectStart) ? start : objectStart;
+          const jsonStart = arrayStart >= 0 && (objectStart < 0 || arrayStart < objectStart) ? arrayStart : objectStart;
           if (jsonStart < 0) throw new Error('JSON do EAS não encontrado');
           const data = JSON.parse(raw.slice(jsonStart));
           const build = Array.isArray(data) ? data[0] : data;
@@ -170,23 +183,46 @@ jobs:
           VERSION=$(node -p "require('./app.json').expo.version")
           VERSION_CODE=$(node -p "require('./app.json').expo.android.versionCode")
           FILE="Nexa-${VERSION}-Android16-v${VERSION_CODE}.aab"
-          curl --fail --location "${{ steps.eas_build.outputs.artifact_url }}" --output "$FILE"
+          curl --fail --location --retry 5 --retry-delay 3 \
+            "${{ steps.eas_build.outputs.artifact_url }}" --output "$FILE"
           test -s "$FILE"
           SHA256=$(sha256sum "$FILE" | awk '{print $1}')
           ls -lh "$FILE"
           echo "aab_file=$FILE" >> "$GITHUB_ENV"
           echo "aab_sha256=$SHA256" >> "$GITHUB_ENV"
 
-      - name: Upload AAB artifact
+      - name: Verify API 36 inside final AAB
+        id: binary_api36
+        run: |
+          set -euo pipefail
+          BUNDLETOOL_VERSION=1.18.1
+          curl --fail --location --retry 5 --retry-delay 3 \
+            "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar" \
+            --output "$RUNNER_TEMP/bundletool.jar"
+          java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest \
+            --bundle="${{ env.aab_file }}" \
+            --module=base \
+            > aab-manifest.xml
+          cat aab-manifest.xml
+          grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
+          grep -Eq 'android:versionCode="101"' aab-manifest.xml
+          grep -Eq 'android:versionName="2\.0\.8"' aab-manifest.xml
+          grep -Eq 'android:targetSdkVersion="36"' aab-manifest.xml \
+            || (echo 'ERRO: AAB final não segmenta Android API 36' && exit 1)
+          echo 'AAB final comprovado: targetSdkVersion=36.'
+
+      - name: Upload verified AAB artifact
         if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.8-Android16-v101
-          path: ${{ env.aab_file }}
+          name: Nexa-2.0.8-Android16-v101-VERIFIED
+          path: |
+            ${{ env.aab_file }}
+            aab-manifest.xml
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish GitHub release with AAB
+      - name: Publish GitHub release with verified AAB
         id: publish_release
         if: ${{ success() }}
         env:
@@ -194,11 +230,15 @@ jobs:
         run: |
           set -euo pipefail
           TAG='nexa-2.0.8-android16-v101'
+          printf '%s  %s\n' "${{ env.aab_sha256 }}" "${{ env.aab_file }}" > SHA256SUMS.txt
           gh release delete "$TAG" --yes --cleanup-tag || true
-          gh release create "$TAG" "${{ env.aab_file }}" \
+          gh release create "$TAG" \
+            "${{ env.aab_file }}" \
+            aab-manifest.xml \
+            SHA256SUMS.txt \
             --target "${GITHUB_SHA}" \
             --title 'Nexa 2.0.8 · Android 16 · API 36 · v101' \
-            --notes "Production AAB for Google Play. Package: br.com.trynexa.app. Version: 2.0.8. versionCode: 101. Android target API: 36. SHA-256: ${{ env.aab_sha256 }}."
+            --notes "Google Play production AAB VERIFIED. Package br.com.trynexa.app. Version 2.0.8. versionCode 101. Final binary targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
 
       - name: Record final release outcome
         if: ${{ always() }}
@@ -206,12 +246,17 @@ jobs:
           RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.8-android16-v101/Nexa-2.0.8-Android16-v101.aab
           BUILD_STATUS: ${{ job.status }}
           SAFETY_STATUS: ${{ steps.safety.conclusion }}
+          DECIMAL_STATUS: ${{ steps.decimal_privy.conclusion }}
+          ASSETS_STATUS: ${{ steps.release_assets.conclusion }}
           TYPECHECK_STATUS: ${{ steps.typecheck.conclusion }}
           DOCTOR_STATUS: ${{ steps.doctor.conclusion }}
-          API36_STATUS: ${{ steps.api36.conclusion }}
+          API36_CONFIG_STATUS: ${{ steps.api36_config.conclusion }}
+          API36_PREBUILD_STATUS: ${{ steps.api36_prebuild.conclusion }}
           EXPORT_STATUS: ${{ steps.export_bundle.conclusion }}
+          ARTIFACT_SOURCE_STATUS: ${{ steps.artifact_source.conclusion }}
           EAS_STATUS: ${{ steps.eas_build.conclusion }}
           DOWNLOAD_STATUS: ${{ steps.download_aab.conclusion }}
+          BINARY_API36_STATUS: ${{ steps.binary_api36.conclusion }}
           RELEASE_STATUS: ${{ steps.publish_release.conclusion }}
           EAS_ARTIFACT_URL: ${{ steps.eas_build.outputs.artifact_url }}
         run: |
@@ -229,12 +274,17 @@ jobs:
             "targetSdk": 36,
             "steps": {
               "safety": "$SAFETY_STATUS",
+              "decimalAndPrivy": "$DECIMAL_STATUS",
+              "releaseAssets": "$ASSETS_STATUS",
               "typecheck": "$TYPECHECK_STATUS",
               "expoDoctor": "$DOCTOR_STATUS",
-              "api36": "$API36_STATUS",
+              "api36Config": "$API36_CONFIG_STATUS",
+              "api36Prebuild": "$API36_PREBUILD_STATUS",
               "export": "$EXPORT_STATUS",
+              "artifactSource": "$ARTIFACT_SOURCE_STATUS",
               "easBuild": "$EAS_STATUS",
               "download": "$DOWNLOAD_STATUS",
+              "binaryApi36": "$BINARY_API36_STATUS",
               "release": "$RELEASE_STATUS"
             },
             "aabFile": "$AAB_FILE",
@@ -248,5 +298,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add release-status/android-2.0.8-v101.json
-          git commit -m "Record Nexa 2.0.8 Android build outcome: $BUILD_STATUS"
+          git commit -m "Record Nexa 2.0.8 Android API 36 build outcome: $BUILD_STATUS" || true
+          git pull --rebase origin main
           git push origin HEAD:main
