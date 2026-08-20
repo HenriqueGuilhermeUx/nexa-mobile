@@ -9,9 +9,9 @@
     "safety": "success",
     "typecheck": "success",
     "expoDoctor": "success",
-    "api36": "failure",
-    "export": "skipped",
-    "easBuild": "skipped",
+    "api36": "success",
+    "export": "success",
+    "easBuild": "failure",
     "download": "skipped",
     "release": "skipped"
   },
@@ -19,6 +19,6 @@
   "sha256": "",
   "easArtifactUrl": "",
   "releaseDownloadUrl": "https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.8-android16-v101/Nexa-2.0.8-Android16-v101.aab",
-  "sourceCommit": "03a7d4ee581842684bea2c2853f4541a0dd62878",
-  "generatedAt": "2026-08-20T15:19:49Z"
+  "sourceCommit": "4504845ea3f7dd37b23959dc000f9529d076c6dd",
+  "generatedAt": "2026-08-20T15:28:10Z"
 }
