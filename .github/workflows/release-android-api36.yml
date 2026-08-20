@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -147,3 +149,31 @@ jobs:
             --target "${GITHUB_SHA}" \
             --title 'Nexa 2.0.8 · Android 16 · API 36 · v101' \
             --notes "Production AAB for Google Play. Package: br.com.trynexa.app. Version: 2.0.8. versionCode: 101. Android target API: 36. SHA-256: ${{ env.aab_sha256 }}."
+
+      - name: Record release status in repository
+        env:
+          RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.8-android16-v101/Nexa-2.0.8-Android16-v101.aab
+        run: |
+          set -euo pipefail
+          mkdir -p release-status
+          cat > release-status/android-2.0.8-v101.json <<EOF
+          {
+            "status": "success",
+            "version": "2.0.8",
+            "versionCode": 101,
+            "package": "br.com.trynexa.app",
+            "compileSdk": 36,
+            "targetSdk": 36,
+            "aabFile": "${{ env.aab_file }}",
+            "sha256": "${{ env.aab_sha256 }}",
+            "easArtifactUrl": "${{ steps.eas_build.outputs.artifact_url }}",
+            "releaseDownloadUrl": "$RELEASE_DOWNLOAD_URL",
+            "sourceCommit": "$GITHUB_SHA",
+            "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add release-status/android-2.0.8-v101.json
+          git commit -m 'Record Nexa 2.0.8 Android 16 AAB release'
+          git push origin HEAD:main
