@@ -284,10 +284,12 @@ jobs:
           EAS_ARTIFACT_URL: ${{ steps.eas_build.outputs.artifact_url }}
         run: |
           set -euo pipefail
+          STATUS_PATH='release-status/android-2.0.8-v101.json'
+          STATUS_TMP="$RUNNER_TEMP/android-2.0.8-v101.json"
           mkdir -p release-status
           AAB_FILE="${aab_file:-}"
           AAB_SHA256="${aab_sha256:-}"
-          cat > release-status/android-2.0.8-v101.json <<EOF
+          cat > "$STATUS_PATH" <<EOF
           {
             "status": "$BUILD_STATUS",
             "version": "2.0.8",
@@ -320,9 +322,14 @@ jobs:
             "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
+          cp "$STATUS_PATH" "$STATUS_TMP"
+          git reset --hard HEAD
+          git clean -fd
+          git pull --rebase origin main
+          mkdir -p release-status
+          cp "$STATUS_TMP" "$STATUS_PATH"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add release-status/android-2.0.8-v101.json
+          git add "$STATUS_PATH"
           git commit -m "Record Nexa 2.0.8 Expo 57 Android API 36 build outcome: $BUILD_STATUS" || true
-          git pull --rebase origin main
           git push origin HEAD:main
