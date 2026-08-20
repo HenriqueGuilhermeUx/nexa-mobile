@@ -37,10 +37,11 @@ const metro = read('metro.config.js');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.equal(appConfig.expo.version, '2.0.7');
-assert.equal(packageJson.version, '2.0.7');
-assert.equal(appConfig.expo.android.versionCode, 100);
-assert.equal(appConfig.expo.ios.buildNumber, '100');
+assert.equal(appConfig.expo.version, '2.0.8');
+assert.equal(packageJson.version, '2.0.8');
+assert.equal(appConfig.expo.android.versionCode, 101);
+assert.equal(appConfig.expo.ios.buildNumber, '101');
+assert.equal(appConfig.expo.extra.androidTargetApi, 36);
 assert.equal(appConfig.expo.extra.financialExecutionEnabled, false);
 assert.equal(appConfig.expo.extra.ledgerOperationsEnabled, true);
 assert.equal(appConfig.expo.extra.balanceSource, 'ledger');
@@ -52,6 +53,8 @@ assert.equal(packageJson.main, 'entrypoint.js');
 assert.equal(packageJson.dependencies['react-native-svg'], '15.15.4');
 assert.ok(packageJson.dependencies['@privy-io/expo']);
 assert.ok(packageJson.dependencies['expo-secure-store']);
+assert.match(packageJson.dependencies.expo, /^~56\./);
+assert.match(packageJson.dependencies['react-native'], /^0\.85\./);
 assert.match(entrypoint, /fast-text-encoding/);
 assert.match(entrypoint, /react-native-get-random-values/);
 assert.match(entrypoint, /@ethersproject\/shims/);
@@ -63,8 +66,10 @@ assert.doesNotMatch(session, /AsyncStorage/);
 
 assert.match(config, /appVersion/);
 assert.match(config, /appBuild/);
-assert.match(config, /2\.0\.7/);
-assert.match(config, /100/);
+assert.match(config, /2\.0\.8/);
+assert.match(config, /101/);
+assert.match(config, /androidTargetApi/);
+assert.match(config, /36/);
 assert.match(api, /X-Nexa-App-Version/);
 assert.match(api, /X-Nexa-App-Build/);
 assert.match(api, /X-Nexa-Platform/);
@@ -102,8 +107,8 @@ assert.match(financialBridge, /Authorization/);
 assert.match(financialBridge, /X-Nexa-App-Version/);
 assert.match(financialBridge, /X-Nexa-App-Build/);
 assert.match(financialBridge, /X-Nexa-Platform/);
-assert.match(financialBridge, /2\.0\.7/);
-assert.match(financialBridge, /100/);
+assert.match(financialBridge, /2\.0\.8/);
+assert.match(financialBridge, /101/);
 assert.doesNotMatch(financialBridge, /fromUserId:\s*legacyBody\.fromUserId/);
 assert.doesNotMatch(financialBridge, /userId:\s*legacyBody\.userId/);
 
@@ -138,5 +143,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.7 v100 validated: approved visuals, official Pix, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
+  'Nexa mobile 2.0.8 v101 validated: Android API 36 release metadata, official Pix, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
 );
