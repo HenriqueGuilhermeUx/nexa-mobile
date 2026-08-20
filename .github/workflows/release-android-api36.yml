@@ -61,12 +61,17 @@ jobs:
           sed -i 's/Cotação executável:/Cotação Nexa para venda:/g' nexa-mobile/nexa-mobile/App.js
           grep -q 'Cotação Nexa para venda:' nexa-mobile/nexa-mobile/App.js
 
-      - name: Validate Nexa mobile contracts
-        id: validate
-        run: |
-          node scripts/validate-mobile-safety.js
-          npm run typecheck
-          npx expo-doctor
+      - name: Validate Nexa safety contracts
+        id: safety
+        run: node scripts/validate-mobile-safety.js
+
+      - name: Validate TypeScript
+        id: typecheck
+        run: npm run typecheck
+
+      - name: Validate Expo project
+        id: doctor
+        run: npx expo-doctor
 
       - name: Prove Android 16 / API 36 target
         id: api36
@@ -162,7 +167,9 @@ jobs:
         env:
           RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.8-android16-v101/Nexa-2.0.8-Android16-v101.aab
           BUILD_STATUS: ${{ job.status }}
-          VALIDATE_STATUS: ${{ steps.validate.conclusion }}
+          SAFETY_STATUS: ${{ steps.safety.conclusion }}
+          TYPECHECK_STATUS: ${{ steps.typecheck.conclusion }}
+          DOCTOR_STATUS: ${{ steps.doctor.conclusion }}
           API36_STATUS: ${{ steps.api36.conclusion }}
           EXPORT_STATUS: ${{ steps.export_bundle.conclusion }}
           EAS_STATUS: ${{ steps.eas_build.conclusion }}
@@ -183,7 +190,9 @@ jobs:
             "compileSdk": 36,
             "targetSdk": 36,
             "steps": {
-              "validate": "$VALIDATE_STATUS",
+              "safety": "$SAFETY_STATUS",
+              "typecheck": "$TYPECHECK_STATUS",
+              "expoDoctor": "$DOCTOR_STATUS",
               "api36": "$API36_STATUS",
               "export": "$EXPORT_STATUS",
               "easBuild": "$EAS_STATUS",
