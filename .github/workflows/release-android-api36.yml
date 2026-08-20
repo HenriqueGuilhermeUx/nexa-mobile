@@ -62,12 +62,14 @@ jobs:
           grep -q 'Cotação Nexa para venda:' nexa-mobile/nexa-mobile/App.js
 
       - name: Validate Nexa mobile contracts
+        id: validate
         run: |
           node scripts/validate-mobile-safety.js
           npm run typecheck
           npx expo-doctor
 
       - name: Prove Android 16 / API 36 target
+        id: api36
         env:
           CI: 'true'
           EXPO_NO_TELEMETRY: '1'
@@ -81,6 +83,7 @@ jobs:
           rm -rf android
 
       - name: Export Android JavaScript bundle
+        id: export_bundle
         env:
           CI: 'true'
           EXPO_NO_TELEMETRY: '1'
@@ -118,6 +121,7 @@ jobs:
           echo "artifact_url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
 
       - name: Download production AAB
+        id: download_aab
         run: |
           set -euo pipefail
           VERSION=$(node -p "require('./app.json').expo.version")
@@ -131,6 +135,7 @@ jobs:
           echo "aab_sha256=$SHA256" >> "$GITHUB_ENV"
 
       - name: Upload AAB artifact
+        if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
           name: Nexa-2.0.8-Android16-v101
@@ -139,6 +144,8 @@ jobs:
           retention-days: 30
 
       - name: Publish GitHub release with AAB
+        id: publish_release
+        if: ${{ success() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -150,23 +157,42 @@ jobs:
             --title 'Nexa 2.0.8 · Android 16 · API 36 · v101' \
             --notes "Production AAB for Google Play. Package: br.com.trynexa.app. Version: 2.0.8. versionCode: 101. Android target API: 36. SHA-256: ${{ env.aab_sha256 }}."
 
-      - name: Record release status in repository
+      - name: Record final release outcome
+        if: ${{ always() }}
         env:
           RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.8-android16-v101/Nexa-2.0.8-Android16-v101.aab
+          BUILD_STATUS: ${{ job.status }}
+          VALIDATE_STATUS: ${{ steps.validate.conclusion }}
+          API36_STATUS: ${{ steps.api36.conclusion }}
+          EXPORT_STATUS: ${{ steps.export_bundle.conclusion }}
+          EAS_STATUS: ${{ steps.eas_build.conclusion }}
+          DOWNLOAD_STATUS: ${{ steps.download_aab.conclusion }}
+          RELEASE_STATUS: ${{ steps.publish_release.conclusion }}
+          EAS_ARTIFACT_URL: ${{ steps.eas_build.outputs.artifact_url }}
         run: |
           set -euo pipefail
           mkdir -p release-status
+          AAB_FILE="${aab_file:-}"
+          AAB_SHA256="${aab_sha256:-}"
           cat > release-status/android-2.0.8-v101.json <<EOF
           {
-            "status": "success",
+            "status": "$BUILD_STATUS",
             "version": "2.0.8",
             "versionCode": 101,
             "package": "br.com.trynexa.app",
             "compileSdk": 36,
             "targetSdk": 36,
-            "aabFile": "${{ env.aab_file }}",
-            "sha256": "${{ env.aab_sha256 }}",
-            "easArtifactUrl": "${{ steps.eas_build.outputs.artifact_url }}",
+            "steps": {
+              "validate": "$VALIDATE_STATUS",
+              "api36": "$API36_STATUS",
+              "export": "$EXPORT_STATUS",
+              "easBuild": "$EAS_STATUS",
+              "download": "$DOWNLOAD_STATUS",
+              "release": "$RELEASE_STATUS"
+            },
+            "aabFile": "$AAB_FILE",
+            "sha256": "$AAB_SHA256",
+            "easArtifactUrl": "$EAS_ARTIFACT_URL",
             "releaseDownloadUrl": "$RELEASE_DOWNLOAD_URL",
             "sourceCommit": "$GITHUB_SHA",
             "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -175,5 +201,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add release-status/android-2.0.8-v101.json
-          git commit -m 'Record Nexa 2.0.8 Android 16 AAB release'
+          git commit -m "Record Nexa 2.0.8 Android build outcome: $BUILD_STATUS"
           git push origin HEAD:main
