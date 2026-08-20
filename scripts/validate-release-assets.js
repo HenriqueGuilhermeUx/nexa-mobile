@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const app = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 function requireAsset(label, relativePath) {
   assert.ok(relativePath, `${label} não foi configurado.`);
@@ -28,14 +29,27 @@ const assets = [
   requireAsset('Logo do splash Android', splashPlugin[1]?.image),
 ];
 
-assert.equal(app.version, '2.0.7');
-assert.equal(Number(app.android?.versionCode), 100);
-assert.equal(String(app.ios?.buildNumber), '100');
+// Release contracts: validate consistency and minimum production baseline instead
+// of freezing this asset validator to one historical app version.
+assert.equal(app.version, pkg.version, 'app.json e package.json devem usar a mesma versão.');
+assert.ok(/^\d+\.\d+\.\d+$/.test(String(app.version || '')), 'Versão semver inválida.');
+assert.ok(Number(app.android?.versionCode) >= 101, 'Android versionCode deve ser >= 101.');
+assert.equal(
+  String(app.ios?.buildNumber),
+  String(app.android?.versionCode),
+  'iOS buildNumber e Android versionCode devem permanecer sincronizados nesta release.',
+);
 assert.equal(app.android?.package, 'br.com.trynexa.app');
+assert.equal(app.ios?.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(app.extra?.financialExecutionEnabled, false);
 assert.equal(app.extra?.ledgerOperationsEnabled, true);
 assert.equal(app.extra?.balanceSource, 'ledger');
 assert.equal(app.extra?.privyOptional, true);
+assert.equal(app.extra?.releaseChannel, 'production');
+assert.ok(
+  Number(app.extra?.androidTargetApi || 0) >= 36,
+  'A release deve declarar Android target API 36 ou superior.',
+);
 assert.ok(Number(splashPlugin[1]?.imageWidth || 0) > 0);
 
 console.log(
@@ -46,6 +60,7 @@ console.log(
       versionCode: app.android.versionCode,
       iosBuildNumber: app.ios.buildNumber,
       package: app.android.package,
+      androidTargetApi: app.extra.androidTargetApi,
       balanceSource: app.extra.balanceSource,
       privyOptional: app.extra.privyOptional,
       assets,
