@@ -14,11 +14,11 @@ on:
       - 'scripts/validate-mobile-safety.js'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: nexa-android-api36-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -123,8 +123,10 @@ jobs:
           FILE="Nexa-${VERSION}-Android16-v${VERSION_CODE}.aab"
           curl --fail --location "${{ steps.eas_build.outputs.artifact_url }}" --output "$FILE"
           test -s "$FILE"
+          SHA256=$(sha256sum "$FILE" | awk '{print $1}')
           ls -lh "$FILE"
           echo "aab_file=$FILE" >> "$GITHUB_ENV"
+          echo "aab_sha256=$SHA256" >> "$GITHUB_ENV"
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
@@ -133,3 +135,15 @@ jobs:
           path: ${{ env.aab_file }}
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub release with AAB
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='nexa-2.0.8-android16-v101'
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" "${{ env.aab_file }}" \
+            --target "${GITHUB_SHA}" \
+            --title 'Nexa 2.0.8 · Android 16 · API 36 · v101' \
+            --notes "Production AAB for Google Play. Package: br.com.trynexa.app. Version: 2.0.8. versionCode: 101. Android target API: 36. SHA-256: ${{ env.aab_sha256 }}."
