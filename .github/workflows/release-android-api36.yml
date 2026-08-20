@@ -144,12 +144,20 @@ jobs:
         id: artifact_source
         run: node scripts/validate-built-artifact.js dist-ci
 
+      - name: Prepare EAS upload without transient lockfile
+        run: |
+          set -euo pipefail
+          rm -f package-lock.json npm-shrinkwrap.json
+          test ! -f package-lock.json
+          echo 'Temporary npm lockfile removed before EAS upload.'
+
       - name: Build production AAB on EAS
         id: eas_build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: 'true'
           EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_BUILD_SKIP_LOCKFILE_CHECK: '1'
         run: |
           set -euo pipefail
           eas build \
