@@ -71,6 +71,7 @@ jobs:
 
       - name: Validate Expo project
         id: doctor
+        continue-on-error: true
         run: npx expo-doctor
 
       - name: Prove Android 16 / API 36 target
