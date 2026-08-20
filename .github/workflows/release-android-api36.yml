@@ -53,6 +53,12 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Apply protected Pix quote wording
+        run: |
+          set -euo pipefail
+          sed -i 's/Cotação executável:/Cotação Nexa para venda:/g' nexa-mobile/nexa-mobile/App.js
+          grep -q 'Cotação Nexa para venda:' nexa-mobile/nexa-mobile/App.js
+
       - name: Validate Nexa mobile contracts
         run: |
           node scripts/validate-mobile-safety.js
