@@ -48,14 +48,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Expo and EAS
+      - name: Set up Expo and EAS CLI
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           packager: npm
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Verify Expo authentication
+      - name: Verify Expo authentication for Android credentials
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
@@ -144,60 +144,32 @@ jobs:
         id: artifact_source
         run: node scripts/validate-built-artifact.js dist-ci
 
-      - name: Prepare EAS upload without transient lockfile
-        run: |
-          set -euo pipefail
-          rm -f package-lock.json npm-shrinkwrap.json
-          test ! -f package-lock.json
-          echo 'Temporary npm lockfile removed before EAS upload.'
-
-      - name: Build production AAB on EAS
-        id: eas_build
+      - name: Build signed production AAB locally on GitHub Actions
+        id: local_build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
           EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
-          EAS_BUILD_SKIP_LOCKFILE_CHECK: '1'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v101
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v101
         run: |
           set -euo pipefail
+          FILE='Nexa-2.0.8-Android16-v101.aab'
+          rm -f "$FILE"
           eas build \
             --platform android \
             --profile production \
+            --local \
             --non-interactive \
-            --clear-cache \
-            --wait \
-            --json > eas-build.json
-          cat eas-build.json
-          ARTIFACT_URL=$(node - <<'NODE'
-          const fs = require('fs');
-          const raw = fs.readFileSync('eas-build.json', 'utf8').trim();
-          const arrayStart = raw.indexOf('[');
-          const objectStart = raw.indexOf('{');
-          const jsonStart = arrayStart >= 0 && (objectStart < 0 || arrayStart < objectStart) ? arrayStart : objectStart;
-          if (jsonStart < 0) throw new Error('JSON do EAS não encontrado');
-          const data = JSON.parse(raw.slice(jsonStart));
-          const build = Array.isArray(data) ? data[0] : data;
-          const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl;
-          if (!url) throw new Error('URL do AAB não encontrada na resposta do EAS');
-          process.stdout.write(url);
-          NODE
-          )
-          echo "artifact_url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
-
-      - name: Download production AAB
-        id: download_aab
-        run: |
-          set -euo pipefail
-          VERSION=$(node -p "require('./app.json').expo.version")
-          VERSION_CODE=$(node -p "require('./app.json').expo.android.versionCode")
-          FILE="Nexa-${VERSION}-Android16-v${VERSION_CODE}.aab"
-          curl --fail --location --retry 5 --retry-delay 3 \
-            "${{ steps.eas_build.outputs.artifact_url }}" --output "$FILE"
+            --output "$GITHUB_WORKSPACE/$FILE"
           test -s "$FILE"
           SHA256=$(sha256sum "$FILE" | awk '{print $1}')
           ls -lh "$FILE"
           echo "aab_file=$FILE" >> "$GITHUB_ENV"
           echo "aab_sha256=$SHA256" >> "$GITHUB_ENV"
+          echo 'AAB assinado gerado localmente no runner do GitHub Actions; nenhuma cota de build remoto da Expo foi utilizada.'
 
       - name: Verify API 36 inside final AAB
         id: binary_api36
@@ -246,7 +218,18 @@ jobs:
             SHA256SUMS.txt \
             --target "${GITHUB_SHA}" \
             --title 'Nexa 2.0.8 · Android 16 · API 36 · v101' \
-            --notes "Google Play production AAB VERIFIED. Package br.com.trynexa.app. Version 2.0.8. versionCode 101. Final binary targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
+            --notes "Google Play production AAB VERIFIED. Built locally on GitHub Actions (no Expo remote-build quota). Package br.com.trynexa.app. Version 2.0.8. versionCode 101. Final binary targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
+
+      - name: Upload local build diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.8-v101-local-build-diagnostics
+          path: |
+            ${{ runner.temp }}/nexa-eas-local-v101/logs
+            local-build-artifacts-v101
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Record final release outcome
         if: ${{ always() }}
@@ -262,11 +245,9 @@ jobs:
           API36_PREBUILD_STATUS: ${{ steps.api36_prebuild.conclusion }}
           EXPORT_STATUS: ${{ steps.export_bundle.conclusion }}
           ARTIFACT_SOURCE_STATUS: ${{ steps.artifact_source.conclusion }}
-          EAS_STATUS: ${{ steps.eas_build.conclusion }}
-          DOWNLOAD_STATUS: ${{ steps.download_aab.conclusion }}
+          LOCAL_BUILD_STATUS: ${{ steps.local_build.conclusion }}
           BINARY_API36_STATUS: ${{ steps.binary_api36.conclusion }}
           RELEASE_STATUS: ${{ steps.publish_release.conclusion }}
-          EAS_ARTIFACT_URL: ${{ steps.eas_build.outputs.artifact_url }}
         run: |
           set -euo pipefail
           STATUS_PATH='release-status/android-2.0.8-v101.json'
@@ -280,6 +261,7 @@ jobs:
             "version": "2.0.8",
             "versionCode": 101,
             "package": "br.com.trynexa.app",
+            "buildMode": "github-actions-local-eas",
             "compileSdk": 36,
             "targetSdk": 36,
             "steps": {
@@ -292,14 +274,12 @@ jobs:
               "api36Prebuild": "$API36_PREBUILD_STATUS",
               "export": "$EXPORT_STATUS",
               "artifactSource": "$ARTIFACT_SOURCE_STATUS",
-              "easBuild": "$EAS_STATUS",
-              "download": "$DOWNLOAD_STATUS",
+              "localBuild": "$LOCAL_BUILD_STATUS",
               "binaryApi36": "$BINARY_API36_STATUS",
               "release": "$RELEASE_STATUS"
             },
             "aabFile": "$AAB_FILE",
             "sha256": "$AAB_SHA256",
-            "easArtifactUrl": "$EAS_ARTIFACT_URL",
             "releaseDownloadUrl": "$RELEASE_DOWNLOAD_URL",
             "sourceCommit": "$GITHUB_SHA",
             "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -314,5 +294,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add "$STATUS_PATH"
-          git commit -m "Record Nexa 2.0.8 Android API 36 build outcome: $BUILD_STATUS" || true
+          git commit -m "Record Nexa 2.0.8 GitHub-local Android API 36 build outcome: $BUILD_STATUS" || true
           git push origin HEAD:main
