@@ -9,6 +9,7 @@ interface NexaExtra {
   balanceSource?: string;
   privyOptional?: boolean;
   releaseChannel?: string;
+  androidTargetApi?: number;
 }
 
 const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
@@ -16,8 +17,8 @@ const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
 export const config = {
   apiUrl:
     extra.apiUrl || 'https://nexa-backend-p2u0.onrender.com/api/v1',
-  appVersion: Constants.expoConfig?.version || '2.0.7',
-  appBuild: String(Constants.expoConfig?.android?.versionCode || '100'),
+  appVersion: Constants.expoConfig?.version || '2.0.8',
+  appBuild: String(Constants.expoConfig?.android?.versionCode || '101'),
   privyAppId: extra.privyAppId || '',
   privyClientId: extra.privyClientId || '',
   financialExecutionEnabled: extra.financialExecutionEnabled === true,
@@ -25,6 +26,7 @@ export const config = {
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
   releaseChannel: extra.releaseChannel || 'production',
+  androidTargetApi: Number(extra.androidTargetApi || 36),
 };
 
 export function assertPublicConfiguration() {
