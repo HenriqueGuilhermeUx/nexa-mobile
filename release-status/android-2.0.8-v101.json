@@ -3,6 +3,8 @@
   "version": "2.0.8",
   "versionCode": 101,
   "package": "br.com.trynexa.app",
+  "expoSdk": 57,
+  "reactNative": "0.86.2",
   "compileSdk": 36,
   "targetSdk": 36,
   "steps": {
@@ -24,6 +26,6 @@
   "sha256": "",
   "easArtifactUrl": "",
   "releaseDownloadUrl": "https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.8-android16-v101/Nexa-2.0.8-Android16-v101.aab",
-  "sourceCommit": "301d97cd195df9213d4a781462f85b08e1a9e84c",
-  "generatedAt": "2026-08-20T17:45:54Z"
+  "sourceCommit": "f751e5937966b7670e3be4a1e2ea3c96fd0249d4",
+  "generatedAt": "2026-08-20T18:47:28Z"
 }
