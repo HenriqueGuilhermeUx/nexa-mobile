@@ -5,13 +5,11 @@
   },
   "build": {
     "development": {
-      "node": "22.14.0",
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development"
     },
     "preview": {
-      "node": "22.14.0",
       "distribution": "internal",
       "channel": "primeiros-nexa-preview",
       "android": {
@@ -19,7 +17,6 @@
       }
     },
     "production": {
-      "node": "22.14.0",
       "channel": "production",
       "autoIncrement": false,
       "android": {
