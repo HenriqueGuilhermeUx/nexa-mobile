@@ -53,6 +53,8 @@ assert.equal(packageJson.main, 'entrypoint.js');
 assert.equal(packageJson.dependencies['react-native-svg'], '15.15.4');
 assert.ok(packageJson.dependencies['@privy-io/expo']);
 assert.ok(packageJson.dependencies['expo-secure-store']);
+assert.ok(packageJson.dependencies.viem, 'Dependência viem obrigatória para o runtime Privy/Metro.');
+assert.match(packageJson.dependencies.viem, /^\^?2\./);
 assert.match(packageJson.dependencies.expo, /^~57\./);
 assert.equal(packageJson.dependencies['react-native'], '0.86.2');
 assert.match(entrypoint, /fast-text-encoding/);
@@ -143,5 +145,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.8 v101 validated: Expo SDK 57, React Native 0.86.2 with fixed Hermes, Android API 36 release metadata, official Pix, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
+  'Nexa mobile 2.0.8 v101 validated: Expo SDK 57, React Native 0.86.2 with fixed Hermes, Privy viem runtime, Android API 36 release metadata, official Pix, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
 );
