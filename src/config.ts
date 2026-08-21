@@ -17,8 +17,8 @@ const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
 export const config = {
   apiUrl:
     extra.apiUrl || 'https://nexa-backend-p2u0.onrender.com/api/v1',
-  appVersion: Constants.expoConfig?.version || '2.0.8',
-  appBuild: String(Constants.expoConfig?.android?.versionCode || '101'),
+  appVersion: Constants.expoConfig?.version || '2.0.9',
+  appBuild: String(Constants.expoConfig?.android?.versionCode || '102'),
   privyAppId: extra.privyAppId || '',
   privyClientId: extra.privyClientId || '',
   financialExecutionEnabled: extra.financialExecutionEnabled === true,
