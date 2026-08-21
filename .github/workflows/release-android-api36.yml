@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   build:
-    name: Nexa 2.0.8 Android 16 API 36 production AAB
+    name: Nexa 2.0.9 Android 16 API 36 production AAB
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -108,8 +108,8 @@ jobs:
           assert.equal(Number(android.targetSdkVersion), 36);
           assert.equal(String(android.buildToolsVersion), '36.0.0');
           assert.equal(Number(app.extra?.androidTargetApi), 36);
-          assert.equal(app.version, '2.0.8');
-          assert.equal(Number(app.android?.versionCode), 101);
+          assert.equal(app.version, '2.0.9');
+          assert.equal(Number(app.android?.versionCode), 102);
           console.log('Android API 36 explicitamente configurado no app.json.');
           NODE
 
@@ -152,11 +152,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
           EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
           EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
-          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v101
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v101
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v102
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v102
         run: |
           set -euo pipefail
-          FILE='Nexa-2.0.8-Android16-v101.aab'
+          FILE='Nexa-2.0.9-Android16-v102.aab'
           rm -f "$FILE"
           eas build \
             --platform android \
@@ -185,8 +185,8 @@ jobs:
             > aab-manifest.xml
           cat aab-manifest.xml
           grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
-          grep -Eq 'android:versionCode="101"' aab-manifest.xml
-          grep -Eq 'android:versionName="2\.0\.8"' aab-manifest.xml
+          grep -Eq 'android:versionCode="102"' aab-manifest.xml
+          grep -Eq 'android:versionName="2\.0\.9"' aab-manifest.xml
           grep -Eq 'android:targetSdkVersion="36"' aab-manifest.xml \
             || (echo 'ERRO: AAB final não segmenta Android API 36' && exit 1)
           echo 'AAB final comprovado: targetSdkVersion=36.'
@@ -195,7 +195,7 @@ jobs:
         if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.8-Android16-v101-VERIFIED
+          name: Nexa-2.0.9-Android16-v102-VERIFIED
           path: |
             ${{ env.aab_file }}
             aab-manifest.xml
@@ -209,7 +209,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='nexa-2.0.8-android16-v101'
+          TAG='nexa-2.0.9-android16-v102'
           printf '%s  %s\n' "${{ env.aab_sha256 }}" "${{ env.aab_file }}" > SHA256SUMS.txt
           gh release delete "$TAG" --yes --cleanup-tag || true
           gh release create "$TAG" \
@@ -217,24 +217,24 @@ jobs:
             aab-manifest.xml \
             SHA256SUMS.txt \
             --target "${GITHUB_SHA}" \
-            --title 'Nexa 2.0.8 · Android 16 · API 36 · v101' \
-            --notes "Google Play production AAB VERIFIED. Built locally on GitHub Actions (no Expo remote-build quota). Package br.com.trynexa.app. Version 2.0.8. versionCode 101. Final binary targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
+            --title 'Nexa 2.0.9 · Android 16 · API 36 · v102' \
+            --notes "Google Play production AAB VERIFIED. Built locally on GitHub Actions (no Expo remote-build quota). Package br.com.trynexa.app. Version 2.0.9. versionCode 102. Final binary targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
 
       - name: Upload local build diagnostics on failure
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.8-v101-local-build-diagnostics
+          name: Nexa-2.0.9-v102-local-build-diagnostics
           path: |
-            ${{ runner.temp }}/nexa-eas-local-v101/logs
-            local-build-artifacts-v101
+            ${{ runner.temp }}/nexa-eas-local-v102/logs
+            local-build-artifacts-v102
           if-no-files-found: warn
           retention-days: 14
 
       - name: Record final release outcome
         if: ${{ always() }}
         env:
-          RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.8-android16-v101/Nexa-2.0.8-Android16-v101.aab
+          RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.9-android16-v102/Nexa-2.0.9-Android16-v102.aab
           BUILD_STATUS: ${{ job.status }}
           SAFETY_STATUS: ${{ steps.safety.conclusion }}
           DECIMAL_STATUS: ${{ steps.decimal_privy.conclusion }}
@@ -250,16 +250,16 @@ jobs:
           RELEASE_STATUS: ${{ steps.publish_release.conclusion }}
         run: |
           set -euo pipefail
-          STATUS_PATH='release-status/android-2.0.8-v101.json'
-          STATUS_TMP="$RUNNER_TEMP/android-2.0.8-v101.json"
+          STATUS_PATH='release-status/android-2.0.9-v102.json'
+          STATUS_TMP="$RUNNER_TEMP/android-2.0.9-v102.json"
           mkdir -p release-status
           AAB_FILE="${aab_file:-}"
           AAB_SHA256="${aab_sha256:-}"
           cat > "$STATUS_PATH" <<EOF
           {
             "status": "$BUILD_STATUS",
-            "version": "2.0.8",
-            "versionCode": 101,
+            "version": "2.0.9",
+            "versionCode": 102,
             "package": "br.com.trynexa.app",
             "buildMode": "github-actions-local-eas",
             "compileSdk": 36,
@@ -294,5 +294,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add "$STATUS_PATH"
-          git commit -m "Record Nexa 2.0.8 GitHub-local Android API 36 build outcome: $BUILD_STATUS" || true
+          git commit -m "Record Nexa 2.0.9 GitHub-local Android API 36 build outcome: $BUILD_STATUS" || true
           git push origin HEAD:main
