@@ -1,5 +1,5 @@
 {
-  "status": "success",
+  "status": "cancelled",
   "version": "2.0.8",
   "versionCode": 101,
   "package": "br.com.trynexa.app",
@@ -7,22 +7,22 @@
   "compileSdk": 36,
   "targetSdk": 36,
   "steps": {
-    "safety": "success",
-    "decimalAndPrivy": "success",
-    "releaseAssets": "success",
-    "typecheck": "success",
-    "expoDoctor": "success",
-    "api36Config": "success",
-    "api36Prebuild": "success",
-    "export": "success",
-    "artifactSource": "success",
-    "localBuild": "success",
-    "binaryApi36": "success",
-    "release": "success"
+    "safety": "skipped",
+    "decimalAndPrivy": "skipped",
+    "releaseAssets": "skipped",
+    "typecheck": "skipped",
+    "expoDoctor": "skipped",
+    "api36Config": "skipped",
+    "api36Prebuild": "skipped",
+    "export": "skipped",
+    "artifactSource": "skipped",
+    "localBuild": "skipped",
+    "binaryApi36": "skipped",
+    "release": "skipped"
   },
-  "aabFile": "Nexa-2.0.8-Android16-v101.aab",
-  "sha256": "f047d45699cca7a32adcf5b9f3b417f21e4f8716f338d935de4ca93affeda7e9",
+  "aabFile": "",
+  "sha256": "",
   "releaseDownloadUrl": "https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.8-android16-v101/Nexa-2.0.8-Android16-v101.aab",
-  "sourceCommit": "24305c99a3afe7baf7923e473add3a972983d873",
-  "generatedAt": "2026-08-20T19:40:19Z"
+  "sourceCommit": "c2f2be04df7946cbd02dcb9c81d8d69ccb166f21",
+  "generatedAt": "2026-08-21T21:50:58Z"
 }
