@@ -37,10 +37,10 @@ const metro = read('metro.config.js');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.equal(appConfig.expo.version, '2.0.8');
-assert.equal(packageJson.version, '2.0.8');
-assert.equal(appConfig.expo.android.versionCode, 101);
-assert.equal(appConfig.expo.ios.buildNumber, '101');
+assert.equal(appConfig.expo.version, '2.0.9');
+assert.equal(packageJson.version, '2.0.9');
+assert.equal(appConfig.expo.android.versionCode, 102);
+assert.equal(appConfig.expo.ios.buildNumber, '102');
 assert.equal(appConfig.expo.extra.androidTargetApi, 36);
 assert.equal(appConfig.expo.extra.financialExecutionEnabled, false);
 assert.equal(appConfig.expo.extra.ledgerOperationsEnabled, true);
@@ -66,8 +66,8 @@ assert.doesNotMatch(session, /AsyncStorage/);
 
 assert.match(config, /appVersion/);
 assert.match(config, /appBuild/);
-assert.match(config, /2\.0\.8/);
-assert.match(config, /101/);
+assert.match(config, /2\.0\.9/);
+assert.match(config, /102/);
 assert.match(config, /androidTargetApi/);
 assert.match(config, /36/);
 assert.match(api, /X-Nexa-App-Version/);
@@ -107,8 +107,8 @@ assert.match(financialBridge, /Authorization/);
 assert.match(financialBridge, /X-Nexa-App-Version/);
 assert.match(financialBridge, /X-Nexa-App-Build/);
 assert.match(financialBridge, /X-Nexa-Platform/);
-assert.match(financialBridge, /2\.0\.8/);
-assert.match(financialBridge, /101/);
+assert.match(financialBridge, /2\.0\.9/);
+assert.match(financialBridge, /102/);
 assert.doesNotMatch(financialBridge, /fromUserId:\s*legacyBody\.fromUserId/);
 assert.doesNotMatch(financialBridge, /userId:\s*legacyBody\.userId/);
 
@@ -143,5 +143,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.8 v101 validated: Android API 36 release metadata, official Pix, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
+  'Nexa mobile 2.0.9 v102 validated: Android API 36 release metadata, official Pix, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
 );
