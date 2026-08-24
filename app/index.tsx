@@ -9,7 +9,8 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
-import { loadNexaSession } from '@/lib/session';
+import { ApiError, nexaApi } from '@/lib/api';
+import { clearNexaSession, loadNexaSession } from '@/lib/session';
 import { colors, spacing } from '@/theme';
 
 export default function WelcomeScreen() {
@@ -23,8 +24,27 @@ export default function WelcomeScreen() {
       if (!mounted) return;
 
       if (session) {
-        router.replace('/legacy' as any);
-        return;
+        try {
+          const profile = await nexaApi.me(session.accessToken);
+          if (!mounted) return;
+          router.replace(
+            profile?.kycStatus === 'approved'
+              ? ('/legacy' as any)
+              : ('/kyc' as any),
+          );
+          return;
+        } catch (caught) {
+          if (caught instanceof ApiError && caught.status === 401) {
+            await clearNexaSession();
+            if (mounted) setChecking(false);
+            return;
+          }
+
+          // Uma indisponibilidade momentânea do backend não bloqueia um cliente
+          // já autenticado de abrir a experiência existente.
+          router.replace('/legacy' as any);
+          return;
+        }
       }
       setChecking(false);
     }

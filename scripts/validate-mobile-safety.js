@@ -22,6 +22,7 @@ const session = read('src/lib/session.ts');
 const welcome = read('app/index.tsx');
 const signIn = read('app/sign-in.tsx');
 const signUp = read('app/sign-up.tsx');
+const kycScreen = read('app/kyc.tsx');
 const rootLayout = read('app/_layout.tsx');
 const appLayout = read('app/(app)/_layout.tsx');
 const onboarding = read('app/onboarding-wallet.tsx');
@@ -37,10 +38,10 @@ const metro = read('metro.config.js');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.equal(appConfig.expo.version, '2.0.9');
-assert.equal(packageJson.version, '2.0.9');
-assert.equal(appConfig.expo.android.versionCode, 102);
-assert.equal(appConfig.expo.ios.buildNumber, '102');
+assert.equal(appConfig.expo.version, '2.0.10');
+assert.equal(packageJson.version, '2.0.10');
+assert.equal(appConfig.expo.android.versionCode, 103);
+assert.equal(appConfig.expo.ios.buildNumber, '103');
 assert.equal(appConfig.expo.extra.androidTargetApi, 36);
 assert.equal(appConfig.expo.extra.financialExecutionEnabled, false);
 assert.equal(appConfig.expo.extra.ledgerOperationsEnabled, true);
@@ -51,6 +52,8 @@ assert.match(appConfig.expo.extra.apiUrl, /^https:\/\//);
 
 assert.equal(packageJson.main, 'entrypoint.js');
 assert.equal(packageJson.dependencies['react-native-svg'], '15.15.4');
+assert.equal(packageJson.dependencies['react-native-reanimated'], '4.3.1');
+assert.equal(packageJson.dependencies['react-native-worklets'], '0.8.3');
 assert.ok(packageJson.dependencies['@privy-io/expo']);
 assert.ok(packageJson.dependencies['expo-secure-store']);
 assert.match(packageJson.dependencies.expo, /^~56\./);
@@ -66,8 +69,8 @@ assert.doesNotMatch(session, /AsyncStorage/);
 
 assert.match(config, /appVersion/);
 assert.match(config, /appBuild/);
-assert.match(config, /2\.0\.9/);
-assert.match(config, /102/);
+assert.match(config, /2\.0\.10/);
+assert.match(config, /103/);
 assert.match(config, /androidTargetApi/);
 assert.match(config, /36/);
 assert.match(api, /X-Nexa-App-Version/);
@@ -78,18 +81,39 @@ assert.match(api, /Authorization/);
 assert.match(welcome, /Cripto sem complicação/);
 assert.match(welcome, /label="Entrar"/);
 assert.match(welcome, /label="Criar conta"/);
-assert.match(welcome, /router\.replace\('\/legacy'/);
+assert.match(welcome, /nexaApi\.me/);
+assert.match(welcome, /'\/kyc'/);
+assert.match(welcome, /'\/legacy'/);
 assert.doesNotMatch(welcome, /Primeiros Nexa|convite|ABERTURA GRADUAL/i);
 assert.doesNotMatch(rootLayout, /primeiros-nexa/);
 assert.ok(!fs.existsSync('app/primeiros-nexa.tsx'));
 
 assert.match(signIn, /nexaApi\.login/);
 assert.match(signIn, /saveNexaSession/);
+assert.match(signIn, /kycStatus/);
+assert.match(signIn, /'\/kyc'/);
+assert.match(signIn, /'\/legacy'/);
 assert.doesNotMatch(signIn, /useLoginWithEmail|sendCode|loginWithCode|onboarding-wallet/);
+
 assert.match(signUp, /nexaApi\.register/);
 assert.match(signUp, /saveNexaSession/);
-assert.match(signUp, /KYC/);
+assert.match(signUp, /CPF/);
+assert.match(signUp, /router\.replace\('\/kyc'/);
+assert.doesNotMatch(signUp, /router\.replace\('\/legacy'/);
 assert.doesNotMatch(signUp, /useLoginWithEmail|sendCode|loginWithCode|onboarding-wallet/);
+
+assert.match(api, /\/kyc\/didit\/brazil\/start/);
+assert.match(api, /\/kyc\/didit\/me/);
+assert.match(api, /startBrazilKyc/);
+assert.match(api, /getMyKycStatus/);
+assert.match(kycScreen, /Consentimento biométrico/);
+assert.match(kycScreen, /startBrazilKyc/);
+assert.match(kycScreen, /getMyKycStatus/);
+assert.match(kycScreen, /AppState/);
+assert.match(kycScreen, /document_fallback/);
+assert.match(kycScreen, /manual_review/);
+assert.match(kycScreen, /retry_selfie/);
+assert.match(kycScreen, /Concordo e verificar identidade/);
 assert.doesNotMatch(appLayout, /AuthBoundary|usePrivy|Privy/);
 
 assert.match(legacyBridge, /LegacyApp/);
@@ -107,8 +131,8 @@ assert.match(financialBridge, /Authorization/);
 assert.match(financialBridge, /X-Nexa-App-Version/);
 assert.match(financialBridge, /X-Nexa-App-Build/);
 assert.match(financialBridge, /X-Nexa-Platform/);
-assert.match(financialBridge, /2\.0\.9/);
-assert.match(financialBridge, /102/);
+assert.match(financialBridge, /2\.0\.10/);
+assert.match(financialBridge, /103/);
 assert.doesNotMatch(financialBridge, /fromUserId:\s*legacyBody\.fromUserId/);
 assert.doesNotMatch(financialBridge, /userId:\s*legacyBody\.userId/);
 
@@ -143,5 +167,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.9 v102 validated: Android API 36 release metadata, official Pix, authenticated transfers, mandatory build headers, KYC, ledger and optional Privy.',
+  'Nexa mobile 2.0.10 v103 validated: Android API 36, Brazil KYC routing, official Pix, authenticated transfers, mandatory build headers, ledger and optional Privy.',
 );

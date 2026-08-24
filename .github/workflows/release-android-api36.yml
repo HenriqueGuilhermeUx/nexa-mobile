@@ -10,7 +10,12 @@ on:
       - 'app.json'
       - 'package.json'
       - 'eas.json'
+      - 'app/index.tsx'
+      - 'app/sign-in.tsx'
+      - 'app/sign-up.tsx'
+      - 'app/kyc.tsx'
       - 'src/config.ts'
+      - 'src/lib/api.ts'
       - 'src/lib/legacy-financial-fetch-bridge.js'
       - 'nexa-mobile/nexa-mobile/App.js'
       - 'scripts/validate-mobile-safety.js'
@@ -27,7 +32,7 @@ concurrency:
 
 jobs:
   build:
-    name: Nexa 2.0.9 Android 16 API 36 production AAB
+    name: Nexa 2.0.10 Android 16 API 36 production AAB
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -65,6 +70,15 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Verify Expo 56 native compatibility pins
+        run: |
+          node <<'NODE'
+          const pkg = require('./package.json');
+          if (pkg.dependencies['react-native-reanimated'] !== '4.3.1') throw new Error('react-native-reanimated deve ser 4.3.1');
+          if (pkg.dependencies['react-native-worklets'] !== '0.8.3') throw new Error('react-native-worklets deve ser 0.8.3');
+          console.log('Expo 56 native pins OK: Reanimated 4.3.1 + Worklets 0.8.3');
+          NODE
 
       - name: Apply protected Pix quote wording
         run: |
@@ -108,9 +122,9 @@ jobs:
           assert.equal(Number(android.targetSdkVersion), 36);
           assert.equal(String(android.buildToolsVersion), '36.0.0');
           assert.equal(Number(app.extra?.androidTargetApi), 36);
-          assert.equal(app.version, '2.0.9');
-          assert.equal(Number(app.android?.versionCode), 102);
-          console.log('Android API 36 explicitamente configurado no app.json.');
+          assert.equal(app.version, '2.0.10');
+          assert.equal(Number(app.android?.versionCode), 103);
+          console.log('Android API 36 e Nexa 2.0.10 v103 confirmados no app.json.');
           NODE
 
       - name: Prove API 36 was applied by Expo prebuild
@@ -122,8 +136,6 @@ jobs:
           set -euo pipefail
           rm -rf android
           npx expo prebuild --platform android --no-install --clean
-          echo '--- Android gradle.properties ---'
-          cat android/gradle.properties
           grep -Eq '^android\.compileSdkVersion=36$' android/gradle.properties \
             || (echo 'android.compileSdkVersion=36 não aplicado pelo prebuild' && exit 1)
           grep -Eq '^android\.targetSdkVersion=36$' android/gradle.properties \
@@ -149,14 +161,15 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: 'true'
+          NODE_ENV: 'production'
           EXPO_NO_TELEMETRY: '1'
           EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
           EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
-          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v102
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v102
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v103
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v103
         run: |
           set -euo pipefail
-          FILE='Nexa-2.0.9-Android16-v102.aab'
+          FILE='Nexa-2.0.10-Android16-v103.aab'
           rm -f "$FILE"
           eas build \
             --platform android \
@@ -169,7 +182,6 @@ jobs:
           ls -lh "$FILE"
           echo "aab_file=$FILE" >> "$GITHUB_ENV"
           echo "aab_sha256=$SHA256" >> "$GITHUB_ENV"
-          echo 'AAB assinado gerado localmente no runner do GitHub Actions; nenhuma cota de build remoto da Expo foi utilizada.'
 
       - name: Verify API 36 inside final AAB
         id: binary_api36
@@ -185,17 +197,17 @@ jobs:
             > aab-manifest.xml
           cat aab-manifest.xml
           grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
-          grep -Eq 'android:versionCode="102"' aab-manifest.xml
-          grep -Eq 'android:versionName="2\.0\.9"' aab-manifest.xml
+          grep -Eq 'android:versionCode="103"' aab-manifest.xml
+          grep -Eq 'android:versionName="2\.0\.10"' aab-manifest.xml
           grep -Eq 'android:targetSdkVersion="36"' aab-manifest.xml \
             || (echo 'ERRO: AAB final não segmenta Android API 36' && exit 1)
-          echo 'AAB final comprovado: targetSdkVersion=36.'
+          echo 'AAB final comprovado: Nexa 2.0.10 v103 targetSdkVersion=36.'
 
       - name: Upload verified AAB artifact
         if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.9-Android16-v102-VERIFIED
+          name: Nexa-2.0.10-Android16-v103-VERIFIED
           path: |
             ${{ env.aab_file }}
             aab-manifest.xml
@@ -209,7 +221,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='nexa-2.0.9-android16-v102'
+          TAG='nexa-2.0.10-android16-v103'
           printf '%s  %s\n' "${{ env.aab_sha256 }}" "${{ env.aab_file }}" > SHA256SUMS.txt
           gh release delete "$TAG" --yes --cleanup-tag || true
           gh release create "$TAG" \
@@ -217,24 +229,24 @@ jobs:
             aab-manifest.xml \
             SHA256SUMS.txt \
             --target "${GITHUB_SHA}" \
-            --title 'Nexa 2.0.9 · Android 16 · API 36 · v102' \
-            --notes "Google Play production AAB VERIFIED. Built locally on GitHub Actions (no Expo remote-build quota). Package br.com.trynexa.app. Version 2.0.9. versionCode 102. Final binary targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
+            --title 'Nexa 2.0.10 · Brasil KYC · Android 16 · API 36 · v103' \
+            --notes "Google Play AAB VERIFIED. Brazil KYC routing: CPF + Didit liveness/Unico-ready flow. Built locally on GitHub Actions. Package br.com.trynexa.app. Version 2.0.10. versionCode 103. targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
 
       - name: Upload local build diagnostics on failure
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.9-v102-local-build-diagnostics
+          name: Nexa-2.0.10-v103-local-build-diagnostics
           path: |
-            ${{ runner.temp }}/nexa-eas-local-v102/logs
-            local-build-artifacts-v102
+            ${{ runner.temp }}/nexa-eas-local-v103/logs
+            local-build-artifacts-v103
           if-no-files-found: warn
           retention-days: 14
 
       - name: Record final release outcome
         if: ${{ always() }}
         env:
-          RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.9-android16-v102/Nexa-2.0.9-Android16-v102.aab
+          RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.10-android16-v103/Nexa-2.0.10-Android16-v103.aab
           BUILD_STATUS: ${{ job.status }}
           SAFETY_STATUS: ${{ steps.safety.conclusion }}
           DECIMAL_STATUS: ${{ steps.decimal_privy.conclusion }}
@@ -250,20 +262,21 @@ jobs:
           RELEASE_STATUS: ${{ steps.publish_release.conclusion }}
         run: |
           set -euo pipefail
-          STATUS_PATH='release-status/android-2.0.9-v102.json'
-          STATUS_TMP="$RUNNER_TEMP/android-2.0.9-v102.json"
+          STATUS_PATH='release-status/android-2.0.10-v103.json'
+          STATUS_TMP="$RUNNER_TEMP/android-2.0.10-v103.json"
           mkdir -p release-status
           AAB_FILE="${aab_file:-}"
           AAB_SHA256="${aab_sha256:-}"
           cat > "$STATUS_PATH" <<EOF
           {
             "status": "$BUILD_STATUS",
-            "version": "2.0.9",
-            "versionCode": 102,
+            "version": "2.0.10",
+            "versionCode": 103,
             "package": "br.com.trynexa.app",
             "buildMode": "github-actions-local-eas",
             "compileSdk": 36,
             "targetSdk": 36,
+            "features": ["brazil_kyc_routing", "didit_unico_ready"],
             "steps": {
               "safety": "$SAFETY_STATUS",
               "decimalAndPrivy": "$DECIMAL_STATUS",
@@ -294,5 +307,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add "$STATUS_PATH"
-          git commit -m "Record Nexa 2.0.9 GitHub-local Android API 36 build outcome: $BUILD_STATUS" || true
+          git commit -m "Record Nexa 2.0.10 Brazil KYC Android API 36 build outcome: $BUILD_STATUS" || true
           git push origin HEAD:main

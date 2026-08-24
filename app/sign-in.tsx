@@ -38,9 +38,12 @@ export default function SignInScreen() {
         email: normalizedEmail,
       });
 
-      // O saldo e todas as operações oficiais usam o ledger Nexa. A carteira
-      // Privy permanece opcional e nunca participa do login.
-      router.replace('/legacy' as any);
+      const profile = response.user || (await nexaApi.me(tokens.accessToken));
+      if (profile?.kycStatus === 'approved') {
+        router.replace('/legacy' as any);
+      } else {
+        router.replace('/kyc' as any);
+      }
     } catch (caught) {
       await clearNexaSession();
       setError(

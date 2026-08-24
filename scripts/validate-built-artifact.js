@@ -20,7 +20,11 @@ const forbidden = [
   'Recebi meu convite',
   'direct_settlement',
 ];
-const required = ['/payment/pix/redemption'];
+const required = [
+  '/payment/pix/redemption',
+  '/kyc/didit/brazil/start',
+  '/kyc/didit/me',
+];
 const matches = new Map(forbidden.map((value) => [value, []]));
 const requiredFound = new Map(required.map((value) => [value, false]));
 
@@ -48,7 +52,7 @@ assert.deepEqual(
   `Conteúdo proibido encontrado no artefato: ${JSON.stringify(violations)}`,
 );
 for (const [value, found] of requiredFound.entries()) {
-  assert.equal(found, true, `Rota oficial ausente do artefato: ${value}`);
+  assert.equal(found, true, `Rota obrigatória ausente do artefato: ${value}`);
 }
 
 console.log(
@@ -57,6 +61,7 @@ console.log(
       ok: true,
       target,
       officialPixRoute: '/payment/pix/redemption',
+      brazilKycRoutes: ['/kyc/didit/brazil/start', '/kyc/didit/me'],
       forbiddenContentAbsent: forbidden,
     },
     null,

@@ -68,6 +68,19 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   return payload as T;
 }
 
+export interface NexaUserSummary {
+  id?: string;
+  email?: string;
+  cpf?: string;
+  fullName?: string;
+  phone?: string | null;
+  username?: string | null;
+  handle?: string | null;
+  nexaId?: string | null;
+  kycStatus?: 'pending' | 'in_review' | 'approved' | 'rejected' | string;
+  kycVerifiedAt?: string | null;
+}
+
 export interface LoginResponse {
   accessToken?: string;
   access_token?: string;
@@ -78,6 +91,7 @@ export interface LoginResponse {
     accessToken?: string;
     refreshToken?: string;
   };
+  user?: NexaUserSummary;
 }
 
 export interface RegistrationData {
@@ -86,6 +100,31 @@ export interface RegistrationData {
   cpf: string;
   phone?: string;
   password: string;
+}
+
+export interface BrazilKycStatus {
+  success: boolean;
+  provider?: string;
+  flow?: string | null;
+  kycStatus: 'pending' | 'in_review' | 'approved' | 'rejected' | string;
+  diditSessionId?: string | null;
+  diditSessionStatus?: string | null;
+  outcomeCode?: string | null;
+  matchType?: string | null;
+  documentFallbackRequired?: boolean;
+  manualReviewRequired?: boolean;
+  verificationUrl?: string | null;
+  nextAction?:
+    | 'approved'
+    | 'start_verification'
+    | 'resume_verification'
+    | 'document_fallback'
+    | 'manual_review'
+    | 'retry_selfie'
+    | 'wait'
+    | string;
+  kycVerifiedAt?: string | null;
+  alreadyApproved?: boolean;
 }
 
 export interface PixRedemption {
@@ -143,6 +182,18 @@ export const nexaApi = {
 
   me(accessToken: string) {
     return request<any>('/user/me', { accessToken });
+  },
+
+  startBrazilKyc(accessToken: string, consent = true) {
+    return request<BrazilKycStatus>('/kyc/didit/brazil/start', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ consent }),
+    });
+  },
+
+  getMyKycStatus(accessToken: string) {
+    return request<BrazilKycStatus>('/kyc/didit/me', { accessToken });
   },
 
   directProfile(accessToken: string) {

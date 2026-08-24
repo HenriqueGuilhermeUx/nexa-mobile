@@ -66,9 +66,9 @@ export default function SignUpScreen() {
         email: normalizedEmail,
       });
 
-      // O cliente já pode entrar e conhecer o app. Depósito, transferência e
-      // saque permanecem bloqueados pelo backend até o KYC ser aprovado.
-      router.replace('/legacy' as any);
+      // Todo novo cliente passa imediatamente pelo KYC. O fluxo Brasil usa
+      // CPF + selfie com prova de vida e só pede documento quando necessário.
+      router.replace('/kyc' as any);
     } catch (caught) {
       await clearNexaSession();
       setError(
@@ -87,8 +87,9 @@ export default function SignUpScreen() {
       <View style={styles.topSpace} />
       <Title>Criar conta</Title>
       <Paragraph>
-        Cadastre-se para conhecer a Nexa. As movimentações são liberadas após o
-        KYC.
+        Cadastre-se e confirme sua identidade. Na maioria dos casos, a
+        verificação no Brasil precisa apenas do CPF e de uma selfie com prova de
+        vida.
       </Paragraph>
 
       <Field
