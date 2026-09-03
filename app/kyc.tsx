@@ -17,6 +17,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { config } from '@/config';
 import { BrazilKycStatus, nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
@@ -41,6 +42,12 @@ function actionLabel(status?: BrazilKycStatus | null) {
   return 'Concordo e verificar identidade';
 }
 
+function nextAfterKyc() {
+  return config.walletV15PilotMode
+    ? ('/onboarding-wallet' as any)
+    : ('/legacy' as any);
+}
+
 export default function KycScreen() {
   const [status, setStatus] = useState<BrazilKycStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +66,7 @@ export default function KycScreen() {
       setStatus(next);
       setError('');
       if (next.kycStatus === 'approved' || next.nextAction === 'approved') {
-        router.replace('/legacy' as any);
+        router.replace(nextAfterKyc());
       }
     } catch (caught) {
       setError(
@@ -90,13 +97,11 @@ export default function KycScreen() {
     setStarting(true);
     setError('');
     try {
-      // O toque neste botão representa consentimento explícito informado para
-      // iniciar a verificação biométrica descrita na própria tela.
       const next = await nexaApi.startBrazilKyc(session.accessToken, true);
       setStatus(next);
 
       if (next.kycStatus === 'approved' || next.nextAction === 'approved') {
-        router.replace('/legacy' as any);
+        router.replace(nextAfterKyc());
         return;
       }
 
@@ -198,7 +203,7 @@ export default function KycScreen() {
         onPress={refreshStatus}
       />
 
-      {!approved ? (
+      {!approved && !config.walletV15PilotMode ? (
         <ActionButton
           label="Entrar na Nexa e verificar depois"
           variant="secondary"
@@ -207,7 +212,9 @@ export default function KycScreen() {
         />
       ) : null}
 
-      {status?.outcomeCode ? (
+      {config.walletV15PilotMode ? (
+        <Text style={styles.code}>Piloto Wallet V1.5 • KYC obrigatório</Text>
+      ) : status?.outcomeCode ? (
         <Text style={styles.code}>Referência: {status.outcomeCode}</Text>
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}

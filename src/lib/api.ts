@@ -150,6 +150,76 @@ export interface PixRedemption {
   completedAt?: string | null;
 }
 
+export interface WalletV15OwnershipChallenge {
+  success: boolean;
+  proofVersion: 'eip191_v1' | string;
+  destinationWallet: string;
+  chainId: number;
+  signingMethod: string;
+  message: string;
+  messageHash: string;
+  expiresAt: string;
+  financialAction: false;
+}
+
+export interface WalletV15OwnershipVerification {
+  success: boolean;
+  confirmed: boolean;
+  proofVersion: string;
+  chainId: number;
+  destinationWallet: string;
+  recoveredAddress: string;
+  financialAction: false;
+  profile?: any;
+}
+
+export interface WalletV15Snapshot {
+  success: boolean;
+  status?: any;
+  balances?: {
+    operationalUsdc?: number | string;
+    pendingSettlementUsdc?: number | string;
+    settledOnchainJournalUsdc?: number | string;
+    [key: string]: unknown;
+  };
+  portfolio?: any;
+}
+
+export interface WalletV15EntryReadiness {
+  success: boolean;
+  ready: boolean;
+  decision: 'READY_FOR_CONTROLLED_PIX_ENTRY' | 'ENTRY_NO_GO' | string;
+  blockers: string[];
+  userId?: string;
+  profile?: any;
+  gates?: Record<string, boolean>;
+  pilot?: {
+    restricted?: boolean;
+    allowlistConfigured?: boolean;
+    userAllowed?: boolean;
+  };
+  circuitBreaker?: {
+    allowed?: boolean;
+    blockers?: string[];
+  };
+  financialAction?: false;
+}
+
+export interface WooviPixCharge {
+  success: boolean;
+  provider?: string;
+  correlationID?: string;
+  amountBrl?: number;
+  valueInCents?: number;
+  charge?: any;
+  message?: any;
+  walletV15Entry?: {
+    ready?: boolean;
+    decision?: string;
+    withdrawalEnabled?: boolean;
+  };
+}
+
 export function tokensFromLogin(response: LoginResponse) {
   const accessToken =
     response.accessToken ||
@@ -219,6 +289,66 @@ export const nexaApi = {
       accessToken,
       body: JSON.stringify({}),
     });
+  },
+
+  prepareWalletV15Me(accessToken: string) {
+    return request<any>('/wallet-v15/prepare-me', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({}),
+    });
+  },
+
+  walletV15Me(accessToken: string) {
+    return request<WalletV15Snapshot>('/wallet-v15/me', { accessToken });
+  },
+
+  walletV15EntryReadiness(accessToken: string) {
+    return request<WalletV15EntryReadiness>('/wallet-v15/entry-readiness', {
+      accessToken,
+    });
+  },
+
+  setWalletV15Destination(accessToken: string, destinationWallet: string) {
+    return request<any>('/wallet-v15/destination-wallet', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ destinationWallet }),
+    });
+  },
+
+  createWalletV15OwnershipChallenge(accessToken: string) {
+    return request<WalletV15OwnershipChallenge>(
+      '/wallet-v15/wallet-ownership/challenge',
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify({}),
+      },
+    );
+  },
+
+  verifyWalletV15Ownership(accessToken: string, signature: string) {
+    return request<WalletV15OwnershipVerification>(
+      '/wallet-v15/wallet-ownership/verify',
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify({ signature }),
+      },
+    );
+  },
+
+  createWalletV15WooviCharge(accessToken: string, amountBrl: number) {
+    return request<WooviPixCharge>('/fiat-deposit/woovi/create-charge', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ amountBrl }),
+    });
+  },
+
+  listWalletV15FiatDeposits(accessToken: string) {
+    return request<any[]>('/fiat-deposit/list', { accessToken });
   },
 
   listOrders(accessToken: string) {

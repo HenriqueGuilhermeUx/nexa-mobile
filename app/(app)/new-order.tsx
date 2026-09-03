@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import * as Crypto from 'expo-crypto';
+import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
 import {
   ActionButton,
@@ -13,14 +13,13 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
-import { nexaApi } from '@/lib/api';
+import {
+  nexaApi,
+  WalletV15EntryReadiness,
+  WooviPixCharge,
+} from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
-
-type Operation = 'entry' | 'exit';
-type Result =
-  | { kind: 'redemption'; payload: any }
-  | { kind: 'direct-order'; payload: any };
 
 function parseAmount(value: string) {
   const text = value.trim().replace(/R\$/gi, '').replace(/\s/g, '');
@@ -46,15 +45,6 @@ function parseAmount(value: string) {
   return Number.isFinite(number) ? number : 0;
 }
 
-function profileFrom(response: any) {
-  return response?.profile || response || {};
-}
-
-function isLegacyProfile(profile: any) {
-  const value = String(profile?.settlementProfile || '').toLowerCase();
-  return profile?.isLegacyBeta === true || value.includes('legacy');
-}
-
 function formatBrl(value: unknown) {
   return Number(value || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -62,174 +52,197 @@ function formatBrl(value: unknown) {
   });
 }
 
-function formatUsdc(value: unknown) {
-  return `${Number(value || 0).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 8,
-  })} USDC`;
+function stringCandidate(...values: any[]) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
 }
 
-function Choice({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.choice, selected && styles.choiceSelected]}
-    >
-      <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>
-        {label}
-      </Text>
-    </Pressable>
+function extractPixCode(response: WooviPixCharge | null) {
+  const charge: any = response?.charge || {};
+  return stringCandidate(
+    charge?.brCode,
+    charge?.pix?.brCode,
+    charge?.paymentMethods?.pix?.brCode,
+    charge?.paymentMethods?.pix?.qrCode?.brCode,
+    charge?.pixQrCode?.brCode,
+    charge?.qrCode?.brCode,
+    typeof charge?.qrCode === 'string' ? charge.qrCode : '',
   );
 }
 
+function extractPaymentLink(response: WooviPixCharge | null) {
+  const charge: any = response?.charge || {};
+  return stringCandidate(
+    charge?.paymentLinkUrl,
+    charge?.paymentLink,
+    charge?.link,
+    charge?.pix?.paymentLinkUrl,
+  );
+}
+
+function blockerText(code: string) {
+  const map: Record<string, string> = {
+    PILOT_USER_NOT_ALLOWED: 'Esta conta ainda não foi liberada na janela do piloto.',
+    PILOT_ALLOWLIST_EMPTY: 'A janela do piloto ainda não possui usuário autorizado.',
+    WALLET_V15_PROFILE_NOT_ACTIVE: 'O perfil ainda aguarda ativação controlada.',
+    WALLET_V15_DISABLED: 'A janela Wallet V1.5 está fechada.',
+    WOOVI_V15_ROUTING_DISABLED: 'A entrada Pix ainda está fechada.',
+    ORCHESTRATOR_DISABLED: 'O processamento automático ainda está fechado.',
+    ORCHESTRATOR_EXTERNAL_EXECUTION_DISABLED:
+      'A compra automática via Foxbit ainda está fechada.',
+    FOXBIT_EXCHANGE_EXECUTION_DISABLED: 'A execução Foxbit ainda está fechada.',
+    DESTINATION_WALLET_CRYPTOGRAPHIC_PROOF_REQUIRED:
+      'A wallet ainda não tem prova criptográfica válida.',
+  };
+  return map[code] || code;
+}
+
 export default function NewOrderScreen() {
-  const [operation, setOperation] = useState<Operation>('entry');
   const [amount, setAmount] = useState('');
-  const [pixKey, setPixKey] = useState('');
-  const [profile, setProfile] = useState<any>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [readiness, setReadiness] = useState<WalletV15EntryReadiness | null>(null);
+  const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState<Result | null>(null);
+  const [charge, setCharge] = useState<WooviPixCharge | null>(null);
+
+  async function refreshReadiness() {
+    setChecking(true);
+    setError('');
+    try {
+      const session = await loadNexaSession();
+      if (!session) {
+        router.replace('/sign-in');
+        return;
+      }
+      const next = await nexaApi.walletV15EntryReadiness(session.accessToken);
+      setReadiness(next);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível validar a janela de entrada.',
+      );
+    } finally {
+      setChecking(false);
+    }
+  }
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const session = await loadNexaSession();
-        if (!session) throw new Error('Sua sessão Nexa expirou.');
-        const response = await nexaApi.directProfile(session.accessToken);
-        setProfile(profileFrom(response));
-      } catch (caught) {
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : 'Não foi possível identificar o perfil da conta.',
-        );
-      } finally {
-        setProfileLoading(false);
-      }
-    })();
+    void refreshReadiness();
   }, []);
 
-  const legacy = isLegacyProfile(profile);
-
-  async function submit() {
+  async function createPix() {
     setError('');
-    const parsed = parseAmount(amount);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      setError('Informe um valor maior que zero.');
-      return;
-    }
-    if (legacy && !pixKey.trim()) {
-      setError('Informe a chave Pix que receberá o valor final.');
+    const amountBrl = parseAmount(amount);
+    if (!Number.isFinite(amountBrl) || amountBrl <= 0) {
+      setError('Informe um valor em reais maior que zero.');
       return;
     }
 
     setLoading(true);
     try {
       const session = await loadNexaSession();
-      if (!session) throw new Error('Sua sessão Nexa expirou.');
-
-      if (legacy) {
-        const response = await nexaApi.requestPixRedemption(
-          session.accessToken,
-          {
-            amountUsdc: parsed,
-            pixKey: pixKey.trim(),
-          },
-        );
-        setResult({ kind: 'redemption', payload: response });
+      if (!session) {
+        router.replace('/sign-in');
         return;
       }
 
-      const clientRequestId = Crypto.randomUUID();
-      const response =
-        operation === 'entry'
-          ? await nexaApi.createEntryOrder(session.accessToken, {
-              grossBrl: parsed,
-              clientRequestId,
-            })
-          : await nexaApi.createExitOrder(session.accessToken, {
-              amountUsdc: parsed,
-              clientRequestId,
-            });
-      setResult({ kind: 'direct-order', payload: response });
+      const current = await nexaApi.walletV15EntryReadiness(session.accessToken);
+      setReadiness(current);
+      if (!current.ready) {
+        throw new Error(
+          'A janela Pix → Foxbit → Saldo Nexa ainda não está liberada para esta conta.',
+        );
+      }
+
+      const response = await nexaApi.createWalletV15WooviCharge(
+        session.accessToken,
+        amountBrl,
+      );
+      if (response.success !== true) {
+        throw new Error('A Woovi não criou a cobrança Pix.');
+      }
+      setCharge(response);
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível registrar a operação.',
+          : 'Não foi possível criar o Pix.',
       );
     } finally {
       setLoading(false);
     }
   }
 
-  if (result?.kind === 'redemption') {
-    const redemption = result.payload || {};
-    const fees = redemption.estimatedFees || {};
+  const pixCode = useMemo(() => extractPixCode(charge), [charge]);
+  const paymentLink = useMemo(() => extractPaymentLink(charge), [charge]);
+  const qrValue = pixCode || paymentLink;
+
+  if (charge) {
     return (
       <Screen>
-        <Badge tone="success">RESGATE SOLICITADO</Badge>
+        <Badge tone="success">PIX CRIADO</Badge>
         <View style={styles.topSpace} />
-        <Title>Seu USDC foi reservado.</Title>
+        <Title>Pague o Pix.</Title>
         <Paragraph>
-          A estimativa em reais ainda não é uma promessa de pagamento. A Nexa
-          venderá exatamente o USDC reservado e confirmará o valor final após a
-          entrada real do BRL, em até 1 dia útil.
+          Depois da confirmação da Woovi, o fluxo controlado processa a compra
+          de USDC na Foxbit e o resultado aparece no seu Saldo Nexa.
         </Paragraph>
 
         <Card>
-          <Text style={styles.resultLabel}>USDC reservado</Text>
-          <Text style={styles.resultValue}>
-            {formatUsdc(redemption.reservedUsdc)}
-          </Text>
-          <Text style={styles.resultLabel}>Estimativa líquida em BRL</Text>
-          <Text style={styles.resultValue}>
-            {formatBrl(redemption.estimatedPayoutBrl)}
-          </Text>
-          <Text style={styles.estimateNotice}>ESTIMATIVA — NÃO GARANTIDA</Text>
-          <Text style={styles.resultLabel}>Fee Nexa estimada</Text>
-          <Text style={styles.resultValue}>
-            {formatBrl(fees.nexaFeeBrl)} ({Number(fees.nexaFeePercent || 1.5)}%)
-          </Text>
-          <Text style={styles.resultLabel}>Pix Out estimado</Text>
-          <Text style={styles.resultValue}>
-            {formatBrl(fees.pixOutFeeBrl)}
-          </Text>
-          <Text style={styles.resultLabel}>Identificador</Text>
+          <Text style={styles.resultLabel}>Valor</Text>
+          <Text style={styles.resultValue}>{formatBrl(charge.amountBrl)}</Text>
+          <Text style={styles.resultLabel}>Referência</Text>
           <Text selectable style={styles.reference}>
-            {redemption.paymentId || '—'}
+            {charge.correlationID || '—'}
           </Text>
         </Card>
 
-        <Card>
-          <Text style={styles.ruleTitle}>Como o valor final será definido</Text>
-          <Text style={styles.ruleText}>
-            BRL líquido realmente recebido na venda − fee Nexa de 1,5% − custo
-            real do Pix Out.
-          </Text>
-          <Text style={styles.ruleText}>
-            A Nexa não usa caixa próprio para cobrir diferença entre estimativa e
-            venda real. Isso protege a continuidade da operação e mantém as
-            contas corretas.
-          </Text>
-        </Card>
+        {qrValue ? (
+          <Card>
+            <View style={styles.qrWrap}>
+              <View style={styles.qrBackground}>
+                <QRCode value={qrValue} size={220} />
+              </View>
+            </View>
+            {pixCode ? (
+              <>
+                <Text style={styles.resultLabel}>Pix copia e cola</Text>
+                <Text selectable style={styles.pixCode}>
+                  {pixCode}
+                </Text>
+                <Text style={styles.helper}>
+                  Toque e segure o código acima para selecionar e copiar.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.resultLabel}>Link de pagamento</Text>
+                <Text selectable style={styles.pixCode}>
+                  {paymentLink}
+                </Text>
+              </>
+            )}
+          </Card>
+        ) : (
+          <Card>
+            <Text style={styles.warningTitle}>Cobrança criada na Woovi</Text>
+            <Text style={styles.helper}>
+              A cobrança foi criada, mas o payload não trouxe um BR Code ou link
+              reconhecido pelo app. Não pague por outro caminho; volte e atualize
+              antes de continuar o teste.
+            </Text>
+          </Card>
+        )}
 
         <ActionButton
-          label="Acompanhar na atividade"
-          onPress={() => router.replace('/(app)/activity')}
+          label="Já paguei — acompanhar Saldo Nexa"
+          onPress={() => router.replace('/(app)')}
         />
         <ActionButton
-          label="Voltar"
+          label="Cancelar e voltar"
           variant="secondary"
           onPress={() => router.back()}
         />
@@ -237,172 +250,72 @@ export default function NewOrderScreen() {
     );
   }
 
-  if (result?.kind === 'direct-order') {
-    const response = result.payload || {};
-    const order = response.order || response;
-    const fundsMoved = response.fundsMoved === true;
-    const executionEnabled = response.executionEnabled === true;
-    return (
-      <Screen>
-        <Badge tone={fundsMoved ? 'danger' : 'success'}>
-          {fundsMoved ? 'REVISÃO NECESSÁRIA' : 'SOLICITAÇÃO REGISTRADA'}
-        </Badge>
-        <View style={styles.topSpace} />
-        <Title>Nenhum dinheiro foi movimentado.</Title>
-        <Paragraph>
-          A solicitação foi registrada para acompanhamento. Enquanto a execução
-          direta estiver em homologação, ela não representa compra, venda, Pix ou
-          crédito final.
-        </Paragraph>
-        <Card>
-          <Text style={styles.resultLabel}>Identificador</Text>
-          <Text selectable style={styles.reference}>
-            {order.id || order.orderId || '—'}
-          </Text>
-          <Text style={styles.resultLabel}>Status</Text>
-          <Text style={styles.resultValue}>{order.status || 'created'}</Text>
-          <Text style={styles.resultLabel}>Plano aplicado pelo backend</Text>
-          <Text style={styles.resultValue}>{order.plan || 'FREE'}</Text>
-          <Text style={styles.resultLabel}>Execução habilitada</Text>
-          <Text style={styles.resultValue}>
-            {executionEnabled ? 'Sim' : 'Não'}
-          </Text>
-          <Text style={styles.resultLabel}>Fundos movimentados</Text>
-          <Text style={styles.resultValue}>{fundsMoved ? 'Sim' : 'Não'}</Text>
-        </Card>
-        <ActionButton
-          label="Registrar outra solicitação"
-          variant="secondary"
-          onPress={() => {
-            setResult(null);
-            setAmount('');
-          }}
-        />
-      </Screen>
-    );
-  }
-
-  if (profileLoading) {
-    return (
-      <Screen>
-        <Eyebrow>Preparando sua operação</Eyebrow>
-        <Title>Validando as regras da sua conta.</Title>
-        <Paragraph>
-          A Nexa escolhe automaticamente o fluxo compatível com seu perfil, sem
-          alterar sua carteira ou seu histórico.
-        </Paragraph>
-      </Screen>
-    );
-  }
-
-  if (legacy) {
-    return (
-      <Screen>
-        <Eyebrow>Resgate Pix</Eyebrow>
-        <Title>Quanto USDC deseja converter?</Title>
-        <Paragraph>
-          Primeiro você escolhe o USDC. O valor em reais exibido após a
-          solicitação será apenas uma estimativa. O valor final aparecerá quando
-          a venda real for conciliada.
-        </Paragraph>
-
-        <Field
-          label="Quantidade em USDC"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="decimal-pad"
-          placeholder="Ex.: 45,60"
-        />
-        <Field
-          label="Chave Pix"
-          value={pixKey}
-          onChangeText={setPixKey}
-          autoCapitalize="none"
-          placeholder="CPF, e-mail, telefone ou chave aleatória"
-        />
-
-        <Card>
-          <Text style={styles.ruleTitle}>Regra do resgate</Text>
-          <Text style={styles.ruleText}>
-            Prazo de processamento: até 1 dia útil. Fee Nexa: 1,5% sobre o BRL
-            líquido realmente recebido na venda. Pix Out: custo efetivo do
-            provedor.
-          </Text>
-          <Text style={styles.ruleText}>
-            Antes da venda, qualquer valor em reais é somente estimativo. Depois
-            da venda, o app mostra BRL recebido, fee, Pix Out e valor final.
-          </Text>
-        </Card>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <ActionButton
-          label="Solicitar resgate"
-          loading={loading}
-          onPress={submit}
-        />
-      </Screen>
-    );
-  }
-
   return (
     <Screen>
-      <Eyebrow>Operação em homologação</Eyebrow>
-      <Title>Registre sua solicitação.</Title>
+      <Eyebrow>Entrada Wallet V1.5</Eyebrow>
+      <Title>Pix → USDC → Saldo Nexa</Title>
       <Paragraph>
-        Sua conta usa carteira individual. A Nexa registra a solicitação e as
-        regras aplicáveis, mas não movimenta fundos até a liquidação direta estar
-        homologada.
+        O app só permite gerar a cobrança quando sua conta, a Woovi, a Foxbit e
+        os controles do piloto estiverem prontos para processar a entrada.
       </Paragraph>
 
-      <Text style={styles.sectionLabel}>Operação</Text>
-      <View style={styles.row}>
-        <View style={styles.flex}>
-          <Choice
-            label="Entrar: Pix → USDC"
-            selected={operation === 'entry'}
-            onPress={() => {
-              setOperation('entry');
-              setAmount('');
-            }}
-          />
-        </View>
-        <View style={styles.flex}>
-          <Choice
-            label="Sair: USDC → Pix"
-            selected={operation === 'exit'}
-            onPress={() => {
-              setOperation('exit');
-              setAmount('');
-            }}
-          />
-        </View>
-      </View>
+      <Card>
+        <Badge tone={readiness?.ready ? 'success' : 'warning'}>
+          {checking
+            ? 'VALIDANDO JANELA'
+            : readiness?.ready
+              ? 'PRONTO PARA PIX'
+              : 'PIX BLOQUEADO COM SEGURANÇA'}
+        </Badge>
+        {!checking && !readiness?.ready ? (
+          <View style={styles.blockers}>
+            {(readiness?.blockers || []).slice(0, 5).map((code) => (
+              <Text key={code} style={styles.blocker}>
+                • {blockerText(code)}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+      </Card>
 
       <Field
-        label={operation === 'entry' ? 'Valor em reais' : 'Quantidade em USDC'}
+        label="Valor em reais"
         value={amount}
         onChangeText={setAmount}
         keyboardType="decimal-pad"
-        placeholder={operation === 'entry' ? 'Ex.: 500,00' : 'Ex.: 100,00'}
+        placeholder="Ex.: 100,00"
       />
 
       <Card>
-        <Text style={styles.ruleTitle}>Regras atuais</Text>
+        <Text style={styles.ruleTitle}>O que acontece depois do pagamento</Text>
+        <Text style={styles.ruleText}>1. A Woovi confirma o Pix assinado.</Text>
+        <Text style={styles.ruleText}>2. A Nexa registra uma única entrada V1.5.</Text>
+        <Text style={styles.ruleText}>3. A Foxbit executa a compra controlada de USDC.</Text>
+        <Text style={styles.ruleText}>4. O USDC líquido vira Saldo Nexa operacional.</Text>
         <Text style={styles.ruleText}>
-          Entrada Free: 8%. Entrada Pro: 2%, mínimo de R$ 9,90 e teto de
-          R$ 750,00. Saída Free: 1,5%. Saída Pro: 1%.
-        </Text>
-        <Text style={styles.ruleText}>
-          A cotação é informativa. O valor final nasce da operação real e da
-          conciliação do provedor.
+          Saque para blockchain permanece separado e não é executado por esta
+          operação.
         </Text>
       </Card>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <ActionButton
-        label="Registrar solicitação"
-        loading={loading}
-        onPress={submit}
+        label="Gerar Pix"
+        loading={loading || checking}
+        disabled={!readiness?.ready || checking}
+        onPress={createPix}
+      />
+      <ActionButton
+        label="Atualizar liberação"
+        variant="secondary"
+        disabled={loading}
+        onPress={refreshReadiness}
+      />
+      <ActionButton
+        label="Voltar"
+        variant="secondary"
+        disabled={loading}
+        onPress={() => router.back()}
       />
     </Screen>
   );
@@ -410,37 +323,35 @@ export default function NewOrderScreen() {
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
-  sectionLabel: {
-    color: colors.text,
-    fontWeight: '900',
-    marginBottom: spacing.sm,
+  resultLabel: {
+    color: colors.muted,
+    fontSize: 12,
     marginTop: spacing.sm,
   },
-  row: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
-  flex: { flex: 1 },
-  choice: {
-    minHeight: 72,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  resultValue: {
+    color: colors.text,
+    fontSize: 23,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  reference: { color: colors.cyan, marginTop: 5, fontSize: 12 },
+  qrWrap: { alignItems: 'center', marginBottom: spacing.md },
+  qrBackground: { backgroundColor: '#FFFFFF', padding: 14, borderRadius: 14 },
+  pixCode: {
+    color: colors.text,
     backgroundColor: colors.panelSoft,
-    justifyContent: 'center',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    fontSize: 11,
+    lineHeight: 17,
   },
-  choiceSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
-  },
-  choiceText: { color: colors.muted, fontWeight: '800', textAlign: 'center' },
-  choiceTextSelected: { color: colors.text },
+  helper: { color: colors.muted, marginTop: spacing.sm, lineHeight: 20 },
+  warningTitle: { color: colors.warning, fontWeight: '900', fontSize: 17 },
+  blockers: { marginTop: spacing.md },
+  blocker: { color: colors.warning, marginTop: 6, lineHeight: 20 },
   ruleTitle: { color: colors.text, fontWeight: '900', fontSize: 17 },
   ruleText: { color: colors.muted, lineHeight: 21, marginTop: spacing.sm },
-  estimateNotice: {
-    color: colors.warning,
-    fontWeight: '900',
-    fontSize: 11,
-    marginTop: 6,
-  },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerSoft,
@@ -448,7 +359,4 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  resultLabel: { color: colors.muted, fontSize: 12, marginTop: spacing.md },
-  resultValue: { color: colors.text, fontWeight: '900', marginTop: 4 },
-  reference: { color: colors.text, fontWeight: '800', marginTop: 4, fontSize: 12 },
 });

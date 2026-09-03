@@ -14,17 +14,15 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
-import { nexaApi } from '@/lib/api';
+import { nexaApi, WalletV15EntryReadiness } from '@/lib/api';
 import { clearNexaSession, loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
-function profileFrom(response: any) {
-  return response?.profile || response || {};
-}
-
-function isLegacyProfile(profile: any) {
-  const value = String(profile?.settlementProfile || '').toLowerCase();
-  return profile?.isLegacyBeta === true || value.includes('legacy');
+function formatUsdc(value: unknown) {
+  return `${Number(value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  })} USDC`;
 }
 
 function formatBrl(value: unknown) {
@@ -34,19 +32,44 @@ function formatBrl(value: unknown) {
   });
 }
 
-function formatUsdc(value: unknown) {
-  return `${Number(value || 0).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 8,
-  })} USDC`;
+function profileFrom(snapshot: any) {
+  return snapshot?.status?.profile || null;
+}
+
+function statusLabel(readiness: WalletV15EntryReadiness | null, profile: any) {
+  if (readiness?.ready) return 'PIX → USDC LIBERADO';
+  if (profile?.userControlledWalletConfirmed !== true) return 'CONFIRME SUA WALLET';
+  if (profile?.status !== 'active') return 'AGUARDANDO PILOTO';
+  return 'JANELA FECHADA';
+}
+
+function blockerLabel(code: string) {
+  const labels: Record<string, string> = {
+    PILOT_ALLOWLIST_EMPTY: 'Piloto ainda sem usuário autorizado',
+    PILOT_USER_NOT_ALLOWED: 'Conta aguardando liberação no piloto',
+    WALLET_V15_PROFILE_NOT_ACTIVE: 'Perfil aguardando ativação controlada',
+    WALLET_V15_DISABLED: 'Janela Wallet V1.5 fechada',
+    WOOVI_V15_ROUTING_DISABLED: 'Entrada Pix ainda fechada',
+    ORCHESTRATOR_DISABLED: 'Processamento automático ainda fechado',
+    ORCHESTRATOR_EXTERNAL_EXECUTION_DISABLED: 'Compra Foxbit ainda fechada',
+    FOXBIT_EXCHANGE_EXECUTION_DISABLED: 'Execução Foxbit ainda fechada',
+    DESTINATION_WALLET_CRYPTOGRAPHIC_PROOF_REQUIRED:
+      'Prova de controle da wallet pendente',
+    KYC_NOT_APPROVED: 'KYC ainda não aprovado',
+    ACCOUNT_NOT_ELIGIBLE: 'Conta indisponível para o piloto',
+  };
+  if (code.startsWith('CIRCUIT_BREAKER:')) {
+    return 'Controle de risco bloqueou temporariamente novas entradas';
+  }
+  return labels[code] || code;
 }
 
 export default function HomeScreen() {
   const privy = usePrivy() as any;
   const [me, setMe] = useState<any>({});
-  const [profile, setProfile] = useState<any>({});
-  const [orders, setOrders] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [snapshot, setSnapshot] = useState<any>(null);
+  const [readiness, setReadiness] = useState<WalletV15EntryReadiness | null>(null);
+  const [deposits, setDeposits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -55,25 +78,44 @@ export default function HomeScreen() {
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
     setError('');
+
     try {
       const session = await loadNexaSession();
       if (!session) {
         router.replace('/sign-in');
         return;
       }
-      const [meResponse, profileResponse, ordersResponse, paymentsResponse] =
+
+      const [meResponse, walletResponse, readinessResponse, depositResponse] =
         await Promise.all([
           nexaApi.me(session.accessToken),
-          nexaApi.directProfile(session.accessToken),
-          nexaApi.listOrders(session.accessToken),
-          nexaApi.listPixRedemptions(session.accessToken),
+          nexaApi.walletV15Me(session.accessToken),
+          nexaApi.walletV15EntryReadiness(session.accessToken),
+          nexaApi.listWalletV15FiatDeposits(session.accessToken),
         ]);
-      setMe(meResponse?.user || meResponse || {});
-      setProfile(profileFrom(profileResponse));
-      setOrders(ordersResponse?.orders || []);
-      setPayments(Array.isArray(paymentsResponse) ? paymentsResponse : []);
+
+      const nextMe = meResponse?.user || meResponse || {};
+      const profile = profileFrom(walletResponse);
+
+      if (nextMe?.kycStatus !== 'approved') {
+        router.replace('/kyc' as any);
+        return;
+      }
+      if (!profile?.destinationWallet || profile?.userControlledWalletConfirmed !== true) {
+        router.replace('/onboarding-wallet' as any);
+        return;
+      }
+
+      setMe(nextMe);
+      setSnapshot(walletResponse);
+      setReadiness(readinessResponse);
+      setDeposits(Array.isArray(depositResponse) ? depositResponse : []);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Falha ao carregar a conta.');
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível atualizar sua Wallet V1.5.',
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -90,52 +132,24 @@ export default function HomeScreen() {
     router.replace('/');
   }
 
-  const legacy = isLegacyProfile(profile);
-  const executionEnabled = profile.executable === true;
-  const directReady = profile.directSettlementReady === true;
-  const walletAddress = profile.wallet?.address || me.walletAddress || null;
-  const walletLinked = profile.wallet?.linked === true || Boolean(walletAddress);
-  const legacyBalance = Number(me.availableBalanceUsdc || 0);
+  const profile = profileFrom(snapshot);
+  const balances = snapshot?.balances || {};
+  const operational = Number(balances.operationalUsdc || 0);
+  const pending = Number(balances.pendingSettlementUsdc || 0);
+  const settledOnchain = Number(balances.settledOnchainJournalUsdc || 0);
+  const blockers = readiness?.blockers || [];
 
-  const latest = useMemo(
+  const latestDeposits = useMemo(
     () =>
-      [
-        ...payments.map((payment) => ({
-          id: `payment-${payment.id}`,
-          title: 'RESGATE PIX',
-          createdAt: payment.createdAt,
-          amount: formatUsdc(payment.amountUsdc),
-          status:
-            String(payment.status).toLowerCase() === 'completed'
-              ? `Pix enviado: ${formatBrl(
-                  payment.settledAmountBrl ?? payment.amountBrl,
-                )}`
-              : Number(payment.settledAmountBrl || 0) > 0
-                ? `Valor final: ${formatBrl(payment.settledAmountBrl)}`
-                : `Estimativa: ${formatBrl(
-                    payment.estimatedAmountBrl ?? payment.amountBrl,
-                  )}`,
-        })),
-        ...orders.map((order) => ({
-          id: `order-${order.id}`,
-          title: String(order.type || 'solicitação').toUpperCase(),
-          createdAt: order.createdAt,
-          amount: order.grossBrl
-            ? formatBrl(order.grossBrl)
-            : formatUsdc(order.amountUsdc),
-          status:
-            order.executionEnabled === true
-              ? String(order.status || 'em processamento')
-              : 'Solicitação registrada',
-        })),
-      ]
+      deposits
+        .slice()
         .sort(
           (a, b) =>
             new Date(b.createdAt || 0).getTime() -
             new Date(a.createdAt || 0).getTime(),
         )
         .slice(0, 3),
-    [orders, payments],
+    [deposits],
   );
 
   return (
@@ -150,124 +164,103 @@ export default function HomeScreen() {
     >
       <View style={styles.topRow}>
         <Brand />
-        <Badge tone={legacy || executionEnabled ? 'success' : 'warning'}>
-          {legacy
-            ? 'CONTA NEXA'
-            : executionEnabled
-              ? 'OPERAÇÃO LIBERADA'
-              : 'ABERTURA GRADUAL'}
+        <Badge tone={readiness?.ready ? 'success' : 'warning'}>
+          {statusLabel(readiness, profile)}
         </Badge>
       </View>
 
       <Eyebrow>Olá, {me.fullName?.split(' ')[0] || 'Nexa'}</Eyebrow>
-      <Title>Seu acesso aos ativos digitais.</Title>
+      <Title>Seu Saldo Nexa.</Title>
       <Paragraph>
-        A conta mostra apenas informações registradas pela API, pelo ledger ou
-        pela carteira. Estimativas nunca são apresentadas como dinheiro
-        liquidado.
+        O saldo operacional é o USDC disponível para usar dentro da Nexa. Uma
+        entrada Pix só é liberada quando toda a janela controlada está pronta.
       </Paragraph>
 
       <Card style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>
-          {legacy ? 'Saldo USDC disponível' : 'Saldo USDC na carteira'}
-        </Text>
-        <Text style={styles.balanceValue}>
-          {legacy ? formatUsdc(legacyBalance) : 'Aguardando leitura on-chain'}
-        </Text>
-        <Text style={styles.balanceExplanation}>
-          {legacy
-            ? 'Saldo oficial preservado no ledger da sua conta existente.'
-            : 'O app não substitui a leitura da blockchain por um saldo interno.'}
-        </Text>
-        <Text style={styles.walletText} numberOfLines={1}>
-          {legacy
-            ? 'Conta existente preservada sem migração automática'
-            : walletAddress || 'Carteira ainda não vinculada'}
+        <Text style={styles.balanceLabel}>Saldo Nexa disponível</Text>
+        <Text style={styles.balanceValue}>{formatUsdc(operational)}</Text>
+        <View style={styles.balanceBreakdown}>
+          <Text style={styles.balanceSecondary}>
+            Em processamento: {formatUsdc(pending)}
+          </Text>
+          <Text style={styles.balanceSecondary}>
+            Liquidado on-chain (histórico): {formatUsdc(settledOnchain)}
+          </Text>
+        </View>
+      </Card>
+
+      <ActionButton
+        label={readiness?.ready ? 'Adicionar via Pix' : 'Pix aguardando liberação'}
+        disabled={!readiness?.ready}
+        onPress={() => router.push('/(app)/new-order')}
+      />
+
+      {!readiness?.ready ? (
+        <Card>
+          <Text style={styles.sectionTitle}>Preparação do piloto</Text>
+          <Text style={styles.helper}>
+            Sua conta e sua wallet já podem ficar prontas antes da abertura da
+            janela financeira. Você não precisa operar endpoints manualmente.
+          </Text>
+          {blockers.slice(0, 4).map((code) => (
+            <Text key={code} style={styles.blocker}>
+              • {blockerLabel(code)}
+            </Text>
+          ))}
+          <Text selectable style={styles.userId}>
+            ID piloto: {me.id || '—'}
+          </Text>
+        </Card>
+      ) : null}
+
+      <Card>
+        <Text style={styles.sectionTitle}>Conta V1.5</Text>
+        <KeyValue label="KYC" value={me.kycStatus === 'approved' ? 'Aprovado' : 'Pendente'} />
+        <KeyValue label="Perfil" value={String(profile?.status || 'pilot')} />
+        <KeyValue
+          label="Wallet confirmada"
+          value={profile?.userControlledWalletConfirmed ? 'Sim' : 'Não'}
+        />
+        <Text style={styles.walletLabel}>Wallet Polygon</Text>
+        <Text selectable style={styles.wallet}>
+          {profile?.destinationWallet || '—'}
         </Text>
       </Card>
 
-      <View style={styles.actionGrid}>
-        <View style={styles.actionItem}>
-          <ActionButton
-            label={legacy ? 'Resgatar USDC' : 'Nova solicitação'}
-            disabled={!legacy && !walletLinked}
-            onPress={() => router.push('/(app)/new-order')}
-          />
-        </View>
-        <View style={styles.actionItem}>
-          <ActionButton
-            label="Atividade"
-            variant="secondary"
-            onPress={() => router.push('/(app)/activity')}
-          />
-        </View>
-      </View>
-
       <Card>
-        <Text style={styles.sectionTitle}>Status da conta</Text>
-        <KeyValue
-          label="Modelo"
-          value={legacy ? 'Conta Nexa existente' : 'Carteira individual'}
-        />
-        <KeyValue
-          label={legacy ? 'Histórico' : 'Carteira vinculada'}
-          valueNode={
-            <Badge tone={legacy || walletLinked ? 'success' : 'warning'}>
-              {legacy ? 'Preservado' : walletLinked ? 'Sim' : 'Pendente'}
-            </Badge>
-          }
-        />
-        <KeyValue
-          label="Operação disponível"
-          valueNode={
-            <Badge tone={legacy || directReady ? 'success' : 'warning'}>
-              {legacy
-                ? 'Resgate conciliado'
-                : directReady
-                  ? 'Carteira validada'
-                  : 'Aguardando homologação'}
-            </Badge>
-          }
-        />
-        <KeyValue
-          label="Movimentação automática"
-          valueNode={
-            <Badge tone={executionEnabled ? 'success' : 'warning'}>
-              {executionEnabled ? 'Liberada' : 'Desativada'}
-            </Badge>
-          }
-        />
-      </Card>
-
-      <Card>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Atividade recente</Text>
-          <Text style={styles.sectionCount}>{orders.length + payments.length}</Text>
-        </View>
-        {latest.map((item) => (
-          <View key={item.id} style={styles.orderRow}>
-            <View style={styles.orderLeft}>
-              <Text style={styles.orderTitle}>{item.title}</Text>
-              <Text style={styles.orderDate}>
-                {item.createdAt
-                  ? new Date(item.createdAt).toLocaleString('pt-BR')
-                  : '—'}
-              </Text>
+        <Text style={styles.sectionTitle}>Entradas Pix recentes</Text>
+        {latestDeposits.length ? (
+          latestDeposits.map((deposit) => (
+            <View key={deposit.id} style={styles.depositRow}>
+              <View style={styles.depositLeft}>
+                <Text style={styles.depositTitle}>PIX</Text>
+                <Text style={styles.depositDate}>
+                  {deposit.createdAt
+                    ? new Date(deposit.createdAt).toLocaleString('pt-BR')
+                    : '—'}
+                </Text>
+              </View>
+              <View style={styles.depositRight}>
+                <Text style={styles.depositAmount}>
+                  {formatBrl(deposit.amountBrl)}
+                </Text>
+                <Text style={styles.depositStatus}>
+                  {String(deposit.status || 'aguardando')}
+                </Text>
+              </View>
             </View>
-            <View style={styles.orderRight}>
-              <Text style={styles.orderAmount}>{item.amount}</Text>
-              <Text style={styles.orderStatus}>{item.status}</Text>
-            </View>
-          </View>
-        ))}
-        {!latest.length ? (
-          <Text style={styles.empty}>Nenhuma atividade registrada.</Text>
-        ) : null}
+          ))
+        ) : (
+          <Text style={styles.helper}>Nenhuma entrada Pix registrada.</Text>
+        )}
       </Card>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {loading ? <Text style={styles.loading}>Atualizando dados oficiais...</Text> : null}
+      {loading ? (
+        <Text style={styles.loading}>Atualizando Wallet V1.5...</Text>
+      ) : null}
 
+      <ActionButton label="Atualizar" variant="secondary" onPress={() => load(true)} />
       <ActionButton label="Sair da conta" variant="secondary" onPress={logout} />
     </Screen>
   );
@@ -279,22 +272,19 @@ const styles = StyleSheet.create({
   balanceLabel: { color: colors.muted, fontSize: 13 },
   balanceValue: {
     color: colors.text,
-    fontSize: 27,
+    fontSize: 31,
     fontWeight: '900',
     marginTop: spacing.sm,
   },
-  balanceExplanation: { color: colors.muted, fontSize: 12, marginTop: 7 },
-  walletText: { color: colors.cyan, fontSize: 12, marginTop: spacing.md },
-  actionGrid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
-  actionItem: { flex: 1 },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  balanceBreakdown: { marginTop: spacing.md, gap: 5 },
+  balanceSecondary: { color: colors.muted, fontSize: 12 },
   sectionTitle: { color: colors.text, fontWeight: '900', fontSize: 18 },
-  sectionCount: { color: colors.cyan, fontWeight: '900' },
-  orderRow: {
+  helper: { color: colors.muted, lineHeight: 20, marginTop: spacing.sm },
+  blocker: { color: colors.warning, marginTop: 7, lineHeight: 19 },
+  userId: { color: colors.cyan, fontSize: 11, marginTop: spacing.md },
+  walletLabel: { color: colors.muted, fontSize: 12, marginTop: spacing.md },
+  wallet: { color: colors.cyan, fontSize: 12, marginTop: 5 },
+  depositRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: spacing.md,
@@ -302,18 +292,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingVertical: spacing.md,
   },
-  orderLeft: { flex: 1 },
-  orderTitle: { color: colors.text, fontWeight: '900' },
-  orderDate: { color: colors.muted, fontSize: 11, marginTop: 4 },
-  orderRight: { alignItems: 'flex-end', flex: 1 },
-  orderAmount: { color: colors.text, fontWeight: '800' },
-  orderStatus: {
-    color: colors.warning,
-    fontSize: 11,
-    marginTop: 4,
-    textAlign: 'right',
-  },
-  empty: { color: colors.muted, marginTop: spacing.md },
+  depositLeft: { flex: 1 },
+  depositTitle: { color: colors.text, fontWeight: '900' },
+  depositDate: { color: colors.muted, fontSize: 11, marginTop: 4 },
+  depositRight: { alignItems: 'flex-end', flex: 1 },
+  depositAmount: { color: colors.text, fontWeight: '800' },
+  depositStatus: { color: colors.warning, fontSize: 11, marginTop: 4 },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerSoft,
