@@ -266,6 +266,14 @@ export const nexaApi = {
     });
   },
 
+  prepareWalletV15Me(accessToken: string) {
+    return request<any>('/wallet-v15/prepare-me', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({}),
+    });
+  },
+
   walletV15Me(accessToken: string) {
     return request<WalletV15Snapshot>('/wallet-v15/me', { accessToken });
   },
