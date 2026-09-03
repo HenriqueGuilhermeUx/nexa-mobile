@@ -185,6 +185,26 @@ export interface WalletV15Snapshot {
   portfolio?: any;
 }
 
+export interface WalletV15EntryReadiness {
+  success: boolean;
+  ready: boolean;
+  decision: 'READY_FOR_CONTROLLED_PIX_ENTRY' | 'ENTRY_NO_GO' | string;
+  blockers: string[];
+  userId?: string;
+  profile?: any;
+  gates?: Record<string, boolean>;
+  pilot?: {
+    restricted?: boolean;
+    allowlistConfigured?: boolean;
+    userAllowed?: boolean;
+  };
+  circuitBreaker?: {
+    allowed?: boolean;
+    blockers?: string[];
+  };
+  financialAction?: false;
+}
+
 export interface WooviPixCharge {
   success: boolean;
   provider?: string;
@@ -193,6 +213,11 @@ export interface WooviPixCharge {
   valueInCents?: number;
   charge?: any;
   message?: any;
+  walletV15Entry?: {
+    ready?: boolean;
+    decision?: string;
+    withdrawalEnabled?: boolean;
+  };
 }
 
 export function tokensFromLogin(response: LoginResponse) {
@@ -276,6 +301,12 @@ export const nexaApi = {
 
   walletV15Me(accessToken: string) {
     return request<WalletV15Snapshot>('/wallet-v15/me', { accessToken });
+  },
+
+  walletV15EntryReadiness(accessToken: string) {
+    return request<WalletV15EntryReadiness>('/wallet-v15/entry-readiness', {
+      accessToken,
+    });
   },
 
   setWalletV15Destination(accessToken: string, destinationWallet: string) {
