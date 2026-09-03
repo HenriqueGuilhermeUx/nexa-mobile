@@ -9,9 +9,16 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { config } from '@/config';
 import { ApiError, nexaApi } from '@/lib/api';
 import { clearNexaSession, loadNexaSession } from '@/lib/session';
 import { colors, spacing } from '@/theme';
+
+function approvedDestination() {
+  return config.walletV15PilotMode
+    ? ('/onboarding-wallet' as any)
+    : ('/legacy' as any);
+}
 
 export default function WelcomeScreen() {
   const [checking, setChecking] = useState(true);
@@ -29,7 +36,7 @@ export default function WelcomeScreen() {
           if (!mounted) return;
           router.replace(
             profile?.kycStatus === 'approved'
-              ? ('/legacy' as any)
+              ? approvedDestination()
               : ('/kyc' as any),
           );
           return;
@@ -40,8 +47,11 @@ export default function WelcomeScreen() {
             return;
           }
 
-          // Uma indisponibilidade momentânea do backend não bloqueia um cliente
-          // já autenticado de abrir a experiência existente.
+          if (config.walletV15PilotMode) {
+            setChecking(false);
+            return;
+          }
+
           router.replace('/legacy' as any);
           return;
         }
@@ -73,6 +83,9 @@ export default function WelcomeScreen() {
           <Paragraph>
             Pix e USDC em uma experiência simples, segura e transparente.
           </Paragraph>
+          {config.walletV15PilotMode ? (
+            <Text style={styles.pilot}>Wallet V1.5 • piloto controlado</Text>
+          ) : null}
         </View>
 
         <ActionButton label="Entrar" onPress={() => router.push('/sign-in')} />
@@ -98,4 +111,9 @@ const styles = StyleSheet.create({
   loaderText: { color: colors.muted, textAlign: 'center' },
   content: { flex: 1, justifyContent: 'center' },
   hero: { marginVertical: spacing.xl },
+  pilot: {
+    color: colors.cyan,
+    fontWeight: '800',
+    marginTop: spacing.md,
+  },
 });
