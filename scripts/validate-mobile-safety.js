@@ -16,6 +16,7 @@ function walk(directory) {
 
 const appConfig = JSON.parse(read('app.json'));
 const packageJson = JSON.parse(read('package.json'));
+const easConfig = JSON.parse(read('eas.json'));
 const config = read('src/config.ts');
 const api = read('src/lib/api.ts');
 const session = read('src/lib/session.ts');
@@ -26,6 +27,8 @@ const kycScreen = read('app/kyc.tsx');
 const rootLayout = read('app/_layout.tsx');
 const appLayout = read('app/(app)/_layout.tsx');
 const onboarding = read('app/onboarding-wallet.tsx');
+const pilotHome = read('app/(app)/index.tsx');
+const pilotPix = read('app/(app)/new-order.tsx');
 const legacyBridge = read('app/legacy.js');
 const financialBridge = read('src/lib/legacy-financial-fetch-bridge.js');
 const legacyPixApp = read('nexa-mobile/nexa-mobile/App.js');
@@ -56,6 +59,7 @@ assert.equal(packageJson.dependencies['react-native-reanimated'], '4.3.1');
 assert.equal(packageJson.dependencies['react-native-worklets'], '0.8.3');
 assert.ok(packageJson.dependencies['@privy-io/expo']);
 assert.ok(packageJson.dependencies['expo-secure-store']);
+assert.ok(packageJson.dependencies['react-native-qrcode-svg']);
 assert.match(packageJson.dependencies.expo, /^~56\./);
 assert.match(packageJson.dependencies['react-native'], /^0\.85\./);
 assert.match(entrypoint, /fast-text-encoding/);
@@ -73,10 +77,24 @@ assert.match(config, /2\.0\.10/);
 assert.match(config, /103/);
 assert.match(config, /androidTargetApi/);
 assert.match(config, /36/);
+assert.match(config, /EXPO_PUBLIC_NEXA_API_URL/);
+assert.match(config, /EXPO_PUBLIC_NEXA_WALLET_V15_PILOT/);
+assert.match(config, /walletV15PilotMode/);
 assert.match(api, /X-Nexa-App-Version/);
 assert.match(api, /X-Nexa-App-Build/);
 assert.match(api, /X-Nexa-Platform/);
 assert.match(api, /Authorization/);
+
+assert.equal(
+  easConfig.build.preview.env.EXPO_PUBLIC_NEXA_API_URL,
+  'https://nexa-backend-wallet-v15-staging.onrender.com/api/v1',
+);
+assert.equal(
+  easConfig.build.preview.env.EXPO_PUBLIC_NEXA_WALLET_V15_PILOT,
+  'true',
+);
+assert.equal(easConfig.build.preview.android.buildType, 'apk');
+assert.equal(easConfig.build.production.channel, 'production');
 
 assert.match(welcome, /Cripto sem complicação/);
 assert.match(welcome, /label="Entrar"/);
@@ -84,6 +102,8 @@ assert.match(welcome, /label="Criar conta"/);
 assert.match(welcome, /nexaApi\.me/);
 assert.match(welcome, /'\/kyc'/);
 assert.match(welcome, /'\/legacy'/);
+assert.match(welcome, /walletV15PilotMode/);
+assert.match(welcome, /onboarding-wallet/);
 assert.doesNotMatch(welcome, /Primeiros Nexa|convite|ABERTURA GRADUAL/i);
 assert.doesNotMatch(rootLayout, /primeiros-nexa/);
 assert.ok(!fs.existsSync('app/primeiros-nexa.tsx'));
@@ -93,7 +113,9 @@ assert.match(signIn, /saveNexaSession/);
 assert.match(signIn, /kycStatus/);
 assert.match(signIn, /'\/kyc'/);
 assert.match(signIn, /'\/legacy'/);
-assert.doesNotMatch(signIn, /useLoginWithEmail|sendCode|loginWithCode|onboarding-wallet/);
+assert.match(signIn, /walletV15PilotMode/);
+assert.match(signIn, /onboarding-wallet/);
+assert.doesNotMatch(signIn, /useLoginWithEmail|sendCode|loginWithCode/);
 
 assert.match(signUp, /nexaApi\.register/);
 assert.match(signUp, /saveNexaSession/);
@@ -114,7 +136,40 @@ assert.match(kycScreen, /document_fallback/);
 assert.match(kycScreen, /manual_review/);
 assert.match(kycScreen, /retry_selfie/);
 assert.match(kycScreen, /Concordo e verificar identidade/);
+assert.match(kycScreen, /walletV15PilotMode/);
+assert.match(kycScreen, /onboarding-wallet/);
 assert.doesNotMatch(appLayout, /AuthBoundary|usePrivy|Privy/);
+
+assert.match(onboarding, /useEmbeddedEthereumWallet/);
+assert.match(onboarding, /prepareWalletV15Me/);
+assert.match(onboarding, /setWalletV15Destination/);
+assert.match(onboarding, /createWalletV15OwnershipChallenge/);
+assert.match(onboarding, /verifyWalletV15Ownership/);
+assert.match(onboarding, /personal_sign/);
+assert.match(onboarding, /chainId !== 137/);
+assert.match(onboarding, /Isso não movimenta fundos/);
+assert.doesNotMatch(onboarding, /privateKey|mnemonic|seed phrase/i);
+
+assert.match(api, /\/wallet-v15\/prepare-me/);
+assert.match(api, /\/wallet-v15\/entry-readiness/);
+assert.match(api, /\/wallet-v15\/wallet-ownership\/challenge/);
+assert.match(api, /\/wallet-v15\/wallet-ownership\/verify/);
+assert.match(api, /\/fiat-deposit\/woovi\/create-charge/);
+assert.match(api, /\/fiat-deposit\/list/);
+
+assert.match(pilotHome, /Saldo Nexa/);
+assert.match(pilotHome, /walletV15Me/);
+assert.match(pilotHome, /walletV15EntryReadiness/);
+assert.match(pilotHome, /listWalletV15FiatDeposits/);
+assert.match(pilotHome, /Adicionar via Pix/);
+assert.match(pilotHome, /disabled={!readiness\?\.ready}/);
+
+assert.match(pilotPix, /Pix → USDC → Saldo Nexa/);
+assert.match(pilotPix, /walletV15EntryReadiness/);
+assert.match(pilotPix, /createWalletV15WooviCharge/);
+assert.match(pilotPix, /react-native-qrcode-svg/);
+assert.match(pilotPix, /Saqu[e|e] para blockchain permanece separado|Saque para blockchain permanece separado/);
+assert.doesNotMatch(pilotPix, /requestPixRedemption|createExitOrder|withdrawal\/pix|sendTransaction/);
 
 assert.match(legacyBridge, /LegacyApp/);
 assert.match(legacyBridge, /installLegacyFinancialFetchBridge/);
@@ -147,8 +202,7 @@ for (const forbidden of [
 assert.match(artifactValidator, /\/withdrawal\/pix-request/);
 assert.match(artifactValidator, /\/payment\/pix\/redemption/);
 
-assert.match(onboarding, /Criar carteira e continuar/);
-assert.doesNotMatch(onboarding, /Proteções desta etapa|custódia pendente/i);
+assert.match(onboarding, /Criar carteira e continuar|Confirmar wallet e continuar/);
 assert.match(legacyPixApp, /function formatInputAmount\(value\)/);
 assert.match(legacyPixApp, /Dep[oó]sito|deposit/i);
 assert.match(legacyPixApp, /Transfer/);
@@ -167,5 +221,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.10 v103 validated: Android API 36, Brazil KYC routing, official Pix, authenticated transfers, mandatory build headers, ledger and optional Privy.',
+  'Nexa mobile pilot validated: official auth + Brazil KYC + Privy EIP-191 ownership + user-specific entry readiness + controlled Woovi Pix to Wallet V1.5, with withdrawal excluded from pilot entry flow.',
 );
