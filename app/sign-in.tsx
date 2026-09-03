@@ -10,6 +10,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { config } from '@/config';
 import { nexaApi, tokensFromLogin } from '@/lib/api';
 import { clearNexaSession, saveNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
@@ -40,7 +41,11 @@ export default function SignInScreen() {
 
       const profile = response.user || (await nexaApi.me(tokens.accessToken));
       if (profile?.kycStatus === 'approved') {
-        router.replace('/legacy' as any);
+        router.replace(
+          config.walletV15PilotMode
+            ? ('/onboarding-wallet' as any)
+            : ('/legacy' as any),
+        );
       } else {
         router.replace('/kyc' as any);
       }
@@ -59,7 +64,11 @@ export default function SignInScreen() {
       <Brand />
       <View style={styles.topSpace} />
       <Title>Entrar</Title>
-      <Paragraph>Acesse sua conta Nexa.</Paragraph>
+      <Paragraph>
+        {config.walletV15PilotMode
+          ? 'Acesse o piloto Wallet V1.5 da Nexa.'
+          : 'Acesse sua conta Nexa.'}
+      </Paragraph>
 
       <Field
         label="E-mail"
