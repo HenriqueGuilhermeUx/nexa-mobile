@@ -653,7 +653,7 @@ export default function App() {
       return;
     }
     try {
-      show('Resgatando Nexa Rewards via Aave...');
+      show('Processando Nexa Rewards...');
       const r = await fetch(API + '/rewards/complete/' + positionId, {
         method: 'POST',
       });
@@ -664,7 +664,7 @@ export default function App() {
         carregarDados();
       }
     } catch (e) {
-      show('Erro ao resgatar Rewards: ' + e.message);
+      show('Erro ao processar Rewards: ' + e.message);
     }
   }
 
@@ -1440,15 +1440,19 @@ export default function App() {
       return;
     }
     try {
+      const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
       const r = await fetch(API + '/internal-transfer/send-by-username', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + savedToken,
+        },
         body: JSON.stringify({
-          fromUserId: user.id,
           toUsername: recipientUser.username || normalizeUsername(username),
+          asset: 'USDC',
           amountUsdc: amountToSend,
           note: 'envio app',
-          clientRequestId: 'mobile_' + user.id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+          clientRequestId: newClientRequestId('internal_usdc'),
         }),
       });
       const data = await r.json();
@@ -1610,9 +1614,13 @@ export default function App() {
         toAddress: cleanWallet,
         amountUsdc: amount,
       };
+      const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
       const r = await fetch(API + '/wallet/send-usdc/request-otp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + savedToken,
+        },
         body: JSON.stringify(payload),
       });
       const data = await r.json();
@@ -1712,9 +1720,13 @@ export default function App() {
       return;
     }
     try {
+      const savedToken = token || (await AsyncStorage.getItem('nexa_token'));
       const r = await fetch(API + '/wallet/send-usdc', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + savedToken,
+        },
         body: JSON.stringify({
           userId: user.id,
           toAddress: wallet,
@@ -2056,14 +2068,15 @@ export default function App() {
 
   const saldoUsdc = Number(saldo.USDC || 0);
   const saldoBrlEstimado = Number((saldoUsdc * buyRate).toFixed(2));
-  const patrimonioTotal = saldoBrlEstimado;
-  const changePrefix = marketChange >= 0 ? '+' : '';
 
   return (
     <View style={styles.container}>
       <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
+        style={[styles.content, { paddingTop: Math.max(24, insets.top + 10) }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 150 + Math.max(insets.bottom, 12) },
+        ]}
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="none"
       >
@@ -2071,15 +2084,29 @@ export default function App() {
         <Text style={styles.subtitle}>Soberania digital no seu bolso</Text>
 
         {page === 'custody' && (
-          <CustodyScreen
-            user={user}
-            token={token}
-            onBack={function () { setPage('home'); }}
-            onBalanceRefresh={carregarDados}
-          />
+          canUsePremiumWallet() ? (
+            <CustodyScreen
+              user={user}
+              token={token}
+              onBack={function () { setPage('home'); }}
+              onBalanceRefresh={carregarDados}
+            />
+          ) : (
+            <Card>
+              <Text style={styles.title}>Carteira individual Premium</Text>
+              <Text style={styles.itemText}>
+                O Saldo Nexa e as transferências por @username continuam disponíveis para todos.
+              </Text>
+              <Text style={styles.rateText}>
+                O Premium adiciona uma carteira individual para receber e movimentar USDC on-chain.
+              </Text>
+              <Button title="Conhecer Premium" onPress={function () { setPage('premium'); }} />
+              <Button title="Voltar" onPress={function () { setPage('home'); }} />
+            </Card>
+          )
         )}
 
-        {/* HOME APPLE MODE: patrimônio, assinatura e Premium em primeiro plano */}
+        {/* HOME PRINCIPAL: saldo, ativos, assinatura e Premium */}
         {page === 'home' && (
           <AppleModeHome
             user={user}
@@ -2089,6 +2116,7 @@ export default function App() {
             buyRate={buyRate}
             marketChange={marketChange}
             isPremium={isPremiumUser()}
+            hasWallet={hasExistingWallet()}
             recurringPlan={recurringPlan}
             rewardsTotal={(rewardPositions || []).reduce(function (total, position) {
               return total + Number(position.earnedUsdc || position.rewardUsdc || position.yieldEarned || 0);
@@ -2905,7 +2933,15 @@ export default function App() {
       </ScrollView>
 
       {/* A BARRA DE NAVEGAÇÃO DE 5 ABAS COM AS 3 BARRINHAS NO MENU */}
-      <View style={styles.menu}>
+      <View
+        style={[
+          styles.menu,
+          {
+            minHeight: 68 + Math.max(insets.bottom, 10),
+            paddingBottom: Math.max(insets.bottom, 10),
+          },
+        ]}
+      >
         <MenuItem icon="🏠" label="Home" onPress={function () { setPage('home'); }} />
         <MenuItem icon="👛" label="Carteira" onPress={function () { setPage('wallet'); }} />
         <MenuItem icon="🧩" label="Ativos" onPress={function () { setPage('investments'); }} />
@@ -2918,8 +2954,8 @@ export default function App() {
 
 const styles = {
   container: { flex: 1, backgroundColor: '#020617' },
-  content: { flex: 1, padding: 20, paddingTop: 55 },
-  scrollContent: { paddingBottom: 130 },
+  content: { flex: 1, paddingHorizontal: 20 },
+  scrollContent: { paddingBottom: 150 },
   logo: { color: 'white', fontSize: 36, fontWeight: '900', textAlign: 'center', letterSpacing: 2 },
   subtitle: { color: '#93c5fd', textAlign: 'center', marginBottom: 24, fontSize: 13 },
   card: { backgroundColor: '#0f172a', padding: 22, borderRadius: 24, marginBottom: 18, borderWidth: 1, borderColor: '#1e40af' },
@@ -2974,7 +3010,7 @@ const styles = {
   input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 14, marginBottom: 12, fontSize: 15 },
   button: { backgroundColor: '#2563eb', padding: 13, borderRadius: 14, marginBottom: 11 },
   buttonText: { color: 'white', textAlign: 'center', fontWeight: '800', fontSize: 15 },
-  menu: { height: 78, backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: '#1e293b' },
+  menu: { backgroundColor: '#020617', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 10 },
   menuItem: { alignItems: 'center', justifyContent: 'center', flex: 1 },
   menuIcon: { color: '#e2e8f0', fontSize: 18 },
   menuLabel: { color: '#94a3b8', fontSize: 9, marginTop: 2, fontWeight: '700' },
@@ -3001,4 +3037,41 @@ const styles = {
   allocationBox: { backgroundColor: '#020617', borderRadius: 18, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#1e293b' },
   allocationItem: { marginBottom: 12 },
   allocationTrack: { height: 10, borderRadius: 999, backgroundColor: '#111827', overflow: 'hidden' },
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
+  menuGridItem: { width: '48.5%', minHeight: 112, backgroundColor: '#111827', borderRadius: 18, padding: 15, marginBottom: 11, borderWidth: 1, borderColor: '#1e293b', justifyContent: 'center' },
+  menuGridItemAccent: { backgroundColor: '#171225', borderColor: '#5b3f88' },
+  menuGridIcon: { fontSize: 24, marginBottom: 9 },
+  menuGridLabel: { color: '#f8fafc', fontSize: 14, fontWeight: '900' },
+  menuGridHint: { color: '#93c5fd', fontSize: 10, marginTop: 5, fontWeight: '700' },
+  premiumCompare: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  premiumCompareColumn: { flex: 1, backgroundColor: '#111827', borderRadius: 18, padding: 15, borderWidth: 1, borderColor: '#1e293b' },
+  premiumCompareColumnActive: { backgroundColor: '#171225', borderColor: '#7c3aed' },
+  premiumCompareLabel: { color: '#64748b', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  premiumCompareLabelActive: { color: '#c4b5fd', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  premiumCompareValue: { color: '#fff', fontSize: 28, fontWeight: '900', marginTop: 7 },
+  premiumTeaser: { backgroundColor: '#171225', borderColor: '#5b3f88', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
+  assetBalanceGrid: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  assetBalanceCard: { flex: 1, backgroundColor: '#111827', borderRadius: 15, padding: 11, borderWidth: 1, borderColor: '#1e293b' },
+  assetBalanceSymbol: { color: '#93c5fd', fontSize: 11, fontWeight: '900' },
+  assetBalanceValue: { color: '#fff', fontSize: 11, fontWeight: '800', marginTop: 5 },
+  sectionDivider: { height: 1, backgroundColor: '#1e293b', marginVertical: 18 },
+  rewardPlanRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  rewardPlanChip: { paddingVertical: 9, paddingHorizontal: 12, borderRadius: 999, backgroundColor: '#0b1220', borderWidth: 1, borderColor: '#334155' },
+  rewardPlanChipActive: { backgroundColor: '#12213e', borderColor: '#60a5fa' },
+  rewardPlanChipText: { color: '#94a3b8', fontSize: 11, fontWeight: '800' },
+  rewardPlanChipTextActive: { color: '#e0f2fe', fontSize: 11, fontWeight: '900' },
+  assetCatalogGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 8, marginBottom: 14 },
+  assetCatalogCard: { width: '48.5%', backgroundColor: '#111827', borderRadius: 19, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#1e293b' },
+  assetCatalogCardUsdc: { borderColor: '#2563eb' },
+  assetCatalogIcon: { fontSize: 23, color: '#fff' },
+  assetCatalogSymbol: { color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 8 },
+  assetCatalogName: { color: '#64748b', fontSize: 11, marginTop: 3 },
+  assetCatalogBalance: { color: '#93c5fd', fontSize: 11, fontWeight: '800', marginTop: 8 },
+  assetOperationBox: { backgroundColor: '#0b1220', borderRadius: 20, padding: 15, marginBottom: 14, borderWidth: 1, borderColor: '#1e293b' },
+  quoteBox: { backgroundColor: '#07101e', borderRadius: 16, padding: 13, marginTop: 10, borderWidth: 1, borderColor: '#263650' },
+  inlineAssetSelector: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  assetSelectorChip: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: '#111827', borderWidth: 1, borderColor: '#334155' },
+  assetSelectorChipActive: { backgroundColor: '#12213e', borderColor: '#60a5fa' },
+  assetSelectorText: { color: '#94a3b8', fontSize: 11, fontWeight: '800' },
+  assetSelectorTextActive: { color: '#fff', fontSize: 11, fontWeight: '900' },
 };
