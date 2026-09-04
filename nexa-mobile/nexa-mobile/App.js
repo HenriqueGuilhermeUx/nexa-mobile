@@ -1277,16 +1277,23 @@ export default function App() {
       setWithdrawalLoading(true);
       setWithdrawalQuote(null);
       show('Buscando a cotação real de venda...');
-      const r = await fetch(API + '/withdrawal/pix-quote', {
+      const r = await fetch(API + '/payment/pix/quote', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, amountUsdc }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({ amountUsdc }),
       });
       const data = await r.json();
       if (!r.ok || !data.success) {
         throw new Error(data.message || data.error || 'Não foi possível cotar o saque');
       }
-      setWithdrawalQuote(data);
+      setWithdrawalQuote({
+        ...data,
+        netBrl: Number(data.estimatedPayoutBrl || data.netBrl || 0),
+        executableRate: Number(data.protectedRateBrl || data.executableRate || 0),
+      });
       show('Cotação pronta. Confira o valor líquido antes de confirmar.');
     } catch (e) {
       show('Erro cotação saque: ' + e.message);
@@ -1323,13 +1330,14 @@ export default function App() {
     try {
       setWithdrawalLoading(true);
       show('Registrando solicitação de saque Pix...');
-      const r = await fetch(API + '/withdrawal/pix-request', {
+      const r = await fetch(API + '/payment/pix/redemption', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
         body: JSON.stringify({
-          userId: user.id,
           amountUsdc,
-          expectedNetBrl,
           pixKey,
         }),
       });
@@ -1338,7 +1346,7 @@ export default function App() {
         setWithdrawalQuote(null);
         throw new Error(data.message || data.error || 'Erro ao solicitar saque Pix');
       }
-      const finalNetBrl = Number(data.to?.netBrl || data.netBrl || expectedNetBrl);
+      const finalNetBrl = Number(data.estimatedPayoutBrl || data.to?.netBrl || data.netBrl || expectedNetBrl);
       const receipt = {
         type: 'pix_withdraw',
         status: data.status || 'pending',
