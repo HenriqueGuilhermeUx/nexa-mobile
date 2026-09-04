@@ -3,3 +3,4 @@ backend=production
 financial-execution=false
 historical-balance=true
 support-whatsapp=true
+retry=1
