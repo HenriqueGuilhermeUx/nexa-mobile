@@ -29,6 +29,9 @@ jobs:
           packager: npm
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Install project dependencies
+        run: npm ci --no-audit --no-fund
+
       - name: Read and inspect build
         shell: bash
         run: |
