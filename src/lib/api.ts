@@ -229,6 +229,47 @@ export const nexaApi = {
     return request<PixRedemption[]>('/payment/user', { accessToken });
   },
 
+  getPremiumStatus(accessToken: string, userId: string) {
+    return request<any>(
+      `/user/premium/status/${encodeURIComponent(userId)}`,
+      { accessToken },
+    );
+  },
+
+  activatePremium(
+    accessToken: string,
+    data: { months?: number; plan?: string; clientRequestId?: string },
+  ) {
+    return request<any>('/user/premium/activate', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(data),
+    });
+  },
+
+  cancelPremium(accessToken: string) {
+    return request<any>('/user/premium/cancel', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({}),
+    });
+  },
+
+  getMyPrivyWallet(accessToken: string) {
+    return request<any>('/wallet/my-privy', { accessToken });
+  },
+
+  journalPrivyUsdcSend(
+    accessToken: string,
+    data: { txHash: string; toAddress: string; amountUsdc: number },
+  ) {
+    return request<any>('/wallet/my-privy/journal-usdc-send', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(data),
+    });
+  },
+
   getPixRedemption(accessToken: string, paymentId: string) {
     return request<PixRedemption>(
       `/payment/status/${encodeURIComponent(paymentId)}`,
