@@ -1,0 +1,141 @@
+name: Nexa Production-Safe Preview APK
+
+on:
+  push:
+    branches:
+      - mobile-v2.1-product-alignment
+    paths:
+      - '.github/build-triggers/production-safe-preview.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-production-safe-preview
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build production-safe Nexa APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate mobile release contract
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety.js
+          npm run typecheck
+          npx expo-doctor
+
+      - name: Verify production-safe boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+          const p = eas?.build?.['production-safe-preview'];
+          if (p?.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') {
+            throw new Error('Production-safe preview must use the production Nexa API.');
+          }
+          if (String(p?.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED) !== 'false') {
+            throw new Error('Financial execution must remain false.');
+          }
+          if (p?.android?.buildType !== 'apk') throw new Error('Expected APK build.');
+          console.log('Production-safe preview boundary validated.');
+          NODE
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-p2u0.onrender.com/api/v1"
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o prod-health.json
+          curl --fail --silent --show-error --max-time 20 "$API/app/version" -o prod-version.json
+          curl --fail --silent --show-error --max-time 20 "$API/rewards/plans" -o prod-rewards.json
+          curl --fail --silent --show-error --max-time 20 "$API/swap/tokens" -o prod-tokens.json
+
+          for route in /recurring-pix/me /custody/overview /wallet/my-privy /rewards/positions; do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$API$route")"
+            echo "$route -> HTTP $status"
+            if [ "$status" != "401" ] && [ "$status" != "403" ]; then
+              echo "Production guarded route missing: $route"
+              exit 1
+            fi
+          done
+
+          node <<'NODE'
+          const fs = require('fs');
+          const health = JSON.parse(fs.readFileSync('prod-health.json', 'utf8'));
+          const version = JSON.parse(fs.readFileSync('prod-version.json', 'utf8'));
+          const rewards = JSON.parse(fs.readFileSync('prod-rewards.json', 'utf8'));
+          const tokens = JSON.parse(fs.readFileSync('prod-tokens.json', 'utf8'));
+
+          if (String(health.status || '').toLowerCase() !== 'ok') throw new Error('Production health is not OK.');
+          if (version.success !== true) throw new Error('Version policy unavailable.');
+          if (String(version.latestVersion || '') !== '2.0.11' || Number(version.latestBuild || 0) < 104) {
+            throw new Error('Production is not advertising 2.0.11/104.');
+          }
+          if (Number(version.minimumBuild || 0) > 104) throw new Error('Build 104 would be blocked.');
+          if (Number(rewards?.economics?.userRewardShare) !== 0.8 || Number(rewards?.economics?.nexaRewardShare) !== 0.2) {
+            throw new Error('Unexpected Rewards economics.');
+          }
+          if (JSON.stringify(tokens?.launchAssets || []) !== JSON.stringify(['USDC','BTC','ETH','XAUT'])) {
+            throw new Error('Unexpected launch asset catalog.');
+          }
+          if (tokens?.premiumRequired !== false) throw new Error('Assets must not be Premium-only.');
+          if (tokens?.internalTransferAsset !== 'USDC') throw new Error('Internal transfer must remain USDC-only.');
+          console.log('Production backend contract passed.');
+          NODE
+
+      - name: Build signed production-safe APK locally
+        env:
+          CI: 'true'
+          NODE_ENV: production
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+        run: |
+          set -euo pipefail
+          APK='Nexa-2.0.11-v104-PRODUCTION-SAFE.apk'
+          rm -f "$APK"
+          eas build             --platform android             --profile production-safe-preview             --local             --non-interactive             --output "$GITHUB_WORKSPACE/$APK"
+          test -s "$APK"
+          sha256sum "$APK" | tee Nexa-2.0.11-v104-PRODUCTION-SAFE.apk.sha256
+          ls -lh "$APK"
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.11-v104-PRODUCTION-SAFE
+          path: |
+            Nexa-2.0.11-v104-PRODUCTION-SAFE.apk
+            Nexa-2.0.11-v104-PRODUCTION-SAFE.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Safety boundary
+        run: |
+          echo "Production API."
+          echo "Financial execution remains false."
+          echo "APK only; no Google Play submission."
