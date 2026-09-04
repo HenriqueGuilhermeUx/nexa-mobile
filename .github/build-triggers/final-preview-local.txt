@@ -2,3 +2,5 @@ Nexa 2.0.11 v104 final preview
 upgrade-over-v103=true
 financial-execution=false
 backend-staging=nexa-backend-wallet-v15-staging
+support-whatsapp=551333289704
+support-menu=last-item
