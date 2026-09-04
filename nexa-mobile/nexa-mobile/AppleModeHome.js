@@ -175,8 +175,12 @@ export default function AppleModeHome({
         <TouchableOpacity style={styles.miniCard} onPress={() => onNavigate('rewards')}>
           <Text style={styles.miniIcon}>✦</Text>
           <Text style={styles.miniTitle}>Rewards</Text>
-          <Text style={styles.miniValue}>{Number(rewardsTotal || 0).toFixed(4)} USDC</Text>
-          <Text style={styles.miniHint}>Ver benefícios</Text>
+          <Text style={styles.miniValue}>
+            {isPremium ? Number(rewardsTotal || 0).toFixed(4) + ' USDC' : 'Premium'}
+          </Text>
+          <Text style={styles.miniHint}>
+            {isPremium ? 'Ver benefícios' : 'Conhecer benefício'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.miniCard} onPress={() => onNavigate('investments')}>
