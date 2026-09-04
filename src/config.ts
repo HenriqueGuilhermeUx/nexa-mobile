@@ -13,19 +13,32 @@ interface NexaExtra {
 }
 
 const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
+const envApiUrl = String(process.env.EXPO_PUBLIC_NEXA_API_URL || '').trim();
+const envFinancialExecution = String(
+  process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED || '',
+)
+  .trim()
+  .toLowerCase();
+const envReleaseChannel = String(
+  process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL || '',
+).trim();
 
 export const config = {
   apiUrl:
-    extra.apiUrl || 'https://nexa-backend-p2u0.onrender.com/api/v1',
-  appVersion: Constants.expoConfig?.version || '2.0.10',
-  appBuild: String(Constants.expoConfig?.android?.versionCode || '103'),
+    envApiUrl ||
+    extra.apiUrl ||
+    'https://nexa-backend-p2u0.onrender.com/api/v1',
+  appVersion: Constants.expoConfig?.version || '2.0.11',
+  appBuild: String(Constants.expoConfig?.android?.versionCode || '104'),
   privyAppId: extra.privyAppId || '',
   privyClientId: extra.privyClientId || '',
-  financialExecutionEnabled: extra.financialExecutionEnabled === true,
+  financialExecutionEnabled:
+    envFinancialExecution === 'true' ||
+    (envFinancialExecution !== 'false' && extra.financialExecutionEnabled === true),
   ledgerOperationsEnabled: extra.ledgerOperationsEnabled !== false,
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
-  releaseChannel: extra.releaseChannel || 'production',
+  releaseChannel: envReleaseChannel || extra.releaseChannel || 'production',
   androidTargetApi: Number(extra.androidTargetApi || 36),
 };
 

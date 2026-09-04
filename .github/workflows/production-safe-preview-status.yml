@@ -1,0 +1,58 @@
+name: Nexa Production-Safe Preview Status
+
+on:
+  push:
+    branches:
+      - mobile-v2.1-product-alignment
+    paths:
+      - '.github/build-triggers/production-safe-preview-status.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    name: Inspect production-safe EAS build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Read build
+        run: |
+          set -euo pipefail
+          BUILD_ID="$(head -n 1 .github/build-triggers/production-safe-preview-status.txt | tr -d '[:space:]')"
+          echo "Build ID: $BUILD_ID"
+          eas build:view "$BUILD_ID" --json | tee production-safe-build.json
+
+      - name: Validate identity
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const b=JSON.parse(fs.readFileSync('production-safe-build.json','utf8'));
+          if (String(b.appVersion||'')!=='2.0.11') throw new Error('Unexpected appVersion: '+b.appVersion);
+          if (String(b.appBuildVersion||'')!=='104') throw new Error('Unexpected appBuildVersion: '+b.appBuildVersion);
+          console.log('Build status:', b.status);
+          console.log('Artifact:', b?.artifacts?.applicationArchiveUrl || 'not-ready');
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-safe-build-status
+          path: production-safe-build.json
+          retention-days: 7

@@ -1,0 +1,167 @@
+name: EAS Preview APK Status
+
+on:
+  push:
+    branches:
+      - mobile-v2.1-product-alignment
+    paths:
+      - '.github/build-triggers/eas-preview-status.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    name: Check current EAS preview build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install project dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Smoke-test Wallet V1.5 staging runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
+
+          healthy=""
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error --max-time 20 "$API/health" -o staging-health.json; then
+              healthy="yes"
+              break
+            fi
+            echo "Staging health attempt $attempt failed; retrying..."
+            sleep 10
+          done
+
+          if [ "$healthy" != "yes" ]; then
+            echo "Wallet V1.5 staging did not become healthy."
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --max-time 20 "$API/app/version" -o staging-version.json
+
+          node <<'NODE'
+          const fs = require('fs');
+          const health = JSON.parse(fs.readFileSync('staging-health.json', 'utf8'));
+          const version = JSON.parse(fs.readFileSync('staging-version.json', 'utf8'));
+
+          if (String(health.status || '').toLowerCase() !== 'ok') {
+            throw new Error('Staging health payload is not OK: ' + JSON.stringify(health));
+          }
+          if (version.success !== true) {
+            throw new Error('Staging version policy is unavailable: ' + JSON.stringify(version));
+          }
+
+          const minimumBuild = Number(version.minimumBuild || 0);
+          const minimumVersion = String(version.minimumVersion || '');
+          const appBuild = 104;
+          const appVersion = '2.0.11';
+
+          function compareVersions(a, b) {
+            const left = String(a).split('.').map(Number);
+            const right = String(b).split('.').map(Number);
+            const length = Math.max(left.length, right.length);
+            for (let i = 0; i < length; i += 1) {
+              const l = left[i] || 0;
+              const r = right[i] || 0;
+              if (l > r) return 1;
+              if (l < r) return -1;
+            }
+            return 0;
+          }
+
+          if (minimumBuild > appBuild || compareVersions(minimumVersion, appVersion) > 0) {
+            throw new Error(
+              'Staging version policy would block Nexa ' +
+                appVersion +
+                ' build ' +
+                appBuild +
+                ': ' +
+                JSON.stringify(version),
+            );
+          }
+
+          console.log('Wallet V1.5 staging runtime healthy.');
+          console.log(
+            'Version policy accepts Nexa ' +
+              appVersion +
+              ' build ' +
+              appBuild +
+              '.',
+          );
+          NODE
+
+      - name: Prove guarded V1.5 routes are live
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
+
+          assert_guarded_route() {
+            local route="$1"
+            local status
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$API$route")"
+            echo "$route -> HTTP $status"
+            if [ "$status" != "403" ] && [ "$status" != "401" ]; then
+              echo "Expected guarded route to exist and reject unauthenticated access; got HTTP $status"
+              exit 1
+            fi
+          }
+
+          assert_guarded_route "/recurring-pix/me"
+          assert_guarded_route "/custody/overview"
+          assert_guarded_route "/wallet/my-privy"
+          assert_guarded_route "/rewards/positions"
+
+          echo "Guarded V1.5 route signature is live on staging."
+
+      - name: Validate public product contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
+          curl --fail --silent --show-error --max-time 20 "$API/rewards/plans" -o staging-rewards.json
+          curl --fail --silent --show-error --max-time 20 "$API/swap/tokens" -o staging-tokens.json
+          node <<'NODE'
+          const fs = require('fs');
+          const rewards = JSON.parse(fs.readFileSync('staging-rewards.json', 'utf8'));
+          const tokens = JSON.parse(fs.readFileSync('staging-tokens.json', 'utf8'));
+          if (Number(rewards?.economics?.nexaRewardShare) !== 0.2) throw new Error('Rewards Nexa share must be 20%.');
+          if (Number(rewards?.economics?.userRewardShare) !== 0.8) throw new Error('Rewards user share must be 80%.');
+          if (JSON.stringify(tokens?.launchAssets || []) !== JSON.stringify(['USDC','BTC','ETH','XAUT'])) {
+            throw new Error('Unexpected launch assets.');
+          }
+          if (tokens?.premiumRequired !== false) throw new Error('Assets cannot be Premium-only.');
+          if (tokens?.internalTransferAsset !== 'USDC') throw new Error('Internal transfers must remain USDC-only.');
+          console.log('Staging public contracts validated.');
+          NODE
+
+      - name: Read and inspect build
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_ID="$(tr -d '[:space:]' < .github/build-triggers/eas-preview-status.txt)"
+          echo "Build ID: $BUILD_ID"
+          eas build:view "$BUILD_ID" --json | tee eas-preview-build.json
+
+      - name: Upload status snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-preview-build-status
+          path: eas-preview-build.json
+          retention-days: 7

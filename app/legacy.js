@@ -3,21 +3,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import LegacyApp from '../nexa-mobile/nexa-mobile/App';
+import AlignedLegacyApp from '../src/components/AlignedLegacyApp';
 import { nexaApi } from '../src/lib/api';
-import { installLegacyFinancialFetchBridge } from '../src/lib/legacy-financial-fetch-bridge';
-import { clearNexaSession, loadNexaSession } from '../src/lib/session';
+import {
+  clearNexaSession,
+  loadNexaSession,
+  saveNexaSession,
+} from '../src/lib/session';
 import { colors, spacing } from '../src/theme';
 
 export default function LegacyExperience() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState('');
 
   useEffect(() => {
     let mounted = true;
-    let restoreFinancialBridge = null;
 
-    async function bridgeSession() {
+    async function restoreSession() {
       try {
         const session = await loadNexaSession();
         if (!session) {
@@ -25,22 +29,53 @@ export default function LegacyExperience() {
           return;
         }
 
-        const response = await nexaApi.me(session.accessToken);
-        const user = response?.user || response || null;
-        if (!user?.id) throw new Error('Não foi possível restaurar sua conta Nexa.');
+        let activeSession = session;
+        let response;
+        try {
+          response = await nexaApi.me(activeSession.accessToken);
+        } catch (caught) {
+          if (caught?.status === 401 && activeSession.refreshToken) {
+            const refreshed = await nexaApi.refresh(activeSession.refreshToken);
+            const accessToken =
+              refreshed.accessToken ||
+              refreshed.access_token ||
+              refreshed.token ||
+              refreshed.tokens?.accessToken;
+            const refreshToken =
+              refreshed.refreshToken ||
+              refreshed.refresh_token ||
+              refreshed.tokens?.refreshToken ||
+              activeSession.refreshToken;
+            if (!accessToken) throw caught;
+
+            activeSession = {
+              accessToken,
+              refreshToken,
+              email: activeSession.email,
+            };
+            await saveNexaSession(activeSession);
+            response = await nexaApi.me(accessToken);
+          } else {
+            throw caught;
+          }
+        }
+
+        const currentUser = response?.user || response || null;
+        if (!currentUser?.id) {
+          throw new Error('Não foi possível restaurar sua conta Nexa.');
+        }
 
         await AsyncStorage.multiSet([
-          ['nexa_token', session.accessToken],
-          ['nexa_user', JSON.stringify(user)],
-          ['nexa_last_email', user.email || session.email],
-          ['nexa_last_name', user.fullName || ''],
+          ['nexa_user', JSON.stringify(currentUser)],
+          ['nexa_last_email', currentUser.email || activeSession.email],
+          ['nexa_last_name', currentUser.fullName || ''],
         ]);
 
-        restoreFinancialBridge = installLegacyFinancialFetchBridge(
-          session.accessToken,
-        );
-
-        if (mounted) setReady(true);
+        if (mounted) {
+          setUser(currentUser);
+          setToken(activeSession.accessToken);
+          setReady(true);
+        }
       } catch (caught) {
         if (mounted) {
           setError(
@@ -52,29 +87,19 @@ export default function LegacyExperience() {
       }
     }
 
-    void bridgeSession();
+    void restoreSession();
     return () => {
       mounted = false;
-      restoreFinancialBridge?.();
     };
   }, []);
 
-  useEffect(() => {
-    if (!ready) return undefined;
+  async function logout() {
+    await AsyncStorage.multiRemove(['nexa_token', 'nexa_user']);
+    await clearNexaSession({ preserveEmail: true });
+    router.replace('/');
+  }
 
-    const timer = setInterval(() => {
-      void (async () => {
-        const legacyToken = await AsyncStorage.getItem('nexa_token');
-        if (legacyToken) return;
-        await clearNexaSession();
-        router.replace('/');
-      })();
-    }, 800);
-
-    return () => clearInterval(timer);
-  }, [ready]);
-
-  if (!ready) {
+  if (!ready || !user || !token) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -83,7 +108,13 @@ export default function LegacyExperience() {
     );
   }
 
-  return <LegacyApp />;
+  return (
+    <AlignedLegacyApp
+      initialUser={user}
+      token={token}
+      onLogout={logout}
+    />
+  );
 }
 
 const styles = StyleSheet.create({

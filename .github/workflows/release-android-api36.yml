@@ -1,4 +1,4 @@
-name: Release Android API 36 AAB
+name: Release Android API 36 AAB — manual after homologation
 
 on:
   workflow_dispatch:
@@ -6,22 +6,7 @@ on:
     branches:
       - main
     paths:
-      - '.github/workflows/release-android-api36.yml'
-      - 'app.json'
-      - 'package.json'
-      - 'eas.json'
-      - 'app/index.tsx'
-      - 'app/sign-in.tsx'
-      - 'app/sign-up.tsx'
-      - 'app/kyc.tsx'
-      - 'src/config.ts'
-      - 'src/lib/api.ts'
-      - 'src/lib/legacy-financial-fetch-bridge.js'
-      - 'nexa-mobile/nexa-mobile/App.js'
-      - 'scripts/validate-mobile-safety.js'
-      - 'scripts/validate-decimal-and-privy-onboarding.js'
-      - 'scripts/validate-release-assets.js'
-      - 'scripts/validate-built-artifact.js'
+      - '.github/build-triggers/release-android-api36.txt'
 
 permissions:
   contents: write
@@ -32,20 +17,20 @@ concurrency:
 
 jobs:
   build:
-    name: Nexa 2.0.10 Android 16 API 36 production AAB
+    name: Nexa 2.0.11 Android 16 API 36 production AAB
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20.20.0'
+          node-version: '24'
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -71,13 +56,89 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Verify Expo 56 native compatibility pins
+      - name: Verify Expo 57 native compatibility pins
         run: |
           node <<'NODE'
           const pkg = require('./package.json');
-          if (pkg.dependencies['react-native-reanimated'] !== '4.3.1') throw new Error('react-native-reanimated deve ser 4.3.1');
-          if (pkg.dependencies['react-native-worklets'] !== '0.8.3') throw new Error('react-native-worklets deve ser 0.8.3');
-          console.log('Expo 56 native pins OK: Reanimated 4.3.1 + Worklets 0.8.3');
+          const deps = pkg.dependencies || {};
+          if (!String(deps.expo || '').startsWith('~57.')) throw new Error('Expo SDK 57 não configurado');
+          if (deps.react !== '19.2.3') throw new Error('React 19.2.3 não configurado');
+          if (!String(deps['react-native'] || '').startsWith('0.86.')) throw new Error('React Native 0.86 não configurado');
+          if (deps['react-native-reanimated'] !== '4.5.1') throw new Error('react-native-reanimated deve ser 4.5.1');
+          if (deps['react-native-worklets'] !== '0.10.1') throw new Error('react-native-worklets deve ser 0.10.1');
+          console.log('Expo 57 native pins OK.');
+          NODE
+
+      - name: Preflight production backend compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-p2u0.onrender.com/api/v1"
+
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o prod-health.json
+          curl --fail --silent --show-error --max-time 20 "$API/app/version" -o prod-version.json
+          curl --fail --silent --show-error --max-time 20 "$API/rewards/plans" -o prod-rewards.json
+          curl --fail --silent --show-error --max-time 20 "$API/swap/tokens" -o prod-tokens.json
+
+          for route in /recurring-pix/me /custody/overview /wallet/my-privy /rewards/positions; do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$API$route")"
+            echo "$route -> HTTP $status"
+            if [ "$status" != "401" ] && [ "$status" != "403" ]; then
+              echo "Production backend does not expose the guarded V1.5 route: $route"
+              exit 1
+            fi
+          done
+
+          node <<'NODE'
+          const fs = require('fs');
+
+          const health = JSON.parse(fs.readFileSync('prod-health.json', 'utf8'));
+          const version = JSON.parse(fs.readFileSync('prod-version.json', 'utf8'));
+          const rewards = JSON.parse(fs.readFileSync('prod-rewards.json', 'utf8'));
+          const tokens = JSON.parse(fs.readFileSync('prod-tokens.json', 'utf8'));
+
+          if (String(health.status || '').toLowerCase() !== 'ok') {
+            throw new Error('Production health is not OK.');
+          }
+          if (version.success !== true) {
+            throw new Error('Production app-version policy is unavailable.');
+          }
+
+          const latestBuild = Number(version.latestBuild || 0);
+          const latestVersion = String(version.latestVersion || '');
+          if (latestBuild < 104 || latestVersion !== '2.0.11') {
+            throw new Error(
+              'Production backend is not advertising Nexa 2.0.11 build 104: ' +
+                JSON.stringify(version),
+            );
+          }
+
+          const minimumBuild = Number(version.minimumBuild || 0);
+          if (minimumBuild > 104) {
+            throw new Error('Production would block the release build itself.');
+          }
+
+          if (Number(rewards?.economics?.userRewardShare) !== 0.8) {
+            throw new Error('Production Rewards user share must be 80%.');
+          }
+          if (Number(rewards?.economics?.nexaRewardShare) !== 0.2) {
+            throw new Error('Production Rewards Nexa share must be 20%.');
+          }
+
+          const assets = Array.isArray(tokens?.launchAssets)
+            ? tokens.launchAssets
+            : [];
+          if (JSON.stringify(assets) !== JSON.stringify(['USDC','BTC','ETH','XAUT'])) {
+            throw new Error('Unexpected production launch assets: ' + JSON.stringify(assets));
+          }
+          if (tokens?.premiumRequired !== false) {
+            throw new Error('BTC/ETH/XAUT must be available outside Premium.');
+          }
+          if (tokens?.internalTransferAsset !== 'USDC') {
+            throw new Error('Internal transfers must remain USDC-only.');
+          }
+
+          console.log('Production backend compatibility preflight passed.');
           NODE
 
       - name: Apply protected Pix quote wording
@@ -122,9 +183,9 @@ jobs:
           assert.equal(Number(android.targetSdkVersion), 36);
           assert.equal(String(android.buildToolsVersion), '36.0.0');
           assert.equal(Number(app.extra?.androidTargetApi), 36);
-          assert.equal(app.version, '2.0.10');
-          assert.equal(Number(app.android?.versionCode), 103);
-          console.log('Android API 36 e Nexa 2.0.10 v103 confirmados no app.json.');
+          assert.equal(app.version, '2.0.11');
+          assert.equal(Number(app.android?.versionCode), 104);
+          console.log('Android API 36 e Nexa 2.0.11 v104 confirmados no app.json.');
           NODE
 
       - name: Prove API 36 was applied by Expo prebuild
@@ -165,11 +226,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
           EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
           EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
-          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v103
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v103
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v104
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v104
         run: |
           set -euo pipefail
-          FILE='Nexa-2.0.10-Android16-v103.aab'
+          FILE='Nexa-2.0.11-Android16-v104.aab'
           rm -f "$FILE"
           eas build \
             --platform android \
@@ -197,17 +258,17 @@ jobs:
             > aab-manifest.xml
           cat aab-manifest.xml
           grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
-          grep -Eq 'android:versionCode="103"' aab-manifest.xml
-          grep -Eq 'android:versionName="2\.0\.10"' aab-manifest.xml
+          grep -Eq 'android:versionCode="104"' aab-manifest.xml
+          grep -Eq 'android:versionName="2\.0\.11"' aab-manifest.xml
           grep -Eq 'android:targetSdkVersion="36"' aab-manifest.xml \
             || (echo 'ERRO: AAB final não segmenta Android API 36' && exit 1)
-          echo 'AAB final comprovado: Nexa 2.0.10 v103 targetSdkVersion=36.'
+          echo 'AAB final comprovado: Nexa 2.0.11 v104 targetSdkVersion=36.'
 
       - name: Upload verified AAB artifact
         if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.10-Android16-v103-VERIFIED
+          name: Nexa-2.0.11-Android16-v104-VERIFIED
           path: |
             ${{ env.aab_file }}
             aab-manifest.xml
@@ -221,7 +282,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='nexa-2.0.10-android16-v103'
+          TAG='nexa-2.0.11-android16-v104'
           printf '%s  %s\n' "${{ env.aab_sha256 }}" "${{ env.aab_file }}" > SHA256SUMS.txt
           gh release delete "$TAG" --yes --cleanup-tag || true
           gh release create "$TAG" \
@@ -229,24 +290,24 @@ jobs:
             aab-manifest.xml \
             SHA256SUMS.txt \
             --target "${GITHUB_SHA}" \
-            --title 'Nexa 2.0.10 · Brasil KYC · Android 16 · API 36 · v103' \
-            --notes "Google Play AAB VERIFIED. Brazil KYC routing: CPF + Didit liveness/Unico-ready flow. Built locally on GitHub Actions. Package br.com.trynexa.app. Version 2.0.10. versionCode 103. targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
+            --title 'Nexa 2.0.11 · Brasil KYC · Android 16 · API 36 · v104' \
+            --notes "Google Play AAB VERIFIED. Brazil KYC routing: CPF + Didit liveness/Unico-ready flow. Built locally on GitHub Actions. Package br.com.trynexa.app. Version 2.0.11. versionCode 104. targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
 
       - name: Upload local build diagnostics on failure
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.10-v103-local-build-diagnostics
+          name: Nexa-2.0.11-v104-local-build-diagnostics
           path: |
-            ${{ runner.temp }}/nexa-eas-local-v103/logs
-            local-build-artifacts-v103
+            ${{ runner.temp }}/nexa-eas-local-v104/logs
+            local-build-artifacts-v104
           if-no-files-found: warn
           retention-days: 14
 
       - name: Record final release outcome
         if: ${{ always() }}
         env:
-          RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.10-android16-v103/Nexa-2.0.10-Android16-v103.aab
+          RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.11-android16-v104/Nexa-2.0.11-Android16-v104.aab
           BUILD_STATUS: ${{ job.status }}
           SAFETY_STATUS: ${{ steps.safety.conclusion }}
           DECIMAL_STATUS: ${{ steps.decimal_privy.conclusion }}
@@ -262,16 +323,16 @@ jobs:
           RELEASE_STATUS: ${{ steps.publish_release.conclusion }}
         run: |
           set -euo pipefail
-          STATUS_PATH='release-status/android-2.0.10-v103.json'
-          STATUS_TMP="$RUNNER_TEMP/android-2.0.10-v103.json"
+          STATUS_PATH='release-status/android-2.0.11-v104.json'
+          STATUS_TMP="$RUNNER_TEMP/android-2.0.11-v104.json"
           mkdir -p release-status
           AAB_FILE="${aab_file:-}"
           AAB_SHA256="${aab_sha256:-}"
           cat > "$STATUS_PATH" <<EOF
           {
             "status": "$BUILD_STATUS",
-            "version": "2.0.10",
-            "versionCode": 103,
+            "version": "2.0.11",
+            "versionCode": 104,
             "package": "br.com.trynexa.app",
             "buildMode": "github-actions-local-eas",
             "compileSdk": 36,
@@ -307,5 +368,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add "$STATUS_PATH"
-          git commit -m "Record Nexa 2.0.10 Brazil KYC Android API 36 build outcome: $BUILD_STATUS" || true
+          git commit -m "Record Nexa 2.0.11 Brazil KYC Android API 36 build outcome: $BUILD_STATUS" || true
           git push origin HEAD:main

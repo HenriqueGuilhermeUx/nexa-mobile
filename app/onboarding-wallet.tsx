@@ -17,6 +17,25 @@ function isLegacyProfile(profile: any) {
   return profile?.isLegacyBeta === true || value.includes('legacy');
 }
 
+function isPremiumProfile(profile: any) {
+  const status = String(
+    profile?.premiumStatus ||
+      profile?.subscriptionStatus ||
+      profile?.plan ||
+      profile?.premium?.status ||
+      '',
+  ).toLowerCase();
+
+  return Boolean(
+    profile?.isPremium === true ||
+      profile?.premiumActive === true ||
+      profile?.premium?.active === true ||
+      status === 'premium' ||
+      status === 'active' ||
+      status === 'ativo',
+  );
+}
+
 export default function WalletOnboardingScreen() {
   const privy = usePrivy() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
@@ -45,18 +64,35 @@ export default function WalletOnboardingScreen() {
           return;
         }
 
-        const response = await nexaApi.directProfile(session.accessToken);
+        const [profileResponse, meResponse] = await Promise.all([
+          nexaApi.directProfile(session.accessToken),
+          nexaApi.me(session.accessToken),
+        ]);
         if (!mounted) return;
-        const profile = valueFromProfile(response);
 
-        // Usuários antigos permanecem na experiência completa já existente.
-        if (isLegacyProfile(profile)) {
+        const profile = valueFromProfile(profileResponse);
+        const me = meResponse?.user || meResponse || {};
+        const premium = isPremiumProfile({ ...profile, ...me });
+
+        // A carteira individual é um recurso Premium. Usuários que já possuem
+        // wallet vinculada continuam podendo acessá-la, independentemente de
+        // mudanças futuras no plano, para nunca perderem acesso ao endereço.
+        const alreadyLinked =
+          profile?.wallet?.linked === true ||
+          Boolean(profile?.wallet?.address || me?.walletAddress);
+
+        if (!premium && !alreadyLinked) {
           router.replace('/legacy' as any);
           return;
         }
 
-        if (profile?.wallet?.linked === true) {
-          router.replace('/(app)');
+        if (isLegacyProfile(profile) && !premium && !alreadyLinked) {
+          router.replace('/legacy' as any);
+          return;
+        }
+
+        if (alreadyLinked) {
+          router.replace('/legacy' as any);
           return;
         }
       } catch (caught) {
@@ -64,7 +100,7 @@ export default function WalletOnboardingScreen() {
           setError(
             caught instanceof Error
               ? caught.message
-              : 'Não foi possível preparar sua carteira.',
+              : 'Não foi possível preparar sua carteira Premium.',
           );
         }
       } finally {
@@ -108,15 +144,13 @@ export default function WalletOnboardingScreen() {
         walletAddress: currentWallet.address,
       });
 
-      // A carteira já está válida após o vínculo. A auditoria complementar é
-      // executada em segundo plano e nunca impede o cliente de entrar no app.
       void nexaApi.auditWallet(session.accessToken).catch(() => undefined);
-      router.replace('/(app)');
+      router.replace('/legacy' as any);
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível concluir a carteira. Tente novamente.',
+          : 'Não foi possível concluir sua carteira. Tente novamente.',
       );
     } finally {
       setWorking(false);
@@ -159,7 +193,7 @@ export default function WalletOnboardingScreen() {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loaderText}>Preparando sua conta...</Text>
+        <Text style={styles.loaderText}>Preparando sua carteira Premium...</Text>
       </View>
     );
   }
@@ -169,14 +203,15 @@ export default function WalletOnboardingScreen() {
       <View style={styles.content}>
         <Brand />
         <View style={styles.hero}>
-          <Title>Sua carteira Nexa</Title>
+          <Title>Minha Carteira Premium</Title>
           <Paragraph>
-            Crie sua carteira individual e continue. O processo leva apenas alguns segundos.
+            Crie sua carteira individual para receber USDC externamente e usar
+            os recursos on-chain da Nexa Premium.
           </Paragraph>
         </View>
 
         <ActionButton
-          label={wallet ? 'Continuar' : 'Criar carteira e continuar'}
+          label={wallet ? 'Vincular carteira' : 'Criar Minha Carteira'}
           loading={working || linkWhenReady}
           onPress={prepareWallet}
         />

@@ -10,7 +10,12 @@ import {
   Title,
 } from '@/components/ui';
 import { ApiError, nexaApi } from '@/lib/api';
-import { clearNexaSession, loadNexaSession } from '@/lib/session';
+import {
+  clearNexaTokens,
+  loadNexaSession,
+  migrateLegacySession,
+  saveNexaSession,
+} from '@/lib/session';
 import { colors, spacing } from '@/theme';
 
 export default function WelcomeScreen() {
@@ -20,7 +25,8 @@ export default function WelcomeScreen() {
     let mounted = true;
 
     async function resolveSession() {
-      const session = await loadNexaSession();
+      await migrateLegacySession();
+      let session = await loadNexaSession();
       if (!mounted) return;
 
       if (session) {
@@ -34,8 +40,56 @@ export default function WelcomeScreen() {
           );
           return;
         } catch (caught) {
+          if (
+            caught instanceof ApiError &&
+            caught.status === 401 &&
+            session?.refreshToken
+          ) {
+            try {
+              const refreshed = await nexaApi.refresh(session.refreshToken);
+              const tokens = {
+                accessToken:
+                  refreshed.accessToken ||
+                  refreshed.access_token ||
+                  refreshed.token ||
+                  refreshed.tokens?.accessToken,
+                refreshToken:
+                  refreshed.refreshToken ||
+                  refreshed.refresh_token ||
+                  refreshed.tokens?.refreshToken ||
+                  session.refreshToken,
+              };
+              if (!tokens.accessToken) throw new Error('Refresh inválido');
+
+              await saveNexaSession({
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+                email: session.email,
+              });
+
+              session = {
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+                email: session.email,
+              };
+
+              const profile = await nexaApi.me(tokens.accessToken);
+              if (!mounted) return;
+              router.replace(
+                profile?.kycStatus === 'approved'
+                  ? ('/legacy' as any)
+                  : ('/kyc' as any),
+              );
+              return;
+            } catch {
+              await clearNexaTokens();
+              if (mounted) setChecking(false);
+              return;
+            }
+          }
+
           if (caught instanceof ApiError && caught.status === 401) {
-            await clearNexaSession();
+            await clearNexaTokens();
             if (mounted) setChecking(false);
             return;
           }

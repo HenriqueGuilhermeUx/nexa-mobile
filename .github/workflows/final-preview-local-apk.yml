@@ -1,0 +1,159 @@
+name: Final Nexa Preview APK — local fallback
+
+on:
+  push:
+    branches:
+      - mobile-v2.1-product-alignment
+    paths:
+      - '.github/build-triggers/final-preview-local.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-final-preview-local-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build final safe preview APK locally
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate final agreed scope
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety.js
+          npm run typecheck
+          npx expo-doctor
+
+      - name: Verify preview environment is fail-closed
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+          const preview = eas?.build?.preview;
+          if (preview?.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-wallet-v15-staging.onrender.com/api/v1') {
+            throw new Error('Preview API must point only to Wallet V1.5 staging.');
+          }
+          if (String(preview?.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED) !== 'false') {
+            throw new Error('Preview financial execution must remain false.');
+          }
+          if (preview?.android?.buildType !== 'apk') {
+            throw new Error('Preview build must be APK.');
+          }
+          console.log('Preview boundary validated: staging + financial execution false + APK.');
+          NODE
+
+      - name: Smoke-test live Wallet V1.5 staging
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
+
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o health.json
+          curl --fail --silent --show-error --max-time 20 "$API/app/version" -o version.json
+
+          node <<'NODE'
+          const fs = require('fs');
+          const health = JSON.parse(fs.readFileSync('health.json', 'utf8'));
+          const version = JSON.parse(fs.readFileSync('version.json', 'utf8'));
+          if (String(health.status || '').toLowerCase() !== 'ok') throw new Error('Staging health is not OK.');
+          if (version.success !== true) throw new Error('Staging version policy unavailable.');
+          if (Number(version.minimumBuild || 0) > 104) throw new Error('Staging would block build 104.');
+          console.log('Staging health/version smoke passed.');
+          NODE
+
+          for route in /recurring-pix/me /custody/overview /wallet/my-privy /rewards/positions; do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$API$route")"
+            echo "$route -> HTTP $status"
+            if [ "$status" != "403" ] && [ "$status" != "401" ]; then
+              echo "Expected live guarded route; got HTTP $status"
+              exit 1
+            fi
+          done
+
+      - name: Validate public product contracts
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
+          curl --fail --silent --show-error --max-time 20 "$API/rewards/plans" -o rewards-plans.json
+          curl --fail --silent --show-error --max-time 20 "$API/swap/tokens" -o swap-tokens.json
+          node <<'NODE'
+          const fs = require('fs');
+          const rewards = JSON.parse(fs.readFileSync('rewards-plans.json', 'utf8'));
+          const tokens = JSON.parse(fs.readFileSync('swap-tokens.json', 'utf8'));
+          if (Number(rewards?.economics?.nexaRewardShare) !== 0.2) throw new Error('Rewards Nexa share must be 20%.');
+          if (Number(rewards?.economics?.userRewardShare) !== 0.8) throw new Error('Rewards user share must be 80%.');
+          const assets = Array.isArray(tokens?.launchAssets) ? tokens.launchAssets : [];
+          if (JSON.stringify(assets) !== JSON.stringify(['USDC','BTC','ETH','XAUT'])) {
+            throw new Error('Unexpected launch assets: ' + JSON.stringify(assets));
+          }
+          if (tokens?.premiumRequired !== false) throw new Error('BTC/ETH/XAUT must not be Premium-only.');
+          if (tokens?.internalTransferAsset !== 'USDC') throw new Error('Internal transfer asset must be USDC.');
+          console.log('Public product contracts validated: Rewards 80/20 + USDC/BTC/ETH/XAUT.');
+          NODE
+
+      - name: Build signed preview APK locally
+        env:
+          CI: 'true'
+          NODE_ENV: production
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+        run: |
+          set -euo pipefail
+          APK='Nexa-2.0.11-v104-final-preview.apk'
+          rm -f "$APK"
+          eas build \
+            --platform android \
+            --profile preview \
+            --local \
+            --non-interactive \
+            --output "$GITHUB_WORKSPACE/$APK"
+          test -s "$APK"
+          sha256sum "$APK" | tee Nexa-2.0.11-v104-final-preview.apk.sha256
+          ls -lh "$APK"
+
+      - name: Upload installable preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.11-v104-FINAL-PREVIEW
+          path: |
+            Nexa-2.0.11-v104-final-preview.apk
+            Nexa-2.0.11-v104-final-preview.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Safety boundary
+        run: |
+          echo "Internal preview only."
+          echo "Wallet V1.5 staging only."
+          echo "Financial execution remains false."
+          echo "No Google Play submission performed."
