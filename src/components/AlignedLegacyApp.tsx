@@ -181,6 +181,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   const [assetSellRequestId, setAssetSellRequestId] = useState('');
   const [pixOutRequestId, setPixOutRequestId] = useState('');
   const [rewardAmountUsdc, setRewardAmountUsdc] = useState('');
+  const [rewardJoinRequestId, setRewardJoinRequestId] = useState('');
 
   const isPremium = premiumActive(user);
   const walletAddress = user?.wallet?.address || user?.walletAddress || embeddedWallet?.address || '';
@@ -514,6 +515,66 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       if (data?.success === false) throw new Error(data?.message || 'Não foi possível ativar o Pix Automático.');
       setRecurring(data?.recurringPix || recurring);
       setMessage(data?.message || 'Pix Automático vinculado à sua assinatura.');
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function joinRewards() {
+    const value = Number(String(rewardAmountUsdc).replace(',', '.'));
+    if (!value || value <= 0) return setMessage('Informe um valor USDC válido.');
+    if (!isPremium) return setMessage('Nexa Rewards está disponível para clientes Premium.');
+    if (!config.financialExecutionEnabled) {
+      return setMessage('Participação no Rewards está bloqueada neste build de preview.');
+    }
+
+    try {
+      setLoading(true);
+      const requestId =
+        rewardJoinRequestId ||
+        newClientRequestId('mobile_rewards_join', user.id);
+      if (!rewardJoinRequestId) setRewardJoinRequestId(requestId);
+
+      const data = await json(`${API}/rewards/join`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          amountUsdc: value,
+          plan: 'FLEX',
+          clientRequestId: requestId,
+        }),
+      });
+
+      setRewardAmountUsdc('');
+      setRewardJoinRequestId('');
+      setMessage(data?.message || 'Saldo reservado no Nexa Rewards.');
+      await loadAll();
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function withdrawReward(positionId: string) {
+    if (!positionId) return;
+    if (!config.financialExecutionEnabled) {
+      return setMessage('Resgate Rewards está bloqueado neste build de preview.');
+    }
+
+    try {
+      setLoading(true);
+      const data = await json(
+        `${API}/rewards/withdraw/${encodeURIComponent(positionId)}`,
+        {
+          method: 'POST',
+          headers: authHeaders,
+        },
+      );
+      setMessage(data?.message || 'Rewards resgatado.');
+      await loadAll();
     } catch (error: any) {
       setMessage(error.message);
     } finally {
@@ -1028,22 +1089,113 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   }
 
   function Rewards() {
+    const activePositions = rewardPositions.filter(
+      (position: any) => String(position?.status || '').toLowerCase() === 'active',
+    );
+
     return (
       <>
         <Text style={styles.pageTitle}>Nexa Rewards</Text>
-        <Text style={styles.pageSubtitle}>Benefícios, campanhas e vantagens vinculadas ao uso da Nexa.</Text>
+        <Text style={styles.pageSubtitle}>
+          Separe uma parte do seu USDC para participar do programa Rewards.
+        </Text>
+
         <Card>
-          <Text style={styles.eyebrow}>STATUS</Text>
-          <Text style={styles.highlightTitle}>{rewardPositions.length ? `${rewardPositions.length} posição(ões) ativa(s)` : 'Nenhuma posição ativa'}</Text>
-          <Text style={styles.highlightText}>Rewards reúne benefícios e campanhas conforme regras vigentes.</Text>
+          <Text style={styles.eyebrow}>COMO FUNCIONA</Text>
+          <Text style={styles.highlightTitle}>
+            Benefícios sobre recompensas efetivamente geradas.
+          </Text>
+          <Text style={styles.highlightText}>
+            O saldo escolhido fica reservado enquanto participa. Quando houver
+            recompensa efetivamente realizada, 80% fica com o cliente e 20% com
+            a Nexa. O principal continua identificado separadamente.
+          </Text>
         </Card>
-        <Text style={styles.sectionTitle}>Programas disponíveis</Text>
-        {rewardPlans.length ? rewardPlans.map((plan: any, index: number) => (
-          <Card key={plan.id || plan.code || index}>
-            <Text style={styles.assetRowTitle}>{plan.name || plan.title || plan.plan || 'Rewards'}</Text>
-            <Text style={styles.highlightText}>{plan.description || plan.subtitle || 'Benefícios Nexa conforme regras vigentes da campanha.'}</Text>
+
+        <Text style={styles.sectionTitle}>Programa disponível</Text>
+        {rewardPlans.length ? (
+          rewardPlans.map((plan: any, index: number) => (
+            <Card key={plan.id || plan.code || plan.plan || index}>
+              <Text style={styles.assetRowTitle}>
+                {plan.name || plan.title || plan.plan || 'Nexa Rewards'}
+              </Text>
+              <Text style={styles.highlightText}>
+                {plan.label ||
+                  plan.description ||
+                  plan.subtitle ||
+                  'Programa Rewards para clientes Premium.'}
+              </Text>
+
+              {isPremium ? (
+                <>
+                  <Text style={styles.formLabel}>USDC para participar</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Valor em USDC"
+                    placeholderTextColor="#64748b"
+                    value={rewardAmountUsdc}
+                    onChangeText={(value) => {
+                      setRewardAmountUsdc(value);
+                      setRewardJoinRequestId('');
+                    }}
+                    keyboardType="decimal-pad"
+                  />
+                  <PrimaryButton
+                    title={
+                      config.financialExecutionEnabled
+                        ? 'Participar do Rewards'
+                        : 'Rewards bloqueado no preview'
+                    }
+                    onPress={joinRewards}
+                    disabled={!config.financialExecutionEnabled || loading}
+                  />
+                </>
+              ) : (
+                <PrimaryButton
+                  title="Conhecer Nexa Premium"
+                  onPress={() => setPage('premium')}
+                  secondary
+                />
+              )}
+            </Card>
+          ))
+        ) : (
+          <Card>
+            <Text style={styles.highlightText}>
+              Não foi possível carregar o programa Rewards agora. Atualize a
+              conta; se persistir, a operação permanece bloqueada por segurança.
+            </Text>
           </Card>
-        )) : <Card><Text style={styles.highlightText}>Nenhum programa publicado no momento.</Text></Card>}
+        )}
+
+        <Text style={styles.sectionTitle}>Minhas posições</Text>
+        {activePositions.length ? (
+          activePositions.map((position: any) => (
+            <Card key={position.id}>
+              <Text style={styles.eyebrow}>SALDO RESERVADO</Text>
+              <Text style={styles.highlightTitle}>
+                {amount(position.principalUsdc, 8)} USDC
+              </Text>
+              <Text style={styles.highlightText}>
+                Status: {String(position.status || 'active')}
+              </Text>
+              <PrimaryButton
+                title={
+                  config.financialExecutionEnabled
+                    ? 'Resgatar Rewards'
+                    : 'Resgate bloqueado no preview'
+                }
+                onPress={() => withdrawReward(position.id)}
+                disabled={!config.financialExecutionEnabled || loading}
+                secondary
+              />
+            </Card>
+          ))
+        ) : (
+          <Card>
+            <Text style={styles.highlightText}>Nenhuma posição ativa.</Text>
+          </Card>
+        )}
       </>
     );
   }
