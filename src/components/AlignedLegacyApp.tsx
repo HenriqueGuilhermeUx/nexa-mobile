@@ -607,7 +607,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       await embeddedWallet.switchChain(POLYGON_CHAIN_ID);
     }
 
-    const provider = await embeddedWallet.getProvider();
+    const provider = await embeddedWallet.getEthereumProvider();
     const result = await provider.request({
       method: 'eth_sendTransaction',
       params: [
