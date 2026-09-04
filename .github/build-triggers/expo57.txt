@@ -1,3 +1,4 @@
 Expo SDK 57 upgrade for mobile-v2.1-product-alignment.
 Reason: Expo Doctor detected the known Hermes V1 memory regression in SDK 56.
+Retry: setup-node cache bootstrap removed because this repo did not yet have a lockfile.
 Financial execution remains disabled.
