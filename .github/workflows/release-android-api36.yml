@@ -254,7 +254,7 @@ jobs:
           cat aab-manifest.xml
           grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
           grep -Eq 'android:versionCode="104"' aab-manifest.xml
-          grep -Eq 'android:versionName="2\.0\.10"' aab-manifest.xml
+          grep -Eq 'android:versionName="2\.0\.11"' aab-manifest.xml
           grep -Eq 'android:targetSdkVersion="36"' aab-manifest.xml \
             || (echo 'ERRO: AAB final não segmenta Android API 36' && exit 1)
           echo 'AAB final comprovado: Nexa 2.0.11 v104 targetSdkVersion=36.'
