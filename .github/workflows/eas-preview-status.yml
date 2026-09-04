@@ -1,0 +1,45 @@
+name: EAS Preview APK Status
+
+on:
+  push:
+    branches:
+      - mobile-v2.1-product-alignment
+    paths:
+      - '.github/build-triggers/eas-preview-status.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    name: Check current EAS preview build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Read and inspect build
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_ID="$(tr -d '[:space:]' < .github/build-triggers/eas-preview-status.txt)"
+          echo "Build ID: $BUILD_ID"
+          eas build:view "$BUILD_ID" --json --non-interactive | tee eas-preview-build.json
+
+      - name: Upload status snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-preview-build-status
+          path: eas-preview-build.json
+          retention-days: 7
