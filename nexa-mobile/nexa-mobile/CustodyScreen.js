@@ -260,6 +260,26 @@ export default function CustodyScreen({
         onPress={() => setSelectedMode('own_wallet')}
       />
 
+      {selectedMode === 'own_wallet' && walletAddress ? (
+      <View style={{ backgroundColor: '#0b1220', borderRadius: 22, padding: 18, marginTop: 14, borderWidth: 1, borderColor: '#1e293b' }}>
+        <Text style={{ color: '#fff', fontSize: 19, fontWeight: '900' }}>Receber USDC externamente</Text>
+        <Text style={{ color: '#94a3b8', marginTop: 6, lineHeight: 19 }}>
+          Use este endereço para receber USDC diretamente na sua carteira individual. Envie somente USDC pela rede Polygon.
+        </Text>
+        <View style={{ alignItems: 'center', marginTop: 18 }}>
+          <View style={{ backgroundColor: '#fff', padding: 10, borderRadius: 14 }}>
+            <QRCode value={walletAddress} size={190} />
+          </View>
+          <Text selectable style={{ color: '#fff', fontSize: 12, marginTop: 12, textAlign: 'center' }}>
+            {walletAddress}
+          </Text>
+          <Text style={{ color: '#fbbf24', marginTop: 8, textAlign: 'center', fontWeight: '800' }}>
+            Rede Polygon • somente USDC
+          </Text>
+        </View>
+      </View>
+      ) : null}
+
       {selectedMode === 'own_wallet' ? (
       <View style={{ backgroundColor: '#0b1220', borderRadius: 22, padding: 18, marginTop: 14, borderWidth: 1, borderColor: '#1e293b' }}>
         <Text style={{ color: '#fff', fontSize: 19, fontWeight: '900' }}>Mover para minha carteira</Text>
