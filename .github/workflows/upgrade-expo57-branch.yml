@@ -1,0 +1,54 @@
+name: Upgrade Mobile Branch to Expo 57
+
+on:
+  push:
+    branches:
+      - mobile-v2.1-product-alignment
+    paths:
+      - '.github/build-triggers/expo57.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-v2.1-product-alignment
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+          cache: npm
+
+      - name: Install current dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Upgrade Expo and align SDK dependencies
+        env:
+          CI: '1'
+        run: |
+          npx expo install expo@~57.0.17 --fix
+          npm install --no-audit --no-fund
+
+      - name: Validate upgraded project
+        run: |
+          npm run typecheck
+          node scripts/validate-mobile-safety.js
+          npx expo-doctor@latest
+
+      - name: Commit aligned dependency graph
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then
+            echo 'Dependency graph already aligned.'
+            exit 0
+          fi
+          git config user.name 'HenriqueGuilhermeUx'
+          git config user.email 'henriquecampos66@gmail.com'
+          git add package.json package-lock.json
+          git commit -m 'chore(mobile): upgrade to Expo 57 and fixed Hermes runtime'
+          git push origin HEAD:mobile-v2.1-product-alignment
