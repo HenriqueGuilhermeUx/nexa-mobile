@@ -5,3 +5,4 @@ Financial execution remains disabled.
 
 Retry 2: safety validator aligned to Expo SDK 57 dependency versions.
 Retry 3: Expo/RN version regexes aligned to SDK 57.
+Retry 4: validator regex escaping corrected.
