@@ -106,6 +106,30 @@ jobs:
           );
           NODE
 
+      - name: Prove guarded V1.5 routes are live
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
+
+          assert_guarded_route() {
+            local route="$1"
+            local status
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$API$route")"
+            echo "$route -> HTTP $status"
+            if [ "$status" != "403" ] && [ "$status" != "401" ]; then
+              echo "Expected guarded route to exist and reject unauthenticated access; got HTTP $status"
+              exit 1
+            fi
+          }
+
+          assert_guarded_route "/recurring-pix/me"
+          assert_guarded_route "/custody/overview"
+          assert_guarded_route "/wallet/my-privy"
+          assert_guarded_route "/rewards/positions"
+
+          echo "Guarded V1.5 route signature is live on staging."
+
       - name: Read and inspect build
         shell: bash
         run: |
