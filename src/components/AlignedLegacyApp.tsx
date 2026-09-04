@@ -1110,7 +1110,14 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   else if (page === 'history') body = <History />;
   else if (page === 'custody') {
     body = canAccessCustody ? (
-      <CustodyScreen user={user} token={token} onBack={() => setPage('wallet')} onBalanceRefresh={loadAll} />
+      <CustodyScreen
+        user={user}
+        token={token}
+        apiUrl={API}
+        financialExecutionEnabled={config.financialExecutionEnabled}
+        onBack={() => setPage('wallet')}
+        onBalanceRefresh={loadAll}
+      />
     ) : (
       <Premium />
     );
