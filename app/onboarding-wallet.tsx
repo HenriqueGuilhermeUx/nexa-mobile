@@ -12,9 +12,28 @@ function valueFromProfile(response: any) {
   return response?.profile || response || {};
 }
 
-function isLegacyProfile(profile: any) {
-  const value = String(profile?.settlementProfile || '').toLowerCase();
-  return profile?.isLegacyBeta === true || value.includes('legacy');
+function isPremiumActive(user: any) {
+  const status = String(
+    user?.premiumStatus ||
+      user?.subscriptionStatus ||
+      user?.plan ||
+      user?.premium?.status ||
+      '',
+  ).toLowerCase();
+
+  if (
+    user?.isPremium === true ||
+    user?.premiumActive === true ||
+    user?.premium?.active === true ||
+    status === 'premium' ||
+    status === 'active' ||
+    status === 'ativo'
+  ) {
+    if (!user?.premiumUntil) return true;
+    return new Date(user.premiumUntil).getTime() > Date.now();
+  }
+
+  return false;
 }
 
 export default function WalletOnboardingScreen() {
@@ -32,12 +51,15 @@ export default function WalletOnboardingScreen() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [linkWhenReady, setLinkWhenReady] = useState(false);
+  const [eligible, setEligible] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let mounted = true;
+
     async function load() {
       if (!privy.isReady) return;
+
       try {
         const session = await loadNexaSession();
         if (!session) {
@@ -45,20 +67,34 @@ export default function WalletOnboardingScreen() {
           return;
         }
 
-        const response = await nexaApi.directProfile(session.accessToken);
+        const [meResponse, profileResponse] = await Promise.all([
+          nexaApi.me(session.accessToken),
+          nexaApi.directProfile(session.accessToken),
+        ]);
         if (!mounted) return;
-        const profile = valueFromProfile(response);
 
-        // Usuários antigos permanecem na experiência completa já existente.
-        if (isLegacyProfile(profile)) {
+        const me = meResponse?.user || meResponse || {};
+        const profile = valueFromProfile(profileResponse);
+        const existingAddress =
+          profile?.wallet?.address ||
+          me?.walletAddress ||
+          me?.wallet?.address ||
+          null;
+
+        if (profile?.wallet?.linked === true || existingAddress) {
           router.replace('/legacy' as any);
           return;
         }
 
-        if (profile?.wallet?.linked === true) {
-          router.replace('/(app)');
+        if (!isPremiumActive(me)) {
+          setEligible(false);
+          setError(
+            'A carteira individual é um recurso Nexa Premium. Seus saldos e transferências internas continuam disponíveis normalmente.',
+          );
           return;
         }
+
+        setEligible(true);
       } catch (caught) {
         if (mounted) {
           setError(
@@ -81,11 +117,15 @@ export default function WalletOnboardingScreen() {
   async function linkWallet(currentWallet: any) {
     setError('');
     setWorking(true);
+
     try {
       const session = await loadNexaSession();
       if (!session) {
         router.replace('/sign-in');
         return;
+      }
+      if (!eligible) {
+        throw new Error('Carteira individual disponível para clientes Nexa Premium.');
       }
       if (!currentWallet?.address) {
         throw new Error('A carteira ainda não ficou pronta. Tente novamente.');
@@ -95,6 +135,7 @@ export default function WalletOnboardingScreen() {
       if (typeof getAccessToken !== 'function') {
         throw new Error('Sua sessão expirou. Entre novamente.');
       }
+
       const privyAccessToken = await getAccessToken();
       if (!privyAccessToken) {
         throw new Error('Sua sessão expirou. Entre novamente.');
@@ -103,15 +144,14 @@ export default function WalletOnboardingScreen() {
       const privyWalletId = String(
         currentWallet.id || currentWallet.walletId || currentWallet.address,
       );
+
       await nexaApi.linkWallet(session.accessToken, privyAccessToken, {
         privyWalletId,
         walletAddress: currentWallet.address,
       });
 
-      // A carteira já está válida após o vínculo. A auditoria complementar é
-      // executada em segundo plano e nunca impede o cliente de entrar no app.
       void nexaApi.auditWallet(session.accessToken).catch(() => undefined);
-      router.replace('/(app)');
+      router.replace('/legacy' as any);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -125,6 +165,12 @@ export default function WalletOnboardingScreen() {
 
   async function prepareWallet() {
     setError('');
+
+    if (!eligible) {
+      router.replace('/legacy' as any);
+      return;
+    }
+
     if (wallet) {
       await linkWallet(wallet);
       return;
@@ -150,10 +196,10 @@ export default function WalletOnboardingScreen() {
   }
 
   useEffect(() => {
-    if (!linkWhenReady || !wallet || working) return;
+    if (!linkWhenReady || !wallet || working || !eligible) return;
     setLinkWhenReady(false);
     void linkWallet(wallet);
-  }, [linkWhenReady, wallet?.address, working]);
+  }, [linkWhenReady, wallet?.address, working, eligible]);
 
   if (loading || !privy.isReady) {
     return (
@@ -169,17 +215,26 @@ export default function WalletOnboardingScreen() {
       <View style={styles.content}>
         <Brand />
         <View style={styles.hero}>
-          <Title>Sua carteira Nexa</Title>
+          <Title>Carteira individual Premium</Title>
           <Paragraph>
-            Crie sua carteira individual e continue. O processo leva apenas alguns segundos.
+            Crie sua carteira Privy vinculada à Nexa para receber e movimentar
+            USDC on-chain pela rede Polygon.
           </Paragraph>
         </View>
 
-        <ActionButton
-          label={wallet ? 'Continuar' : 'Criar carteira e continuar'}
-          loading={working || linkWhenReady}
-          onPress={prepareWallet}
-        />
+        {eligible ? (
+          <ActionButton
+            label={wallet ? 'Vincular minha carteira' : 'Criar carteira individual'}
+            loading={working || linkWhenReady}
+            onPress={prepareWallet}
+          />
+        ) : (
+          <ActionButton
+            label="Voltar para a Nexa"
+            variant="secondary"
+            onPress={() => router.replace('/legacy' as any)}
+          />
+        )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
