@@ -9,7 +9,9 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
+const API =
+  process.env.EXPO_PUBLIC_NEXA_API_URL ||
+  'https://nexa-backend-p2u0.onrender.com/api/v1';
 
 function ActionButton({ title, onPress, secondary, disabled }) {
   return (
