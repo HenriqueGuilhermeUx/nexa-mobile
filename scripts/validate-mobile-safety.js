@@ -178,7 +178,10 @@ for (const forbidden of [
 assert.match(artifactValidator, /\/withdrawal\/pix-request/);
 assert.match(artifactValidator, /\/payment\/pix\/redemption/);
 
-assert.match(onboarding, /Criar carteira e continuar/);
+assert.match(onboarding, /isPremiumProfile/);
+assert.match(onboarding, /Criar Minha Carteira/);
+assert.match(onboarding, /router\.replace\('\/legacy'/);
+assert.match(onboarding, /alreadyLinked/);
 assert.doesNotMatch(onboarding, /Proteções desta etapa|custódia pendente/i);
 assert.match(legacyPixApp, /function formatInputAmount\(value\)/);
 assert.match(legacyPixApp, /Dep[oó]sito|deposit/i);
