@@ -3,5 +3,6 @@ backend=https://nexa-backend-p2u0.onrender.com/api/v1
 financial-execution=false
 support-whatsapp=551333289704
 cutover-ledger=verified
-retry=2
+official-pix=/payment/pix/quote,/payment/pix/redemption
+retry=3
 triggered=2026-09-04
