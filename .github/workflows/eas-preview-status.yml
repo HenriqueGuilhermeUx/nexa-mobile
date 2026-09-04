@@ -130,6 +130,27 @@ jobs:
 
           echo "Guarded V1.5 route signature is live on staging."
 
+      - name: Validate public product contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
+          curl --fail --silent --show-error --max-time 20 "$API/rewards/plans" -o staging-rewards.json
+          curl --fail --silent --show-error --max-time 20 "$API/swap/tokens" -o staging-tokens.json
+          node <<'NODE'
+          const fs = require('fs');
+          const rewards = JSON.parse(fs.readFileSync('staging-rewards.json', 'utf8'));
+          const tokens = JSON.parse(fs.readFileSync('staging-tokens.json', 'utf8'));
+          if (Number(rewards?.economics?.nexaRewardShare) !== 0.2) throw new Error('Rewards Nexa share must be 20%.');
+          if (Number(rewards?.economics?.userRewardShare) !== 0.8) throw new Error('Rewards user share must be 80%.');
+          if (JSON.stringify(tokens?.launchAssets || []) !== JSON.stringify(['USDC','BTC','ETH','XAUT'])) {
+            throw new Error('Unexpected launch assets.');
+          }
+          if (tokens?.premiumRequired !== false) throw new Error('Assets cannot be Premium-only.');
+          if (tokens?.internalTransferAsset !== 'USDC') throw new Error('Internal transfers must remain USDC-only.');
+          console.log('Staging public contracts validated.');
+          NODE
+
       - name: Read and inspect build
         shell: bash
         run: |
