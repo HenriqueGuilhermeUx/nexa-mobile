@@ -1,27 +1,7 @@
-name: Release Android API 36 AAB
+name: Release Android API 36 AAB — manual after homologation
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/release-android-api36.yml'
-      - 'app.json'
-      - 'package.json'
-      - 'eas.json'
-      - 'app/index.tsx'
-      - 'app/sign-in.tsx'
-      - 'app/sign-up.tsx'
-      - 'app/kyc.tsx'
-      - 'src/config.ts'
-      - 'src/lib/api.ts'
-      - 'src/lib/legacy-financial-fetch-bridge.js'
-      - 'nexa-mobile/nexa-mobile/App.js'
-      - 'scripts/validate-mobile-safety.js'
-      - 'scripts/validate-decimal-and-privy-onboarding.js'
-      - 'scripts/validate-release-assets.js'
-      - 'scripts/validate-built-artifact.js'
 
 permissions:
   contents: write
@@ -38,14 +18,14 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20.20.0'
+          node-version: '24'
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -71,13 +51,17 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Verify Expo 56 native compatibility pins
+      - name: Verify Expo 57 native compatibility pins
         run: |
           node <<'NODE'
           const pkg = require('./package.json');
-          if (pkg.dependencies['react-native-reanimated'] !== '4.3.1') throw new Error('react-native-reanimated deve ser 4.3.1');
-          if (pkg.dependencies['react-native-worklets'] !== '0.8.3') throw new Error('react-native-worklets deve ser 0.8.3');
-          console.log('Expo 56 native pins OK: Reanimated 4.3.1 + Worklets 0.8.3');
+          const deps = pkg.dependencies || {};
+          if (!String(deps.expo || '').startsWith('~57.')) throw new Error('Expo SDK 57 não configurado');
+          if (deps.react !== '19.2.3') throw new Error('React 19.2.3 não configurado');
+          if (!String(deps['react-native'] || '').startsWith('0.86.')) throw new Error('React Native 0.86 não configurado');
+          if (deps['react-native-reanimated'] !== '4.5.1') throw new Error('react-native-reanimated deve ser 4.5.1');
+          if (deps['react-native-worklets'] !== '0.10.1') throw new Error('react-native-worklets deve ser 0.10.1');
+          console.log('Expo 57 native pins OK.');
           NODE
 
       - name: Apply protected Pix quote wording
