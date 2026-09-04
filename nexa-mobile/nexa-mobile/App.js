@@ -1868,8 +1868,11 @@ export default function App() {
     return (
       <View style={styles.container}>
         <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.scrollContent}
+          style={[styles.content, { paddingTop: Math.max(24, insets.top + 10) }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: 40 + Math.max(insets.bottom, 12) },
+          ]}
           keyboardShouldPersistTaps="always"
           keyboardDismissMode="none"
         >
@@ -2119,7 +2122,7 @@ export default function App() {
             hasWallet={hasExistingWallet()}
             recurringPlan={recurringPlan}
             rewardsTotal={(rewardPositions || []).reduce(function (total, position) {
-              return total + Number(position.earnedUsdc || position.rewardUsdc || position.yieldEarned || 0);
+              return total + Number(position.rewardsAccruedUsdc || position.earnedUsdc || position.rewardUsdc || 0);
             }, 0)}
             onNavigate={setPage}
             onRefresh={function () {
@@ -2686,80 +2689,103 @@ export default function App() {
         {page === 'rewards' && (
           <Card>
             <Text style={styles.title}>Nexa Rewards</Text>
-            <Text style={styles.itemText}>
-              Benefícios vinculados às campanhas e regras do programa Rewards da Nexa.
-            </Text>
 
-            <View style={styles.item}>
-              <Text style={styles.itemText}>✦ Como funciona</Text>
-              <Text style={styles.rateText}>
-                Escolha uma modalidade disponível, ative um valor elegível em USDC e acompanhe o status dentro do app.
-              </Text>
-            </View>
-
-            <View style={styles.item}>
-              <Text style={styles.itemText}>🎁 Benefícios variáveis</Text>
-              <Text style={styles.rateText}>
-                Cada modalidade pode ter regras, percentuais e condições próprias. O app mostra apenas os valores registrados pela API.
-              </Text>
-            </View>
-
-            <View style={styles.item}>
-              <Text style={styles.itemText}>⚠️ Importante</Text>
-              <Text style={styles.rateText}>
-                Rewards são benefícios do programa e podem variar conforme as regras vigentes. Consulte os detalhes antes de ativar.
-              </Text>
-            </View>
-
-            {rewardPlans.length > 0 ? (
-              <View style={styles.item}>
-                <Text style={styles.itemText}>Modalidades disponíveis</Text>
-                <View style={styles.rewardPlanRow}>
-                  {rewardPlans.map(function (plan, index) {
-                    const code = String(plan.code || plan.plan || plan.id || 'FLEX');
-                    const active = selectedRewardPlan === code;
-                    return (
-                      <TouchableOpacity
-                        key={code + '_' + index}
-                        style={[styles.rewardPlanChip, active ? styles.rewardPlanChipActive : null]}
-                        onPress={function () { setSelectedRewardPlan(code); }}
-                      >
-                        <Text style={active ? styles.rewardPlanChipTextActive : styles.rewardPlanChipText}>
-                          {plan.name || plan.label || code}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+            {!isPremiumUser() ? (
+              <>
+                <Text style={styles.itemText}>
+                  Rewards é um benefício Nexa Premium.
+                </Text>
+                <View style={styles.premiumTeaser}>
+                  <Text style={styles.itemText}>✦ Benefícios em USDC</Text>
+                  <Text style={styles.rateText}>
+                    Clientes Premium podem ativar USDC em modalidades Rewards disponíveis e acompanhar os benefícios registrados pela Nexa.
+                  </Text>
                 </View>
-              </View>
-            ) : null}
+                <Button title="Conhecer Premium" onPress={function () { setPage('premium'); }} />
+                <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+              </>
+            ) : (
+              <>
+                <Text style={styles.itemText}>
+                  Ative uma modalidade disponível e acompanhe os benefícios registrados no programa.
+                </Text>
 
-            <Input placeholder="Valor em USDC" keyboardType="numeric" value={rewardAmount} onChangeText={setRewardAmount} />
-            <Button title="Ativar Rewards" onPress={ativarRewards} />
+                <View style={styles.item}>
+                  <Text style={styles.itemText}>🎁 Benefícios variáveis</Text>
+                  <Text style={styles.rateText}>
+                    As regras podem variar conforme a modalidade e a infraestrutura vigente. O app exibe apenas valores registrados pela API.
+                  </Text>
+                </View>
 
-            {rewardPositions.length > 0 ? (
-              <View style={styles.item}>
-                <Text style={styles.itemText}>Meus Rewards</Text>
-                {rewardPositions.map(function (position) {
-                  const benefit = Number(position.earnedUsdc || position.rewardUsdc || 0);
-                  return (
-                    <View key={position.id || position.positionId || String(position.createdAt)} style={styles.receiptRow}>
-                      <Text style={styles.receiptLabel}>USDC ativado</Text>
-                      <Text style={styles.receiptValue}>
-                        {Number(position.amountUsdc || position.principalUsdc || 0).toFixed(6)} USDC
-                      </Text>
-                      {benefit > 0 ? (
-                        <Text style={styles.rateText}>Rewards registrados: {benefit.toFixed(6)} USDC</Text>
-                      ) : null}
-                      <Text style={styles.rateText}>Status: {position.status || 'ativo'}</Text>
+                <View style={styles.item}>
+                  <Text style={styles.itemText}>⚠️ Importante</Text>
+                  <Text style={styles.rateText}>
+                    Rewards é um programa de benefícios da Nexa. Consulte as regras e condições vigentes antes de ativar.
+                  </Text>
+                </View>
+
+                {rewardPlans.length > 0 ? (
+                  <View style={styles.item}>
+                    <Text style={styles.itemText}>Modalidades disponíveis</Text>
+                    <View style={styles.rewardPlanRow}>
+                      {rewardPlans.map(function (plan, index) {
+                        const code = String(plan.plan || plan.code || plan.id || 'FLEX');
+                        const active = selectedRewardPlan === code;
+                        return (
+                          <TouchableOpacity
+                            key={code + '_' + index}
+                            style={[styles.rewardPlanChip, active ? styles.rewardPlanChipActive : null]}
+                            onPress={function () { setSelectedRewardPlan(code); }}
+                          >
+                            <Text style={active ? styles.rewardPlanChipTextActive : styles.rewardPlanChipText}>
+                              {plan.name || plan.label || code}
+                            </Text>
+                            {plan.lockLabel ? (
+                              <Text style={styles.rewardPlanSubtext}>{plan.lockLabel}</Text>
+                            ) : null}
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
-                  );
-                })}
-              </View>
-            ) : null}
+                  </View>
+                ) : null}
 
-            <Button title="Atualizar Rewards" onPress={carregarRewards} />
-            <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+                <Input placeholder="Valor em USDC" keyboardType="numeric" value={rewardAmount} onChangeText={setRewardAmount} />
+                <Button title="Ativar Rewards" onPress={ativarRewards} />
+
+                {rewardPositions.length > 0 ? (
+                  <View style={styles.item}>
+                    <Text style={styles.itemText}>Meus Rewards</Text>
+                    {rewardPositions.map(function (position) {
+                      const benefit = Number(
+                        position.rewardsAccruedUsdc ||
+                          position.earnedUsdc ||
+                          position.rewardUsdc ||
+                          0,
+                      );
+                      return (
+                        <View key={position.id || position.positionId || String(position.createdAt)} style={styles.receiptRow}>
+                          <Text style={styles.receiptLabel}>USDC ativado</Text>
+                          <Text style={styles.receiptValue}>
+                            {Number(position.principalUsdc || position.amountUsdc || 0).toFixed(6)} USDC
+                          </Text>
+                          <Text style={styles.rateText}>
+                            Rewards registrados: {benefit.toFixed(6)} USDC
+                          </Text>
+                          <Text style={styles.rateText}>Status: {position.status || 'ativo'}</Text>
+                          {String(position.status || '').toLowerCase() === 'active' && position.id ? (
+                            <Button title="Concluir e devolver ao Saldo Nexa" onPress={function () { resgatarRewards(position.id); }} />
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null}
+
+                <Button title="Atualizar Rewards" onPress={carregarRewards} />
+                <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
+              </>
+            )}
           </Card>
         )}
 
@@ -3060,6 +3086,7 @@ const styles = {
   rewardPlanChipActive: { backgroundColor: '#12213e', borderColor: '#60a5fa' },
   rewardPlanChipText: { color: '#94a3b8', fontSize: 11, fontWeight: '800' },
   rewardPlanChipTextActive: { color: '#e0f2fe', fontSize: 11, fontWeight: '900' },
+  rewardPlanSubtext: { color: '#64748b', fontSize: 9, marginTop: 3 },
   assetCatalogGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 8, marginBottom: 14 },
   assetCatalogCard: { width: '48.5%', backgroundColor: '#111827', borderRadius: 19, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#1e293b' },
   assetCatalogCardUsdc: { borderColor: '#2563eb' },
