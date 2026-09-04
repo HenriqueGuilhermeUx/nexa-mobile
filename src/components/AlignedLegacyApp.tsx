@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Platform,
   RefreshControl,
   ScrollView,
@@ -294,6 +295,32 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   useEffect(() => {
     void loadAll();
   }, [initialUser?.id, token]);
+
+  async function openNexaSupport() {
+    const supportMessage = [
+      'Olá, equipe Nexa!',
+      '',
+      'Preciso de ajuda com minha conta.',
+      user?.email ? `E-mail: ${user.email}` : '',
+      handle ? `Nexa ID/usuário: ${handle}` : '',
+      '',
+      'Se for sobre atualização ou saldo anterior, posso enviar os detalhes por aqui.',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const url =
+      'https://wa.me/551333289704?text=' +
+      encodeURIComponent(supportMessage);
+
+    try {
+      await Linking.openURL(url);
+    } catch {
+      setMessage(
+        'Não foi possível abrir o WhatsApp. Fale com a Nexa pelo número (13) 3328-9704.',
+      );
+    }
+  }
 
   async function findRecipient() {
     const clean = username.replace('@', '').trim().toLowerCase();
@@ -1314,6 +1341,13 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             title="Minha Carteira"
             subtitle={canAccessCustody ? (isPremium ? 'Premium' : 'Carteira existente') : 'Recurso Premium'}
             onPress={() => setPage(canAccessCustody ? 'custody' : 'premium')}
+          />
+          <MenuTile
+            icon="💬"
+            title="Fale com a Nexa"
+            subtitle="Suporte pelo WhatsApp"
+            onPress={openNexaSupport}
+            accent
           />
         </View>
         <PrimaryButton title="Sair da Nexa" onPress={onLogout} secondary />
