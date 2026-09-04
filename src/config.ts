@@ -19,6 +19,9 @@ const envFinancialExecution = String(
 )
   .trim()
   .toLowerCase();
+const envReleaseChannel = String(
+  process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL || '',
+).trim();
 
 export const config = {
   apiUrl:
@@ -35,7 +38,7 @@ export const config = {
   ledgerOperationsEnabled: extra.ledgerOperationsEnabled !== false,
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
-  releaseChannel: extra.releaseChannel || 'production',
+  releaseChannel: envReleaseChannel || extra.releaseChannel || 'production',
   androidTargetApi: Number(extra.androidTargetApi || 36),
 };
 
