@@ -1,6 +1,7 @@
 import { PrivyProvider } from '@privy-io/expo';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { assertPublicConfiguration, config } from '@/config';
 import { colors } from '@/theme';
@@ -9,13 +10,14 @@ assertPublicConfiguration();
 
 export default function RootLayout() {
   return (
-    <PrivyProvider
+    <SafeAreaProvider>
+      <PrivyProvider
       appId={config.privyAppId}
       clientId={config.privyClientId}
       config={{
         embedded: {
           ethereum: {
-            createOnLogin: 'users-without-wallets',
+            createOnLogin: 'off',
           },
         },
       }}
@@ -39,6 +41,7 @@ export default function RootLayout() {
         />
         <Stack.Screen name="(app)" options={{ headerShown: false }} />
       </Stack>
-    </PrivyProvider>
+      </PrivyProvider>
+    </SafeAreaProvider>
   );
 }
