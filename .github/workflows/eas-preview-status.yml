@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
           BUILD_ID="$(tr -d '[:space:]' < .github/build-triggers/eas-preview-status.txt)"
           echo "Build ID: $BUILD_ID"
-          eas build:view "$BUILD_ID" --json --non-interactive | tee eas-preview-build.json
+          eas build:view "$BUILD_ID" --json | tee eas-preview-build.json
 
       - name: Upload status snapshot
         uses: actions/upload-artifact@v4
