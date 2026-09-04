@@ -182,6 +182,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   const [pixOutRequestId, setPixOutRequestId] = useState('');
   const [rewardAmountUsdc, setRewardAmountUsdc] = useState('');
   const [rewardJoinRequestId, setRewardJoinRequestId] = useState('');
+  const [depositRequestId, setDepositRequestId] = useState('');
 
   const isPremium = premiumActive(user);
   const walletAddress = user?.wallet?.address || user?.walletAddress || embeddedWallet?.address || '';
@@ -591,10 +592,18 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     try {
       setLoading(true);
       setDepositResult(null);
+      const requestId =
+        depositRequestId ||
+        newClientRequestId('mobile_pix_in', user.id);
+      if (!depositRequestId) setDepositRequestId(requestId);
+
       const data = await json(`${API}/deposit/woovi-pix`, {
         method: 'POST',
         headers: authHeaders,
-        body: JSON.stringify({ amountBrl: value }),
+        body: JSON.stringify({
+          amountBrl: value,
+          clientRequestId: requestId,
+        }),
       });
       setDepositResult(data);
       setMessage(data?.message || 'Pix criado. Pague usando o QR Code ou copia e cola.');
@@ -1240,7 +1249,11 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             placeholder="R$ 100,00"
             placeholderTextColor="#64748b"
             value={depositAmountBrl}
-            onChangeText={setDepositAmountBrl}
+            onChangeText={(value) => {
+              setDepositAmountBrl(value);
+              setDepositRequestId('');
+              setDepositResult(null);
+            }}
             keyboardType="decimal-pad"
           />
           <PrimaryButton
