@@ -21,6 +21,7 @@ const forbidden = [
   'direct_settlement',
 ];
 const required = [
+  '/payment/pix/quote',
   '/payment/pix/redemption',
   '/kyc/didit/brazil/start',
   '/kyc/didit/me',
@@ -65,7 +66,7 @@ console.log(
     {
       ok: true,
       target,
-      officialPixRoute: '/payment/pix/redemption',
+      officialPixRoutes: ['/payment/pix/quote', '/payment/pix/redemption'],
       brazilKycRoutes: ['/kyc/didit/brazil/start', '/kyc/didit/me'],
       forbiddenContentAbsent: forbidden,
     },
