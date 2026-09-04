@@ -3,7 +3,7 @@ name: Nexa Production-Safe Preview Status
 on:
   push:
     branches:
-      - mobile-v2.1-product-alignment
+      - release/2.0.11-v105
     paths:
       - '.github/build-triggers/production-safe-preview-status.txt'
 
@@ -46,7 +46,7 @@ jobs:
           const fs=require('fs');
           const b=JSON.parse(fs.readFileSync('production-safe-build.json','utf8'));
           if (String(b.appVersion||'')!=='2.0.11') throw new Error('Unexpected appVersion: '+b.appVersion);
-          if (String(b.appBuildVersion||'')!=='104') throw new Error('Unexpected appBuildVersion: '+b.appBuildVersion);
+          if (String(b.appBuildVersion||'')!=='105') throw new Error('Unexpected appBuildVersion: '+b.appBuildVersion);
           console.log('Build status:', b.status);
           console.log('Artifact:', b?.artifacts?.applicationArchiveUrl || 'not-ready');
           NODE
