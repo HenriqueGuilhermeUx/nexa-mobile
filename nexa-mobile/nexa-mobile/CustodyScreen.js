@@ -82,6 +82,8 @@ export default function CustodyScreen({
   onBalanceRefresh,
   apiUrl = DEFAULT_API,
   financialExecutionEnabled = false,
+  onSendExternalUsdc,
+  privyWalletReady = false,
 }) {
   const API = String(apiUrl || DEFAULT_API).replace(/\/$/, '');
   const [overview, setOverview] = useState(null);
@@ -92,6 +94,10 @@ export default function CustodyScreen({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [selectedMode, setSelectedMode] = useState('nexa');
+  const [externalToAddress, setExternalToAddress] = useState('');
+  const [externalAmountUsdc, setExternalAmountUsdc] = useState('');
+  const [externalTxHash, setExternalTxHash] = useState('');
+  const [externalSending, setExternalSending] = useState(false);
 
   const authHeaders = {
     'Content-Type': 'application/json',
@@ -200,6 +206,48 @@ export default function CustodyScreen({
     }
   }
 
+  async function sendExternalUsdc() {
+    const toAddress = String(externalToAddress || '').trim();
+    const amountUsdc = Number(String(externalAmountUsdc || '').replace(',', '.'));
+
+    if (!/^0x[a-fA-F0-9]{40}$/.test(toAddress)) {
+      return setMessage('Informe um endereço 0x válido.');
+    }
+    if (!Number.isFinite(amountUsdc) || amountUsdc <= 0) {
+      return setMessage('Informe um valor USDC válido.');
+    }
+    if (amountUsdc > ownUsdc) {
+      return setMessage('Saldo USDC insuficiente na sua carteira individual.');
+    }
+    if (!financialExecutionEnabled) {
+      return setMessage('Envio externo está bloqueado neste build de preview.');
+    }
+    if (!privyWalletReady || typeof onSendExternalUsdc !== 'function') {
+      return setMessage('Carteira Privy não está pronta neste dispositivo.');
+    }
+
+    try {
+      setExternalSending(true);
+      setMessage('Confirme a transação na sua carteira Privy...');
+      const result = await onSendExternalUsdc({ toAddress, amountUsdc });
+      const hash = String(result?.txHash || '');
+      setExternalTxHash(hash);
+      setExternalAmountUsdc('');
+      setExternalToAddress('');
+      setMessage(
+        result?.journalWarning ||
+          result?.journal?.message ||
+          'USDC enviado pela sua carteira individual.',
+      );
+      await loadOverview();
+      if (onBalanceRefresh) await onBalanceRefresh();
+    } catch (error) {
+      setMessage(error?.message || 'Não foi possível enviar o USDC.');
+    } finally {
+      setExternalSending(false);
+    }
+  }
+
   useEffect(() => {
     loadOverview();
   }, [user?.id]);
@@ -277,6 +325,57 @@ export default function CustodyScreen({
             Rede Polygon • somente USDC
           </Text>
         </View>
+      </View>
+      ) : null}
+
+      {selectedMode === 'own_wallet' && walletAddress ? (
+      <View style={{ backgroundColor: '#0b1220', borderRadius: 22, padding: 18, marginTop: 14, borderWidth: 1, borderColor: '#1e293b' }}>
+        <Text style={{ color: '#fff', fontSize: 19, fontWeight: '900' }}>Enviar para carteira externa</Text>
+        <Text style={{ color: '#94a3b8', marginTop: 6, lineHeight: 19 }}>
+          Envie USDC diretamente da sua carteira individual. A assinatura acontece na Privy, no seu dispositivo.
+        </Text>
+        <Field
+          placeholder="Carteira 0x..."
+          value={externalToAddress}
+          onChangeText={setExternalToAddress}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Field
+          placeholder="Valor em USDC"
+          value={externalAmountUsdc}
+          onChangeText={setExternalAmountUsdc}
+          keyboardType="decimal-pad"
+        />
+        <ActionButton
+          title={
+            financialExecutionEnabled
+              ? externalSending
+                ? 'Enviando...'
+                : 'Enviar USDC'
+              : 'Envio externo bloqueado no preview'
+          }
+          onPress={sendExternalUsdc}
+          disabled={
+            loading ||
+            externalSending ||
+            !financialExecutionEnabled ||
+            !privyWalletReady
+          }
+        />
+        <Text style={{ color: '#64748b', fontSize: 11, marginTop: 10, lineHeight: 17 }}>
+          Rede Polygon • somente USDC. A carteira precisa ter saldo de rede suficiente caso a operação exija gás.
+        </Text>
+        {!financialExecutionEnabled ? (
+          <Text style={{ color: '#fbbf24', marginTop: 8, lineHeight: 18 }}>
+            Preview seguro: a tela pode ser validada, mas nenhuma transação é assinada ou transmitida.
+          </Text>
+        ) : null}
+        {externalTxHash ? (
+          <Text selectable style={{ color: '#7dd3fc', fontSize: 11, marginTop: 10 }}>
+            Transação: {externalTxHash}
+          </Text>
+        ) : null}
       </View>
       ) : null}
 
