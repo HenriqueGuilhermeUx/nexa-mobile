@@ -180,6 +180,13 @@ export const nexaApi = {
     });
   },
 
+  refresh(refreshToken: string) {
+    return request<LoginResponse>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
+  },
+
   me(accessToken: string) {
     return request<any>('/user/me', { accessToken });
   },
