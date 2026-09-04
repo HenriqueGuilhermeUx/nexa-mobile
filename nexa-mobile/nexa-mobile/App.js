@@ -3,6 +3,7 @@ import QRCode from 'react-native-qrcode-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppleModeHome from './AppleModeHome';
 import CustodyScreen from './CustodyScreen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -54,10 +55,25 @@ function MenuItem(props) {
   );
 }
 
+function MenuGridItem(props) {
+  return (
+    <TouchableOpacity
+      style={[styles.menuGridItem, props.accent ? styles.menuGridItemAccent : null]}
+      onPress={props.onPress}
+      activeOpacity={0.84}
+    >
+      <Text style={styles.menuGridIcon}>{props.icon}</Text>
+      <Text style={styles.menuGridLabel}>{props.label}</Text>
+      {props.hint ? <Text style={styles.menuGridHint}>{props.hint}</Text> : null}
+    </TouchableOpacity>
+  );
+}
+
 export default function App() {
+  const insets = useSafeAreaInsets();
   const [page, setPage] = useState('home');
   const [authPage, setAuthPage] = useState('login');
-  const [saldo, setSaldo] = useState({ BRL: 0, USDC: 0 });
+  const [saldo, setSaldo] = useState({ BRL: 0, USDC: 0, BTC: 0, ETH: 0, XAUT: 0 });
   const [extrato, setExtrato] = useState([]);
 
   const [rewardPlans, setRewardPlans] = useState([]);
@@ -120,10 +136,10 @@ export default function App() {
 
   const [portfolio, setPortfolio] = useState(null);
   const [compliance, setCompliance] = useState(null);
-  const [investmentAsset, setInvestmentAsset] = useState('PAXG');
+  const [investmentAsset, setInvestmentAsset] = useState('BTC');
   const [investmentAmount, setInvestmentAmount] = useState('');
   const [investmentQuote, setInvestmentQuote] = useState(null);
-  const [redeemAsset, setRedeemAsset] = useState('PAXG');
+  const [redeemAsset, setRedeemAsset] = useState('BTC');
   const [redeemAmount, setRedeemAmount] = useState('');
   const [redeemQuote, setRedeemQuote] = useState(null);
   const [assetActivities, setAssetActivities] = useState([]);
@@ -258,13 +274,17 @@ export default function App() {
     );
   }
 
-  function isPremiumAsset(asset) {
-    return asset === 'PAXG' || asset === 'WBTC';
+  function hasExistingWallet() {
+    const address = getWalletAddress();
+    return /^0x[a-fA-F0-9]{40}$/.test(String(address || ''));
+  }
+
+  function canUsePremiumWallet() {
+    return isPremiumUser() || hasExistingWallet();
   }
 
   function canUseAsset(asset) {
-    if (asset === 'USDC') return true;
-    return isPremiumUser();
+    return ['USDC', 'BTC', 'ETH', 'XAUT'].includes(String(asset || '').toUpperCase());
   }
 
   function getPremiumLabel() {
@@ -272,11 +292,13 @@ export default function App() {
   }
 
   function selectInvestmentAsset(asset) {
-    setInvestmentAsset(asset);
-    setInvestmentQuote(null);
-    if (isPremiumAsset(asset) && !isPremiumUser()) {
-      show(asset + ' está disponível apenas para clientes Nexa Premium.');
+    const normalized = String(asset || '').toUpperCase();
+    if (!canUseAsset(normalized)) {
+      show('Ativo indisponível no catálogo atual da Nexa.');
+      return;
     }
+    setInvestmentAsset(normalized);
+    setInvestmentQuote(null);
   }
 
   function getWalletAddress() {
@@ -677,6 +699,24 @@ export default function App() {
       if (!userData || !userData.id) return userData;
       const existingAddress = userData.walletAddress || userData.wallet?.address;
       if (existingAddress) return userData;
+
+      const premiumStatus = String(
+        userData?.premiumStatus ||
+          userData?.subscriptionStatus ||
+          userData?.plan ||
+          userData?.premium?.status ||
+          '',
+      ).toLowerCase();
+      const premium =
+        userData?.isPremium === true ||
+        userData?.premiumActive === true ||
+        userData?.premium?.active === true ||
+        premiumStatus === 'premium' ||
+        premiumStatus === 'active' ||
+        premiumStatus === 'ativo';
+
+      if (!premium) return userData;
+
       const walletResponse = await fetch(API + '/wallet/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -931,7 +971,7 @@ export default function App() {
     setUser(null);
     setToken('');
     setPassword('');
-    setSaldo({ BRL: 0, USDC: 0 });
+    setSaldo({ BRL: 0, USDC: 0, BTC: 0, ETH: 0, XAUT: 0 });
     setExtrato([]);
     setPixCopyPaste('');
     setTicketUrl('');
@@ -1181,6 +1221,9 @@ export default function App() {
       setSaldo({
         BRL: Number(balanceData.balances?.BRL || 0),
         USDC: Number(balanceData.balances?.USDC || 0),
+        BTC: Number(balanceData.balances?.BTC || 0),
+        ETH: Number(balanceData.balances?.ETH || 0),
+        XAUT: Number(balanceData.balances?.XAUT || 0),
       });
       show('Saldo real updated');
     } catch (e) {
@@ -1757,8 +1800,9 @@ export default function App() {
   // Bloco de coloração agnóstica de redes
   function getAssetColor(asset) {
     if (asset === 'USDC') return '#2563eb';
-    if (asset === 'PAXG') return '#facc15';
-    if (asset === 'WBTC') return '#f97316';
+    if (asset === 'BTC') return '#f97316';
+    if (asset === 'ETH') return '#8b5cf6';
+    if (asset === 'XAUT') return '#facc15';
     return '#64748b';
   }
 
