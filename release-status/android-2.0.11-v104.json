@@ -8,15 +8,15 @@
   "targetSdk": 36,
   "features": ["brazil_kyc_routing", "didit_unico_ready"],
   "steps": {
-    "safety": "success",
-    "decimalAndPrivy": "success",
-    "releaseAssets": "success",
-    "typecheck": "success",
-    "expoDoctor": "success",
-    "api36Config": "success",
-    "api36Prebuild": "success",
-    "export": "success",
-    "artifactSource": "failure",
+    "safety": "failure",
+    "decimalAndPrivy": "skipped",
+    "releaseAssets": "skipped",
+    "typecheck": "skipped",
+    "expoDoctor": "skipped",
+    "api36Config": "skipped",
+    "api36Prebuild": "skipped",
+    "export": "skipped",
+    "artifactSource": "skipped",
     "localBuild": "skipped",
     "binaryApi36": "skipped",
     "release": "skipped"
@@ -24,6 +24,6 @@
   "aabFile": "",
   "sha256": "",
   "releaseDownloadUrl": "https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.11-android16-v104/Nexa-2.0.11-Android16-v104.aab",
-  "sourceCommit": "f69f74a971318483e794cfb8611fad34897fd276",
-  "generatedAt": "2026-09-04T21:51:06Z"
+  "sourceCommit": "d40716b442b5088fb5f312f349b64f77794c9701",
+  "generatedAt": "2026-09-04T21:56:42Z"
 }
