@@ -86,7 +86,7 @@ jobs:
           const version = JSON.parse(fs.readFileSync('version.json', 'utf8'));
           if (String(health.status || '').toLowerCase() !== 'ok') throw new Error('Staging health is not OK.');
           if (version.success !== true) throw new Error('Staging version policy unavailable.');
-          if (Number(version.minimumBuild || 0) > 103) throw new Error('Staging would block build 103.');
+          if (Number(version.minimumBuild || 0) > 104) throw new Error('Staging would block build 104.');
           console.log('Staging health/version smoke passed.');
           NODE
 
@@ -108,7 +108,7 @@ jobs:
           EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
         run: |
           set -euo pipefail
-          APK='Nexa-2.0.10-v103-final-preview.apk'
+          APK='Nexa-2.0.11-v104-final-preview.apk'
           rm -f "$APK"
           eas build \
             --platform android \
@@ -117,16 +117,16 @@ jobs:
             --non-interactive \
             --output "$GITHUB_WORKSPACE/$APK"
           test -s "$APK"
-          sha256sum "$APK" | tee Nexa-2.0.10-v103-final-preview.apk.sha256
+          sha256sum "$APK" | tee Nexa-2.0.11-v104-final-preview.apk.sha256
           ls -lh "$APK"
 
       - name: Upload installable preview APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.10-v103-FINAL-PREVIEW
+          name: Nexa-2.0.11-v104-FINAL-PREVIEW
           path: |
-            Nexa-2.0.10-v103-final-preview.apk
-            Nexa-2.0.10-v103-final-preview.apk.sha256
+            Nexa-2.0.11-v104-final-preview.apk
+            Nexa-2.0.11-v104-final-preview.apk.sha256
           if-no-files-found: error
           retention-days: 14
 
