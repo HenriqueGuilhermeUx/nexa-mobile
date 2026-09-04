@@ -53,8 +53,8 @@ assert.match(appConfig.expo.extra.apiUrl, /^https:\/\//);
 
 assert.equal(packageJson.main, 'entrypoint.js');
 assert.equal(packageJson.dependencies['react-native-svg'], '15.15.4');
-assert.equal(packageJson.dependencies['react-native-reanimated'], '4.3.1');
-assert.equal(packageJson.dependencies['react-native-worklets'], '0.8.3');
+assert.equal(packageJson.dependencies['react-native-reanimated'], '4.5.1');
+assert.equal(packageJson.dependencies['react-native-worklets'], '0.10.1');
 assert.ok(packageJson.dependencies['@privy-io/expo']);
 assert.ok(packageJson.dependencies['expo-secure-store']);
 assert.ok(packageJson.dependencies['react-native-safe-area-context']);
@@ -201,5 +201,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.10 v103 validated: aligned shell, safe-area navigation, USDC/BTC/ETH/XAUT, Premium wallet boundary and financial execution fail-closed.',
+  'Nexa mobile 2.0.10 v103 validated on Expo 57: aligned shell, safe-area navigation, USDC/BTC/ETH/XAUT, Premium wallet boundary and financial execution fail-closed.',
 );
