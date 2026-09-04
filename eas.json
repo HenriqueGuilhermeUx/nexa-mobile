@@ -7,13 +7,19 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
+      }
     },
     "preview": {
       "distribution": "internal",
       "channel": "primeiros-nexa-preview",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
       }
     },
     "production": {
@@ -21,6 +27,9 @@
       "autoIncrement": false,
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1"
       }
     }
   },
