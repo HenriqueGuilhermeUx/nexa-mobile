@@ -146,6 +146,17 @@ assert.match(alignedApp, /clientRequestId/);
 assert.match(alignedApp, /financialExecutionEnabled/);
 assert.match(alignedApp, /useEmbeddedEthereumWallet/);
 assert.match(alignedApp, /nexaApi\.linkWallet/);
+assert.match(alignedApp, /\/deposit\/woovi-pix/);
+assert.match(alignedApp, /\/withdrawal\/pix-quote/);
+assert.match(alignedApp, /\/withdrawal\/pix-request/);
+assert.match(alignedApp, /\/recurring-pix\/pause/);
+assert.match(alignedApp, /\/recurring-pix\/cancel/);
+assert.match(alignedApp, /\/recurring-pix\/link-woovi/);
+assert.match(alignedApp, /NEXA_PASSPORT/);
+assert.match(alignedApp, /hasExistingWallet/);
+assert.match(alignedApp, /canAccessCustody\s*=\s*isPremium\s*\|\|\s*hasExistingWallet/);
+assert.match(alignedApp, /Geração de cobrança Pix está bloqueada neste build de preview/);
+assert.match(alignedApp, /Solicitação de Pix está bloqueada neste build de preview/);
 assert.doesNotMatch(
   alignedApp,
   /\binvest(?:ir|imento|imentos|indo|ido|ida)\b|\brendimento\b|\brentabilidade\b|\bretorno financeiro\b/i,
