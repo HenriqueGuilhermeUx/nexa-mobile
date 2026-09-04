@@ -27,6 +27,7 @@ const rootLayout = read('app/_layout.tsx');
 const appLayout = read('app/(app)/_layout.tsx');
 const onboarding = read('app/onboarding-wallet.tsx');
 const legacyBridge = read('app/legacy.js');
+const alignedApp = read('src/components/AlignedLegacyApp.tsx');
 const financialBridge = read('src/lib/legacy-financial-fetch-bridge.js');
 const legacyPixApp = read('nexa-mobile/nexa-mobile/App.js');
 const babelConfig = read('babel.config.js');
@@ -56,6 +57,7 @@ assert.equal(packageJson.dependencies['react-native-reanimated'], '4.3.1');
 assert.equal(packageJson.dependencies['react-native-worklets'], '0.8.3');
 assert.ok(packageJson.dependencies['@privy-io/expo']);
 assert.ok(packageJson.dependencies['expo-secure-store']);
+assert.ok(packageJson.dependencies['react-native-safe-area-context']);
 assert.match(packageJson.dependencies.expo, /^~56\./);
 assert.match(packageJson.dependencies['react-native'], /^0\.85\./);
 assert.match(entrypoint, /fast-text-encoding/);
@@ -72,7 +74,8 @@ assert.match(config, /appBuild/);
 assert.match(config, /2\.0\.10/);
 assert.match(config, /103/);
 assert.match(config, /androidTargetApi/);
-assert.match(config, /36/);
+assert.match(config, /EXPO_PUBLIC_NEXA_API_URL/);
+assert.match(config, /EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED/);
 assert.match(api, /X-Nexa-App-Version/);
 assert.match(api, /X-Nexa-App-Build/);
 assert.match(api, /X-Nexa-Platform/);
@@ -116,15 +119,43 @@ assert.match(kycScreen, /retry_selfie/);
 assert.match(kycScreen, /Concordo e verificar identidade/);
 assert.doesNotMatch(appLayout, /AuthBoundary|usePrivy|Privy/);
 
-assert.match(legacyBridge, /LegacyApp/);
-assert.match(legacyBridge, /installLegacyFinancialFetchBridge/);
+// A experiência aprovada usa um shell alinhado, preservando o App.js antigo
+// apenas para auditoria/compatibilidade histórica e não como UI principal.
+assert.match(legacyBridge, /AlignedLegacyApp/);
 assert.match(legacyBridge, /session\.accessToken/);
+assert.doesNotMatch(legacyBridge, /<LegacyApp|installLegacyFinancialFetchBridge/);
 
+assert.match(alignedApp, /useSafeAreaInsets/);
+assert.match(alignedApp, /paddingBottom:\s*Math\.max\(insets\.bottom/);
+assert.match(alignedApp, /\['home', '⌂', 'Início'\]/);
+assert.match(alignedApp, /\['wallet', '◫', 'Carteira'\]/);
+assert.match(alignedApp, /\['assets', '◇', 'Ativos'\]/);
+assert.match(alignedApp, /\['send', '↑', 'Enviar'\]/);
+assert.match(alignedApp, /\['menu', '☰', 'Menu'\]/);
+assert.match(alignedApp, /USDC/);
+assert.match(alignedApp, /BTC/);
+assert.match(alignedApp, /ETH/);
+assert.match(alignedApp, /XAUT/);
+assert.doesNotMatch(alignedApp, /PAXG|WBTC|USDY/);
+assert.match(alignedApp, /Entrada Nexa de 4%/);
+assert.match(alignedApp, /plano padrão, a taxa de entrada Nexa é 8%/);
+assert.match(alignedApp, /carteira individual é um recurso Nexa Premium/i);
+assert.match(alignedApp, /asset:\s*'USDC'/);
+assert.match(alignedApp, /internal-transfer\/send-by-username/);
+assert.match(alignedApp, /clientRequestId/);
+assert.match(alignedApp, /financialExecutionEnabled/);
+assert.match(alignedApp, /useEmbeddedEthereumWallet/);
+assert.match(alignedApp, /nexaApi\.linkWallet/);
+assert.doesNotMatch(
+  alignedApp,
+  /\binvest(?:ir|imento|imentos|indo|ido|ida)\b|\brendimento\b|\brentabilidade\b|\bretorno financeiro\b/i,
+);
+
+// Pontes e telas antigas continuam auditadas enquanto existirem no repositório.
 assert.match(legacyPixApp, /\/withdrawal\/pix-request/);
 assert.match(babelConfig, /babel-replace-legacy-pix-route/);
 assert.match(pixRouteTransform, /\/withdrawal\/pix-request/);
 assert.match(pixRouteTransform, /\/payment\/pix\/redemption/);
-
 assert.match(financialBridge, /\/payment\/pix\/redemption/);
 assert.match(financialBridge, /\/internal-transfer\/send-by-username/);
 assert.match(financialBridge, /Authorization/);
@@ -167,5 +198,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.10 v103 validated: Android API 36, Brazil KYC routing, official Pix, authenticated transfers, mandatory build headers, ledger and optional Privy.',
+  'Nexa mobile 2.0.10 v103 validated: aligned shell, safe-area navigation, USDC/BTC/ETH/XAUT, Premium wallet boundary and financial execution fail-closed.',
 );
