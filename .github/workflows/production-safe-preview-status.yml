@@ -29,6 +29,9 @@ jobs:
           packager: npm
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
       - name: Read build
         run: |
           set -euo pipefail
