@@ -24,13 +24,15 @@ function isPremiumActive(user: any) {
   if (
     user?.isPremium === true ||
     user?.premiumActive === true ||
+    user?.premium?.isPremium === true ||
     user?.premium?.active === true ||
     status === 'premium' ||
     status === 'active' ||
     status === 'ativo'
   ) {
-    if (!user?.premiumUntil) return true;
-    return new Date(user.premiumUntil).getTime() > Date.now();
+    const premiumUntil = user?.premiumUntil || user?.premium?.premiumUntil;
+    if (!premiumUntil) return true;
+    return new Date(premiumUntil).getTime() > Date.now();
   }
 
   return false;
@@ -75,13 +77,24 @@ export default function WalletOnboardingScreen() {
 
         const me = meResponse?.user || meResponse || {};
         const profile = valueFromProfile(profileResponse);
-        const existingAddress =
-          profile?.wallet?.address ||
-          me?.walletAddress ||
-          me?.wallet?.address ||
-          null;
+        const profileWalletProvider = String(
+          profile?.wallet?.provider || '',
+        ).toLowerCase();
+        const meWalletProvider = String(
+          me?.wallet?.provider || me?.walletProvider || '',
+        ).toLowerCase();
+        const existingPrivyAddress =
+          profileWalletProvider === 'privy'
+            ? profile?.wallet?.address
+            : meWalletProvider === 'privy'
+              ? me?.wallet?.address || me?.walletAddress
+              : null;
 
-        if (profile?.wallet?.linked === true || existingAddress) {
+        if (
+          profile?.wallet?.linked === true &&
+          profileWalletProvider === 'privy' &&
+          existingPrivyAddress
+        ) {
           router.replace('/legacy' as any);
           return;
         }
