@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-const API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
+const DEFAULT_API = 'https://nexa-backend-p2u0.onrender.com/api/v1';
 
 function ActionButton({ title, onPress, secondary, disabled }) {
   return (
@@ -75,7 +75,15 @@ function ChoiceCard({ active, title, subtitle, bullets, accent, onPress }) {
   );
 }
 
-export default function CustodyScreen({ user, token, onBack, onBalanceRefresh }) {
+export default function CustodyScreen({
+  user,
+  token,
+  onBack,
+  onBalanceRefresh,
+  apiUrl = DEFAULT_API,
+  financialExecutionEnabled = false,
+}) {
+  const API = String(apiUrl || DEFAULT_API).replace(/\/$/, '');
   const [overview, setOverview] = useState(null);
   const [instructions, setInstructions] = useState(null);
   const [amount, setAmount] = useState('');
@@ -95,7 +103,7 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
     try {
       setLoading(true);
       const response = await fetch(
-        API + '/custody/overview?userId=' + encodeURIComponent(user.id) + '&_=' + Date.now(),
+        API + '/custody/overview?_=' + Date.now(),
         { headers: authHeaders },
       );
       const data = await response.json();
@@ -114,7 +122,7 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
       setLoading(true);
       setMessage('Gerando endereço seguro de depósito...');
       const response = await fetch(
-        API + '/custody/deposit-instructions?userId=' + encodeURIComponent(user.id),
+        API + '/custody/deposit-instructions',
         { headers: authHeaders },
       );
       const data = await response.json();
@@ -129,6 +137,9 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
   }
 
   async function moveToOwnWallet() {
+    if (!financialExecutionEnabled) {
+      return setMessage('Movimentação on-chain está bloqueada neste build de preview.');
+    }
     const amountUsdc = Number(String(amount).replace(',', '.'));
     if (!amountUsdc || amountUsdc <= 0) return setMessage('Informe um valor USDC válido.');
     if (!otpCode) return setMessage('Informe o OTP de segurança para concluir.');
@@ -139,7 +150,6 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
-          userId: user.id,
           amountUsdc,
           otpCode,
           note: 'Custódia Inteligente Nexa - Modo Carteira Própria',
@@ -160,6 +170,9 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
   }
 
   async function confirmReturn() {
+    if (!financialExecutionEnabled) {
+      return setMessage('Confirmação de retorno está bloqueada neste build de preview.');
+    }
     if (!instructions?.depositId) return setMessage('Gere primeiro o endereço Nexa.');
     if (!txHash || !String(txHash).startsWith('0x')) return setMessage('Informe o hash da transação Polygon.');
 
@@ -169,7 +182,6 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
-          userId: user.id,
           depositId: instructions.depositId,
           txHash: txHash.trim(),
         }),
@@ -256,7 +268,16 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
         </Text>
         <Field placeholder="Valor em USDC" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
         <Field placeholder="Código OTP de segurança" value={otpCode} onChangeText={setOtpCode} keyboardType="numeric" />
-        <ActionButton title="Mover para Carteira Própria" onPress={moveToOwnWallet} disabled={loading} />
+        <ActionButton
+          title={financialExecutionEnabled ? 'Mover para Carteira Própria' : 'Movimentação bloqueada no preview'}
+          onPress={moveToOwnWallet}
+          disabled={loading || !financialExecutionEnabled}
+        />
+        {!financialExecutionEnabled ? (
+          <Text style={{ color: '#fbbf24', marginTop: 10, lineHeight: 18 }}>
+            Preview seguro: nenhuma saída on-chain é executada neste build.
+          </Text>
+        ) : null}
         {walletAddress ? (
           <Text selectable style={{ color: '#64748b', fontSize: 11, marginTop: 11 }}>Sua carteira: {walletAddress}</Text>
         ) : null}
@@ -279,7 +300,11 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
             <Text selectable style={{ color: '#fff', fontSize: 12, marginTop: 12, textAlign: 'center' }}>{instructions.treasuryAddress}</Text>
             <Text style={{ color: '#fbbf24', marginTop: 8, textAlign: 'center', fontWeight: '800' }}>Rede Polygon • somente USDC</Text>
             <Field placeholder="Hash da transação 0x..." value={txHash} onChangeText={setTxHash} autoCapitalize="none" />
-            <ActionButton title="Confirmar retorno para Nexa" onPress={confirmReturn} disabled={loading} />
+            <ActionButton
+              title={financialExecutionEnabled ? 'Confirmar retorno para Nexa' : 'Confirmação bloqueada no preview'}
+              onPress={confirmReturn}
+              disabled={loading || !financialExecutionEnabled}
+            />
           </View>
         ) : null}
       </View>
