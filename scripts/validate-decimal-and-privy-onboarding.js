@@ -71,11 +71,13 @@ assert.match(kyc, /retry_selfie/);
 
 // A tela da carteira continua no pacote para uso voluntário, mas não aparece
 // em nenhum redirecionamento obrigatório de login, cadastro ou KYC.
-assert.match(onboarding, /Criar carteira e continuar/);
+assert.match(onboarding, /Carteira individual Premium/);
+assert.match(onboarding, /isPremiumActive/);
+assert.match(onboarding, /embedded\.create/);
 assert.equal(appConfig.extra.privyOptional, true);
 assert.equal(appConfig.extra.balanceSource, 'ledger');
 assert.equal(appConfig.extra.ledgerOperationsEnabled, true);
 
 console.log(
-  'Decimal inputs, Brazil KYC routing, full ledger access and optional non-blocking Privy validated.',
+  'Decimal inputs, Brazil KYC routing, full ledger access and Premium on-demand Privy validated.',
 );
