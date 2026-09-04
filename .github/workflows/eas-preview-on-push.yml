@@ -6,6 +6,7 @@ on:
       - mobile-v2.1-product-alignment
     paths:
       - '.github/build-triggers/eas-preview.txt'
+      - '.github/workflows/eas-preview-on-push.yml'
 
 permissions:
   contents: read
@@ -49,20 +50,82 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Resolve preview target
+        shell: bash
+        run: |
+          set -euo pipefail
+          TRIGGER="$(cat .github/build-triggers/eas-preview.txt 2>/dev/null || true)"
+          if printf '%s' "$TRIGGER" | grep -qi 'production-safe'; then
+            echo 'EAS_PROFILE=production-safe-preview' >> "$GITHUB_ENV"
+            echo 'PREVIEW_API=https://nexa-backend-p2u0.onrender.com/api/v1' >> "$GITHUB_ENV"
+            echo 'PREVIEW_LABEL=production-safe' >> "$GITHUB_ENV"
+            node <<'NODE'
+            const fs = require('fs');
+            const p = 'app.json';
+            const app = JSON.parse(fs.readFileSync(p, 'utf8'));
+            const source = fs.readFileSync('src/components/AlignedLegacyApp.tsx', 'utf8');
+            if (!source.includes('Fale com a Nexa') || !source.includes('551333289704')) {
+              throw new Error('Fale com a Nexa / WhatsApp support missing.');
+            }
+            app.expo.android.versionCode = 105;
+            app.expo.ios.buildNumber = '105';
+            app.expo.extra.apiUrl = 'https://nexa-backend-p2u0.onrender.com/api/v1';
+            app.expo.extra.financialExecutionEnabled = false;
+            app.expo.extra.releaseChannel = 'production-safe-preview';
+            app.expo.extra.releaseBuild = 'android16-api36-2.0.11-v105-production-safe-preview';
+            fs.writeFileSync(p, JSON.stringify(app, null, 2) + '\n');
+            console.log('Production-safe build patched to versionCode 105 in CI only.');
+            NODE
+          else
+            echo 'EAS_PROFILE=preview' >> "$GITHUB_ENV"
+            echo 'PREVIEW_API=https://nexa-backend-wallet-v15-staging.onrender.com/api/v1' >> "$GITHUB_ENV"
+            echo 'PREVIEW_LABEL=staging' >> "$GITHUB_ENV"
+          fi
+
       - name: Validate preview boundary
         run: |
           node scripts/validate-mobile-safety.js
           npm run typecheck
           npx expo-doctor
 
+      - name: Smoke target backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$PREVIEW_API/health" -o preview-health.json
+          curl --fail --silent --show-error --max-time 20 "$PREVIEW_API/rewards/plans" -o preview-rewards.json
+          curl --fail --silent --show-error --max-time 20 "$PREVIEW_API/swap/tokens" -o preview-tokens.json
+          node <<'NODE'
+          const fs=require('fs');
+          const h=JSON.parse(fs.readFileSync('preview-health.json','utf8'));
+          const r=JSON.parse(fs.readFileSync('preview-rewards.json','utf8'));
+          const t=JSON.parse(fs.readFileSync('preview-tokens.json','utf8'));
+          if(String(h.status||'').toLowerCase()!=='ok') throw new Error('Health not OK');
+          if(Number(r?.economics?.userRewardShare)!==0.8 || Number(r?.economics?.nexaRewardShare)!==0.2) throw new Error('Rewards mismatch');
+          if(JSON.stringify(t?.launchAssets||[])!==JSON.stringify(['USDC','BTC','ETH','XAUT'])) throw new Error('Assets mismatch');
+          if(t?.internalTransferAsset!=='USDC') throw new Error('Internal transfer must remain USDC-only');
+          console.log('Target backend contracts validated.');
+          NODE
+
       - name: Submit Android preview APK
         env:
           CI: 'true'
-        run: eas build --platform android --profile preview --non-interactive --no-wait
+        run: |
+          eas build --platform android --profile "$EAS_PROFILE" --non-interactive --no-wait --json | tee eas-preview-build.json
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('eas-preview-build.json','utf8'));const b=Array.isArray(x)?x[0]:x;if(!b?.id)process.exit(1);console.log('Build ID:',b.id);fs.writeFileSync('eas-preview-build-id.txt',b.id+'\n')"
+
+      - name: Upload build submission snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-preview-build-submission
+          path: |
+            eas-preview-build.json
+            eas-preview-build-id.txt
+          retention-days: 14
 
       - name: Safety boundary
         run: |
-          echo "Preview profile only."
-          echo "API: nexa-backend-wallet-v15-staging."
+          echo "Preview target: $PREVIEW_LABEL"
+          echo "API: $PREVIEW_API"
           echo "Financial execution: false."
           echo "No Play Store submission is performed."
