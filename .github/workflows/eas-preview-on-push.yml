@@ -50,6 +50,12 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Validate preview boundary
+        run: |
+          node scripts/validate-mobile-safety.js
+          npm run typecheck
+          npx expo-doctor
+
       - name: Resolve preview target
         shell: bash
         run: |
@@ -66,11 +72,26 @@ jobs:
             echo 'PREVIEW_LABEL=staging' >> "$GITHUB_ENV"
           fi
 
-      - name: Validate preview boundary
+      - name: Validate resolved preview metadata
+        shell: bash
         run: |
-          node scripts/validate-mobile-safety.js
-          npm run typecheck
-          npx expo-doctor
+          set -euo pipefail
+          node -e "
+          const app=require('./app.json').expo;
+          const build=Number(app.android?.versionCode||0);
+          const api=String(app.extra?.apiUrl||'');
+          const execution=app.extra?.financialExecutionEnabled;
+          const label=process.env.PREVIEW_LABEL;
+          if(execution!==false) throw new Error('Preview financial execution must remain false');
+          if(label==='production-safe'){
+            if(build!==105) throw new Error('Production-safe preview must be versionCode 105');
+            if(api!=='https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Production-safe preview must target production API');
+          } else {
+            if(build!==104) throw new Error('Staging preview must remain versionCode 104');
+            if(api!=='https://nexa-backend-wallet-v15-staging.onrender.com/api/v1') throw new Error('Staging preview must target staging API');
+          }
+          console.log('Resolved preview metadata validated:', label, build, api);
+          "
 
       - name: Smoke target backend
         shell: bash
