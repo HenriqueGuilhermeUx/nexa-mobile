@@ -147,11 +147,36 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   const [recurringAmount, setRecurringAmount] = useState('');
   const [recurringDay, setRecurringDay] = useState('5');
   const [walletWorking, setWalletWorking] = useState(false);
+  const [depositAmountBrl, setDepositAmountBrl] = useState('');
+  const [depositResult, setDepositResult] = useState<any>(null);
+  const [withdrawAmountUsdc, setWithdrawAmountUsdc] = useState('');
+  const [withdrawPixKey, setWithdrawPixKey] = useState('');
+  const [withdrawQuote, setWithdrawQuote] = useState<any>(null);
 
   const isPremium = premiumActive(user);
   const walletAddress = user?.wallet?.address || user?.walletAddress || embeddedWallet?.address || '';
+  const hasExistingWallet = Boolean(walletAddress);
+  const canAccessCustody = isPremium || hasExistingWallet;
   const firstName = String(user?.fullName || 'Cliente').split(' ')[0];
   const handle = user?.handle || (user?.username ? `@${user.username}` : '');
+  const nexaId = String(user?.nexaId || '').trim();
+  const walletNetwork = String(user?.wallet?.network || user?.walletNetwork || 'polygon');
+
+  const nexaPassportQrValue = useMemo(
+    () =>
+      nexaId
+        ? JSON.stringify({
+            type: 'NEXA_PASSPORT',
+            nexaId,
+            username: handle,
+            name: user?.fullName || '',
+            wallet: walletAddress || null,
+            network: walletNetwork,
+            kyc: String(user?.kycStatus || 'pending').toLowerCase(),
+          })
+        : '',
+    [nexaId, handle, user?.fullName, user?.kycStatus, walletAddress, walletNetwork],
+  );
 
   const authHeaders = useMemo(
     () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }),
@@ -192,13 +217,13 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       setStatement(statementData?.statement || []);
 
       const [recurringData, plansData, positionsData] = await Promise.allSettled([
-        json(`${API}/recurring-pix/me?userId=${encodeURIComponent(user.id)}`, { headers: authHeaders }),
+        json(`${API}/recurring-pix/me`, { headers: authHeaders }),
         json(`${API}/rewards/plans`),
         json(`${API}/rewards/positions?userId=${encodeURIComponent(user.id)}`),
       ]);
       if (recurringData.status === 'fulfilled') {
         const d: any = recurringData.value;
-        setRecurring(d?.plan || d?.recurring || d?.data || (d?.success ? d : null));
+        setRecurring(d?.recurringPix || d?.plan || d?.recurring || d?.data || null);
       }
       if (plansData.status === 'fulfilled') setRewardPlans((plansData.value as any)?.plans || []);
       if (positionsData.status === 'fulfilled') setRewardPositions((positionsData.value as any)?.positions || []);
@@ -364,17 +389,165 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
-          userId: user.id,
-          amountBrl: value,
-          asset: 'USDC',
-          targetAsset: 'USDC',
-          dayOfMonth: day,
-          frequency: 'monthly',
-          status: 'active',
+          monthlyAmountBrl: value,
+          preferredDay: day,
         }),
       });
-      setRecurring(data?.plan || data?.recurring || data?.data || data);
-      setMessage('USDC por assinatura atualizado.');
+      setRecurring(data?.recurringPix || null);
+      setMessage(data?.message || 'USDC por assinatura atualizado.');
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function pauseRecurring() {
+    if (!recurring) return setMessage('Nenhuma assinatura ativa para pausar.');
+    try {
+      setLoading(true);
+      const data = await json(`${API}/recurring-pix/pause`, {
+        method: 'POST',
+        headers: authHeaders,
+      });
+      setRecurring(data?.recurringPix || recurring);
+      setMessage(data?.message || 'USDC por assinatura pausado.');
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function cancelRecurring() {
+    if (!recurring) return setMessage('Nenhuma assinatura para cancelar.');
+    try {
+      setLoading(true);
+      const data = await json(`${API}/recurring-pix/cancel`, {
+        method: 'POST',
+        headers: authHeaders,
+      });
+      setRecurring(data?.recurringPix || recurring);
+      setMessage(data?.message || 'USDC por assinatura cancelado.');
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function linkRecurringWoovi() {
+    if (!recurring) return setMessage('Salve a assinatura antes de ativar o Pix Automático.');
+    if (!config.financialExecutionEnabled) {
+      return setMessage('Pix Automático está bloqueado neste build de preview.');
+    }
+    try {
+      setLoading(true);
+      const data = await json(`${API}/recurring-pix/link-woovi`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({}),
+      });
+      if (data?.success === false) throw new Error(data?.message || 'Não foi possível ativar o Pix Automático.');
+      setRecurring(data?.recurringPix || recurring);
+      setMessage(data?.message || 'Pix Automático vinculado à sua assinatura.');
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createPixDeposit() {
+    const value = Number(String(depositAmountBrl).replace(',', '.'));
+    if (!value || value < 10) return setMessage('Depósito Pix mínimo: R$ 10,00.');
+    if (!config.financialExecutionEnabled) {
+      return setMessage('Geração de cobrança Pix está bloqueada neste build de preview.');
+    }
+    try {
+      setLoading(true);
+      setDepositResult(null);
+      const data = await json(`${API}/deposit/woovi-pix`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ amountBrl: value }),
+      });
+      setDepositResult(data);
+      setMessage(data?.message || 'Pix criado. Pague usando o QR Code ou copia e cola.');
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refreshPixDeposit() {
+    if (!depositResult?.depositId) return setMessage('Gere um Pix primeiro.');
+    try {
+      setLoading(true);
+      const data = await json(
+        `${API}/deposit/${encodeURIComponent(depositResult.depositId)}/status`,
+        { headers: authHeaders },
+      );
+      setDepositResult((current: any) => ({ ...current, ...data }));
+      setMessage(
+        String(data?.status || '').toLowerCase() === 'completed'
+          ? 'Pix confirmado e processado.'
+          : `Status do Pix: ${String(data?.status || 'pendente')}`,
+      );
+      if (String(data?.status || '').toLowerCase() === 'completed') await loadAll();
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function quotePixWithdrawal() {
+    const value = Number(String(withdrawAmountUsdc).replace(',', '.'));
+    if (!value || value <= 0) return setMessage('Informe um valor USDC válido.');
+    try {
+      setLoading(true);
+      setWithdrawQuote(null);
+      const data = await json(`${API}/withdrawal/pix-quote`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ amountUsdc: value }),
+      });
+      setWithdrawQuote(data);
+      setMessage('Cotação Pix atualizada.');
+    } catch (error: any) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function requestPixWithdrawal() {
+    const value = Number(String(withdrawAmountUsdc).replace(',', '.'));
+    const key = String(withdrawPixKey || '').trim();
+    if (!withdrawQuote || !value) return setMessage('Atualize a cotação antes de solicitar o Pix.');
+    if (!key) return setMessage('Informe sua chave Pix.');
+    if (!config.financialExecutionEnabled) {
+      return setMessage('Solicitação de Pix está bloqueada neste build de preview.');
+    }
+    try {
+      setLoading(true);
+      const data = await json(`${API}/withdrawal/pix-request`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          amountUsdc: value,
+          expectedNetBrl: Number(withdrawQuote?.netBrl || 0),
+          pixKey: key,
+          clientRequestId: `mobile_pixout_${user.id}_${Date.now()}`,
+        }),
+      });
+      setMessage(data?.message || 'Solicitação Pix registrada.');
+      setWithdrawAmountUsdc('');
+      setWithdrawPixKey('');
+      setWithdrawQuote(null);
+      await loadAll();
     } catch (error: any) {
       setMessage(error.message);
     } finally {
@@ -444,7 +617,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         </Card>
 
         <View style={styles.quickRow}>
-          <MenuTile icon="＋" title="Pix" subtitle="Adicionar" onPress={() => setPage('menu')} />
+          <MenuTile icon="＋" title="Pix" subtitle="Adicionar" onPress={() => setPage('deposit')} />
           <MenuTile icon="↑" title="Enviar" subtitle="USDC" onPress={() => setPage('send')} />
           <MenuTile icon="◇" title="Ativos" subtitle="BTC · ETH · Ouro" onPress={() => setPage('assets')} accent />
           <MenuTile icon="☰" title="Mais" subtitle="Serviços" onPress={() => setPage('menu')} />
@@ -514,13 +687,24 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             </View>
           </Card>
         ))}
-        <Card style={isPremium ? styles.highlightPremium : undefined}>
+        <Card style={canAccessCustody ? styles.highlightPremium : undefined}>
           <Text style={styles.eyebrow}>CARTEIRA INDIVIDUAL</Text>
-          <Text style={styles.highlightTitle}>{isPremium ? 'Seu recurso Premium on-chain.' : 'Disponível no Nexa Premium.'}</Text>
-          <Text style={styles.highlightText}>
-            {walletAddress ? `Carteira vinculada: ${walletAddress.slice(0, 8)}…${walletAddress.slice(-6)}` : 'Crie e vincule uma carteira individual para recursos externos.'}
+          <Text style={styles.highlightTitle}>
+            {hasExistingWallet
+              ? isPremium
+                ? 'Seu recurso Premium on-chain.'
+                : 'Sua carteira existente continua acessível.'
+              : 'Disponível no Nexa Premium.'}
           </Text>
-          <PrimaryButton title={isPremium ? 'Abrir Minha Carteira' : 'Conhecer Premium'} onPress={() => setPage(isPremium ? 'custody' : 'premium')} />
+          <Text style={styles.highlightText}>
+            {walletAddress
+              ? `Carteira vinculada: ${walletAddress.slice(0, 8)}…${walletAddress.slice(-6)}`
+              : 'Crie e vincule uma carteira individual para recursos externos.'}
+          </Text>
+          <PrimaryButton
+            title={canAccessCustody ? 'Abrir Minha Carteira' : 'Conhecer Premium'}
+            onPress={() => setPage(canAccessCustody ? 'custody' : 'premium')}
+          />
         </Card>
       </>
     );
@@ -595,11 +779,20 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <TextInput style={styles.input} placeholder="USDC" placeholderTextColor="#64748b" value={sendAmount} onChangeText={setSendAmount} keyboardType="decimal-pad" />
           <PrimaryButton title="Enviar USDC" onPress={sendInternal} disabled={!recipient || loading} />
         </Card>
-        <Card style={isPremium ? styles.highlightPremium : undefined}>
+        <Card style={canAccessCustody ? styles.highlightPremium : undefined}>
           <Text style={styles.eyebrow}>MOVIMENTAÇÃO EXTERNA</Text>
-          <Text style={styles.highlightTitle}>{isPremium ? 'Use sua carteira individual.' : 'Recurso Nexa Premium.'}</Text>
-          <Text style={styles.highlightText}>Recebimento externo e movimentação entre Saldo Nexa e sua carteira individual ficam organizados em Minha Carteira.</Text>
-          <PrimaryButton title={isPremium ? 'Abrir Minha Carteira' : 'Conhecer Premium'} onPress={() => setPage(isPremium ? 'custody' : 'premium')} secondary />
+          <Text style={styles.highlightTitle}>
+            {canAccessCustody ? 'Use sua carteira individual.' : 'Recurso Nexa Premium.'}
+          </Text>
+          <Text style={styles.highlightText}>
+            Recebimento externo e movimentação entre Saldo Nexa e sua carteira individual ficam organizados em Minha Carteira.
+            {hasExistingWallet && !isPremium ? ' Sua carteira já criada permanece acessível.' : ''}
+          </Text>
+          <PrimaryButton
+            title={canAccessCustody ? 'Abrir Minha Carteira' : 'Conhecer Premium'}
+            onPress={() => setPage(canAccessCustody ? 'custody' : 'premium')}
+            secondary
+          />
         </Card>
       </>
     );
@@ -642,8 +835,37 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         {recurring ? (
           <Card>
             <Text style={styles.eyebrow}>RECORRÊNCIA ATUAL</Text>
-            <Text style={styles.highlightTitle}>{money(recurring.amountBrl || recurring.monthlyAmountBrl || recurring.amount || 0)}</Text>
-            <Text style={styles.highlightText}>Dia {Number(recurring.dayOfMonth || recurring.day || 5)} · status {String(recurring.status || 'ativo')}</Text>
+            <Text style={styles.highlightTitle}>{money(recurring.monthlyAmountBrl || recurring.amountBrl || recurring.amount || 0)}</Text>
+            <Text style={styles.highlightText}>
+              Dia {Number(recurring.preferredDay || recurring.dayOfMonth || recurring.day || 5)} · status {String(recurring.status || 'ativo')}
+            </Text>
+            {recurring.wooviSubscriptionId ? (
+              <>
+                <Text style={styles.successText}>✓ Pix Automático vinculado</Text>
+                <Text style={styles.highlightText}>Status Woovi: {String(recurring.wooviSubscriptionStatus || 'ativo')}</Text>
+                {recurring.wooviBrCode ? (
+                  <View style={styles.qrWrap}>
+                    <QRCode value={String(recurring.wooviBrCode)} size={172} />
+                  </View>
+                ) : null}
+              </>
+            ) : (
+              <Text style={styles.highlightText}>Pix Automático ainda não vinculado.</Text>
+            )}
+            <PrimaryButton
+              title={config.financialExecutionEnabled ? 'Ativar Pix Automático' : 'Pix Automático bloqueado no preview'}
+              onPress={linkRecurringWoovi}
+              disabled={!config.financialExecutionEnabled || loading}
+              secondary
+            />
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.smallAction} onPress={pauseRecurring} disabled={loading}>
+                <Text style={styles.smallActionText}>Pausar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.smallAction} onPress={cancelRecurring} disabled={loading}>
+                <Text style={styles.smallActionText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
           </Card>
         ) : null}
         <Card>
@@ -686,14 +908,150 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <View style={styles.menuGrid}>
           <MenuTile icon="👤" title="Perfil" onPress={() => setPage('profile')} />
           <MenuTile icon="↕" title="Movimentações" onPress={() => setPage('history')} />
-          <MenuTile icon="🆔" title="Nexa ID" subtitle={handle} onPress={() => setPage('profile')} />
+          <MenuTile icon="🆔" title="Nexa ID" subtitle={nexaId || handle} onPress={() => setPage('nexaId')} />
+          <MenuTile icon="💳" title="Depositar Pix" subtitle="Adicionar saldo" onPress={() => setPage('deposit')} />
+          <MenuTile icon="🏦" title="Sacar Pix" subtitle="USDC → BRL" onPress={() => setPage('withdraw')} />
           <MenuTile icon="⭐" title="Premium" subtitle={isPremium ? 'Ativo' : 'Conhecer'} onPress={() => setPage('premium')} accent />
           <MenuTile icon="🔁" title="USDC assinatura" onPress={() => setPage('recurring')} />
           <MenuTile icon="✦" title="Rewards" onPress={() => setPage('rewards')} />
-          <MenuTile icon="◇" title="Ativos" subtitle="BTC · ETH · Ouro" onPress={() => setPage('assets')} />
-          <MenuTile icon="🔐" title="Minha Carteira" subtitle={isPremium ? 'Premium' : 'Recurso Premium'} onPress={() => setPage(isPremium ? 'custody' : 'premium')} />
+          <MenuTile
+            icon="🔐"
+            title="Minha Carteira"
+            subtitle={canAccessCustody ? (isPremium ? 'Premium' : 'Carteira existente') : 'Recurso Premium'}
+            onPress={() => setPage(canAccessCustody ? 'custody' : 'premium')}
+          />
         </View>
         <PrimaryButton title="Sair da Nexa" onPress={onLogout} secondary />
+      </>
+    );
+  }
+
+  function DepositPix() {
+    return (
+      <>
+        <Text style={styles.pageTitle}>Depositar via Pix</Text>
+        <Text style={styles.pageSubtitle}>
+          Gere uma cobrança Pix vinculada à sua conta Nexa. Após a confirmação, o crédito segue o fluxo operacional do backend.
+        </Text>
+        <Card>
+          <Text style={styles.formLabel}>Valor em reais</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="R$ 100,00"
+            placeholderTextColor="#64748b"
+            value={depositAmountBrl}
+            onChangeText={setDepositAmountBrl}
+            keyboardType="decimal-pad"
+          />
+          <PrimaryButton
+            title={config.financialExecutionEnabled ? 'Gerar Pix' : 'Geração de Pix bloqueada no preview'}
+            onPress={createPixDeposit}
+            disabled={!config.financialExecutionEnabled || loading}
+          />
+          {!config.financialExecutionEnabled ? (
+            <Text style={styles.previewNotice}>
+              Preview seguro: esta tela está conectada ao contrato real, mas não cria cobrança Woovi.
+            </Text>
+          ) : null}
+        </Card>
+        {depositResult ? (
+          <Card style={styles.highlightRecurring}>
+            <Text style={styles.eyebrow}>PIX NEXA</Text>
+            <Text style={styles.highlightTitle}>{money(depositResult.amountBrl || 0)}</Text>
+            <Text style={styles.highlightText}>Status: {String(depositResult.status || 'pendente')}</Text>
+            {depositResult.copyPasteCode ? (
+              <>
+                <View style={styles.qrWrap}>
+                  <QRCode value={String(depositResult.copyPasteCode)} size={190} />
+                </View>
+                <Text style={styles.codeText}>{String(depositResult.copyPasteCode)}</Text>
+              </>
+            ) : null}
+            <PrimaryButton title="Atualizar status" onPress={refreshPixDeposit} secondary disabled={loading} />
+          </Card>
+        ) : null}
+      </>
+    );
+  }
+
+  function WithdrawPix() {
+    return (
+      <>
+        <Text style={styles.pageTitle}>Sacar via Pix</Text>
+        <Text style={styles.pageSubtitle}>
+          Converta USDC do Saldo Nexa para BRL e solicite o Pix. A cotação pode ser consultada no preview sem executar a saída.
+        </Text>
+        <Card>
+          <Text style={styles.formLabel}>Valor em USDC</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="USDC"
+            placeholderTextColor="#64748b"
+            value={withdrawAmountUsdc}
+            onChangeText={(value) => {
+              setWithdrawAmountUsdc(value);
+              setWithdrawQuote(null);
+            }}
+            keyboardType="decimal-pad"
+          />
+          <PrimaryButton title="Ver cotação Pix" onPress={quotePixWithdrawal} disabled={loading} />
+          {withdrawQuote ? (
+            <View style={styles.quoteBox}>
+              <Text style={styles.quoteTitle}>Cotação Nexa</Text>
+              <Text style={styles.quoteText}>USDC: {amount(withdrawQuote.amountUsdc, 8)}</Text>
+              <Text style={styles.quoteText}>Pix estimado: {money(withdrawQuote.netBrl || 0)}</Text>
+              <Text style={styles.quoteText}>
+                Taxas e proteção de liquidez já consideradas conforme a cotação apresentada.
+              </Text>
+              <Text style={styles.formLabel}>Chave Pix</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="CPF, e-mail, telefone ou chave aleatória"
+                placeholderTextColor="#64748b"
+                value={withdrawPixKey}
+                onChangeText={setWithdrawPixKey}
+                autoCapitalize="none"
+              />
+              <PrimaryButton
+                title={config.financialExecutionEnabled ? 'Solicitar Pix' : 'Solicitação bloqueada no preview'}
+                onPress={requestPixWithdrawal}
+                disabled={!config.financialExecutionEnabled || loading}
+              />
+            </View>
+          ) : null}
+          {!config.financialExecutionEnabled ? (
+            <Text style={styles.previewNotice}>
+              Preview seguro: consultar cotação está liberado; reservar USDC e solicitar Pix permanece bloqueado.
+            </Text>
+          ) : null}
+        </Card>
+      </>
+    );
+  }
+
+  function NexaId() {
+    return (
+      <>
+        <Text style={styles.pageTitle}>Meu Nexa ID</Text>
+        <Text style={styles.pageSubtitle}>Sua identidade Nexa para identificação e experiências integradas do ecossistema.</Text>
+        <Card style={styles.highlightPremium}>
+          <Text style={styles.eyebrow}>NEXA ID</Text>
+          <Text style={styles.highlightTitle}>{nexaId || 'Nexa ID em criação'}</Text>
+          <Text style={styles.highlightText}>{handle || 'Username ainda não definido'}</Text>
+          {nexaPassportQrValue ? (
+            <View style={styles.qrWrap}>
+              <QRCode value={nexaPassportQrValue} size={210} />
+            </View>
+          ) : (
+            <Text style={styles.previewNotice}>O QR Code aparecerá assim que seu Nexa ID estiver disponível.</Text>
+          )}
+          <Text style={styles.profileLine}>Nome: {user?.fullName || '-'}</Text>
+          <Text style={styles.profileLine}>KYC: {String(user?.kycStatus || 'pending')}</Text>
+          <Text style={styles.profileLine}>Rede da carteira: {walletNetwork}</Text>
+          {walletAddress ? (
+            <Text style={styles.profileLine}>Carteira: {walletAddress.slice(0, 10)}…{walletAddress.slice(-8)}</Text>
+          ) : null}
+        </Card>
       </>
     );
   }
@@ -745,10 +1103,13 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   else if (page === 'premium') body = <Premium />;
   else if (page === 'recurring') body = <Recurring />;
   else if (page === 'rewards') body = <Rewards />;
+  else if (page === 'deposit') body = <DepositPix />;
+  else if (page === 'withdraw') body = <WithdrawPix />;
+  else if (page === 'nexaId') body = <NexaId />;
   else if (page === 'profile') body = <Profile />;
   else if (page === 'history') body = <History />;
   else if (page === 'custody') {
-    body = isPremium ? (
+    body = canAccessCustody ? (
       <CustodyScreen user={user} token={token} onBack={() => setPage('wallet')} onBalanceRefresh={loadAll} />
     ) : (
       <Premium />
@@ -835,6 +1196,12 @@ const styles: any = {
   quoteTitle: { color: '#fff', fontWeight: '900', fontSize: 14 },
   quoteText: { color: '#94a3b8', fontSize: 12, marginTop: 6 },
   divider: { height: 1, backgroundColor: '#1e293b', marginVertical: 18 },
+  qrWrap: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 18, padding: 16, marginTop: 16, marginBottom: 10 },
+  codeText: { color: '#94a3b8', fontSize: 10, lineHeight: 15, marginTop: 6 },
+  previewNotice: { color: '#fbbf24', fontSize: 11, lineHeight: 17, marginTop: 12 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  smallAction: { flex: 1, backgroundColor: '#111c2f', borderWidth: 1, borderColor: '#263650', borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
+  smallActionText: { color: '#e2e8f0', fontSize: 12, fontWeight: '900' },
   successText: { color: '#34d399', fontWeight: '800', marginTop: 10, fontSize: 12 },
   benefit: { color: '#e2e8f0', lineHeight: 24, fontSize: 13, marginBottom: 5 },
   profileName: { color: '#fff', fontSize: 22, fontWeight: '900', marginBottom: 8 },
