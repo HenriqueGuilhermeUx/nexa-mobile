@@ -1862,7 +1862,7 @@ export default function App() {
           keyboardDismissMode="none"
         >
           <Text style={styles.logo}>NEXA</Text>
-          <Text style={styles.subtitle}>Seu patrimônio em dólar, simples.</Text>
+          <Text style={styles.subtitle}>Cripto sem complicação.</Text>
 
           <Card>
             {authPage === 'forgot' ? (
@@ -2199,27 +2199,25 @@ export default function App() {
         {/* ABA 5: A NOVA CENTRAL DE MENU (NADA EXPOSTO, TUDO BOTÃO) */}
         {page === 'menuScreen' && (
           <Card>
-            <Text style={styles.title}>Menu Executivo</Text>
-            <Text style={styles.rateText}>Selecione uma opção do ecossistema Nexa:</Text>
-            
-            {/* BOTÕES ESPECÍFICOS DE REDIRECIONAMENTO LIMPO */}
-            <Button title="👤 Acessar Meu Perfil" onPress={function () { setPage('profile'); }} />
-            <Button title="📄 Ver Últimas Movimentações" onPress={function () { setPage('extrato'); }} />
-            <Button title="🆔 Meu Nexa ID" onPress={function () { setPage('nexaId'); }} />
-            <Button title="💳 Depositar Pix" onPress={function () { setPage('deposit'); }} />
-            <Button title="📤 Enviar USDC" onPress={function () { setPage('send'); }} />
-            <Button title="🏦 Sacar Pix" onPress={function () { setPage('pix'); }} />
-            <Button title="🚀 Nexa Rewards" onPress={function () { setPage('rewards'); }} />
-            <Button title="⭐ Nexa Premium" onPress={function () { setPage('premium'); }} />
-            <Button title="🔁 Cripto por assinatura" onPress={function () { setPage('recurringCrypto'); }} />
-            <Button title="🌐 Ecossistema Nexa" onPress={function () { setPage('ecosystem'); }} />
-            <Button title="⚖️ Legal e Segurança" onPress={function () { setPage('legal'); }} />
-            <Button title="🛡️ Compliance" onPress={() => setPage('compliance')} />
-            <Button title="🧩 Ativos Digitais" onPress={function () { setPage('investments'); }} />
-            
-            <View style={{ marginTop: 20 }}>
-              <Button title="🚪 Sair do Aplicativo" onPress={logout} />
+            <Text style={styles.title}>Menu</Text>
+            <Text style={styles.rateText}>Conta, produtos e configurações da Nexa.</Text>
+
+            <View style={styles.menuGrid}>
+              <MenuGridItem icon="👤" label="Perfil" onPress={function () { setPage('profile'); }} />
+              <MenuGridItem icon="📄" label="Movimentações" onPress={function () { setPage('extrato'); }} />
+              <MenuGridItem icon="🆔" label="Nexa ID" onPress={function () { setPage('nexaId'); }} />
+              <MenuGridItem icon="💳" label="Depositar Pix" onPress={function () { setPage('deposit'); }} />
+              <MenuGridItem icon="🏦" label="Sacar Pix" onPress={function () { setPage('pix'); }} />
+              <MenuGridItem icon="⭐" label="Premium" hint="4% + carteira" accent onPress={function () { setPage('premium'); }} />
+              <MenuGridItem icon="🔁" label="USDC por assinatura" onPress={function () { setPage('recurringCrypto'); }} />
+              <MenuGridItem icon="✦" label="Rewards" onPress={function () { setPage('rewards'); }} />
+              <MenuGridItem icon="🌐" label="Ecossistema" onPress={function () { setPage('ecosystem'); }} />
+              <MenuGridItem icon="⚖️" label="Legal e Segurança" onPress={function () { setPage('legal'); }} />
+              <MenuGridItem icon="🛡️" label="Compliance" onPress={function () { setPage('compliance'); }} />
+              <MenuGridItem icon="◈" label="Ativos" hint="BTC · ETH · XAUT" onPress={function () { setPage('investments'); }} />
             </View>
+
+            <Button title="🚪 Sair do aplicativo" onPress={logout} />
           </Card>
         )}
 
@@ -2262,40 +2260,73 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Nexa Premium</Text>
             <Text style={styles.itemText}>
-              Sua experiência completa para construir patrimônio em dólar com menos taxas e mais possibilidades.
+              Mais autonomia, melhores condições e uma carteira individual vinculada à sua conta Nexa.
             </Text>
+
+            <View style={styles.premiumCompare}>
+              <View style={styles.premiumCompareColumn}>
+                <Text style={styles.premiumCompareLabel}>FREE</Text>
+                <Text style={styles.premiumCompareValue}>8%</Text>
+                <Text style={styles.rateText}>taxa de entrada Nexa</Text>
+              </View>
+              <View style={[styles.premiumCompareColumn, styles.premiumCompareColumnActive]}>
+                <Text style={styles.premiumCompareLabelActive}>PREMIUM</Text>
+                <Text style={styles.premiumCompareValue}>4%</Text>
+                <Text style={styles.rateText}>taxa de entrada Nexa</Text>
+              </View>
+            </View>
+
             <View style={styles.item}>
-              <Text style={styles.itemText}>💎 R$ 19,90 por mês</Text>
+              <Text style={styles.itemText}>🔐 Carteira individual</Text>
               <Text style={styles.rateText}>
-                Uma assinatura simples para economizar nas operações e acessar benefícios exclusivos.
+                Carteira Privy vinculada à Nexa para receber e movimentar USDC on-chain pela rede Polygon.
               </Text>
             </View>
+
             <View style={styles.item}>
-              <Text style={styles.itemText}>🥇 PAXG e 🟠 WBTC liberados</Text>
+              <Text style={styles.itemText}>🌐 Enviar e receber USDC externo</Text>
               <Text style={styles.rateText}>
-                Clientes Premium podem converter USDC para ouro digital PAXG e Bitcoin tokenizado WBTC.
+                Use sua carteira individual para movimentações externas com endereço e QR próprios.
               </Text>
             </View>
+
             <View style={styles.item}>
-              <Text style={styles.itemText}>🏷️ Desconto nas taxas</Text>
+              <Text style={styles.itemText}>◈ Ativos para todos</Text>
               <Text style={styles.rateText}>
-                Menores taxas nas operações elegíveis dentro do app.
+                USDC, BTC, ETH e XAUT não dependem do Premium. O Premium melhora condições e adiciona recursos de carteira.
               </Text>
             </View>
+
             <View style={styles.item}>
-              <Text style={styles.itemText}>👑 Atendimento Premium</Text>
+              <Text style={styles.itemText}>👑 Atendimento prioritário</Text>
               <Text style={styles.rateText}>
-                Canal prioritário para dúvidas, suporte e operações.
+                Canal prioritário para suporte e operações elegíveis.
               </Text>
             </View>
+
             <View style={isPremiumUser() ? styles.verifiedProfileBox : styles.recipientBoxError}>
               <Text style={isPremiumUser() ? styles.verifiedProfileText : styles.recipientError}>
                 {getPremiumLabel()}
               </Text>
             </View>
-            <Button title="Quero conhecer meus benefícios" onPress={function () { setPage('investments'); }} />
-            <Button title="Ativar meu dólar todo mês" onPress={function () { setPage('recurringCrypto'); }} />
-            <Button title="Falar com suporte Premium" onPress={function () { abrirLink('mailto:henriquecampos66@gmail.com?subject=Nexa Premium'); }} />
+
+            {isPremiumUser() && !hasExistingWallet() ? (
+              <Button
+                title="Criar minha carteira individual"
+                onPress={function () { router.push('/onboarding-wallet'); }}
+              />
+            ) : null}
+
+            {hasExistingWallet() ? (
+              <Button title="Abrir Minha Carteira" onPress={function () { setPage('custody'); }} />
+            ) : null}
+
+            <Button title="Ver BTC, ETH e Ouro Digital" onPress={function () { setPage('investments'); }} />
+            <Button title="Configurar USDC por assinatura" onPress={function () { setPage('recurringCrypto'); }} />
+            <Button
+              title={isPremiumUser() ? "Falar com suporte Premium" : "Quero ser Premium"}
+              onPress={function () { abrirLink('mailto:henriquecampos66@gmail.com?subject=Nexa Premium'); }}
+            />
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
         )}
@@ -2353,21 +2384,55 @@ export default function App() {
                   {isKycApproved() ? <Text style={styles.verifiedBadge}>✅ Verificado</Text> : null}
                 </View>
               </View>
-              <Text style={styles.smallLabel}>Saldo disponível</Text>
+
+              <Text style={styles.smallLabel}>Saldo Nexa</Text>
               <Text style={styles.totalBalance}>{saldoUsdc.toFixed(6)} USDC</Text>
               <Text style={styles.rateText}>≈ R$ {saldoBrlEstimado.toFixed(2)}</Text>
-              <Button title="Atualizar carteira" onPress={function () { carregarDados(); buscarPerfilAtualizado(); }} />
+
+              <View style={styles.assetBalanceGrid}>
+                <View style={styles.assetBalanceCard}>
+                  <Text style={styles.assetBalanceSymbol}>₿ BTC</Text>
+                  <Text style={styles.assetBalanceValue}>{Number(saldo.BTC || 0).toFixed(8)}</Text>
+                </View>
+                <View style={styles.assetBalanceCard}>
+                  <Text style={styles.assetBalanceSymbol}>◆ ETH</Text>
+                  <Text style={styles.assetBalanceValue}>{Number(saldo.ETH || 0).toFixed(8)}</Text>
+                </View>
+                <View style={styles.assetBalanceCard}>
+                  <Text style={styles.assetBalanceSymbol}>🥇 XAUT</Text>
+                  <Text style={styles.assetBalanceValue}>{Number(saldo.XAUT || 0).toFixed(8)}</Text>
+                </View>
+              </View>
+
+              <Button title="Atualizar carteira" onPress={function () { carregarDados(); buscarPerfilAtualizado(); carregarPortfolio(); }} />
             </Card>
 
             <Card>
               <Text style={styles.title}>Receber USDC</Text>
               <TouchableOpacity style={styles.item} onPress={function () { setPage('receive'); }}>
-                <Text style={styles.itemText}>✅ Receber de usuário Nexa</Text>
+                <Text style={styles.itemText}>✅ De outro usuário Nexa</Text>
                 <Text style={styles.walletAddressText}>{getUsername()}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.item} onPress={function () { setPage('receive'); criarDepositoUsdcExterno(); }}>
-                <Text style={styles.itemText}>🌐 Receber USDC externo</Text>
-              </TouchableOpacity>
+
+              {canUsePremiumWallet() ? (
+                <TouchableOpacity style={styles.item} onPress={function () { setPage('receive'); }}>
+                  <Text style={styles.itemText}>🌐 Na minha carteira individual</Text>
+                  <Text style={styles.rateText}>
+                    {hasExistingWallet() ? 'Receba USDC Polygon no seu endereço individual.' : 'Crie sua carteira Premium para receber USDC externo.'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.premiumTeaser} onPress={function () { setPage('premium'); }}>
+                  <Text style={styles.itemText}>⭐ Carteira individual Premium</Text>
+                  <Text style={styles.rateText}>
+                    Envio e recebimento externo de USDC com endereço próprio.
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {canUsePremiumWallet() && hasExistingWallet() ? (
+                <Button title="Minha Carteira" onPress={function () { setPage('custody'); }} />
+              ) : null}
             </Card>
           </>
         )}
@@ -2375,19 +2440,46 @@ export default function App() {
         {page === 'receive' && (
           <Card>
             <Text style={styles.title}>Receber USDC</Text>
+
+            <Text style={styles.smallLabel}>De usuário Nexa</Text>
             <View style={styles.receiveBox}>
               <Text style={styles.receiveHandle}>{getUsername()}</Text>
+              <Text style={styles.rateText}>Compartilhe seu @username. A transferência é interna e instantânea.</Text>
             </View>
-            <View style={styles.pixBox}>
-              {usdcDepositAddress ? (
-                <>
-                  <View style={styles.qrBox}><QRCode value={usdcDepositAddress} size={180} /></View>
-                  <Text style={styles.copyText}>{usdcDepositAddress}</Text>
-                  <Input placeholder="Cole aqui o txHash Polygon" value={usdcTxHash} onChangeText={setUsdcTxHash} />
-                  <Button title="Confirmar recebimento" onPress={confirmarDepositoUsdcExterno} />
-                </>
-              ) : <Button title="Gerar endereço USDC" onPress={criarDepositoUsdcExterno} />}
-            </View>
+
+            {canUsePremiumWallet() ? (
+              hasExistingWallet() ? (
+                <View style={styles.pixBox}>
+                  <Text style={styles.itemText}>🌐 Minha carteira individual</Text>
+                  <Text style={styles.rateText}>Rede Polygon · somente USDC</Text>
+                  <View style={styles.qrBox}>
+                    <QRCode value={getWalletAddress()} size={180} />
+                  </View>
+                  <Text selectable style={styles.copyText}>{getWalletAddress()}</Text>
+                  <Text style={styles.rateText}>
+                    Valores recebidos aqui ficam na sua carteira individual. Para usar como Saldo Nexa, utilize “Minha Carteira”.
+                  </Text>
+                  <Button title="Abrir Minha Carteira" onPress={function () { setPage('custody'); }} />
+                </View>
+              ) : (
+                <View style={styles.premiumTeaser}>
+                  <Text style={styles.itemText}>Carteira Premium ainda não criada</Text>
+                  <Text style={styles.rateText}>
+                    Crie sua carteira individual para receber USDC externo.
+                  </Text>
+                  <Button title="Criar carteira individual" onPress={function () { router.push('/onboarding-wallet'); }} />
+                </View>
+              )
+            ) : (
+              <View style={styles.premiumTeaser}>
+                <Text style={styles.itemText}>⭐ Recebimento externo é Premium</Text>
+                <Text style={styles.rateText}>
+                  O recebimento por @username continua disponível para todos. O Premium adiciona uma carteira individual para USDC on-chain.
+                </Text>
+                <Button title="Conhecer Premium" onPress={function () { setPage('premium'); }} />
+              </View>
+            )}
+
             <Button title="Voltar para carteira" onPress={function () { setPage('wallet'); }} />
           </Card>
         )}
@@ -2448,14 +2540,51 @@ export default function App() {
         {page === 'send' && (
           <Card>
             <Text style={styles.title}>Enviar USDC</Text>
-            <Input placeholder="@username" value={username} onChangeText={(v) => { setUsername(v); setRecipientUser(null); }} />
+
+            <Text style={styles.smallLabel}>Para usuário Nexa</Text>
+            <Input placeholder="@username" value={username} onChangeText={(v) => { setUsername(v); setRecipientUser(null); setRecipientChecked(false); }} />
             <Button title="Verificar usuário" onPress={buscarDestinatario} />
-            {recipientUser && <Text style={styles.recipientOk}>✅ {recipientUser.fullName}</Text>}
-            <Input placeholder="Valor USDC" keyboardType="numeric" value={valorUsdc} onChangeText={setValorUsdc} />
+            {recipientUser ? <Text style={styles.recipientOk}>✅ {recipientUser.fullName}</Text> : null}
+            <Input placeholder="Valor em USDC" keyboardType="numeric" value={valorUsdc} onChangeText={setValorUsdc} />
             <Button title="Enviar para @username" onPress={enviarUsername} />
-            
-            <Input placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
-            <Button title="Enviar para carteira" onPress={enviarWallet} />
+
+            <View style={styles.sectionDivider} />
+
+            <Text style={styles.smallLabel}>Para carteira externa</Text>
+            {canUsePremiumWallet() ? (
+              hasExistingWallet() ? (
+                <>
+                  <Text style={styles.rateText}>
+                    Recurso da carteira individual. Envio externo exige validações de segurança.
+                  </Text>
+                  <Input placeholder="Carteira 0x..." value={wallet} onChangeText={setWallet} />
+                  {!otpRequested ? (
+                    <Button title="Solicitar código de segurança" onPress={solicitarOtpEnvioWallet} />
+                  ) : (
+                    <>
+                      <Input placeholder="Código OTP" value={otpCode} onChangeText={setOtpCode} keyboardType="numeric" />
+                      <Button title="Confirmar envio externo" onPress={enviarWallet} />
+                    </>
+                  )}
+                  <Button title="Abrir Minha Carteira" onPress={function () { setPage('custody'); }} />
+                </>
+              ) : (
+                <View style={styles.premiumTeaser}>
+                  <Text style={styles.itemText}>Crie sua carteira individual</Text>
+                  <Text style={styles.rateText}>Sua conta Premium está ativa, mas a carteira ainda não foi vinculada.</Text>
+                  <Button title="Criar carteira" onPress={function () { router.push('/onboarding-wallet'); }} />
+                </View>
+              )
+            ) : (
+              <View style={styles.premiumTeaser}>
+                <Text style={styles.itemText}>⭐ Envio externo é Premium</Text>
+                <Text style={styles.rateText}>
+                  Transferências por @username continuam disponíveis para todos. O Premium adiciona a carteira individual para USDC on-chain.
+                </Text>
+                <Button title="Conhecer Premium" onPress={function () { setPage('premium'); }} />
+              </View>
+            )}
+
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
         )}
@@ -2488,34 +2617,38 @@ export default function App() {
 
         {page === 'recurringCrypto' && (
           <Card>
-            <Text style={styles.title}>Cripto por assinatura</Text>
+            <Text style={styles.title}>USDC por assinatura</Text>
             <Text style={styles.itemText}>
-              Programe uma compra mensal automática de USDC.
+              Programe uma compra mensal automática de USDC com Pix Automático.
             </Text>
+
             <View style={styles.item}>
               <Text style={styles.itemText}>💵 Ativo da assinatura: USDC</Text>
               <Text style={styles.rateText}>
-                Para manter a experiência simples, a compra recorrente é feita apenas em USDC.
-                PAXG e WBTC ficam na aba Ativos e são exclusivos para clientes Premium.
+                A recorrência permanece simples e exclusiva para USDC. BTC, ETH e XAUT ficam disponíveis na aba Ativos para todos os clientes.
               </Text>
             </View>
+
             <View style={styles.item}>
               <Text style={styles.itemText}>🔁 Como funciona</Text>
               <Text style={styles.rateText}>
-                Você escolhe o valor mensal e o dia do mês. A Nexa gera a autorização Pix para automatizar a compra recorrente.
+                Escolha o valor mensal e o dia. A Nexa gera a autorização necessária para automatizar a compra recorrente.
               </Text>
             </View>
+
             <Input placeholder="Valor mensal em R$" keyboardType="numeric" value={recurringAmountBrl} onChangeText={setRecurringAmountBrl} />
             <Input placeholder="Dia do mês. Ex: 5" keyboardType="numeric" value={recurringDay} onChangeText={setRecurringDay} />
-            <Button title="Salvar compra mensal de USDC" onPress={salvarAssinaturaRecorrente} />
+            <Button title="Salvar assinatura de USDC" onPress={salvarAssinaturaRecorrente} />
             <Button title="Ativar Pix Automático" onPress={gerarLinkAssinaturaWoovi} />
+
             {recurringPlan ? (
               <View style={styles.verifiedProfileBox}>
                 <Text style={styles.verifiedProfileText}>
-                  Assinatura configurada para USDC
+                  USDC por assinatura configurado
                 </Text>
               </View>
             ) : null}
+
             <Button title="Pausar assinatura" onPress={pausarAssinaturaRecorrente} />
             <Button title="Cancelar assinatura" onPress={cancelarAssinaturaRecorrente} />
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
@@ -2526,45 +2659,77 @@ export default function App() {
           <Card>
             <Text style={styles.title}>Nexa Rewards</Text>
             <Text style={styles.itemText}>
-              Use seu saldo em USDC na infraestrutura DeFi da Nexa.
+              Benefícios vinculados às campanhas e regras do programa Rewards da Nexa.
             </Text>
+
             <View style={styles.item}>
-              <Text style={styles.itemText}>🟢 Como funciona</Text>
+              <Text style={styles.itemText}>✦ Como funciona</Text>
               <Text style={styles.rateText}>
-                Você ativa um valor em USDC. A infraestrutura da Nexa utiliza Aave V3 na Polygon.
-                Os benefícios gerados são compartilhados em Rewards.
+                Escolha uma modalidade disponível, ative um valor elegível em USDC e acompanhe o status dentro do app.
               </Text>
             </View>
+
             <View style={styles.item}>
-              <Text style={styles.itemText}>🎁 Divisão dos Rewards</Text>
+              <Text style={styles.itemText}>🎁 Benefícios variáveis</Text>
               <Text style={styles.rateText}>
-                Você recebe até 80% dos Rewards gerados. A Nexa retém até 20% para custear infraestrutura, liquidez e operação.
+                Cada modalidade pode ter regras, percentuais e condições próprias. O app mostra apenas os valores registrados pela API.
               </Text>
             </View>
+
             <View style={styles.item}>
               <Text style={styles.itemText}>⚠️ Importante</Text>
               <Text style={styles.rateText}>
-                Rewards não são promessa de rentabilidade, investimento garantido ou juros. Podem variar conforme a infraestrutura utilizada.
+                Rewards são benefícios do programa e podem variar conforme as regras vigentes. Consulte os detalhes antes de ativar.
               </Text>
             </View>
-            <Input placeholder="Valor em USDC para ativar Rewards" keyboardType="numeric" value={rewardAmount} onChangeText={setRewardAmount} />
-            <Button title="Ativar Nexa Rewards" onPress={ativarRewards} />
+
+            {rewardPlans.length > 0 ? (
+              <View style={styles.item}>
+                <Text style={styles.itemText}>Modalidades disponíveis</Text>
+                <View style={styles.rewardPlanRow}>
+                  {rewardPlans.map(function (plan, index) {
+                    const code = String(plan.code || plan.plan || plan.id || 'FLEX');
+                    const active = selectedRewardPlan === code;
+                    return (
+                      <TouchableOpacity
+                        key={code + '_' + index}
+                        style={[styles.rewardPlanChip, active ? styles.rewardPlanChipActive : null]}
+                        onPress={function () { setSelectedRewardPlan(code); }}
+                      >
+                        <Text style={active ? styles.rewardPlanChipTextActive : styles.rewardPlanChipText}>
+                          {plan.name || plan.label || code}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+
+            <Input placeholder="Valor em USDC" keyboardType="numeric" value={rewardAmount} onChangeText={setRewardAmount} />
+            <Button title="Ativar Rewards" onPress={ativarRewards} />
+
             {rewardPositions.length > 0 ? (
               <View style={styles.item}>
-                <Text style={styles.itemText}>Posições Rewards</Text>
+                <Text style={styles.itemText}>Meus Rewards</Text>
                 {rewardPositions.map(function (position) {
+                  const benefit = Number(position.earnedUsdc || position.rewardUsdc || 0);
                   return (
                     <View key={position.id || position.positionId || String(position.createdAt)} style={styles.receiptRow}>
-                      <Text style={styles.receiptLabel}>Saldo ativado</Text>
+                      <Text style={styles.receiptLabel}>USDC ativado</Text>
                       <Text style={styles.receiptValue}>
                         {Number(position.amountUsdc || position.principalUsdc || 0).toFixed(6)} USDC
                       </Text>
+                      {benefit > 0 ? (
+                        <Text style={styles.rateText}>Rewards registrados: {benefit.toFixed(6)} USDC</Text>
+                      ) : null}
                       <Text style={styles.rateText}>Status: {position.status || 'ativo'}</Text>
                     </View>
                   );
                 })}
               </View>
             ) : null}
+
             <Button title="Atualizar Rewards" onPress={carregarRewards} />
             <Button title="Voltar" onPress={function () { setPage('menuScreen'); }} />
           </Card>
@@ -2610,60 +2775,107 @@ export default function App() {
 
         {page === 'investments' && (
           <Card>
-            <Text style={styles.title}>Ativos Digitais</Text>
+            <Text style={styles.title}>Ativos</Text>
             <Text style={styles.itemText}>
-              Gerencie USDC, PAXG e WBTC dentro da Nexa.
+              USDC, Bitcoin, Ethereum e Ouro Digital em uma experiência simples.
             </Text>
-            {portfolio && <Text style={styles.totalBalance}>US$ {Number(portfolio.totalUsd || 0).toFixed(2)}</Text>}
-
-            <TouchableOpacity
-              style={investmentAsset === 'USDC' ? styles.recipientBox : styles.item}
-              onPress={function () { selectInvestmentAsset('USDC'); }}
-            >
-              <Text style={styles.itemText}>💵 USDC</Text>
+            {portfolio ? (
               <Text style={styles.rateText}>
-                Disponível para todos. Base para saldo, assinatura, Rewards e conversões.
+                Valor de referência dos ativos: ≈ US$ {Number(portfolio.totalUsd || 0).toFixed(2)}
               </Text>
-            </TouchableOpacity>
+            ) : null}
 
-            <TouchableOpacity
-              style={investmentAsset === 'PAXG' ? styles.recipientBox : styles.item}
-              onPress={function () { selectInvestmentAsset('PAXG'); }}
-            >
-              <Text style={styles.itemText}>🥇 PAXG · Ouro digital</Text>
-              <Text style={styles.rateText}>
-                {isPremiumUser() ? 'Disponível para conversão a partir de USDC.' : '🔒 Disponível apenas para clientes Nexa Premium.'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={investmentAsset === 'WBTC' ? styles.recipientBox : styles.item}
-              onPress={function () { selectInvestmentAsset('WBTC'); }}
-            >
-              <Text style={styles.itemText}>🟠 WBTC · Bitcoin tokenizado</Text>
-              <Text style={styles.rateText}>
-                {isPremiumUser() ? 'Disponível para conversão a partir de USDC.' : '🔒 Disponível apenas para clientes Nexa Premium.'}
-              </Text>
-            </TouchableOpacity>
-
-            {!canUseAsset(investmentAsset) ? (
-              <View style={styles.recipientBoxError}>
-                <Text style={styles.recipientError}>
-                  {investmentAsset} é exclusivo para clientes Nexa Premium.
-                </Text>
-                <Text style={styles.rateText}>
-                  Assine por R$19,90/mês (cobrados em USDC/Cotação do dia) para liberar PAXG, WBTC, taxas menores e atendimento Premium.
-                </Text>
+            <View style={styles.assetCatalogGrid}>
+              <TouchableOpacity style={styles.assetCatalogCard} onPress={function () { selectInvestmentAsset('BTC'); setRedeemAsset('BTC'); }}>
+                <Text style={styles.assetCatalogIcon}>₿</Text>
+                <Text style={styles.assetCatalogSymbol}>BTC</Text>
+                <Text style={styles.assetCatalogName}>Bitcoin</Text>
+                <Text style={styles.assetCatalogBalance}>{Number(saldo.BTC || 0).toFixed(8)}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.assetCatalogCard} onPress={function () { selectInvestmentAsset('ETH'); setRedeemAsset('ETH'); }}>
+                <Text style={styles.assetCatalogIcon}>◆</Text>
+                <Text style={styles.assetCatalogSymbol}>ETH</Text>
+                <Text style={styles.assetCatalogName}>Ethereum</Text>
+                <Text style={styles.assetCatalogBalance}>{Number(saldo.ETH || 0).toFixed(8)}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.assetCatalogCard} onPress={function () { selectInvestmentAsset('XAUT'); setRedeemAsset('XAUT'); }}>
+                <Text style={styles.assetCatalogIcon}>🥇</Text>
+                <Text style={styles.assetCatalogSymbol}>XAUT</Text>
+                <Text style={styles.assetCatalogName}>Ouro Digital</Text>
+                <Text style={styles.assetCatalogBalance}>{Number(saldo.XAUT || 0).toFixed(8)}</Text>
+              </TouchableOpacity>
+              <View style={[styles.assetCatalogCard, styles.assetCatalogCardUsdc]}>
+                <Text style={styles.assetCatalogIcon}>💵</Text>
+                <Text style={styles.assetCatalogSymbol}>USDC</Text>
+                <Text style={styles.assetCatalogName}>Saldo base</Text>
+                <Text style={styles.assetCatalogBalance}>{Number(saldo.USDC || 0).toFixed(6)}</Text>
               </View>
-            ) : (
-              <>
-                <Input placeholder={'Valor em USDC para converter em ' + investmentAsset} keyboardType="numeric" value={investmentAmount} onChangeText={setInvestmentAmount} />
-                <Button title={'Simular conversão para ' + investmentAsset} onPress={cotarInvestimento} />
-                {investmentQuote?.allowed && <Button title="Confirmar conversão" onPress={executarInvestimento} />}
-              </>
-            )}
+            </View>
 
-            <Button title="Ver Nexa Premium" onPress={function () { setPage('premium'); }} />
+            <View style={styles.assetOperationBox}>
+              <Text style={styles.itemText}>Comprar {investmentAsset}</Text>
+              <Text style={styles.rateText}>
+                A cotação é consultada antes da confirmação. BTC, ETH e XAUT têm execução imediata de backing no provedor.
+              </Text>
+              <Input
+                placeholder={'Valor em USDC para comprar ' + investmentAsset}
+                keyboardType="numeric"
+                value={investmentAmount}
+                onChangeText={function (value) { setInvestmentAmount(value); setInvestmentQuote(null); }}
+              />
+              <Button title={'Cotar ' + investmentAsset} onPress={cotarInvestimento} />
+              {investmentQuote?.allowed ? (
+                <View style={styles.quoteBox}>
+                  <Text style={styles.itemText}>Cotação pronta</Text>
+                  <Text style={styles.rateText}>
+                    Estimativa: {Number(investmentQuote.estimatedToAmount || investmentQuote.netToAmount || 0).toFixed(8)} {investmentAsset}
+                  </Text>
+                  <Text style={styles.rateText}>
+                    A confirmação usa a execução real e reconcilia os custos do provedor.
+                  </Text>
+                  <Button title={'Confirmar compra de ' + investmentAsset} onPress={executarInvestimento} />
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.assetOperationBox}>
+              <Text style={styles.itemText}>Vender {redeemAsset}</Text>
+              <Text style={styles.rateText}>O valor líquido é convertido para USDC após a execução confirmada.</Text>
+              <View style={styles.inlineAssetSelector}>
+                {['BTC', 'ETH', 'XAUT'].map(function (asset) {
+                  return (
+                    <TouchableOpacity
+                      key={asset}
+                      style={[styles.assetSelectorChip, redeemAsset === asset ? styles.assetSelectorChipActive : null]}
+                      onPress={function () { setRedeemAsset(asset); setRedeemQuote(null); }}
+                    >
+                      <Text style={redeemAsset === asset ? styles.assetSelectorTextActive : styles.assetSelectorText}>{asset}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Input
+                placeholder={'Quantidade de ' + redeemAsset}
+                keyboardType="numeric"
+                value={redeemAmount}
+                onChangeText={function (value) { setRedeemAmount(value); setRedeemQuote(null); }}
+              />
+              <Button title={'Cotar venda de ' + redeemAsset} onPress={simularResgate} />
+              {redeemQuote?.allowed ? (
+                <View style={styles.quoteBox}>
+                  <Text style={styles.itemText}>Cotação pronta</Text>
+                  <Text style={styles.rateText}>
+                    Estimativa líquida: {Number(redeemQuote.estimatedUsdc || redeemQuote.netUsdc || 0).toFixed(8)} USDC
+                  </Text>
+                  <Button title={'Confirmar venda de ' + redeemAsset} onPress={executarResgate} />
+                </View>
+              ) : null}
+            </View>
+
+            <Text style={styles.rateText}>
+              Ativos disponíveis para todos os clientes. Premium melhora condições e adiciona a carteira individual.
+            </Text>
+
             <Button title="Voltar" onPress={function () { setPage('home'); }} />
           </Card>
         )}
@@ -2671,7 +2883,7 @@ export default function App() {
         {/* SUB-PÁGINA EXTRATO: SÓ ABRE VIA CLIQUE NO BOTÃO DO MENU */}
         {page === 'extrato' && (
           <Card>
-            <Text style={styles.title}>Histórico Premium</Text>
+            <Text style={styles.title}>Movimentações</Text>
             <Button title="Atualizar histórico" onPress={carregarDados} />
             {extrato.length === 0 && <Text style={styles.itemText}>Nenhuma transação encontrada.</Text>}
             {extrato.map(function (item) {
