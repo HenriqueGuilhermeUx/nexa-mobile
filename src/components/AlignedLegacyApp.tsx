@@ -183,6 +183,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   const [rewardAmountUsdc, setRewardAmountUsdc] = useState('');
   const [rewardJoinRequestId, setRewardJoinRequestId] = useState('');
   const [depositRequestId, setDepositRequestId] = useState('');
+  const [recurringAddress, setRecurringAddress] = useState({
+    zipcode: '',
+    street: '',
+    number: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    complement: '',
+  });
 
   const isPremium = premiumActive(user);
   const walletAddress = user?.wallet?.address || user?.walletAddress || embeddedWallet?.address || '';
@@ -511,7 +520,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       const data = await json(`${API}/recurring-pix/link-woovi`, {
         method: 'POST',
         headers: authHeaders,
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          address: recurringAddress,
+        }),
       });
       if (data?.success === false) throw new Error(data?.message || 'Não foi possível ativar o Pix Automático.');
       setRecurring(data?.recurringPix || recurring);
@@ -1070,6 +1081,81 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             ) : (
               <Text style={styles.highlightText}>Pix Automático ainda não vinculado.</Text>
             )}
+            {!recurring.wooviSubscriptionId ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.formLabel}>
+                  Endereço exigido para autorização do Pix Automático
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="CEP"
+                  placeholderTextColor="#64748b"
+                  value={recurringAddress.zipcode}
+                  onChangeText={(value) =>
+                    setRecurringAddress((current) => ({ ...current, zipcode: value }))
+                  }
+                  keyboardType="number-pad"
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Rua"
+                  placeholderTextColor="#64748b"
+                  value={recurringAddress.street}
+                  onChangeText={(value) =>
+                    setRecurringAddress((current) => ({ ...current, street: value }))
+                  }
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Número"
+                  placeholderTextColor="#64748b"
+                  value={recurringAddress.number}
+                  onChangeText={(value) =>
+                    setRecurringAddress((current) => ({ ...current, number: value }))
+                  }
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Bairro"
+                  placeholderTextColor="#64748b"
+                  value={recurringAddress.neighborhood}
+                  onChangeText={(value) =>
+                    setRecurringAddress((current) => ({ ...current, neighborhood: value }))
+                  }
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Cidade"
+                  placeholderTextColor="#64748b"
+                  value={recurringAddress.city}
+                  onChangeText={(value) =>
+                    setRecurringAddress((current) => ({ ...current, city: value }))
+                  }
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="UF"
+                  placeholderTextColor="#64748b"
+                  value={recurringAddress.state}
+                  onChangeText={(value) =>
+                    setRecurringAddress((current) => ({
+                      ...current,
+                      state: value.toUpperCase().slice(0, 2),
+                    }))
+                  }
+                  autoCapitalize="characters"
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Complemento (opcional)"
+                  placeholderTextColor="#64748b"
+                  value={recurringAddress.complement}
+                  onChangeText={(value) =>
+                    setRecurringAddress((current) => ({ ...current, complement: value }))
+                  }
+                />
+              </View>
+            ) : null}
             <PrimaryButton
               title={config.financialExecutionEnabled ? 'Ativar Pix Automático' : 'Pix Automático bloqueado no preview'}
               onPress={linkRecurringWoovi}
