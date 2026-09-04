@@ -1,0 +1,77 @@
+name: Nexa Production-Safe Preview APK — cloud
+
+on:
+  push:
+    branches:
+      - mobile-v2.1-product-alignment
+    paths:
+      - '.github/build-triggers/production-safe-preview-cloud.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Submit production-safe APK to EAS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate production-safe contract
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety.js
+          npm run typecheck
+          npx expo-doctor
+          node <<'NODE'
+          const fs = require('fs');
+          const eas = JSON.parse(fs.readFileSync('eas.json','utf8'));
+          const p = eas?.build?.['production-safe-preview'];
+          if (p?.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Wrong production API.');
+          if (String(p?.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED) !== 'false') throw new Error('Financial execution must remain false.');
+          if (p?.android?.buildType !== 'apk') throw new Error('Expected APK.');
+          console.log('Production-safe cloud profile validated.');
+          NODE
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-p2u0.onrender.com/api/v1"
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o health.json
+          curl --fail --silent --show-error --max-time 20 "$API/app/version" -o version.json
+          node <<'NODE'
+          const fs=require('fs');
+          const h=JSON.parse(fs.readFileSync('health.json','utf8'));
+          const v=JSON.parse(fs.readFileSync('version.json','utf8'));
+          if (String(h.status||'').toLowerCase()!=='ok') throw new Error('Production health not OK.');
+          if (v.success!==true || String(v.latestVersion||'')!=='2.0.11' || Number(v.latestBuild||0)<104) throw new Error('Production version contract not ready.');
+          if (Number(v.minimumBuild||0)>104) throw new Error('Production blocks build 104.');
+          console.log('Production backend preflight passed.');
+          NODE
+
+      - name: Submit production-safe APK
+        env:
+          CI: 'true'
+        run: eas build --platform android --profile production-safe-preview --non-interactive --no-wait
+
+      - name: Safety boundary
+        run: |
+          echo "Production API."
+          echo "Financial execution remains false."
+          echo "Internal APK only."
