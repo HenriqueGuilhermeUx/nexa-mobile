@@ -2,6 +2,11 @@ name: Release Android API 36 AAB — manual after homologation
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/build-triggers/release-android-api36.txt'
 
 permissions:
   contents: write
