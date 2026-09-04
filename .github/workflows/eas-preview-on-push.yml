@@ -59,23 +59,7 @@ jobs:
             echo 'EAS_PROFILE=production-safe-preview' >> "$GITHUB_ENV"
             echo 'PREVIEW_API=https://nexa-backend-p2u0.onrender.com/api/v1' >> "$GITHUB_ENV"
             echo 'PREVIEW_LABEL=production-safe' >> "$GITHUB_ENV"
-            node <<'NODE'
-            const fs = require('fs');
-            const p = 'app.json';
-            const app = JSON.parse(fs.readFileSync(p, 'utf8'));
-            const source = fs.readFileSync('src/components/AlignedLegacyApp.tsx', 'utf8');
-            if (!source.includes('Fale com a Nexa') || !source.includes('551333289704')) {
-              throw new Error('Fale com a Nexa / WhatsApp support missing.');
-            }
-            app.expo.android.versionCode = 105;
-            app.expo.ios.buildNumber = '105';
-            app.expo.extra.apiUrl = 'https://nexa-backend-p2u0.onrender.com/api/v1';
-            app.expo.extra.financialExecutionEnabled = false;
-            app.expo.extra.releaseChannel = 'production-safe-preview';
-            app.expo.extra.releaseBuild = 'android16-api36-2.0.11-v105-production-safe-preview';
-            fs.writeFileSync(p, JSON.stringify(app, null, 2) + '\n');
-            console.log('Production-safe build patched to versionCode 105 in CI only.');
-            NODE
+            node scripts/prepare-production-safe-preview.js
           else
             echo 'EAS_PROFILE=preview' >> "$GITHUB_ENV"
             echo 'PREVIEW_API=https://nexa-backend-wallet-v15-staging.onrender.com/api/v1' >> "$GITHUB_ENV"
