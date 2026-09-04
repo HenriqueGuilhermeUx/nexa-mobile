@@ -339,6 +339,18 @@ export default function App() {
     return String(value || '').replace('@', '').trim().toLowerCase();
   }
 
+  function newClientRequestId(prefix) {
+    return (
+      String(prefix || 'mobile') +
+      '_' +
+      String(user?.id || 'user') +
+      '_' +
+      Date.now() +
+      '_' +
+      Math.random().toString(36).slice(2, 10)
+    );
+  }
+
   async function abrirLink(url) {
     try {
       await Linking.openURL(url);
@@ -1031,7 +1043,7 @@ export default function App() {
   async function carregarPortfolio() {
     if (!user || !user.id) return;
     try {
-      const r = await fetch(API + '/swap/portfolio?userId=' + user.id, {
+      const r = await fetch(API + '/swap/portfolio', {
         headers: {
           Authorization: 'Bearer ' + token,
         },
@@ -1070,16 +1082,19 @@ export default function App() {
       show('Faça login primeiro');
       return;
     }
-    if (!canUseAsset(investmentAsset)) {
-      show(investmentAsset + ' é um ativo exclusivo para clientes Nexa Premium.');
-      setPage('premium');
+
+    const asset = String(investmentAsset || '').toUpperCase();
+    if (!canUseAsset(asset) || asset === 'USDC') {
+      show('Escolha BTC, ETH ou XAUT.');
       return;
     }
+
     const amount = parseAmount(investmentAmount);
     if (!amount || amount <= 0) {
       show('Informe um valor USDC válido');
       return;
     }
+
     try {
       const r = await fetch(API + '/swap/investment-quote', {
         method: 'POST',
@@ -1088,16 +1103,15 @@ export default function App() {
           Authorization: 'Bearer ' + token,
         },
         body: JSON.stringify({
-          userId: user.id,
-          toAsset: investmentAsset,
+          toAsset: asset,
           amountUsdc: amount,
         }),
       });
       const data = await r.json();
       setInvestmentQuote(data);
-      show(data);
+      if (!r.ok || !data.success) show(data);
     } catch (e) {
-      show('Erro cotação: ' + e.message);
+      show('Erro na cotação: ' + e.message);
     }
   }
 
@@ -1106,16 +1120,19 @@ export default function App() {
   }
 
   async function executarInvestimento() {
-    if (!canUseAsset(investmentAsset)) {
-      show(investmentAsset + ' é um ativo exclusivo para clientes Nexa Premium.');
-      setPage('premium');
+    const asset = String(investmentAsset || '').toUpperCase();
+    if (!['BTC', 'ETH', 'XAUT'].includes(asset)) {
+      show('Escolha BTC, ETH ou XAUT.');
       return;
     }
     if (!investmentQuote || !investmentQuote.allowed) {
       show('Faça uma cotação válida primeiro');
       return;
     }
+
     const amount = parseAmount(investmentAmount);
+    const clientRequestId = newClientRequestId('asset_buy');
+
     try {
       const r = await fetch(API + '/swap/investment-execute', {
         method: 'POST',
@@ -1124,9 +1141,9 @@ export default function App() {
           Authorization: 'Bearer ' + token,
         },
         body: JSON.stringify({
-          userId: user.id,
-          toAsset: investmentAsset,
+          toAsset: asset,
           amountUsdc: amount,
+          clientRequestId,
         }),
       });
       const data = await r.json();
@@ -1139,7 +1156,7 @@ export default function App() {
         carregarAtividadesAtivos();
       }
     } catch (e) {
-      show('Erro investimento: ' + e.message);
+      show('Erro na compra do ativo: ' + e.message);
     }
   }
 
@@ -1148,6 +1165,19 @@ export default function App() {
       show('Faça login primeiro');
       return;
     }
+
+    const asset = String(redeemAsset || '').toUpperCase();
+    if (!['BTC', 'ETH', 'XAUT'].includes(asset)) {
+      show('Escolha BTC, ETH ou XAUT.');
+      return;
+    }
+
+    const amount = parseAmount(redeemAmount);
+    if (!amount || amount <= 0) {
+      show('Informe uma quantidade válida.');
+      return;
+    }
+
     try {
       const r = await fetch(API + '/swap/redeem-quote', {
         method: 'POST',
@@ -1156,16 +1186,15 @@ export default function App() {
           Authorization: 'Bearer ' + token,
         },
         body: JSON.stringify({
-          userId: user.id,
-          fromAsset: redeemAsset,
-          amount: Number(redeemAmount),
+          fromAsset: asset,
+          amount,
         }),
       });
       const data = await r.json();
       setRedeemQuote(data);
-      show(e.message);
+      if (!r.ok || !data.success) show(data);
     } catch (e) {
-      show(e.message);
+      show('Erro na cotação de venda: ' + e.message);
     }
   }
 
@@ -1174,6 +1203,21 @@ export default function App() {
       show('Faça login primeiro');
       return;
     }
+
+    const asset = String(redeemAsset || '').toUpperCase();
+    if (!['BTC', 'ETH', 'XAUT'].includes(asset)) {
+      show('Escolha BTC, ETH ou XAUT.');
+      return;
+    }
+
+    const amount = parseAmount(redeemAmount);
+    if (!amount || amount <= 0) {
+      show('Informe uma quantidade válida.');
+      return;
+    }
+
+    const clientRequestId = newClientRequestId('asset_sell');
+
     try {
       const r = await fetch(API + '/swap/redeem-execute', {
         method: 'POST',
@@ -1182,9 +1226,9 @@ export default function App() {
           Authorization: 'Bearer ' + token,
         },
         body: JSON.stringify({
-          userId: user.id,
-          fromAsset: redeemAsset,
-          amount: Number(redeemAmount),
+          fromAsset: asset,
+          amount,
+          clientRequestId,
         }),
       });
       const data = await r.json();
@@ -1197,7 +1241,7 @@ export default function App() {
         carregarAtividadesAtivos();
       }
     } catch (e) {
-      show(e.message);
+      show('Erro na venda do ativo: ' + e.message);
     }
   }
 
