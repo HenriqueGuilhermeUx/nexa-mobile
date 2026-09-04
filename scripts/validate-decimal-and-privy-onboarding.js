@@ -71,7 +71,9 @@ assert.match(kyc, /retry_selfie/);
 
 // A tela da carteira continua no pacote para uso voluntário, mas não aparece
 // em nenhum redirecionamento obrigatório de login, cadastro ou KYC.
-assert.match(onboarding, /Criar carteira e continuar/);
+assert.match(onboarding, /Criar Minha Carteira/);
+assert.match(onboarding, /Vincular carteira/);
+assert.match(onboarding, /Premium/);
 assert.equal(appConfig.extra.privyOptional, true);
 assert.equal(appConfig.extra.balanceSource, 'ledger');
 assert.equal(appConfig.extra.ledgerOperationsEnabled, true);
