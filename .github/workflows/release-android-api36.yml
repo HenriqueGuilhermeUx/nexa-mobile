@@ -106,15 +106,15 @@ jobs:
 
           const latestBuild = Number(version.latestBuild || 0);
           const latestVersion = String(version.latestVersion || '');
-          if (latestBuild < 104 || latestVersion !== '2.0.11') {
+          if (latestBuild < 105 || latestVersion !== '2.0.11') {
             throw new Error(
-              'Production backend is not advertising Nexa 2.0.11 build 104: ' +
+              'Production backend is not advertising Nexa 2.0.11 build 105: ' +
                 JSON.stringify(version),
             );
           }
 
           const minimumBuild = Number(version.minimumBuild || 0);
-          if (minimumBuild > 104) {
+          if (minimumBuild > 105) {
             throw new Error('Production would block the release build itself.');
           }
 
@@ -184,8 +184,8 @@ jobs:
           assert.equal(String(android.buildToolsVersion), '36.0.0');
           assert.equal(Number(app.extra?.androidTargetApi), 36);
           assert.equal(app.version, '2.0.11');
-          assert.equal(Number(app.android?.versionCode), 104);
-          console.log('Android API 36 e Nexa 2.0.11 v104 confirmados no app.json.');
+          assert.equal(Number(app.android?.versionCode), 105);
+          console.log('Android API 36 e Nexa 2.0.11 v105 confirmados no app.json.');
           NODE
 
       - name: Prove API 36 was applied by Expo prebuild
@@ -226,11 +226,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
           EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
           EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
-          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v104
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v104
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v105
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v105
         run: |
           set -euo pipefail
-          FILE='Nexa-2.0.11-Android16-v104.aab'
+          FILE='Nexa-2.0.11-Android16-v105.aab'
           rm -f "$FILE"
           eas build \
             --platform android \
@@ -258,17 +258,17 @@ jobs:
             > aab-manifest.xml
           cat aab-manifest.xml
           grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
-          grep -Eq 'android:versionCode="104"' aab-manifest.xml
+          grep -Eq 'android:versionCode="105"' aab-manifest.xml
           grep -Eq 'android:versionName="2\.0\.11"' aab-manifest.xml
           grep -Eq 'android:targetSdkVersion="36"' aab-manifest.xml \
             || (echo 'ERRO: AAB final não segmenta Android API 36' && exit 1)
-          echo 'AAB final comprovado: Nexa 2.0.11 v104 targetSdkVersion=36.'
+          echo 'AAB final comprovado: Nexa 2.0.11 v105 targetSdkVersion=36.'
 
       - name: Upload verified AAB artifact
         if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.11-Android16-v104-VERIFIED
+          name: Nexa-2.0.11-Android16-v105-VERIFIED
           path: |
             ${{ env.aab_file }}
             aab-manifest.xml
@@ -282,7 +282,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='nexa-2.0.11-android16-v104'
+          TAG='nexa-2.0.11-android16-v105'
           printf '%s  %s\n' "${{ env.aab_sha256 }}" "${{ env.aab_file }}" > SHA256SUMS.txt
           gh release delete "$TAG" --yes --cleanup-tag || true
           gh release create "$TAG" \
@@ -290,24 +290,24 @@ jobs:
             aab-manifest.xml \
             SHA256SUMS.txt \
             --target "${GITHUB_SHA}" \
-            --title 'Nexa 2.0.11 · Brasil KYC · Android 16 · API 36 · v104' \
-            --notes "Google Play AAB VERIFIED. Brazil KYC routing: CPF + Didit liveness/Unico-ready flow. Built locally on GitHub Actions. Package br.com.trynexa.app. Version 2.0.11. versionCode 104. targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
+            --title 'Nexa 2.0.11 · Brasil KYC · Android 16 · API 36 · v105' \
+            --notes "Google Play AAB VERIFIED. Brazil KYC routing: CPF + Didit liveness/Unico-ready flow. Built locally on GitHub Actions. Package br.com.trynexa.app. Version 2.0.11. versionCode 105. targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
 
       - name: Upload local build diagnostics on failure
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-2.0.11-v104-local-build-diagnostics
+          name: Nexa-2.0.11-v105-local-build-diagnostics
           path: |
-            ${{ runner.temp }}/nexa-eas-local-v104/logs
-            local-build-artifacts-v104
+            ${{ runner.temp }}/nexa-eas-local-v105/logs
+            local-build-artifacts-v105
           if-no-files-found: warn
           retention-days: 14
 
       - name: Record final release outcome
         if: ${{ always() }}
         env:
-          RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.11-android16-v104/Nexa-2.0.11-Android16-v104.aab
+          RELEASE_DOWNLOAD_URL: https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.11-android16-v105/Nexa-2.0.11-Android16-v105.aab
           BUILD_STATUS: ${{ job.status }}
           SAFETY_STATUS: ${{ steps.safety.conclusion }}
           DECIMAL_STATUS: ${{ steps.decimal_privy.conclusion }}
@@ -323,8 +323,8 @@ jobs:
           RELEASE_STATUS: ${{ steps.publish_release.conclusion }}
         run: |
           set -euo pipefail
-          STATUS_PATH='release-status/android-2.0.11-v104.json'
-          STATUS_TMP="$RUNNER_TEMP/android-2.0.11-v104.json"
+          STATUS_PATH='release-status/android-2.0.11-v105.json'
+          STATUS_TMP="$RUNNER_TEMP/android-2.0.11-v105.json"
           mkdir -p release-status
           AAB_FILE="${aab_file:-}"
           AAB_SHA256="${aab_sha256:-}"
@@ -332,7 +332,7 @@ jobs:
           {
             "status": "$BUILD_STATUS",
             "version": "2.0.11",
-            "versionCode": 104,
+            "versionCode": 105,
             "package": "br.com.trynexa.app",
             "buildMode": "github-actions-local-eas",
             "compileSdk": 36,
