@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -11,7 +11,11 @@ import {
   Title,
 } from '@/components/ui';
 import { nexaApi, tokensFromLogin } from '@/lib/api';
-import { clearNexaSession, saveNexaSession } from '@/lib/session';
+import {
+  clearNexaTokens,
+  loadNexaEmail,
+  saveNexaSession,
+} from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
 export default function SignInScreen() {
@@ -19,6 +23,16 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    void loadNexaEmail().then((savedEmail) => {
+      if (active && savedEmail) setEmail(savedEmail);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function authenticateNexa() {
     const normalizedEmail = email.trim().toLowerCase();
@@ -45,7 +59,7 @@ export default function SignInScreen() {
         router.replace('/kyc' as any);
       }
     } catch (caught) {
-      await clearNexaSession();
+      await clearNexaTokens();
       setError(
         caught instanceof Error ? caught.message : 'Não foi possível entrar.',
       );
@@ -59,7 +73,9 @@ export default function SignInScreen() {
       <Brand />
       <View style={styles.topSpace} />
       <Title>Entrar</Title>
-      <Paragraph>Acesse sua conta Nexa.</Paragraph>
+      <Paragraph>
+        Seu e-mail fica lembrado neste aparelho. Por segurança, sua senha não é armazenada.
+      </Paragraph>
 
       <Field
         label="E-mail"
