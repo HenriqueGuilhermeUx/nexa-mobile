@@ -83,6 +83,7 @@ export default function CustodyScreen({
   apiUrl = DEFAULT_API,
   financialExecutionEnabled = false,
   onSendExternalUsdc,
+  clientHeaders = {},
   privyWalletReady = false,
 }) {
   const API = String(apiUrl || DEFAULT_API).replace(/\/$/, '');
@@ -101,6 +102,7 @@ export default function CustodyScreen({
 
   const authHeaders = {
     'Content-Type': 'application/json',
+    ...clientHeaders,
     ...(token ? { Authorization: 'Bearer ' + token } : {}),
   };
 
