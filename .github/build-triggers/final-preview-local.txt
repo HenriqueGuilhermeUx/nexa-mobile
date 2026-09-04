@@ -1,0 +1,5 @@
+Nexa 2.0.10 v103 final local preview fallback
+Source functional code: f82fb98874f46c87c6746a895ad33ace73f6ac7e
+Preview API: nexa-backend-wallet-v15-staging
+Financial execution: false
+Triggered: 2026-09-04
