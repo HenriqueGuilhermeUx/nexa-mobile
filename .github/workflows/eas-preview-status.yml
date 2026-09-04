@@ -32,6 +32,80 @@ jobs:
       - name: Install project dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Smoke-test Wallet V1.5 staging runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-wallet-v15-staging.onrender.com/api/v1"
+
+          healthy=""
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error --max-time 20 "$API/health" -o staging-health.json; then
+              healthy="yes"
+              break
+            fi
+            echo "Staging health attempt $attempt failed; retrying..."
+            sleep 10
+          done
+
+          if [ "$healthy" != "yes" ]; then
+            echo "Wallet V1.5 staging did not become healthy."
+            exit 1
+          fi
+
+          curl --fail --silent --show-error --max-time 20 "$API/app/version" -o staging-version.json
+
+          node <<'NODE'
+          const fs = require('fs');
+          const health = JSON.parse(fs.readFileSync('staging-health.json', 'utf8'));
+          const version = JSON.parse(fs.readFileSync('staging-version.json', 'utf8'));
+
+          if (String(health.status || '').toLowerCase() !== 'ok') {
+            throw new Error('Staging health payload is not OK: ' + JSON.stringify(health));
+          }
+          if (version.success !== true) {
+            throw new Error('Staging version policy is unavailable: ' + JSON.stringify(version));
+          }
+
+          const minimumBuild = Number(version.minimumBuild || 0);
+          const minimumVersion = String(version.minimumVersion || '');
+          const appBuild = 103;
+          const appVersion = '2.0.10';
+
+          function compareVersions(a, b) {
+            const left = String(a).split('.').map(Number);
+            const right = String(b).split('.').map(Number);
+            const length = Math.max(left.length, right.length);
+            for (let i = 0; i < length; i += 1) {
+              const l = left[i] || 0;
+              const r = right[i] || 0;
+              if (l > r) return 1;
+              if (l < r) return -1;
+            }
+            return 0;
+          }
+
+          if (minimumBuild > appBuild || compareVersions(minimumVersion, appVersion) > 0) {
+            throw new Error(
+              'Staging version policy would block Nexa ' +
+                appVersion +
+                ' build ' +
+                appBuild +
+                ': ' +
+                JSON.stringify(version),
+            );
+          }
+
+          console.log('Wallet V1.5 staging runtime healthy.');
+          console.log(
+            'Version policy accepts Nexa ' +
+              appVersion +
+              ' build ' +
+              appBuild +
+              '.',
+          );
+          NODE
+
       - name: Read and inspect build
         shell: bash
         run: |
