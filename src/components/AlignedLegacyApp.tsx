@@ -17,6 +17,24 @@ import { nexaApi } from '@/lib/api';
 import CustodyScreen from '../../nexa-mobile/nexa-mobile/CustodyScreen';
 
 const API = config.apiUrl.replace(/\/$/, '');
+const POLYGON_CHAIN_ID = 137;
+const POLYGON_USDC_CONTRACT = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
+
+function encodeUsdcTransfer(toAddress: string, amountUsdc: number) {
+  const cleanAddress = String(toAddress || '').trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(cleanAddress)) {
+    throw new Error('Endereço de destino inválido.');
+  }
+
+  const atomic = BigInt(Math.round(Number(amountUsdc) * 1_000_000));
+  if (atomic <= 0n) throw new Error('Valor USDC inválido.');
+
+  const selector = 'a9059cbb';
+  const addressWord = cleanAddress.slice(2).toLowerCase().padStart(64, '0');
+  const amountWord = atomic.toString(16).padStart(64, '0');
+  return `0x${selector}${addressWord}${amountWord}`;
+}
+
 const ASSETS = [
   { symbol: 'USDC', name: 'USD Coin', icon: '💵', description: 'Dólar digital para saldo, Pix, assinatura e transferências Nexa.' },
   { symbol: 'BTC', name: 'Bitcoin', icon: '₿', description: 'Bitcoin disponível dentro da Nexa.' },
@@ -552,6 +570,86 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       setMessage(error.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function sendExternalPrivyUsdc({
+    toAddress,
+    amountUsdc,
+  }: {
+    toAddress: string;
+    amountUsdc: number;
+  }) {
+    if (!config.financialExecutionEnabled) {
+      throw new Error('Envio externo está bloqueado neste build de preview.');
+    }
+    if (!embeddedWallet?.address) {
+      throw new Error('Carteira Privy não está disponível neste dispositivo.');
+    }
+
+    const linkedAddress = String(walletAddress || '').toLowerCase();
+    const deviceAddress = String(embeddedWallet.address || '').toLowerCase();
+    if (linkedAddress && linkedAddress !== deviceAddress) {
+      throw new Error(
+        'A carteira Privy deste dispositivo não corresponde à carteira vinculada à sua conta Nexa.',
+      );
+    }
+
+    const value = Number(amountUsdc);
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error('Informe um valor USDC válido.');
+    }
+
+    const cleanTo = String(toAddress || '').trim();
+    const transferData = encodeUsdcTransfer(cleanTo, value);
+
+    if (typeof embeddedWallet.switchChain === 'function') {
+      await embeddedWallet.switchChain(POLYGON_CHAIN_ID);
+    }
+
+    const provider = await embeddedWallet.getProvider();
+    const result = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [
+        {
+          from: embeddedWallet.address,
+          to: POLYGON_USDC_CONTRACT,
+          value: '0x0',
+          data: transferData,
+        },
+      ],
+    });
+
+    const txHash =
+      typeof result === 'string'
+        ? result
+        : String((result as any)?.hash || (result as any)?.transactionHash || '');
+
+    if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+      throw new Error(
+        'A carteira assinou a operação, mas não retornou um hash de transação válido.',
+      );
+    }
+
+    try {
+      const journal = await json(`${API}/wallet/my-privy/journal-usdc-send`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          txHash,
+          toAddress: cleanTo,
+          amountUsdc: value,
+        }),
+      });
+      return { txHash, journal };
+    } catch (journalError: any) {
+      return {
+        txHash,
+        journal: null,
+        journalWarning:
+          journalError?.message ||
+          'Transação enviada; o registro Nexa será conciliado posteriormente.',
+      };
     }
   }
 
@@ -1117,6 +1215,13 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         financialExecutionEnabled={config.financialExecutionEnabled}
         onBack={() => setPage('wallet')}
         onBalanceRefresh={loadAll}
+        onSendExternalUsdc={sendExternalPrivyUsdc}
+        privyWalletReady={Boolean(
+          embeddedWallet?.address &&
+            (!walletAddress ||
+              String(embeddedWallet.address).toLowerCase() ===
+                String(walletAddress).toLowerCase()),
+        )}
       />
     ) : (
       <Premium />
