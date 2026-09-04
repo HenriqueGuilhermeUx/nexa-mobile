@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -61,6 +62,11 @@ function amount(value: any, digits = 6) {
   return Number.isFinite(n)
     ? n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: digits })
     : '0';
+}
+
+function newClientRequestId(prefix: string, userId?: string) {
+  const safeUser = String(userId || 'user').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 36);
+  return `${prefix}_${safeUser}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function money(value: any) {
@@ -170,6 +176,11 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   const [withdrawAmountUsdc, setWithdrawAmountUsdc] = useState('');
   const [withdrawPixKey, setWithdrawPixKey] = useState('');
   const [withdrawQuote, setWithdrawQuote] = useState<any>(null);
+  const [internalTransferRequestId, setInternalTransferRequestId] = useState('');
+  const [assetBuyRequestId, setAssetBuyRequestId] = useState('');
+  const [assetSellRequestId, setAssetSellRequestId] = useState('');
+  const [pixOutRequestId, setPixOutRequestId] = useState('');
+  const [rewardAmountUsdc, setRewardAmountUsdc] = useState('');
 
   const isPremium = premiumActive(user);
   const walletAddress = user?.wallet?.address || user?.walletAddress || embeddedWallet?.address || '';
@@ -196,13 +207,30 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     [nexaId, handle, user?.fullName, user?.kycStatus, walletAddress, walletNetwork],
   );
 
+  const clientHeaders = useMemo(
+    () => ({
+      'X-Nexa-App-Version': config.appVersion,
+      'X-Nexa-App-Build': config.appBuild,
+      'X-Nexa-Platform': Platform.OS,
+    }),
+    [],
+  );
+
   const authHeaders = useMemo(
-    () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }),
-    [token],
+    () => ({
+      'Content-Type': 'application/json',
+      ...clientHeaders,
+      Authorization: `Bearer ${token}`,
+    }),
+    [clientHeaders, token],
   );
 
   async function json(url: string, options: any = {}) {
-    const response = await fetch(url, options);
+    const headers = {
+      ...clientHeaders,
+      ...(options.headers || {}),
+    };
+    const response = await fetch(url, { ...options, headers });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(data?.message || data?.error || `Falha ${response.status}`);
@@ -277,22 +305,27 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     if (!value || value <= 0) return setMessage('Informe um valor USDC válido.');
     try {
       setLoading(true);
+      const requestId =
+        internalTransferRequestId ||
+        newClientRequestId('mobile_transfer', user.id);
+      if (!internalTransferRequestId) setInternalTransferRequestId(requestId);
+
       const data = await json(`${API}/internal-transfer/send-by-username`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
           asset: 'USDC',
-          fromUserId: user.id,
           toUsername: recipient.username || username.replace('@', ''),
           amountUsdc: value,
           note: 'Nexa mobile',
-          clientRequestId: `mobile_${user.id}_${Date.now()}`,
+          clientRequestId: requestId,
         }),
       });
       setMessage(data?.message || 'USDC enviado com sucesso.');
       setUsername('');
       setRecipient(null);
       setSendAmount('');
+      setInternalTransferRequestId('');
       await loadAll();
     } catch (error: any) {
       setMessage(error.message);
@@ -313,6 +346,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         body: JSON.stringify({ toAsset: asset, amountUsdc: value }),
       });
       setAssetQuote(data);
+      if (data?.allowed !== false) {
+        setAssetBuyRequestId(newClientRequestId(`mobile_buy_${asset}`, user.id));
+      }
       setMessage(data?.allowed === false ? data?.reason || 'Cotação indisponível.' : 'Cotação atualizada.');
     } catch (error: any) {
       setMessage(error.message);
@@ -335,12 +371,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         body: JSON.stringify({
           toAsset: asset,
           amountUsdc: value,
-          clientRequestId: `mobile_buy_${user.id}_${asset}_${Date.now()}`,
+          clientRequestId:
+            assetBuyRequestId ||
+            newClientRequestId(`mobile_buy_${asset}`, user.id),
         }),
       });
       setMessage(data?.message || `${asset} confirmado na Nexa.`);
       setAssetAmountUsdc('');
       setAssetQuote(null);
+      setAssetBuyRequestId('');
       await loadAll();
     } catch (error: any) {
       setMessage(error.message);
@@ -360,6 +399,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         body: JSON.stringify({ fromAsset: asset, amount: value }),
       });
       setSellQuote(data);
+      if (data?.allowed !== false) {
+        setAssetSellRequestId(newClientRequestId(`mobile_sell_${asset}`, user.id));
+      }
       setMessage(data?.allowed === false ? data?.reason || 'Cotação indisponível.' : 'Cotação de saída atualizada.');
     } catch (error: any) {
       setMessage(error.message);
@@ -382,12 +424,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         body: JSON.stringify({
           fromAsset: asset,
           amount: value,
-          clientRequestId: `mobile_sell_${user.id}_${asset}_${Date.now()}`,
+          clientRequestId:
+            assetSellRequestId ||
+            newClientRequestId(`mobile_sell_${asset}`, user.id),
         }),
       });
       setMessage(data?.message || `${asset} convertido para USDC.`);
       setSellAmount('');
       setSellQuote(null);
+      setAssetSellRequestId('');
       await loadAll();
     } catch (error: any) {
       setMessage(error.message);
@@ -533,6 +578,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         body: JSON.stringify({ amountUsdc: value }),
       });
       setWithdrawQuote(data);
+      setPixOutRequestId(newClientRequestId('mobile_pixout', user.id));
       setMessage('Cotação Pix atualizada.');
     } catch (error: any) {
       setMessage(error.message);
@@ -558,13 +604,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           amountUsdc: value,
           expectedNetBrl: Number(withdrawQuote?.netBrl || 0),
           pixKey: key,
-          clientRequestId: `mobile_pixout_${user.id}_${Date.now()}`,
+          clientRequestId:
+            pixOutRequestId || newClientRequestId('mobile_pixout', user.id),
         }),
       });
       setMessage(data?.message || 'Solicitação Pix registrada.');
       setWithdrawAmountUsdc('');
       setWithdrawPixKey('');
       setWithdrawQuote(null);
+      setPixOutRequestId('');
       await loadAll();
     } catch (error: any) {
       setMessage(error.message);
@@ -737,8 +785,8 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <Text style={styles.highlightTitle}>{isPremium ? 'Sua experiência ampliada.' : 'Mais autonomia dentro e fora da Nexa.'}</Text>
           <Text style={styles.highlightText}>
             {isPremium
-              ? 'Entrada Premium de 4%, carteira individual e recursos adicionais de movimentação.'
-              : 'Entrada de 4% no Premium, carteira individual e recursos on-chain. No plano padrão, a entrada Nexa é 8%.'}
+              ? 'Taxas menores, carteira individual e recursos adicionais de movimentação.'
+              : 'Taxas menores, carteira individual, recebimento externo e recursos on-chain.'}
           </Text>
           <PrimaryButton title={isPremium ? 'Ver meus recursos Premium' : 'Conhecer Nexa Premium'} onPress={() => setPage('premium')} secondary />
         </Card>
@@ -823,6 +871,8 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
                 setAsset(item.symbol);
                 setAssetQuote(null);
                 setSellQuote(null);
+                setAssetBuyRequestId('');
+                setAssetSellRequestId('');
               }}
             >
               <Text style={styles.assetIcon}>{item.icon}</Text>
@@ -836,7 +886,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             <Text style={styles.assetRowTitle}>{ASSETS.find((item) => item.symbol === asset)?.name}</Text>
             <Text style={styles.highlightText}>{ASSETS.find((item) => item.symbol === asset)?.description}</Text>
             <Text style={styles.formLabel}>Comprar usando USDC</Text>
-            <TextInput style={styles.input} placeholder="Valor em USDC" placeholderTextColor="#64748b" value={assetAmountUsdc} onChangeText={(v) => { setAssetAmountUsdc(v); setAssetQuote(null); }} keyboardType="decimal-pad" />
+            <TextInput style={styles.input} placeholder="Valor em USDC" placeholderTextColor="#64748b" value={assetAmountUsdc} onChangeText={(v) => { setAssetAmountUsdc(v); setAssetQuote(null); setAssetBuyRequestId(''); }} keyboardType="decimal-pad" />
             <PrimaryButton title="Ver cotação" onPress={quoteAsset} disabled={loading} />
             {assetQuote?.allowed ? (
               <View style={styles.quoteBox}>
@@ -848,7 +898,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             ) : null}
             <View style={styles.divider} />
             <Text style={styles.formLabel}>Converter {asset} para USDC</Text>
-            <TextInput style={styles.input} placeholder={`Quantidade de ${asset}`} placeholderTextColor="#64748b" value={sellAmount} onChangeText={(v) => { setSellAmount(v); setSellQuote(null); }} keyboardType="decimal-pad" />
+            <TextInput style={styles.input} placeholder={`Quantidade de ${asset}`} placeholderTextColor="#64748b" value={sellAmount} onChangeText={(v) => { setSellAmount(v); setSellQuote(null); setAssetSellRequestId(''); }} keyboardType="decimal-pad" />
             <PrimaryButton title="Ver cotação de saída" onPress={quoteSell} disabled={loading} secondary />
             {sellQuote?.allowed ? (
               <View style={styles.quoteBox}>
@@ -870,11 +920,11 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Text style={styles.pageSubtitle}>Entre clientes Nexa, as transferências são instantâneas no saldo interno e somente em USDC.</Text>
         <Card>
           <Text style={styles.formLabel}>Destinatário Nexa</Text>
-          <TextInput style={styles.input} placeholder="@username" placeholderTextColor="#64748b" value={username} onChangeText={(v) => { setUsername(v); setRecipient(null); }} autoCapitalize="none" />
+          <TextInput style={styles.input} placeholder="@username" placeholderTextColor="#64748b" value={username} onChangeText={(v) => { setUsername(v); setRecipient(null); setInternalTransferRequestId(''); }} autoCapitalize="none" />
           <PrimaryButton title="Verificar usuário" onPress={findRecipient} secondary />
           {recipient ? <Text style={styles.successText}>✓ {recipient.fullName} · {recipient.handle || `@${recipient.username}`}</Text> : null}
           <Text style={styles.formLabel}>Valor</Text>
-          <TextInput style={styles.input} placeholder="USDC" placeholderTextColor="#64748b" value={sendAmount} onChangeText={setSendAmount} keyboardType="decimal-pad" />
+          <TextInput style={styles.input} placeholder="USDC" placeholderTextColor="#64748b" value={sendAmount} onChangeText={(v) => { setSendAmount(v); setInternalTransferRequestId(''); }} keyboardType="decimal-pad" />
           <PrimaryButton title="Enviar USDC" onPress={sendInternal} disabled={!recipient || loading} />
         </Card>
         <Card style={canAccessCustody ? styles.highlightPremium : undefined}>
@@ -900,11 +950,11 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     return (
       <>
         <Text style={styles.pageTitle}>Nexa Premium</Text>
-        <Text style={styles.pageSubtitle}>Mais autonomia e melhores condições, sem limitar os ativos do plano padrão.</Text>
+        <Text style={styles.pageSubtitle}>Mais autonomia, taxas menores e recursos adicionais dentro e fora da Nexa.</Text>
         <Card style={styles.highlightPremium}>
           <Text style={styles.premiumEyebrow}>{isPremium ? 'PREMIUM ATIVO' : 'CONDIÇÕES PREMIUM'}</Text>
-          <Text style={styles.highlightTitle}>Entrada Nexa de 4%</Text>
-          <Text style={styles.highlightText}>No plano padrão, a taxa de entrada Nexa é 8%. Custos externos e de execução são tratados separadamente.</Text>
+          <Text style={styles.highlightTitle}>Condições melhores para usar a Nexa</Text>
+          <Text style={styles.highlightText}>Taxas menores em operações elegíveis, carteira individual e recursos adicionais de movimentação.</Text>
         </Card>
         <Card>
           <Text style={styles.benefit}>✓ USDC, BTC, ETH e Ouro Digital disponíveis para todos</Text>
@@ -1089,6 +1139,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             onChangeText={(value) => {
               setWithdrawAmountUsdc(value);
               setWithdrawQuote(null);
+              setPixOutRequestId('');
             }}
             keyboardType="decimal-pad"
           />
@@ -1216,6 +1267,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         onBack={() => setPage('wallet')}
         onBalanceRefresh={loadAll}
         onSendExternalUsdc={sendExternalPrivyUsdc}
+        clientHeaders={clientHeaders}
         privyWalletReady={Boolean(
           embeddedWallet?.address &&
             (!walletAddress ||
