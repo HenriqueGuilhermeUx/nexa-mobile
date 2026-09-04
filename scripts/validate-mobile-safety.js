@@ -30,6 +30,7 @@ const legacyBridge = read('app/legacy.js');
 const alignedApp = read('src/components/AlignedLegacyApp.tsx');
 const financialBridge = read('src/lib/legacy-financial-fetch-bridge.js');
 const legacyPixApp = read('nexa-mobile/nexa-mobile/App.js');
+const custodyScreen = read('nexa-mobile/nexa-mobile/CustodyScreen.js');
 const babelConfig = read('babel.config.js');
 const pixRouteTransform = read('scripts/babel-replace-legacy-pix-route.js');
 const artifactValidator = read('scripts/validate-built-artifact.js');
@@ -76,6 +77,7 @@ assert.match(config, /103/);
 assert.match(config, /androidTargetApi/);
 assert.match(config, /EXPO_PUBLIC_NEXA_API_URL/);
 assert.match(config, /EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED/);
+assert.match(config, /EXPO_PUBLIC_NEXA_RELEASE_CHANNEL/);
 assert.match(api, /X-Nexa-App-Version/);
 assert.match(api, /X-Nexa-App-Build/);
 assert.match(api, /X-Nexa-Platform/);
@@ -157,6 +159,15 @@ assert.match(alignedApp, /hasExistingWallet/);
 assert.match(alignedApp, /canAccessCustody\s*=\s*isPremium\s*\|\|\s*hasExistingWallet/);
 assert.match(alignedApp, /Geração de cobrança Pix está bloqueada neste build de preview/);
 assert.match(alignedApp, /Solicitação de Pix está bloqueada neste build de preview/);
+assert.match(alignedApp, /apiUrl=\{API\}/);
+assert.match(alignedApp, /financialExecutionEnabled=\{config\.financialExecutionEnabled\}/);
+assert.match(custodyScreen, /apiUrl = DEFAULT_API/);
+assert.match(custodyScreen, /financialExecutionEnabled = false/);
+assert.match(custodyScreen, /Movimentação on-chain está bloqueada neste build de preview/);
+assert.match(custodyScreen, /Confirmação de retorno está bloqueada neste build de preview/);
+assert.doesNotMatch(custodyScreen, /custody\/overview\?userId=/);
+assert.doesNotMatch(custodyScreen, /custody\/deposit-instructions\?userId=/);
+assert.doesNotMatch(custodyScreen, /userId:\s*user\.id/);
 assert.doesNotMatch(
   alignedApp,
   /\binvest(?:ir|imento|imentos|indo|ido|ida)\b|\brendimento\b|\brentabilidade\b|\bretorno financeiro\b/i,
