@@ -1,0 +1,5 @@
+Nexa Mobile v2.1 preview APK trigger
+Source head validated green before submission.
+API profile: nexa-backend-wallet-v15-staging
+Financial execution: false
+Triggered: 2026-09-04
