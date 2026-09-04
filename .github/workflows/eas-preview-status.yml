@@ -69,8 +69,8 @@ jobs:
 
           const minimumBuild = Number(version.minimumBuild || 0);
           const minimumVersion = String(version.minimumVersion || '');
-          const appBuild = 103;
-          const appVersion = '2.0.10';
+          const appBuild = 104;
+          const appVersion = '2.0.11';
 
           function compareVersions(a, b) {
             const left = String(a).split('.').map(Number);
