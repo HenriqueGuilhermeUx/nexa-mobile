@@ -161,6 +161,16 @@ assert.match(alignedApp, /Geração de cobrança Pix está bloqueada neste build
 assert.match(alignedApp, /Solicitação de Pix está bloqueada neste build de preview/);
 assert.match(alignedApp, /apiUrl=\{API\}/);
 assert.match(alignedApp, /financialExecutionEnabled=\{config\.financialExecutionEnabled\}/);
+assert.match(alignedApp, /POLYGON_USDC_CONTRACT/);
+assert.match(alignedApp, /0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359/);
+assert.match(alignedApp, /getEthereumProvider\(\)/);
+assert.match(alignedApp, /eth_sendTransaction/);
+assert.match(alignedApp, /wallet\/my-privy\/journal-usdc-send/);
+assert.match(alignedApp, /onSendExternalUsdc=\{sendExternalPrivyUsdc\}/);
+assert.match(custodyScreen, /Receber USDC externamente/);
+assert.match(custodyScreen, /Enviar para carteira externa/);
+assert.match(custodyScreen, /onSendExternalUsdc/);
+assert.match(custodyScreen, /privyWalletReady/);
 assert.match(custodyScreen, /apiUrl = DEFAULT_API/);
 assert.match(custodyScreen, /financialExecutionEnabled = false/);
 assert.match(custodyScreen, /Movimentação on-chain está bloqueada neste build de preview/);
