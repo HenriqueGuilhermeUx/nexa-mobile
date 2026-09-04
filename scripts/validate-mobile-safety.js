@@ -131,7 +131,9 @@ assert.doesNotMatch(appLayout, /AuthBoundary|usePrivy|Privy/);
 // A experiência aprovada usa um shell alinhado, preservando o App.js antigo
 // apenas para auditoria/compatibilidade histórica e não como UI principal.
 assert.match(legacyBridge, /AlignedLegacyApp/);
-assert.match(legacyBridge, /session\.accessToken/);
+assert.match(legacyBridge, /activeSession\.accessToken/);
+assert.match(legacyBridge, /nexaApi\.refresh/);
+assert.match(legacyBridge, /saveNexaSession/);
 assert.doesNotMatch(legacyBridge, /<LegacyApp|installLegacyFinancialFetchBridge/);
 
 assert.match(alignedApp, /useSafeAreaInsets/);
