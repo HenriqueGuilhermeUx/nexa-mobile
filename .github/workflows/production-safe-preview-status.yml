@@ -35,7 +35,7 @@ jobs:
       - name: Read build
         run: |
           set -euo pipefail
-          BUILD_ID="$(tr -d '[:space:]' < .github/build-triggers/production-safe-preview-status.txt)"
+          BUILD_ID="$(head -n 1 .github/build-triggers/production-safe-preview-status.txt | tr -d '[:space:]')"
           echo "Build ID: $BUILD_ID"
           eas build:view "$BUILD_ID" --json | tee production-safe-build.json
 
