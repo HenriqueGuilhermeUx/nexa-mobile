@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppleModeHome from './AppleModeHome';
 import CustodyScreen from './CustodyScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import {
   View,
   Text,
@@ -707,46 +708,12 @@ export default function App() {
   }
 
   async function vincularWalletPrivy(userData) {
-    try {
-      if (!userData || !userData.id) return userData;
-      const existingAddress = userData.walletAddress || userData.wallet?.address;
-      if (existingAddress) return userData;
+    if (!userData || !userData.id) return userData;
 
-      const premiumStatus = String(
-        userData?.premiumStatus ||
-          userData?.subscriptionStatus ||
-          userData?.plan ||
-          userData?.premium?.status ||
-          '',
-      ).toLowerCase();
-      const premium =
-        userData?.isPremium === true ||
-        userData?.premiumActive === true ||
-        userData?.premium?.active === true ||
-        premiumStatus === 'premium' ||
-        premiumStatus === 'active' ||
-        premiumStatus === 'ativo';
-
-      if (!premium) return userData;
-
-      const walletResponse = await fetch(API + '/wallet/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userData.id }),
-      });
-      const walletData = await walletResponse.json();
-      if (walletData.success && walletData.walletAddress) {
-        return {
-          ...userData,
-          walletAddress: walletData.walletAddress,
-          walletNetwork: walletData.network || 'polygon',
-          walletProvider: walletData.provider || 'privy',
-        };
-      }
-      return userData;
-    } catch (e) {
-      return userData;
-    }
+    // A criação de novas carteiras individuais agora é explícita e usa o SDK
+    // Privy na rota /onboarding-wallet. Usuários que já possuem carteira
+    // continuam com o endereço preservado, inclusive se o Premium expirar.
+    return userData;
   }
 
   async function salvarSessao(data) {
