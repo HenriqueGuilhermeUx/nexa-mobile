@@ -1,0 +1,3 @@
+Expo SDK 57 upgrade for mobile-v2.1-product-alignment.
+Reason: Expo Doctor detected the known Hermes V1 memory regression in SDK 56.
+Financial execution remains disabled.
