@@ -24,6 +24,11 @@ const required = [
   '/payment/pix/redemption',
   '/kyc/didit/brazil/start',
   '/kyc/didit/me',
+  '/deposit/woovi-pix',
+  '/internal-transfer/send-by-username',
+  '/recurring-pix/link-woovi',
+  '/rewards/join',
+  '/wallet/my-privy/journal-usdc-send',
 ];
 const matches = new Map(forbidden.map((value) => [value, []]));
 const requiredFound = new Map(required.map((value) => [value, false]));
