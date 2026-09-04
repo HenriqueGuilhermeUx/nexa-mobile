@@ -147,12 +147,22 @@ for (const forbidden of [
 assert.match(artifactValidator, /\/withdrawal\/pix-request/);
 assert.match(artifactValidator, /\/payment\/pix\/redemption/);
 
-assert.match(onboarding, /Criar carteira e continuar/);
+assert.match(onboarding, /Carteira individual Premium/);
+assert.match(onboarding, /isPremiumActive/);
+assert.match(onboarding, /embedded\.create/);
+assert.match(rootLayout, /createOnLogin:\s*'off'/);
+assert.match(rootLayout, /SafeAreaProvider/);
 assert.doesNotMatch(onboarding, /Proteções desta etapa|custódia pendente/i);
 assert.match(legacyPixApp, /function formatInputAmount\(value\)/);
 assert.match(legacyPixApp, /Dep[oó]sito|deposit/i);
 assert.match(legacyPixApp, /Transfer/);
 assert.match(legacyPixApp, /Sacar Pix|saque Pix/i);
+assert.match(legacyPixApp, /BTC/);
+assert.match(legacyPixApp, /ETH/);
+assert.match(legacyPixApp, /XAUT/);
+assert.match(legacyPixApp, /asset:\s*'USDC'/);
+assert.match(legacyPixApp, /useSafeAreaInsets/);
+assert.doesNotMatch(legacyPixApp, /PAXG|WBTC|USDY/);
 
 const codeFiles = [...walk('app'), ...walk('src')].filter((file) =>
   /\.(ts|tsx|js)$/.test(file),
