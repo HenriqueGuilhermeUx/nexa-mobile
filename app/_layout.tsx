@@ -1,6 +1,7 @@
 import { PrivyProvider } from '@privy-io/expo';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { assertPublicConfiguration, config } from '@/config';
 import { colors } from '@/theme';
@@ -9,36 +10,41 @@ assertPublicConfiguration();
 
 export default function RootLayout() {
   return (
-    <PrivyProvider
-      appId={config.privyAppId}
-      clientId={config.privyClientId}
-      config={{
-        embedded: {
-          ethereum: {
-            createOnLogin: 'users-without-wallets',
+    <SafeAreaProvider>
+      <PrivyProvider
+        appId={config.privyAppId}
+        clientId={config.privyClientId}
+        config={{
+          embedded: {
+            ethereum: {
+              // A Nexa não cria mais uma carteira on-chain automaticamente
+              // para todo usuário. A criação é iniciada explicitamente pelo
+              // fluxo Premium; carteiras já existentes continuam acessíveis.
+              createOnLogin: 'off',
+            },
           },
-        },
-      }}
-    >
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-          contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="sign-in" options={{ title: 'Entrar' }} />
-        <Stack.Screen name="sign-up" options={{ title: 'Criar conta' }} />
-        <Stack.Screen name="legacy" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="onboarding-wallet"
-          options={{ title: 'Carteira Nexa' }}
-        />
-        <Stack.Screen name="(app)" options={{ headerShown: false }} />
-      </Stack>
-    </PrivyProvider>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="sign-in" options={{ title: 'Entrar' }} />
+          <Stack.Screen name="sign-up" options={{ title: 'Criar conta' }} />
+          <Stack.Screen name="legacy" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="onboarding-wallet"
+            options={{ title: 'Minha Carteira Premium' }}
+          />
+          <Stack.Screen name="(app)" options={{ headerShown: false }} />
+        </Stack>
+      </PrivyProvider>
+    </SafeAreaProvider>
   );
 }
