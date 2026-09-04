@@ -680,12 +680,18 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     try {
       setLoading(true);
       setWithdrawQuote(null);
-      const data = await json(`${API}/withdrawal/pix-quote`, {
+      const data = await json(`${API}/payment/pix/quote`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ amountUsdc: value }),
       });
-      setWithdrawQuote(data);
+      setWithdrawQuote({
+        ...data,
+        netBrl: Number(data?.estimatedPayoutBrl || data?.netBrl || 0),
+        executableRate: Number(
+          data?.protectedRateBrl || data?.executableRate || 0,
+        ),
+      });
       setPixOutRequestId(newClientRequestId('mobile_pixout', user.id));
       setMessage('Cotação Pix atualizada.');
     } catch (error: any) {
@@ -705,15 +711,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     }
     try {
       setLoading(true);
-      const data = await json(`${API}/withdrawal/pix-request`, {
+      const data = await json(`${API}/payment/pix/redemption`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
           amountUsdc: value,
-          expectedNetBrl: Number(withdrawQuote?.netBrl || 0),
           pixKey: key,
-          clientRequestId:
-            pixOutRequestId || newClientRequestId('mobile_pixout', user.id),
         }),
       });
       setMessage(data?.message || 'Solicitação Pix registrada.');
