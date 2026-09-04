@@ -4,5 +4,5 @@ financial-execution=false
 support-whatsapp=551333289704
 cutover-ledger=verified
 official-pix=/payment/pix/quote,/payment/pix/redemption
-retry=3
+retry=4
 triggered=2026-09-04
