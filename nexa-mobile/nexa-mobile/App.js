@@ -270,6 +270,7 @@ export default function App() {
     return Boolean(
       user?.isPremium === true ||
       user?.premiumActive === true ||
+      user?.premium?.isPremium === true ||
       user?.premium?.active === true ||
       status === 'premium' ||
       status === 'active' ||
@@ -304,10 +305,27 @@ export default function App() {
     setInvestmentQuote(null);
   }
 
+  function getWalletProvider() {
+    if (!user) return '';
+    return String(
+      user.wallet?.provider ||
+        user.walletProvider ||
+        '',
+    ).toLowerCase();
+  }
+
   function getWalletAddress() {
     if (!user) return 'Carteira ainda não vinculada';
-    if (user.wallet && user.wallet.address) return user.wallet.address;
-    if (user.walletAddress) return user.walletAddress;
+
+    const provider = getWalletProvider();
+    const address = user.wallet?.address || user.walletAddress || '';
+
+    // A carteira operacional/gerenciada da Nexa nunca é exposta como
+    // carteira individual do cliente. Apenas a wallet Privy vinculada entra
+    // nos fluxos Premium de envio/recebimento externo.
+    if (provider !== 'privy') return 'Carteira ainda não vinculada';
+    if (/^0x[a-fA-F0-9]{40}$/.test(String(address))) return address;
+
     return 'Carteira ainda não vinculada';
   }
 
