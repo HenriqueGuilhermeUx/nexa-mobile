@@ -5,7 +5,11 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import AlignedLegacyApp from '../src/components/AlignedLegacyApp';
 import { nexaApi } from '../src/lib/api';
-import { clearNexaSession, loadNexaSession } from '../src/lib/session';
+import {
+  clearNexaSession,
+  loadNexaSession,
+  saveNexaSession,
+} from '../src/lib/session';
 import { colors, spacing } from '../src/theme';
 
 export default function LegacyExperience() {
@@ -25,22 +29,51 @@ export default function LegacyExperience() {
           return;
         }
 
-        const response = await nexaApi.me(session.accessToken);
+        let activeSession = session;
+        let response;
+        try {
+          response = await nexaApi.me(activeSession.accessToken);
+        } catch (caught) {
+          if (caught?.status === 401 && activeSession.refreshToken) {
+            const refreshed = await nexaApi.refresh(activeSession.refreshToken);
+            const accessToken =
+              refreshed.accessToken ||
+              refreshed.access_token ||
+              refreshed.token ||
+              refreshed.tokens?.accessToken;
+            const refreshToken =
+              refreshed.refreshToken ||
+              refreshed.refresh_token ||
+              refreshed.tokens?.refreshToken ||
+              activeSession.refreshToken;
+            if (!accessToken) throw caught;
+
+            activeSession = {
+              accessToken,
+              refreshToken,
+              email: activeSession.email,
+            };
+            await saveNexaSession(activeSession);
+            response = await nexaApi.me(accessToken);
+          } else {
+            throw caught;
+          }
+        }
+
         const currentUser = response?.user || response || null;
         if (!currentUser?.id) {
           throw new Error('Não foi possível restaurar sua conta Nexa.');
         }
 
         await AsyncStorage.multiSet([
-          ['nexa_token', session.accessToken],
           ['nexa_user', JSON.stringify(currentUser)],
-          ['nexa_last_email', currentUser.email || session.email],
+          ['nexa_last_email', currentUser.email || activeSession.email],
           ['nexa_last_name', currentUser.fullName || ''],
         ]);
 
         if (mounted) {
           setUser(currentUser);
-          setToken(session.accessToken);
+          setToken(activeSession.accessToken);
           setReady(true);
         }
       } catch (caught) {
@@ -62,7 +95,7 @@ export default function LegacyExperience() {
 
   async function logout() {
     await AsyncStorage.multiRemove(['nexa_token', 'nexa_user']);
-    await clearNexaSession();
+    await clearNexaSession({ preserveEmail: true });
     router.replace('/');
   }
 
