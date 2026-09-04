@@ -177,7 +177,7 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
         }),
       });
       const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.message || data.error || 'Falha ao confirmar retorno');
+      if (!response.ok || !data.success) throw new Error(data.message || data.error || 'Falha ao confirmar volta');
       setTxHash('');
       setInstructions(null);
       setMessage('USDC confirmado e liberado novamente no Modo Nexa.');
@@ -207,10 +207,10 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
       </TouchableOpacity>
 
       <Text style={{ color: '#fff', fontSize: 29, fontWeight: '900', letterSpacing: -0.8 }}>
-        Onde guardar seus ativos?
+        Saldo Nexa e carteira individual
       </Text>
       <Text style={{ color: '#94a3b8', marginTop: 7, lineHeight: 20 }}>
-        Você pode usar a simplicidade da Nexa, a liberdade da sua carteira ou combinar os dois.
+        Você pode manter USDC no Saldo Nexa e também usar sua carteira individual na rede Polygon.
       </Text>
 
       <View style={{ backgroundColor: '#0a1220', borderRadius: 24, padding: 18, marginTop: 18, borderWidth: 1, borderColor: '#1e293b' }}>
@@ -234,18 +234,18 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
 
       <ChoiceCard
         active={currentMode === 'nexa' || currentMode === 'hybrid'}
-        title="Modo Nexa"
+        title="Saldo Nexa"
         subtitle="Mais simples para o dia a dia."
-        bullets={['Pix e transferências por @username', 'Compra automática e Premium', 'Operações instantâneas no app']}
+        bullets={['Pix e transferências por @username', 'USDC por assinatura', 'Movimentações internas instantâneas']}
         accent="#60a5fa"
         onPress={() => setSelectedMode('nexa')}
       />
 
       <ChoiceCard
         active={currentMode === 'own_wallet' || currentMode === 'hybrid'}
-        title="Carteira Própria"
-        subtitle="Mais liberdade e controle on-chain."
-        bullets={['Uso em qualquer app compatível', 'Controle direto dos ativos', 'Rede Polygon e carteira individual']}
+        title="Carteira individual"
+        subtitle="Seu endereço on-chain vinculado à Nexa."
+        bullets={['Receber USDC externo', 'Movimentar USDC pela rede Polygon', 'Endereço individual vinculado à sua conta']}
         accent="#34d399"
         onPress={() => setSelectedMode('own_wallet')}
       />
@@ -281,7 +281,7 @@ export default function CustodyScreen({ user, token, onBack, onBalanceRefresh })
             <Text selectable style={{ color: '#fff', fontSize: 12, marginTop: 12, textAlign: 'center' }}>{instructions.treasuryAddress}</Text>
             <Text style={{ color: '#fbbf24', marginTop: 8, textAlign: 'center', fontWeight: '800' }}>Rede Polygon • somente USDC</Text>
             <Field placeholder="Hash da transação 0x..." value={txHash} onChangeText={setTxHash} autoCapitalize="none" />
-            <ActionButton title="Confirmar retorno para Nexa" onPress={confirmReturn} disabled={loading} />
+            <ActionButton title="Confirmar volta para Nexa" onPress={confirmReturn} disabled={loading} />
           </View>
         ) : null}
       </View>
