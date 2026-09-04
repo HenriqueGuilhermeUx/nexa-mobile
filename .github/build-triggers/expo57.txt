@@ -4,3 +4,4 @@ Retry: setup-node cache bootstrap removed because this repo did not yet have a l
 Financial execution remains disabled.
 
 Retry 2: safety validator aligned to Expo SDK 57 dependency versions.
+Retry 3: Expo/RN version regexes aligned to SDK 57.
