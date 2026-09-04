@@ -64,6 +64,78 @@ jobs:
           console.log('Expo 57 native pins OK.');
           NODE
 
+      - name: Preflight production backend compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-p2u0.onrender.com/api/v1"
+
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o prod-health.json
+          curl --fail --silent --show-error --max-time 20 "$API/app/version" -o prod-version.json
+          curl --fail --silent --show-error --max-time 20 "$API/rewards/plans" -o prod-rewards.json
+          curl --fail --silent --show-error --max-time 20 "$API/swap/tokens" -o prod-tokens.json
+
+          for route in /recurring-pix/me /custody/overview /wallet/my-privy /rewards/positions; do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$API$route")"
+            echo "$route -> HTTP $status"
+            if [ "$status" != "401" ] && [ "$status" != "403" ]; then
+              echo "Production backend does not expose the guarded V1.5 route: $route"
+              exit 1
+            fi
+          done
+
+          node <<'NODE'
+          const fs = require('fs');
+
+          const health = JSON.parse(fs.readFileSync('prod-health.json', 'utf8'));
+          const version = JSON.parse(fs.readFileSync('prod-version.json', 'utf8'));
+          const rewards = JSON.parse(fs.readFileSync('prod-rewards.json', 'utf8'));
+          const tokens = JSON.parse(fs.readFileSync('prod-tokens.json', 'utf8'));
+
+          if (String(health.status || '').toLowerCase() !== 'ok') {
+            throw new Error('Production health is not OK.');
+          }
+          if (version.success !== true) {
+            throw new Error('Production app-version policy is unavailable.');
+          }
+
+          const latestBuild = Number(version.latestBuild || 0);
+          const latestVersion = String(version.latestVersion || '');
+          if (latestBuild < 104 || latestVersion !== '2.0.11') {
+            throw new Error(
+              'Production backend is not advertising Nexa 2.0.11 build 104: ' +
+                JSON.stringify(version),
+            );
+          }
+
+          const minimumBuild = Number(version.minimumBuild || 0);
+          if (minimumBuild > 104) {
+            throw new Error('Production would block the release build itself.');
+          }
+
+          if (Number(rewards?.economics?.userRewardShare) !== 0.8) {
+            throw new Error('Production Rewards user share must be 80%.');
+          }
+          if (Number(rewards?.economics?.nexaRewardShare) !== 0.2) {
+            throw new Error('Production Rewards Nexa share must be 20%.');
+          }
+
+          const assets = Array.isArray(tokens?.launchAssets)
+            ? tokens.launchAssets
+            : [];
+          if (JSON.stringify(assets) !== JSON.stringify(['USDC','BTC','ETH','XAUT'])) {
+            throw new Error('Unexpected production launch assets: ' + JSON.stringify(assets));
+          }
+          if (tokens?.premiumRequired !== false) {
+            throw new Error('BTC/ETH/XAUT must be available outside Premium.');
+          }
+          if (tokens?.internalTransferAsset !== 'USDC') {
+            throw new Error('Internal transfers must remain USDC-only.');
+          }
+
+          console.log('Production backend compatibility preflight passed.');
+          NODE
+
       - name: Apply protected Pix quote wording
         run: |
           set -euo pipefail
