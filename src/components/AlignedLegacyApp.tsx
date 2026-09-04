@@ -482,7 +482,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Card>
           <Text style={styles.eyebrow}>NEXA REWARDS</Text>
           <Text style={styles.highlightTitle}>Benefícios por usar a Nexa.</Text>
-          <Text style={styles.highlightText}>Campanhas, vantagens e posições Rewards em uma área própria, sem promessa de rendimento.</Text>
+          <Text style={styles.highlightText}>Campanhas, vantagens e posições Rewards em uma área própria.</Text>
           <PrimaryButton title="Abrir Rewards" onPress={() => setPage('rewards')} secondary />
         </Card>
       </>
@@ -665,7 +665,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Card>
           <Text style={styles.eyebrow}>STATUS</Text>
           <Text style={styles.highlightTitle}>{rewardPositions.length ? `${rewardPositions.length} posição(ões) ativa(s)` : 'Nenhuma posição ativa'}</Text>
-          <Text style={styles.highlightText}>O app não apresenta Rewards como rendimento, rentabilidade ou retorno.</Text>
+          <Text style={styles.highlightText}>Rewards reúne benefícios e campanhas conforme regras vigentes.</Text>
         </Card>
         <Text style={styles.sectionTitle}>Programas disponíveis</Text>
         {rewardPlans.length ? rewardPlans.map((plan: any, index: number) => (
