@@ -1,9 +1,6 @@
-Nexa Mobile v2.1 FINAL preview APK trigger
-Source code head validated green: f82fb98874f46c87c6746a895ad33ace73f6ac7e
-Scope audit: Pix In/Out, USDC subscription + Pix Automatico, BTC/ETH/XAUT, Premium 8->4, Rewards, Nexa ID, @username USDC, Privy receive/send external, Nexa<->wallet.
+Nexa Mobile 2.0.11 v104 final cloud preview
+Source functional head: 39d543cb17bb046d8bf56881f9badf5aafacfdfc
 API profile: nexa-backend-wallet-v15-staging
 Financial execution: false
 Expo SDK: 57
-Android app: 2.0.10
-Version code: 103
-Triggered: 2026-09-04 final-homologation
+Purpose: upgrade-over-v103 homologation
