@@ -1,0 +1,68 @@
+name: EAS Preview APK
+
+on:
+  push:
+    branches:
+      - mobile-v2.1-product-alignment
+    paths:
+      - '.github/build-triggers/eas-preview.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eas-preview-apk-mobile-v21
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Submit safe Android preview APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Validate Expo authentication
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EXPO_TOKEN is not configured."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate preview boundary
+        run: |
+          node scripts/validate-mobile-safety.js
+          npm run typecheck
+          npx expo-doctor
+
+      - name: Submit Android preview APK
+        env:
+          CI: 'true'
+        run: eas build --platform android --profile preview --non-interactive --no-wait
+
+      - name: Safety boundary
+        run: |
+          echo "Preview profile only."
+          echo "API: nexa-backend-wallet-v15-staging."
+          echo "Financial execution: false."
+          echo "No Play Store submission is performed."
