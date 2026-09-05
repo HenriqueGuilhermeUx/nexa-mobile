@@ -3,7 +3,7 @@ name: Nexa Production-Safe Preview APK — cloud
 on:
   push:
     branches:
-      - mobile-v2.1-product-alignment
+      - release/2.0.11-v105
     paths:
       - '.github/build-triggers/production-safe-preview-cloud.txt'
 
@@ -60,8 +60,8 @@ jobs:
           const h=JSON.parse(fs.readFileSync('health.json','utf8'));
           const v=JSON.parse(fs.readFileSync('version.json','utf8'));
           if (String(h.status||'').toLowerCase()!=='ok') throw new Error('Production health not OK.');
-          if (v.success!==true || String(v.latestVersion||'')!=='2.0.11' || Number(v.latestBuild||0)<104) throw new Error('Production version contract not ready.');
-          if (Number(v.minimumBuild||0)>104) throw new Error('Production blocks build 104.');
+          if (v.success!==true || String(v.latestVersion||'')!=='2.0.11' || Number(v.latestBuild||0)<105) throw new Error('Production version contract not ready.');
+          if (Number(v.minimumBuild||0)>105) throw new Error('Production blocks build 105.');
           console.log('Production backend preflight passed.');
           NODE
 

@@ -1,4 +1,6 @@
-Nexa 2.0.11 v104 production-safe preview
+Nexa 2.0.11 v105 production-safe preview
 backend=production
 financial-execution=false
 historical-balance=true
+support-whatsapp=true
+retry=1

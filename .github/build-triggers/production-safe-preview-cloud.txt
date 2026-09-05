@@ -1,1 +1,5 @@
-Nexa 2.0.11 v104 production-safe cloud fallback
+Nexa 2.0.11 v105 production-safe cloud fallback
+backend=production
+financial-execution=false
+support-whatsapp=true
+retry=1

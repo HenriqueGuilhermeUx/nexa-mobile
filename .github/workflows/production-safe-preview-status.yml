@@ -3,7 +3,7 @@ name: Nexa Production-Safe Preview Status
 on:
   push:
     branches:
-      - mobile-v2.1-product-alignment
+      - release/2.0.11-v105
     paths:
       - '.github/build-triggers/production-safe-preview-status.txt'
 
@@ -46,10 +46,40 @@ jobs:
           const fs=require('fs');
           const b=JSON.parse(fs.readFileSync('production-safe-build.json','utf8'));
           if (String(b.appVersion||'')!=='2.0.11') throw new Error('Unexpected appVersion: '+b.appVersion);
-          if (String(b.appBuildVersion||'')!=='104') throw new Error('Unexpected appBuildVersion: '+b.appBuildVersion);
+          if (String(b.appBuildVersion||'')!=='105') throw new Error('Unexpected appBuildVersion: '+b.appBuildVersion);
           console.log('Build status:', b.status);
           console.log('Artifact:', b?.artifacts?.applicationArchiveUrl || 'not-ready');
           NODE
+
+      - name: Download finished v105 APK
+        id: finished_apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(node -e "const b=require('./production-safe-build.json'); process.stdout.write(String(b.status||''))")"
+          if [ "$STATUS" != "FINISHED" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "EAS build is not finished yet: $STATUS"
+            exit 0
+          fi
+          URL="$(node -e "const b=require('./production-safe-build.json'); process.stdout.write(String(b?.artifacts?.applicationArchiveUrl||''))")"
+          test -n "$URL" || (echo "Finished EAS build has no APK URL" && exit 1)
+          FILE='Nexa-2.0.11-v105-PRODUCTION-SAFE.apk'
+          curl --fail --location --retry 5 --retry-delay 3 "$URL" --output "$FILE"
+          test -s "$FILE"
+          sha256sum "$FILE" | tee "$FILE.sha256"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload finished v105 APK
+        if: ${{ steps.finished_apk.outputs.ready == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.11-v105-PRODUCTION-SAFE
+          path: |
+            Nexa-2.0.11-v105-PRODUCTION-SAFE.apk
+            Nexa-2.0.11-v105-PRODUCTION-SAFE.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
 
       - uses: actions/upload-artifact@v4
         with:
