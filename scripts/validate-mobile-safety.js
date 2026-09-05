@@ -214,7 +214,8 @@ assert.doesNotMatch(
 );
 
 // Pontes e telas antigas continuam auditadas enquanto existirem no repositório.
-assert.match(legacyPixApp, /\/withdrawal\/pix-request/);
+assert.doesNotMatch(legacyPixApp, /\/withdrawal\/pix-request/);
+assert.match(legacyPixApp, /\/payment\/pix\/redemption/);
 assert.match(babelConfig, /babel-replace-legacy-pix-route/);
 assert.match(pixRouteTransform, /\/withdrawal\/pix-request/);
 assert.match(pixRouteTransform, /\/payment\/pix\/redemption/);
