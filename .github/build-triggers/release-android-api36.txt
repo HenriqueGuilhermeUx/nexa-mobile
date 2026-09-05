@@ -5,4 +5,4 @@ production-api=https://nexa-backend-p2u0.onrender.com/api/v1
 support-whatsapp=551333289704
 financial-external-execution=fail-closed
 play-update-path=true
-trigger=2026-09-04-v105-final
+trigger=2026-09-04-v105-final-r2
