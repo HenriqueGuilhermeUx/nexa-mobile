@@ -1,8 +1,8 @@
-Nexa 2.0.11 v104 production AAB technical build
-backend=https://nexa-backend-p2u0.onrender.com/api/v1
-financial-execution=false
+Nexa 2.0.11 v105 production AAB
+package=br.com.trynexa.app
+targetSdk=36
+production-api=https://nexa-backend-p2u0.onrender.com/api/v1
 support-whatsapp=551333289704
-cutover-ledger=verified
-official-pix=/payment/pix/quote,/payment/pix/redemption
-retry=4
-triggered=2026-09-04
+financial-external-execution=fail-closed
+play-update-path=true
+trigger=2026-09-04-v105-final
