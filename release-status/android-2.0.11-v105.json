@@ -1,0 +1,29 @@
+{
+  "status": "failure",
+  "version": "2.0.11",
+  "versionCode": 105,
+  "package": "br.com.trynexa.app",
+  "buildMode": "github-actions-local-eas",
+  "compileSdk": 36,
+  "targetSdk": 36,
+  "features": ["brazil_kyc_routing", "didit_unico_ready"],
+  "steps": {
+    "safety": "failure",
+    "decimalAndPrivy": "skipped",
+    "releaseAssets": "skipped",
+    "typecheck": "skipped",
+    "expoDoctor": "skipped",
+    "api36Config": "skipped",
+    "api36Prebuild": "skipped",
+    "export": "skipped",
+    "artifactSource": "skipped",
+    "localBuild": "skipped",
+    "binaryApi36": "skipped",
+    "release": "skipped"
+  },
+  "aabFile": "",
+  "sha256": "",
+  "releaseDownloadUrl": "https://github.com/HenriqueGuilhermeUx/nexa-mobile/releases/download/nexa-2.0.11-android16-v105/Nexa-2.0.11-Android16-v105.aab",
+  "sourceCommit": "65dfcede419f80f29cf155d008b2fb2289006bb4",
+  "generatedAt": "2026-09-05T00:24:00Z"
+}
