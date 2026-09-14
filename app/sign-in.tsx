@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionButton,
@@ -68,6 +68,17 @@ export default function SignInScreen() {
     }
   }
 
+  async function openPasswordRecovery() {
+    setError('');
+    try {
+      await Linking.openURL('https://trynexa.com.br/login');
+    } catch {
+      setError(
+        'Não foi possível abrir a recuperação de senha. Acesse trynexa.com.br/login no navegador.',
+      );
+    }
+  }
+
   return (
     <Screen>
       <Brand />
@@ -99,6 +110,12 @@ export default function SignInScreen() {
         label="Entrar"
         loading={loading}
         onPress={authenticateNexa}
+      />
+      <ActionButton
+        label="Esqueci minha senha"
+        variant="secondary"
+        disabled={loading}
+        onPress={openPasswordRecovery}
       />
       <ActionButton
         label="Criar conta"
