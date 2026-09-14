@@ -1,0 +1,213 @@
+name: Release Nexa 2.0.12 Android API 36 v107
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/release-android-2.0.12-v107.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nexa-android-api36-v107-production
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Nexa 2.0.12 Android 16 API 36 production AAB v107
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo authentication
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN ausente" && exit 1)
+          eas whoami
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Preflight production backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://nexa-backend-p2u0.onrender.com/api/v1"
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o prod-health.json
+          curl --fail --silent --show-error --max-time 20 "$API/app/version" -o prod-version.json
+          curl --fail --silent --show-error --max-time 20 "$API/rewards/plans" -o prod-rewards.json
+          curl --fail --silent --show-error --max-time 20 "$API/swap/tokens" -o prod-tokens.json
+          node <<'NODE'
+          const fs = require('fs');
+          const health = JSON.parse(fs.readFileSync('prod-health.json', 'utf8'));
+          const version = JSON.parse(fs.readFileSync('prod-version.json', 'utf8'));
+          const rewards = JSON.parse(fs.readFileSync('prod-rewards.json', 'utf8'));
+          const tokens = JSON.parse(fs.readFileSync('prod-tokens.json', 'utf8'));
+          if (String(health.status || '').toLowerCase() !== 'ok') throw new Error('Production health is not OK');
+          if (version.success !== true) throw new Error('Production app-version policy unavailable');
+          if (Number(version.minimumBuild || 0) > 107) throw new Error('Production would block build 107');
+          if (Number(rewards?.economics?.userRewardShare) !== 0.8) throw new Error('Rewards user share must remain 80%');
+          if (Number(rewards?.economics?.nexaRewardShare) !== 0.2) throw new Error('Rewards Nexa share must remain 20%');
+          const assets = Array.isArray(tokens?.launchAssets) ? tokens.launchAssets : [];
+          if (JSON.stringify(assets) !== JSON.stringify(['USDC','BTC','ETH','XAUT'])) throw new Error('Unexpected launch assets: ' + JSON.stringify(assets));
+          if (tokens?.premiumRequired !== false) throw new Error('BTC/ETH/XAUT availability changed');
+          if (tokens?.internalTransferAsset !== 'USDC') throw new Error('Internal transfer asset changed');
+          console.log('Production backend preflight OK for build 107.');
+          NODE
+
+      - name: Apply protected Pix quote wording
+        run: |
+          set -euo pipefail
+          sed -i 's/Cotação executável:/Cotação Nexa para venda:/g' nexa-mobile/nexa-mobile/App.js
+          grep -q 'Cotação Nexa para venda:' nexa-mobile/nexa-mobile/App.js
+
+      - name: Validate Nexa safety contracts
+        run: node scripts/validate-mobile-safety.js
+
+      - name: Validate decimal inputs and optional Privy
+        run: node scripts/validate-decimal-and-privy-onboarding.js
+
+      - name: Validate release assets and metadata
+        run: node scripts/validate-release-assets.js
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Validate Expo project
+        continue-on-error: true
+        run: npx expo-doctor
+
+      - name: Validate resolved Nexa 2.0.12 v107 API 36 config
+        run: |
+          set -euo pipefail
+          npx expo config --json > resolved-expo-config.json
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const app = require('./resolved-expo-config.json');
+          const plugin = (app.plugins || []).find((item) => Array.isArray(item) && item[0] === 'expo-build-properties');
+          assert.ok(plugin, 'expo-build-properties not configured');
+          const androidBuild = plugin[1]?.android || {};
+          assert.equal(Number(androidBuild.compileSdkVersion), 36);
+          assert.equal(Number(androidBuild.targetSdkVersion), 36);
+          assert.equal(String(androidBuild.buildToolsVersion), '36.0.0');
+          assert.equal(Number(app.extra?.androidTargetApi), 36);
+          assert.equal(app.version, '2.0.12');
+          assert.equal(Number(app.android?.versionCode), 107);
+          assert.equal(app.android?.package, 'br.com.trynexa.app');
+          console.log('Resolved Expo config OK: Nexa 2.0.12 v107 API 36.');
+          NODE
+
+      - name: Prove API 36 via Expo prebuild
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+        run: |
+          set -euo pipefail
+          rm -rf android
+          npx expo prebuild --platform android --no-install --clean
+          grep -Eq '^android\.compileSdkVersion=36$' android/gradle.properties
+          grep -Eq '^android\.targetSdkVersion=36$' android/gradle.properties
+          grep -Eq '^android\.buildToolsVersion=36\.0\.0$' android/gradle.properties
+          rm -rf android
+
+      - name: Export Android JavaScript bundle
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+        run: npm run export:android
+
+      - name: Inspect exported bundle for regressions
+        run: node scripts/validate-built-artifact.js dist-ci
+
+      - name: Build signed production AAB
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-eas-local-v107
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v107
+        run: |
+          set -euo pipefail
+          FILE='Nexa-2.0.12-Android16-v107.aab'
+          rm -f "$FILE"
+          eas build --platform android --profile production --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
+          test -s "$FILE"
+          SHA256=$(sha256sum "$FILE" | awk '{print $1}')
+          ls -lh "$FILE"
+          echo "aab_file=$FILE" >> "$GITHUB_ENV"
+          echo "aab_sha256=$SHA256" >> "$GITHUB_ENV"
+
+      - name: Verify final AAB manifest
+        run: |
+          set -euo pipefail
+          BUNDLETOOL_VERSION=1.18.1
+          curl --fail --location --retry 5 --retry-delay 3 "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar" --output "$RUNNER_TEMP/bundletool.jar"
+          java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle="${{ env.aab_file }}" --module=base > aab-manifest.xml
+          cat aab-manifest.xml
+          grep -Eq 'package="br\.com\.trynexa\.app"' aab-manifest.xml
+          grep -Eq 'android:versionCode="107"' aab-manifest.xml
+          grep -Eq 'android:versionName="2\.0\.12"' aab-manifest.xml
+          grep -Eq 'android:targetSdkVersion="36"' aab-manifest.xml
+          echo 'AAB VERIFIED: Nexa 2.0.12 v107 targetSdkVersion=36.'
+
+      - name: Upload verified AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.12-Android16-v107-VERIFIED
+          path: |
+            ${{ env.aab_file }}
+            aab-manifest.xml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='nexa-2.0.12-android16-v107'
+          printf '%s  %s\n' "${{ env.aab_sha256 }}" "${{ env.aab_file }}" > SHA256SUMS.txt
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" "${{ env.aab_file }}" aab-manifest.xml SHA256SUMS.txt --target "${GITHUB_SHA}" --title 'Nexa 2.0.12 · Android 16 · API 36 · v107' --notes "Google Play AAB VERIFIED. Recovery-only release: adiciona Esqueci minha senha; demais fluxos preservados. Package br.com.trynexa.app. Version 2.0.12. versionCode 107. targetSdkVersion 36. SHA-256: ${{ env.aab_sha256 }}."
+
+      - name: Upload diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.12-v107-local-build-diagnostics
+          path: |
+            ${{ runner.temp }}/nexa-eas-local-v107/logs
+            local-build-artifacts-v107
+          if-no-files-found: warn
+          retention-days: 14
