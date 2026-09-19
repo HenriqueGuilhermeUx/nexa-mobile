@@ -1,0 +1,43 @@
+name: Nexa Assistant Preview CI
+
+on:
+  push:
+    branches:
+      - feature/nexa-personal-assistant
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-assistant:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.0'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate dependency tree
+        run: npm ls --depth=0
+      - name: Validate mobile safety contracts
+        run: node scripts/validate-mobile-safety.js
+      - name: Validate Android release assets
+        run: node scripts/validate-release-assets.js
+      - name: Validate TypeScript
+        run: npm run typecheck
+      - name: Expo Doctor diagnostic
+        continue-on-error: true
+        run: npx expo-doctor
+      - name: Export Android JavaScript bundle
+        env:
+          CI: 'true'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+        run: npm run export:android
+      - name: Assert assistant is feature-gated
+        run: |
+          grep -q "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED" src/config.ts
+          grep -q "config.assistantEnabled" app/legacy.js
+          grep -q "financialExecution" src/components/NexaAssistant.tsx
