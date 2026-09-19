@@ -15,6 +15,29 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert Assistant changes are additive only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          ALLOWED_REGEX='^(\.github/workflows/assistant-pilot-apk\.yml|\.github/workflows/assistant-preview-ci\.yml|app/_layout\.tsx|app/assistant\.tsx|app/legacy\.js|eas\.json|src/components/NexaAssistant\.tsx|src/config\.ts|src/lib/api\.ts)$'
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          echo "$CHANGED"
+          UNEXPECTED=$(printf '%s\n' "$CHANGED" | grep -Ev "$ALLOWED_REGEX" || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'Unexpected existing-app files changed:'
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+          git diff --exit-code origin/main...HEAD -- \
+            src/components/AlignedLegacyApp.tsx \
+            app/sign-in.tsx \
+            app/sign-up.tsx \
+            app/onboarding-wallet.tsx \
+            nexa-mobile/nexa-mobile/App.js
+          echo 'Core existing Nexa screens are byte-for-byte unchanged.'
       - uses: actions/setup-node@v4
         with:
           node-version: '20.20.0'
