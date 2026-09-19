@@ -10,12 +10,18 @@ interface NexaExtra {
   privyOptional?: boolean;
   releaseChannel?: string;
   androidTargetApi?: number;
+  assistantEnabled?: boolean;
 }
 
 const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
 const envApiUrl = String(process.env.EXPO_PUBLIC_NEXA_API_URL || '').trim();
 const envFinancialExecution = String(
   process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED || '',
+)
+  .trim()
+  .toLowerCase();
+const envAssistantEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED || '',
 )
   .trim()
   .toLowerCase();
@@ -35,6 +41,9 @@ export const config = {
   financialExecutionEnabled:
     envFinancialExecution === 'true' ||
     (envFinancialExecution !== 'false' && extra.financialExecutionEnabled === true),
+  assistantEnabled:
+    envAssistantEnabled === 'true' ||
+    (envAssistantEnabled !== 'false' && extra.assistantEnabled === true),
   ledgerOperationsEnabled: extra.ledgerOperationsEnabled !== false,
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
