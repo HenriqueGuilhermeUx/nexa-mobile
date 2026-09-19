@@ -36,8 +36,9 @@ jobs:
           CI: 'true'
           EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
         run: npm run export:android
-      - name: Assert assistant is feature-gated
+      - name: Assert assistant is feature-gated and non-executing
         run: |
           grep -q "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED" src/config.ts
           grep -q "config.assistantEnabled" app/legacy.js
-          grep -q "financialExecution" src/components/NexaAssistant.tsx
+          grep -q "Movimentações financeiras nunca são executadas" src/components/NexaAssistant.tsx
+          grep -q "assistantChat" src/lib/api.ts
