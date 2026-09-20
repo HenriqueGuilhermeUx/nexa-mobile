@@ -22,6 +22,11 @@ import {
   AssistantChatMessage,
   nexaApi,
 } from '@/lib/api';
+import {
+  ensureNexaNotificationPermission,
+  scheduleNexaReminder,
+} from '@/lib/nexaNotifications';
+import { classifyNexaReminderIntent } from '@/lib/nexaReminderIntent';
 
 type Props = {
   token: string;
@@ -32,7 +37,7 @@ const STARTERS = [
   { icon: '☀️', text: 'Me ajude a organizar meu dia.' },
   { icon: '✓', text: 'Quais devem ser minhas prioridades hoje?' },
   { icon: '🗓️', text: 'Me ajude a planejar minha semana.' },
-  { icon: '🎯', text: 'Quero organizar uma meta pessoal.' },
+  { icon: '🔔', text: 'Me lembre amanhã às 9h de revisar minhas contas.' },
   { icon: '💰', text: 'Como está meu dinheiro hoje?' },
   { icon: '◇', text: 'Quanto tenho em cada ativo?' },
 ];
@@ -155,6 +160,39 @@ export default function NexaAssistant({ token, firstName }: Props) {
     }
   }
 
+  async function confirmedReminderAnswer(
+    message: string,
+    fallbackAnswer: string,
+  ) {
+    const action = await classifyNexaReminderIntent(token, message);
+    if (!action) return fallbackAnswer;
+
+    try {
+      const permission = await ensureNexaNotificationPermission();
+      if (!permission.granted) {
+        return `${fallbackAnswer}\n\n🔔 Para eu avisar você no celular, ative as notificações da Nexa nas permissões do Android.`;
+      }
+
+      await scheduleNexaReminder({
+        title: action.title,
+        body: action.body,
+        at: action.at,
+        data: {
+          source: 'nexa_assistant',
+          type: 'assistant_reminder',
+        },
+      });
+
+      const when = new Date(action.at).toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+      });
+
+      return `Pronto. Lembrete criado para ${when}. Vou avisar você pela notificação da Nexa no celular.`;
+    } catch {
+      return `${fallbackAnswer}\n\n🔔 Entendi o lembrete, mas não consegui agendá-lo no Android agora.`;
+    }
+  }
+
   async function send(text?: string, fromVoice = false) {
     const message = String(text ?? input).trim();
     if (!message || loading || !enabled) return;
@@ -173,7 +211,8 @@ export default function NexaAssistant({ token, firstName }: Props) {
     try {
       const result = await nexaApi.assistantChat(token, message, history);
       const answer = String(result?.response || '').trim();
-      const finalAnswer = answer || 'Não consegui responder agora. Tente novamente.';
+      const fallbackAnswer = answer || 'Não consegui responder agora. Tente novamente.';
+      const finalAnswer = await confirmedReminderAnswer(message, fallbackAnswer);
       setMessages((current) => [
         ...current,
         {
