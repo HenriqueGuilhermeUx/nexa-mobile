@@ -1,0 +1,68 @@
+name: Nexa Assistant Menu + Lockfile
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/nexa-personal-assistant
+    paths:
+      - '.github/workflows/assistant-menu-and-lock.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/nexa-personal-assistant
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.0'
+      - name: Add controlled Assistant entry to existing Menu
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/components/AlignedLegacyApp.tsx')
+          text = path.read_text()
+
+          if "import { router } from 'expo-router';" not in text:
+              text = text.replace(
+                  "import React, { useEffect, useMemo, useState } from 'react';\n",
+                  "import React, { useEffect, useMemo, useState } from 'react';\nimport { router } from 'expo-router';\n",
+                  1,
+              )
+
+          tile = '''          {config.assistantEnabled ? (\n            <MenuTile\n              icon="✦"\n              title="Assistente"\n              subtitle="Vida, rotina e dinheiro"\n              onPress={() => router.push('/assistant')}\n              accent\n            />\n          ) : null}\n'''
+          anchor = '''          <MenuTile\n            icon="💬"\n            title="Fale com a Nexa"\n'''
+          if 'title="Assistente"' not in text:
+              if anchor not in text:
+                  raise SystemExit('Support menu anchor not found')
+              text = text.replace(anchor, tile + anchor, 1)
+
+          path.write_text(text)
+      - name: Refresh package lock for voice dependencies
+        run: npm install --package-lock-only --no-audit --no-fund
+      - name: Verify controlled diff
+        run: |
+          set -euo pipefail
+          grep -q "import { router } from 'expo-router';" src/components/AlignedLegacyApp.tsx
+          grep -q 'title="Assistente"' src/components/AlignedLegacyApp.tsx
+          grep -q "router.push('/assistant')" src/components/AlignedLegacyApp.tsx
+          grep -q 'expo-speech-recognition' package-lock.json
+          grep -q 'expo-speech' package-lock.json
+      - name: Commit generated changes
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/AlignedLegacyApp.tsx package-lock.json
+          if git diff --cached --quiet; then
+            echo 'Nothing to commit.'
+            exit 0
+          fi
+          git commit -m 'feat(assistant): add menu entry and voice lockfile'
+          git push origin HEAD:feature/nexa-personal-assistant
