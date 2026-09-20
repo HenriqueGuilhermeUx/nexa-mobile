@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main --depth=1
-          ALLOWED_REGEX='^(\.github/workflows/assistant-pilot-apk\.yml|\.github/workflows/assistant-preview-ci\.yml|\.github/workflows/assistant-menu-and-lock\.yml|\.github/workflows/assistant-pilot-cloud-apk\.yml|app\.json|package\.json|package-lock\.json|app/_layout\.tsx|app/assistant\.tsx|app/legacy\.js|eas\.json|src/components/AlignedLegacyApp\.tsx|src/components/NexaAssistant\.tsx|src/config\.ts|src/lib/api\.ts)$'
+          ALLOWED_REGEX='^(\.github/workflows/assistant-pilot-apk\.yml|\.github/workflows/assistant-preview-ci\.yml|\.github/workflows/assistant-menu-and-lock\.yml|\.github/workflows/assistant-pilot-cloud-apk\.yml|app\.json|package\.json|package-lock\.json|app/_layout\.tsx|app/assistant\.tsx|app/legacy\.js|eas\.json|src/components/AlignedLegacyApp\.tsx|src/components/NexaAssistant\.tsx|src/config\.ts|src/lib/api\.ts|src/lib/nexaNotifications\.ts)$'
           CHANGED=$(git diff --name-only origin/main...HEAD)
           echo "$CHANGED"
           UNEXPECTED=$(printf '%s\n' "$CHANGED" | grep -Ev "$ALLOWED_REGEX" || true)
@@ -103,7 +103,7 @@ jobs:
           eas whoami
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
 
       - name: Preflight production backend
         run: |
@@ -133,15 +133,20 @@ jobs:
           console.log('Pilot profile OK: production backend, assistant ON, financial execution OFF.');
           NODE
 
-      - name: Assert voice and life-support contracts
+      - name: Assert voice, life-support and notification contracts
         run: |
           set -euo pipefail
           grep -q 'expo-speech-recognition' package.json
           grep -q 'expo-speech' package.json
+          grep -q 'expo-notifications' package.json
           grep -q 'ExpoSpeechRecognitionModule' src/components/NexaAssistant.tsx
           grep -q 'Speech.speak' src/components/NexaAssistant.tsx
           grep -q 'Seu dia, sua rotina e seu dinheiro' src/components/NexaAssistant.tsx
           grep -q 'Movimentações financeiras só acontecem após sua confirmação na Nexa' src/components/NexaAssistant.tsx
+          grep -q 'Lembretes Nexa' src/lib/nexaNotifications.ts
+          grep -q 'scheduleNexaReminder' src/lib/nexaNotifications.ts
+          grep -q 'ensureNexaNotificationPermission' app/assistant.tsx
+          echo 'Voice, life-support and native notification contracts are present.'
 
       - name: Validate safety contracts
         run: node scripts/validate-mobile-safety.js
@@ -183,7 +188,7 @@ jobs:
           echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
           ls -lh "$FILE"
 
-      - name: Verify signed APK identity and voice permission
+      - name: Verify signed APK identity, voice and notification permissions
         run: |
           set -euo pipefail
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
@@ -201,8 +206,10 @@ jobs:
           grep -qx '107' apk-version-code.txt
           grep -qx '36' apk-target-sdk.txt
           grep -q 'android.permission.RECORD_AUDIO' apk-permissions.txt
+          grep -q 'android.permission.POST_NOTIFICATIONS' apk-permissions.txt
+          grep -q 'android.permission.RECEIVE_BOOT_COMPLETED' apk-permissions.txt
           printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
-          echo 'APK VERIFIED: signed, same Nexa identity, API36, microphone permission present.'
+          echo 'APK VERIFIED: signed, same Nexa identity, API36, microphone and native notification permissions present.'
 
       - name: Upload verified pilot APK
         uses: actions/upload-artifact@v4
