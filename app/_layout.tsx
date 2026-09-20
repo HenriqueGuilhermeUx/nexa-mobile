@@ -1,14 +1,22 @@
 import { PrivyProvider } from '@privy-io/expo';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { assertPublicConfiguration, config } from '@/config';
+import { initializeNexaNotifications } from '@/lib/nexaNotifications';
 import { colors } from '@/theme';
 
 assertPublicConfiguration();
 
 export default function RootLayout() {
+  useEffect(() => {
+    void initializeNexaNotifications().catch((error) => {
+      console.warn('Nexa notifications initialization failed', error);
+    });
+  }, []);
+
   return (
     <SafeAreaProvider>
       <PrivyProvider
