@@ -28,6 +28,12 @@
       "expo-apple-authentication",
       "expo-web-browser",
       [
+        "expo-notifications",
+        {
+          "defaultChannel": "nexa-alerts"
+        }
+      ],
+      [
         "expo-speech-recognition",
         {
           "microphonePermission": "Permita que a Nexa use o microfone para conversar com seu assistente.",
