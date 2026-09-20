@@ -1,0 +1,71 @@
+name: Nexa Assistant Reminder Actions CI
+
+on:
+  push:
+    branches:
+      - feature/nexa-assistant-reminder-actions
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-assistant-reminder-actions-ci
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout reminder branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Assert reminder changes are additive
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feature/nexa-assistant-remote-push --depth=1
+          ALLOWED_REGEX='^(\.github/workflows/assistant-reminder-actions-ci\.yml|src/components/NexaAssistant\.tsx|src/lib/nexaReminderIntent\.ts)$'
+          CHANGED=$(git diff --name-only origin/feature/nexa-assistant-remote-push...HEAD)
+          echo "$CHANGED"
+          UNEXPECTED=$(printf '%s\n' "$CHANGED" | grep -Ev "$ALLOWED_REGEX" || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'Unexpected files changed beyond the remote push base:'
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.0'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Export Android bundle with reminder actions disabled by default
+        env:
+          CI: 'true'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_REMOTE_PUSH_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_ASSISTANT_REMINDERS_ENABLED: 'false'
+        run: npm run export:android
+
+      - name: Assert reminder safety contract
+        run: |
+          grep -q 'EXPO_PUBLIC_NEXA_ASSISTANT_REMINDERS_ENABLED' src/lib/nexaReminderIntent.ts
+          grep -q '/staff/reminder-intent' src/lib/nexaReminderIntent.ts
+          grep -q 'scheduleNexaReminder' src/components/NexaAssistant.tsx
+          grep -q 'ensureNexaNotificationPermission' src/components/NexaAssistant.tsx
+          grep -q 'Lembrete criado' src/components/NexaAssistant.tsx
+          if grep -R -n -E 'payment\.execute|financialExecutionEnabled: true' src/lib/nexaReminderIntent.ts src/components/NexaAssistant.tsx; then
+            echo 'Unexpected financial execution capability in reminder action path.'
+            exit 1
+          fi
