@@ -4,6 +4,10 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import NexaAssistant from '@/components/NexaAssistant';
 import { nexaApi } from '@/lib/api';
+import {
+  ensureNexaNotificationPermission,
+  showNexaNotification,
+} from '@/lib/nexaNotifications';
 import { loadNexaSession } from '@/lib/session';
 import { colors, spacing } from '@/theme';
 
@@ -29,6 +33,19 @@ export default function AssistantScreen() {
         if (mounted) {
           setToken(session.accessToken);
           setFirstName(String(user?.fullName || '').split(' ')[0]);
+        }
+
+        try {
+          const permission = await ensureNexaNotificationPermission();
+          if (permission.newlyGranted) {
+            await showNexaNotification(
+              'Notificações da Nexa ativadas',
+              'Seus avisos, lembretes e compromissos poderão aparecer aqui no celular.',
+              { source: 'nexa_assistant', type: 'notifications_enabled' },
+            );
+          }
+        } catch (notificationError) {
+          console.warn('Nexa notification permission setup failed', notificationError);
         }
       } catch (caught: any) {
         if (mounted) {
