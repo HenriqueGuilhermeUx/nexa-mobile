@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { router } from 'expo-router';
 import {
   ActivityIndicator,
   Linking,
@@ -1345,6 +1346,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             subtitle={canAccessCustody ? (isPremium ? 'Premium' : 'Carteira existente') : 'Recurso Premium'}
             onPress={() => setPage(canAccessCustody ? 'custody' : 'premium')}
           />
+          {config.assistantEnabled ? (
+            <MenuTile
+              icon="✦"
+              title="Assistente"
+              subtitle="Vida, rotina e dinheiro"
+              onPress={() => router.push('/assistant')}
+              accent
+            />
+          ) : null}
           <MenuTile
             icon="💬"
             title="Fale com a Nexa"
