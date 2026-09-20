@@ -17,12 +17,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Assert Assistant changes are additive only
+      - name: Assert Assistant changes remain controlled
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin main --depth=1
-          ALLOWED_REGEX='^(\.github/workflows/assistant-pilot-apk\.yml|\.github/workflows/assistant-preview-ci\.yml|app/_layout\.tsx|app/assistant\.tsx|app/legacy\.js|eas\.json|src/components/NexaAssistant\.tsx|src/config\.ts|src/lib/api\.ts)$'
+          ALLOWED_REGEX='^(\.github/workflows/assistant-pilot-apk\.yml|\.github/workflows/assistant-preview-ci\.yml|\.github/workflows/assistant-menu-and-lock\.yml|\.github/workflows/assistant-pilot-cloud-apk\.yml|app\.json|package\.json|package-lock\.json|app/_layout\.tsx|app/assistant\.tsx|app/legacy\.js|eas\.json|src/components/AlignedLegacyApp\.tsx|src/components/NexaAssistant\.tsx|src/config\.ts|src/lib/api\.ts)$'
           CHANGED=$(git diff --name-only origin/main...HEAD)
           echo "$CHANGED"
           UNEXPECTED=$(printf '%s\n' "$CHANGED" | grep -Ev "$ALLOWED_REGEX" || true)
@@ -32,12 +32,13 @@ jobs:
             exit 1
           fi
           git diff --exit-code origin/main...HEAD -- \
-            src/components/AlignedLegacyApp.tsx \
             app/sign-in.tsx \
             app/sign-up.tsx \
             app/onboarding-wallet.tsx \
             nexa-mobile/nexa-mobile/App.js
-          echo 'Core existing Nexa screens are byte-for-byte unchanged.'
+          echo 'Core auth/onboarding and legacy native app remain byte-for-byte unchanged.'
+          grep -q "title=\"Assistente\"" src/components/AlignedLegacyApp.tsx
+          grep -q "router.push('/assistant')" src/components/AlignedLegacyApp.tsx
       - uses: actions/setup-node@v4
         with:
           node-version: '20.20.0'
@@ -59,9 +60,11 @@ jobs:
           CI: 'true'
           EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
         run: npm run export:android
-      - name: Assert assistant is feature-gated and non-executing
+      - name: Assert assistant is feature-gated, voice-ready and non-executing
         run: |
           grep -q "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED" src/config.ts
           grep -q "config.assistantEnabled" app/legacy.js
-          grep -q "Movimentações financeiras nunca são executadas" src/components/NexaAssistant.tsx
+          grep -q "Movimentações financeiras só acontecem após sua confirmação na Nexa" src/components/NexaAssistant.tsx
+          grep -q "expo-speech-recognition" package.json
+          grep -q "expo-speech" package.json
           grep -q "assistantChat" src/lib/api.ts
