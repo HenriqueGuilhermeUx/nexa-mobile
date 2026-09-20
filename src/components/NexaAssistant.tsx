@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -10,6 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Speech from 'expo-speech';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
 
 import {
   AssistantCapabilities,
@@ -23,18 +29,26 @@ type Props = {
 };
 
 const STARTERS = [
-  'Como está meu dinheiro hoje?',
-  'Quais foram minhas últimas movimentações?',
-  'Quanto tenho em cada ativo?',
-  'Me ajude a organizar meus próximos pagamentos.',
+  { icon: '☀️', text: 'Me ajude a organizar meu dia.' },
+  { icon: '✓', text: 'Quais devem ser minhas prioridades hoje?' },
+  { icon: '🗓️', text: 'Me ajude a planejar minha semana.' },
+  { icon: '🎯', text: 'Quero organizar uma meta pessoal.' },
+  { icon: '💰', text: 'Como está meu dinheiro hoje?' },
+  { icon: '◇', text: 'Quanto tenho em cada ativo?' },
 ];
 
 export default function NexaAssistant({ token, firstName }: Props) {
+  const insets = useSafeAreaInsets();
   const [capabilities, setCapabilities] = useState<AssistantCapabilities | null>(null);
   const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [listening, setListening] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
+  const [autoSpeak, setAutoSpeak] = useState(true);
+  const lastVoiceSentRef = useRef('');
+  const scrollRef = useRef<ScrollView | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -48,20 +62,104 @@ export default function NexaAssistant({ token, firstName }: Props) {
       });
     return () => {
       alive = false;
+      try {
+        ExpoSpeechRecognitionModule.abort();
+      } catch {}
+      void Speech.stop();
     };
   }, [token]);
 
+  useEffect(() => {
+    const id = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    return () => clearTimeout(id);
+  }, [messages, loading, error]);
+
+  useSpeechRecognitionEvent('start', () => {
+    setListening(true);
+    setVoiceError('');
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    setListening(false);
+  });
+
+  useSpeechRecognitionEvent('result', (event) => {
+    const transcript = String(event.results?.[0]?.transcript || '').trim();
+    if (!transcript) return;
+    setInput(transcript);
+
+    if (event.isFinal && transcript !== lastVoiceSentRef.current) {
+      lastVoiceSentRef.current = transcript;
+      void send(transcript, true);
+    }
+  });
+
+  useSpeechRecognitionEvent('error', (event) => {
+    setListening(false);
+    const code = String(event.error || '');
+    if (code === 'no-speech' || code === 'speech-timeout') {
+      setVoiceError('Não ouvi sua voz. Toque no microfone e tente novamente.');
+      return;
+    }
+    if (code === 'not-allowed') {
+      setVoiceError('Permita o uso do microfone para conversar por voz.');
+      return;
+    }
+    setVoiceError('Não consegui ouvir agora. Você pode continuar digitando.');
+  });
+
   const enabled = capabilities?.enabled === true;
   const greeting = useMemo(
-    () => `Olá${firstName ? `, ${firstName}` : ''}. Como posso ajudar?`,
+    () => `Olá${firstName ? `, ${firstName}` : ''}. Posso ajudar com seu dia, sua organização e também com sua vida financeira na Nexa.`,
     [firstName],
   );
 
-  async function send(text?: string) {
+  async function speak(text: string) {
+    const clean = String(text || '').trim();
+    if (!clean) return;
+    await Speech.stop();
+    Speech.speak(clean, {
+      language: 'pt-BR',
+      rate: 0.96,
+      pitch: 1,
+    });
+  }
+
+  async function startVoice() {
+    if (!enabled || loading) return;
+    setVoiceError('');
+    setError('');
+    lastVoiceSentRef.current = '';
+
+    if (listening) {
+      ExpoSpeechRecognitionModule.stop();
+      return;
+    }
+
+    try {
+      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!permission.granted) {
+        setVoiceError('Permita o microfone para conversar por voz com a Nexa.');
+        return;
+      }
+      await Speech.stop();
+      ExpoSpeechRecognitionModule.start({
+        lang: 'pt-BR',
+        interimResults: true,
+        continuous: false,
+        maxAlternatives: 1,
+        contextualStrings: ['Nexa', 'Pix', 'USDC', 'Bitcoin', 'Ethereum', 'XAUT'],
+      });
+    } catch {
+      setVoiceError('Não consegui iniciar o microfone agora.');
+    }
+  }
+
+  async function send(text?: string, fromVoice = false) {
     const message = String(text ?? input).trim();
     if (!message || loading || !enabled) return;
 
-    const history = messages.slice(-10);
+    const history = messages.slice(-12);
     const nextMessages: AssistantChatMessage[] = [
       ...messages,
       { role: 'user', content: message },
@@ -69,23 +167,30 @@ export default function NexaAssistant({ token, firstName }: Props) {
     setMessages(nextMessages);
     setInput('');
     setError('');
+    setVoiceError('');
     setLoading(true);
 
     try {
       const result = await nexaApi.assistantChat(token, message, history);
       const answer = String(result?.response || '').trim();
+      const finalAnswer = answer || 'Não consegui responder agora. Tente novamente.';
       setMessages((current) => [
         ...current,
         {
           role: 'assistant',
-          content: answer || 'Não consegui responder agora. Tente novamente.',
+          content: finalAnswer,
         },
       ]);
+      if (autoSpeak || fromVoice) {
+        await speak(finalAnswer);
+      }
     } catch (err: any) {
       setError(
         err?.status === 503
-          ? 'O Assistente Nexa ainda não foi ativado para esta versão.'
-          : 'Não consegui falar com o Assistente Nexa agora.',
+          ? 'O Assistente Nexa ainda não foi ativado para esta conta.'
+          : err?.status === 502
+            ? 'O motor do assistente está se reconectando. Tente novamente em alguns segundos.'
+            : 'Não consegui falar com o Assistente Nexa agora.',
       );
     } finally {
       setLoading(false);
@@ -95,14 +200,15 @@ export default function NexaAssistant({ token, firstName }: Props) {
   if (capabilities && !enabled) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Assistente Nexa</Text>
+        <Text style={styles.eyebrow}>ASSISTENTE PESSOAL</Text>
+        <Text style={styles.title}>Sua vida mais organizada</Text>
         <Text style={styles.subtitle}>
-          Estamos preparando seu assistente pessoal dentro da Nexa.
+          Rotina, prioridades, organização e contexto financeiro em um só lugar.
         </Text>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Integração preparada com segurança</Text>
           <Text style={styles.cardText}>
-            O assistente poderá ajudar com organização, contexto financeiro e preparação de ações. Pagamentos e movimentações continuam exigindo confirmação na Nexa.
+            Pagamentos e movimentações financeiras sempre continuam exigindo confirmação dentro da Nexa.
           </Text>
         </View>
       </View>
@@ -112,38 +218,60 @@ export default function NexaAssistant({ token, firstName }: Props) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 92 : 0}
     >
-      <Text style={styles.title}>Assistente Nexa</Text>
-      <Text style={styles.subtitle}>
-        Seu dia e seu dinheiro, organizados em uma conversa.
-      </Text>
+      <View style={styles.introRow}>
+        <View style={styles.introCopy}>
+          <Text style={styles.eyebrow}>ASSISTENTE PESSOAL</Text>
+          <Text style={styles.title}>Seu dia, sua rotina e seu dinheiro</Text>
+          <Text style={styles.subtitle}>
+            Converse por texto ou voz. A Nexa ajuda você a organizar a vida e entende seu contexto financeiro quando isso for útil.
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.voiceMode, autoSpeak && styles.voiceModeActive]}
+          onPress={() => {
+            setAutoSpeak((current) => !current);
+            if (autoSpeak) void Speech.stop();
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.voiceModeIcon}>{autoSpeak ? '🔊' : '🔇'}</Text>
+          <Text style={styles.voiceModeText}>Voz</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.safetyBox}>
         <Text style={styles.safetyText}>
-          O assistente pode explicar e preparar ações. Movimentações financeiras nunca são executadas pela conversa.
+          O assistente pode orientar e preparar ações. Movimentações financeiras só acontecem após sua confirmação na Nexa.
         </Text>
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.messages}
         contentContainerStyle={styles.messagesContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         {messages.length === 0 ? (
           <>
             <View style={[styles.bubble, styles.assistantBubble]}>
               <Text style={styles.assistantText}>{greeting}</Text>
             </View>
+            <Text style={styles.sectionLabel}>EXPERIMENTE</Text>
             <View style={styles.starterGrid}>
               {STARTERS.map((starter) => (
                 <TouchableOpacity
-                  key={starter}
+                  key={starter.text}
                   style={styles.starter}
-                  onPress={() => send(starter)}
+                  onPress={() => send(starter.text)}
                   disabled={loading || !enabled}
+                  activeOpacity={0.82}
                 >
-                  <Text style={styles.starterText}>{starter}</Text>
+                  <Text style={styles.starterIcon}>{starter.icon}</Text>
+                  <Text style={styles.starterText}>{starter.text}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -164,6 +292,15 @@ export default function NexaAssistant({ token, firstName }: Props) {
               >
                 {item.content}
               </Text>
+              {item.role === 'assistant' ? (
+                <TouchableOpacity
+                  style={styles.readAgain}
+                  onPress={() => speak(item.content)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.readAgainText}>🔊 Ouvir</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ))
         )}
@@ -174,23 +311,44 @@ export default function NexaAssistant({ token, firstName }: Props) {
           </View>
         ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {voiceError ? <Text style={styles.voiceError}>{voiceError}</Text> : null}
       </ScrollView>
 
-      <View style={styles.composer}>
+      <View
+        style={[
+          styles.composer,
+          { paddingBottom: Math.max(insets.bottom + 6, 14) },
+        ]}
+      >
+        <TouchableOpacity
+          style={[styles.mic, listening && styles.micListening]}
+          onPress={startVoice}
+          disabled={!enabled || loading}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.micText}>{listening ? '■' : '🎙️'}</Text>
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
-          placeholder={enabled ? 'Pergunte à Nexa…' : 'Assistente ainda desativado'}
+          placeholder={
+            listening
+              ? 'Estou ouvindo…'
+              : enabled
+                ? 'Pergunte qualquer coisa…'
+                : 'Assistente ainda desativado'
+          }
           placeholderTextColor="#64748b"
           value={input}
           onChangeText={setInput}
           multiline
-          editable={enabled && !loading}
+          editable={enabled && !loading && !listening}
           maxLength={12000}
         />
         <TouchableOpacity
           style={[styles.send, (!enabled || loading || !input.trim()) && styles.sendDisabled]}
           onPress={() => send()}
           disabled={!enabled || loading || !input.trim()}
+          activeOpacity={0.8}
         >
           <Text style={styles.sendText}>Enviar</Text>
         </TouchableOpacity>
@@ -202,19 +360,58 @@ export default function NexaAssistant({ token, firstName }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 4,
+    paddingTop: 2,
+  },
+  introRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  introCopy: {
+    flex: 1,
+  },
+  eyebrow: {
+    color: '#8b5cf6',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
   },
   title: {
     color: '#f8fafc',
-    fontSize: 26,
+    fontSize: 24,
+    lineHeight: 29,
     fontWeight: '800',
+    marginTop: 4,
   },
   subtitle: {
     color: '#94a3b8',
     fontSize: 14,
     lineHeight: 20,
-    marginTop: 5,
-    marginBottom: 14,
+    marginTop: 6,
+    marginBottom: 12,
+  },
+  voiceMode: {
+    minWidth: 58,
+    alignItems: 'center',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+  },
+  voiceModeActive: {
+    borderColor: '#7c3aed',
+    backgroundColor: '#211241',
+  },
+  voiceModeIcon: {
+    fontSize: 17,
+  },
+  voiceModeText: {
+    color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
   },
   card: {
     backgroundColor: '#111827',
@@ -238,24 +435,31 @@ const styles = StyleSheet.create({
     borderColor: '#25324a',
     borderWidth: 1,
     borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
+    padding: 11,
+    marginBottom: 8,
   },
   safetyText: {
     color: '#94a3b8',
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 11,
+    lineHeight: 16,
   },
   messages: {
     flex: 1,
-    minHeight: 320,
   },
   messagesContent: {
     paddingVertical: 8,
-    paddingBottom: 20,
+    paddingBottom: 16,
+  },
+  sectionLabel: {
+    color: '#64748b',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 4,
+    marginBottom: 8,
   },
   bubble: {
-    maxWidth: '88%',
+    maxWidth: '90%',
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 11,
@@ -285,31 +489,68 @@ const styles = StyleSheet.create({
   },
   starterGrid: {
     gap: 8,
-    marginTop: 4,
+    marginTop: 2,
   },
   starter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     borderColor: '#334155',
     borderWidth: 1,
     borderRadius: 14,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     backgroundColor: '#0f172a',
   },
+  starterIcon: {
+    fontSize: 17,
+    width: 25,
+    textAlign: 'center',
+  },
   starterText: {
+    flex: 1,
     color: '#cbd5e1',
     fontSize: 13,
+  },
+  readAgain: {
+    alignSelf: 'flex-start',
+    marginTop: 9,
+  },
+  readAgainText: {
+    color: '#a78bfa',
+    fontSize: 11,
+    fontWeight: '700',
   },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
+    gap: 7,
     borderTopColor: '#1e293b',
     borderTopWidth: 1,
     paddingTop: 10,
-    paddingBottom: 4,
+    backgroundColor: '#020617',
+  },
+  mic: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#6d28d9',
+    backgroundColor: '#20113d',
+  },
+  micListening: {
+    backgroundColor: '#7c2d12',
+    borderColor: '#fb923c',
+  },
+  micText: {
+    fontSize: 19,
+    color: '#ffffff',
   },
   input: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 48,
     maxHeight: 120,
     borderRadius: 16,
     borderWidth: 1,
@@ -320,10 +561,10 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   send: {
-    minHeight: 46,
+    minHeight: 48,
     justifyContent: 'center',
     borderRadius: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     backgroundColor: '#7c3aed',
   },
   sendDisabled: {
@@ -336,5 +577,11 @@ const styles = StyleSheet.create({
   error: {
     color: '#fca5a5',
     marginTop: 6,
+    lineHeight: 19,
+  },
+  voiceError: {
+    color: '#fdba74',
+    marginTop: 6,
+    lineHeight: 19,
   },
 });
