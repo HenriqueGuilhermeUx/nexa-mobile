@@ -8,6 +8,7 @@ import {
   ensureNexaNotificationPermission,
   showNexaNotification,
 } from '@/lib/nexaNotifications';
+import { registerNexaRemotePush } from '@/lib/nexaRemotePush';
 import { loadNexaSession } from '@/lib/session';
 import { colors, spacing } from '@/theme';
 
@@ -44,8 +45,12 @@ export default function AssistantScreen() {
               { source: 'nexa_assistant', type: 'notifications_enabled' },
             );
           }
+
+          if (permission.granted) {
+            await registerNexaRemotePush(session.accessToken);
+          }
         } catch (notificationError) {
-          console.warn('Nexa notification permission setup failed', notificationError);
+          console.warn('Nexa notification setup failed', notificationError);
         }
       } catch (caught: any) {
         if (mounted) {

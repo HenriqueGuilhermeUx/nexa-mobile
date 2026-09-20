@@ -1,0 +1,71 @@
+name: Nexa Assistant Remote Push CI
+
+on:
+  push:
+    branches:
+      - feature/nexa-assistant-remote-push
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-assistant-remote-push-ci
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout remote push branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Assert remote push changes are additive
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feature/nexa-personal-assistant --depth=1
+          ALLOWED_REGEX='^(\.github/workflows/assistant-remote-push-ci\.yml|app/assistant\.tsx|src/lib/nexaRemotePush\.ts)$'
+          CHANGED=$(git diff --name-only origin/feature/nexa-personal-assistant...HEAD)
+          echo "$CHANGED"
+          UNEXPECTED=$(printf '%s\n' "$CHANGED" | grep -Ev "$ALLOWED_REGEX" || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'Unexpected files changed beyond the approved Assistant base:'
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+          echo 'Remote push work is isolated from the approved Assistant pilot.'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.0'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Export Android bundle with remote push disabled by default
+        env:
+          CI: 'true'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_REMOTE_PUSH_ENABLED: 'false'
+        run: npm run export:android
+
+      - name: Assert remote push safety contract
+        run: |
+          grep -q 'EXPO_PUBLIC_NEXA_REMOTE_PUSH_ENABLED' src/lib/nexaRemotePush.ts
+          grep -q '/notifications/push/register' src/lib/nexaRemotePush.ts
+          grep -q 'Authorization: `Bearer ${accessToken}`' src/lib/nexaRemotePush.ts
+          grep -q 'registerNexaRemotePush' app/assistant.tsx
+          if grep -R -n -E 'payment\.execute|financialExecutionEnabled: true' src/lib/nexaRemotePush.ts app/assistant.tsx; then
+            echo 'Unexpected financial execution capability in push registration path.'
+            exit 1
+          fi
+          echo 'Remote push registration is authenticated, additive and fail-closed by default.'
