@@ -123,6 +123,22 @@ export default function LegacyExperience() {
         onLogout={logout}
       />
 
+      {config.efiOpenFinanceEnabled ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Trazer dinheiro de outro banco"
+          activeOpacity={0.86}
+          style={[
+            styles.openFinanceButton,
+            { bottom: config.assistantEnabled ? 154 : 96 },
+          ]}
+          onPress={() => router.push('/open-finance')}
+        >
+          <Text style={styles.openFinanceIcon}>🏦</Text>
+          <Text style={styles.openFinanceLabel}>Trazer dinheiro</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {config.assistantEnabled ? (
         <TouchableOpacity
           accessibilityRole="button"
@@ -152,6 +168,31 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   text: { color: colors.muted, textAlign: 'center' },
+  openFinanceButton: {
+    position: 'absolute',
+    right: 16,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: '#0d3b66',
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    shadowColor: '#000000',
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 7,
+  },
+  openFinanceIcon: {
+    fontSize: 17,
+  },
+  openFinanceLabel: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
   assistantButton: {
     position: 'absolute',
     right: 16,
