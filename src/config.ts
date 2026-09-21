@@ -11,6 +11,7 @@ interface NexaExtra {
   releaseChannel?: string;
   androidTargetApi?: number;
   assistantEnabled?: boolean;
+  efiOpenFinanceEnabled?: boolean;
 }
 
 const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
@@ -22,6 +23,11 @@ const envFinancialExecution = String(
   .toLowerCase();
 const envAssistantEnabled = String(
   process.env.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED || '',
+)
+  .trim()
+  .toLowerCase();
+const envEfiOpenFinanceEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED || '',
 )
   .trim()
   .toLowerCase();
@@ -44,6 +50,9 @@ export const config = {
   assistantEnabled:
     envAssistantEnabled === 'true' ||
     (envAssistantEnabled !== 'false' && extra.assistantEnabled === true),
+  efiOpenFinanceEnabled:
+    envEfiOpenFinanceEnabled === 'true' ||
+    (envEfiOpenFinanceEnabled !== 'false' && extra.efiOpenFinanceEnabled === true),
   ledgerOperationsEnabled: extra.ledgerOperationsEnabled !== false,
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
