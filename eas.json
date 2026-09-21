@@ -60,6 +60,7 @@
         "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
         "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
         "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "true",
         "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "open-finance-pilot"
       },
       "android": {
