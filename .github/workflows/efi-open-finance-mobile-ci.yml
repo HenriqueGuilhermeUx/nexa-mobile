@@ -1,0 +1,70 @@
+name: Nexa Efi Open Finance Mobile CI
+
+on:
+  push:
+    branches:
+      - feature/nexa-efi-open-finance
+    paths:
+      - 'app/open-finance.tsx'
+      - 'app/legacy.js'
+      - 'src/config.ts'
+      - 'src/lib/efiOpenFinance.ts'
+      - '.github/workflows/efi-open-finance-mobile-ci.yml'
+  pull_request:
+    paths:
+      - 'app/open-finance.tsx'
+      - 'app/legacy.js'
+      - 'src/config.ts'
+      - 'src/lib/efiOpenFinance.ts'
+      - '.github/workflows/efi-open-finance-mobile-ci.yml'
+
+jobs:
+  validate:
+    name: TypeScript, export and safety contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Export Android with Open Finance disabled
+        run: npx expo export --platform android --output-dir dist-open-finance-ci
+
+      - name: Assert safe mobile contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCREEN='app/open-finance.tsx'
+          CLIENT='src/lib/efiOpenFinance.ts'
+          CONFIG='src/config.ts'
+          LEGACY='app/legacy.js'
+
+          grep -q 'EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED' "$CONFIG"
+          grep -q 'efiOpenFinanceEnabled' "$CONFIG"
+          grep -q '/open-finance/efi/deposit/start' "$CLIENT"
+          grep -q 'Authorization.*Bearer' "$CLIENT"
+          grep -q 'Trazer dinheiro' "$SCREEN"
+          grep -q 'A Nexa nunca pede sua senha bancária' "$SCREEN"
+          grep -q "router.push('/open-finance')" "$LEGACY"
+          ! grep -q 'CLIENT_SECRET\|CERTIFICATE_BASE64\|WEBHOOK_HMAC' "$SCREEN"
+          ! grep -q 'CLIENT_SECRET\|CERTIFICATE_BASE64\|WEBHOOK_HMAC' "$CLIENT"
+          echo 'Nexa Efí Open Finance mobile safety contracts OK.'
