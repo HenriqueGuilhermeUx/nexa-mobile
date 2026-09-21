@@ -12,6 +12,7 @@ export type EfiOpenFinanceStatus = {
   configured?: boolean;
   destinationConfigured?: boolean;
   ledgerCreditEnabled?: boolean;
+  paymentInitiationEnabled?: boolean;
 };
 
 export type EfiOpenFinanceDeposit = {
