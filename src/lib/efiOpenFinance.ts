@@ -37,7 +37,7 @@ function headers(accessToken: string) {
 }
 
 async function request(path: string, accessToken: string, options: RequestInit = {}) {
-  const response = await fetch(`${config.apiUrl}${path}`, {
+  const response = await fetch(`${config.efiOpenFinanceApiUrl}${path}`, {
     ...options,
     headers: {
       ...headers(accessToken),
