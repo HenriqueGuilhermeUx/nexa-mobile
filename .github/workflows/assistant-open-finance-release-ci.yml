@@ -1,0 +1,66 @@
+name: Nexa Assistant + Open Finance Release CI
+
+on:
+  push:
+    branches:
+      - feature/nexa-assistant-open-finance-release
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'src/**'
+      - 'app.json'
+      - 'app.config.js'
+      - 'eas.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/assistant-open-finance-release-ci.yml'
+
+jobs:
+  validate:
+    name: TypeScript, export and safety contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-open-finance-homolog.onrender.com/api/v1'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'assistant-open-finance-pilot'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Export Android pilot
+        run: npm run export:android
+
+      - name: Assert integrated release contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/open-finance.tsx
+          test -f app/open-finance-recurring.tsx
+          test -f src/lib/efiOpenFinance.ts
+          test -f src/lib/nexaRecurringIntent.ts
+          grep -q 'expo-speech-recognition' package.json
+          grep -q 'ExpoSpeechRecognitionModule' src/components/NexaAssistant.tsx
+          grep -q 'recurring/preview' src/lib/efiOpenFinance.ts
+          grep -q 'recurring/start' src/lib/efiOpenFinance.ts
+          grep -q 'Autorização bloqueada no piloto' app/open-finance-recurring.tsx
+          grep -q 'parseRecurringFundingIntent' src/lib/nexaRecurringIntent.ts
+          ! grep -R -q 'EFI_OPEN_FINANCE_CLIENT_SECRET\|EFI_OPEN_FINANCE_CERTIFICATE_BASE64\|EFI_OPEN_FINANCE_WEBHOOK_HMAC' app src
+          echo 'Integrated Assistant + Open Finance contracts OK.'
