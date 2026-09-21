@@ -26,6 +26,43 @@ export type EfiOpenFinanceDeposit = {
   ledgerCreditEnabled?: boolean;
 };
 
+export type EfiRecurringStatus = {
+  provider?: string;
+  product?: string;
+  enabled?: boolean;
+  beta?: boolean;
+  initiationEnabled?: boolean;
+  cancellationEnabled?: boolean;
+  defaultQuantity?: number;
+  pilotDayRange?: { min?: number; max?: number };
+};
+
+export type EfiRecurringPlan = {
+  frequency: 'monthly';
+  amountBrl: number;
+  dayOfMonth: number;
+  quantity: number;
+  startDate: string;
+  participantId: string;
+};
+
+export type EfiRecurringPreview = {
+  success?: boolean;
+  execution?: boolean;
+  plan?: EfiRecurringPlan;
+  confirmationText?: string;
+  initiationEnabled?: boolean;
+};
+
+export type EfiRecurringStart = {
+  success?: boolean;
+  provider?: string;
+  paymentId?: string;
+  redirectURI?: string;
+  plan?: EfiRecurringPlan;
+  status?: string;
+};
+
 function headers(accessToken: string) {
   return {
     Accept: 'application/json',
@@ -88,6 +125,51 @@ export const efiOpenFinanceApi = {
       `/open-finance/efi/deposit/status?paymentId=${encodeURIComponent(paymentId)}`,
       accessToken,
     ) as Promise<EfiOpenFinanceDeposit>;
+  },
+
+  recurringStatus(accessToken: string) {
+    return request('/open-finance/efi/recurring/status', accessToken) as Promise<EfiRecurringStatus>;
+  },
+
+  recurringPreview(
+    accessToken: string,
+    input: {
+      amountBrl: number;
+      participantId: string;
+      dayOfMonth: number;
+      quantity?: number;
+    },
+  ) {
+    return request('/open-finance/efi/recurring/preview', accessToken, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }) as Promise<EfiRecurringPreview>;
+  },
+
+  recurringStart(
+    accessToken: string,
+    input: {
+      amountBrl: number;
+      participantId: string;
+      dayOfMonth: number;
+      quantity?: number;
+    },
+  ) {
+    return request('/open-finance/efi/recurring/start', accessToken, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }) as Promise<EfiRecurringStart>;
+  },
+
+  recurringMine(accessToken: string) {
+    return request('/open-finance/efi/recurring/me', accessToken);
+  },
+
+  recurringCancel(accessToken: string, paymentId: string) {
+    return request('/open-finance/efi/recurring/cancel', accessToken, {
+      method: 'PATCH',
+      body: JSON.stringify({ paymentId }),
+    });
   },
 };
 
