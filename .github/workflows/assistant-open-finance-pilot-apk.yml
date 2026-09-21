@@ -101,14 +101,16 @@ jobs:
       - name: Assert Assistant and Open Finance contracts
         run: |
           set -euo pipefail
+          INTEGRATED='src/components/NexaAssistantOpenFinance.tsx'
           grep -q 'expo-speech-recognition' package.json
           grep -q 'expo-speech' package.json
           grep -q 'expo-notifications' package.json
-          grep -q 'ExpoSpeechRecognitionModule' src/components/NexaAssistant.tsx
-          grep -q 'Movimentações financeiras só acontecem após sua confirmação na Nexa' src/components/NexaAssistant.tsx
-          grep -q 'parseRecurringFundingIntent' src/components/NexaAssistant.tsx
-          grep -q 'open-finance-recurring' src/components/NexaAssistant.tsx
-          grep -q 'EFI_OPEN_FINANCE' src/config.ts || true
+          test -f "$INTEGRATED"
+          grep -q 'ExpoSpeechRecognitionModule' "$INTEGRATED"
+          grep -q 'Movimentações financeiras só acontecem após sua confirmação na Nexa' "$INTEGRATED"
+          grep -q 'parseRecurringFundingIntent' "$INTEGRATED"
+          grep -q 'open-finance-recurring' "$INTEGRATED"
+          grep -q 'NexaAssistantOpenFinance' app/assistant.tsx
           test -f app/open-finance.tsx
           test -f app/open-finance-recurring.tsx
           test -f src/lib/efiOpenFinance.ts
