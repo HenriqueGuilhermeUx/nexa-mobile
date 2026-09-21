@@ -33,6 +33,7 @@ export default function OpenFinanceScreen() {
   const [status, setStatus] = useState('');
   const [backendReady, setBackendReady] = useState(false);
   const [ledgerCreditEnabled, setLedgerCreditEnabled] = useState(false);
+  const [paymentInitiationEnabled, setPaymentInitiationEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const lastAppState = useRef(AppState.currentState);
@@ -60,6 +61,7 @@ export default function OpenFinanceScreen() {
         if (!mounted) return;
         setBackendReady(Boolean(providerStatus.enabled && providerStatus.configured));
         setLedgerCreditEnabled(Boolean(providerStatus.ledgerCreditEnabled));
+        setPaymentInitiationEnabled(Boolean(providerStatus.paymentInitiationEnabled));
 
         if (!providerStatus.enabled || !providerStatus.configured) {
           setMessage('Open Finance ainda não está disponível neste ambiente.');
@@ -130,6 +132,11 @@ export default function OpenFinanceScreen() {
 
   async function startDeposit() {
     if (!backendReady) return setMessage('Open Finance ainda não está disponível neste ambiente.');
+    if (!paymentInitiationEnabled) {
+      return setMessage(
+        'A integração com os bancos está ativa para validação, mas iniciar movimentações continua bloqueado por segurança.',
+      );
+    }
     if (!token) return setMessage('Sua sessão Nexa expirou. Entre novamente.');
     if (!selected) return setMessage('Escolha o banco de onde o dinheiro vai sair.');
 
@@ -163,6 +170,8 @@ export default function OpenFinanceScreen() {
       setLoading(false);
     }
   }
+
+  const startDisabled = loading || !selected || !paymentInitiationEnabled;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -238,12 +247,20 @@ export default function OpenFinanceScreen() {
                 })}
               </View>
 
+              {!paymentInitiationEnabled ? (
+                <Text style={styles.safetyNotice}>
+                  Validação segura ativa: os bancos podem ser consultados, mas iniciar movimentação ainda está bloqueado.
+                </Text>
+              ) : null}
+
               <TouchableOpacity
-                disabled={loading || !selected}
+                disabled={startDisabled}
                 onPress={startDeposit}
-                style={[styles.primaryButton, loading || !selected ? styles.disabled : null]}
+                style={[styles.primaryButton, startDisabled ? styles.disabled : null]}
               >
-                <Text style={styles.primaryButtonText}>Autorizar no meu banco</Text>
+                <Text style={styles.primaryButtonText}>
+                  {paymentInitiationEnabled ? 'Autorizar no meu banco' : 'Movimentação bloqueada no piloto'}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -345,6 +362,12 @@ const styles = StyleSheet.create({
   bankButtonActive: { backgroundColor: '#12213e', borderColor: '#3b82f6' },
   bankName: { color: '#cbd5e1', fontWeight: '700', fontSize: 13 },
   bankNameActive: { color: '#ffffff' },
+  safetyNotice: {
+    color: '#fbbf24',
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 14,
+  },
   primaryButton: {
     backgroundColor: '#2563eb',
     borderWidth: 1,
