@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import NexaAssistant from '@/components/NexaAssistant';
+import NexaAssistantOpenFinance from '@/components/NexaAssistantOpenFinance';
 import { nexaApi } from '@/lib/api';
 import {
   ensureNexaNotificationPermission,
@@ -71,7 +71,7 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.screen}>
-      <NexaAssistant token={token} firstName={firstName} />
+      <NexaAssistantOpenFinance token={token} firstName={firstName} />
     </View>
   );
 }
