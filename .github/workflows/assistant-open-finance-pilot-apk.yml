@@ -95,6 +95,7 @@ jobs:
           if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') throw new Error('Financial execution must remain OFF');
           if (p.env?.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED !== 'true') throw new Error('Assistant must be ON');
           if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED !== 'true') throw new Error('Open Finance UI must be ON');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'true') throw new Error('Recurring Open Finance UI must be ON');
           console.log('Integrated pilot profile OK.');
           NODE
 
@@ -137,6 +138,7 @@ jobs:
           EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'open-finance-pilot'
         run: npm run export:android
 
@@ -152,7 +154,7 @@ jobs:
           EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-open-finance
         run: |
           set -euo pipefail
-          FILE='Nexa-Assistant-Open-Finance-Pilot-2.0.13-v108.apk'
+          FILE='Nexa-Assistant-Open-Finance-Pilot-2.0.14-v109.apk'
           rm -f "$FILE"
           eas build --platform android --profile open-finance-pilot --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
           test -s "$FILE"
@@ -175,18 +177,18 @@ jobs:
           "$APKANALYZER" manifest target-sdk "${{ env.apk_file }}" | tee apk-target-sdk.txt
           "$APKANALYZER" manifest permissions "${{ env.apk_file }}" | tee apk-permissions.txt
           grep -qx 'br.com.trynexa.app' apk-package.txt
-          grep -qx '2.0.13' apk-version-name.txt
-          grep -qx '108' apk-version-code.txt
+          grep -qx '2.0.14' apk-version-name.txt
+          grep -qx '109' apk-version-code.txt
           grep -qx '36' apk-target-sdk.txt
           grep -q 'android.permission.RECORD_AUDIO' apk-permissions.txt
           grep -q 'android.permission.POST_NOTIFICATIONS' apk-permissions.txt
           printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
-          echo 'APK VERIFIED: Nexa 2.0.13 v108, signed, API36, voice/notifications ready.'
+          echo 'APK VERIFIED: Nexa 2.0.14 v109, signed, API36, voice/notifications/Open Finance ready.'
 
       - name: Upload verified integrated pilot APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Assistant-Open-Finance-Pilot-2.0.13-v108-VERIFIED
+          name: Nexa-Assistant-Open-Finance-Pilot-2.0.14-v109-VERIFIED
           path: |
             ${{ env.apk_file }}
             SHA256SUMS.txt
