@@ -1,16 +1,16 @@
 module.exports = ({ config }) => ({
   ...config,
-  version: '2.0.14',
+  version: '2.0.15',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '109',
+    buildNumber: '110',
   },
   android: {
     ...(config.android || {}),
-    versionCode: 109,
+    versionCode: 110,
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.14-v109-assistant-open-finance-pilot',
+    releaseBuild: 'android16-api36-2.0.15-v110-assistant-open-finance-recovery-pilot',
   },
 });
