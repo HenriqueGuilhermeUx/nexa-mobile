@@ -64,13 +64,24 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Resolve release identity
+        run: |
+          set -euo pipefail
+          APP_VERSION=$(node -e "const f=require('./app.config.js'); const c=f({config:{}}); process.stdout.write(String(c.version));")
+          APP_BUILD=$(node -e "const f=require('./app.config.js'); const c=f({config:{}}); process.stdout.write(String(c.android.versionCode));")
+          test -n "$APP_VERSION"
+          test -n "$APP_BUILD"
+          echo "EXPECTED_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "EXPECTED_BUILD=$APP_BUILD" >> "$GITHUB_ENV"
+          echo "Resolved Nexa release: $APP_VERSION / v$APP_BUILD"
+
       - name: Preflight Nexa and Open Finance backends
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
             'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
           curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
-            'https://nexa-open-finance-homolog.onrender.com/api/v1/health' -o of-health.json
+            'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o of-health.json
           node <<'NODE'
           const fs = require('fs');
           for (const file of ['nexa-health.json', 'of-health.json']) {
@@ -91,22 +102,22 @@ jobs:
           if (!p) throw new Error('open-finance-pilot-aab profile missing');
           if (p.android?.buildType !== 'app-bundle') throw new Error('AAB profile must build app-bundle');
           if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Main API mismatch');
-          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL !== 'https://nexa-open-finance-homolog.onrender.com/api/v1') throw new Error('Open Finance API mismatch');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Open Finance API mismatch');
           if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') throw new Error('Financial execution must remain OFF');
           if (p.env?.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED !== 'true') throw new Error('Assistant must be ON');
           if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED !== 'true') throw new Error('Open Finance UI must be ON');
-          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'true') throw new Error('Recurring Open Finance UI must be ON');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'false') throw new Error('Recurring Open Finance UI must be OFF');
           console.log('Integrated AAB profile OK.');
           NODE
 
       - name: Validate release identity and contracts
         env:
           EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
-          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-open-finance-homolog.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
           EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
-          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'open-finance-pilot-aab'
         run: |
           set -euo pipefail
@@ -114,14 +125,16 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const c = JSON.parse(fs.readFileSync('expo-public-config.json', 'utf8'));
+          const expectedVersion = process.env.EXPECTED_VERSION;
+          const expectedBuild = Number(process.env.EXPECTED_BUILD);
           if (c.name !== 'Nexa') throw new Error('Unexpected app name');
           if (c.android?.package !== 'br.com.trynexa.app') throw new Error('Unexpected Android package');
-          if (c.version !== '2.0.14') throw new Error(`Unexpected version ${c.version}`);
-          if (Number(c.android?.versionCode) !== 109) throw new Error(`Unexpected versionCode ${c.android?.versionCode}`);
+          if (c.version !== expectedVersion) throw new Error(`Unexpected version ${c.version}`);
+          if (Number(c.android?.versionCode) !== expectedBuild) throw new Error(`Unexpected versionCode ${c.android?.versionCode}`);
           const plugins = JSON.stringify(c.plugins || []);
           if (!plugins.includes('expo-notifications')) throw new Error('expo-notifications plugin missing');
           if (!plugins.includes('expo-speech-recognition')) throw new Error('speech recognition plugin missing');
-          console.log('Release identity OK: Nexa 2.0.14 v109 / br.com.trynexa.app.');
+          console.log(`Release identity OK: Nexa ${expectedVersion} v${expectedBuild} / br.com.trynexa.app.`);
           NODE
           test -f app/open-finance.tsx
           test -f app/open-finance-recurring.tsx
@@ -144,11 +157,11 @@ jobs:
           CI: 'true'
           EXPO_NO_TELEMETRY: '1'
           EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
-          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-open-finance-homolog.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
           EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
-          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'open-finance-pilot-aab'
         run: npm run export:android
 
@@ -164,7 +177,7 @@ jobs:
           EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-open-finance-aab
         run: |
           set -euo pipefail
-          FILE='Nexa-Assistant-Open-Finance-Pilot-2.0.14-v109.aab'
+          FILE="Nexa-Assistant-Open-Finance-Pilot-${EXPECTED_VERSION}-v${EXPECTED_BUILD}.aab"
           rm -f "$FILE"
           eas build --platform android --profile open-finance-pilot-aab --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
           test -s "$FILE"
@@ -187,7 +200,7 @@ jobs:
       - name: Upload verified integrated AAB
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Assistant-Open-Finance-Pilot-2.0.14-v109-AAB-VERIFIED
+          name: Nexa-Assistant-Open-Finance-Pilot-AAB-VERIFIED
           path: |
             ${{ env.aab_file }}
             SHA256SUMS.txt
