@@ -17,6 +17,7 @@ export type EfiOpenFinanceStatus = {
 
 export type EfiOpenFinanceDeposit = {
   success?: boolean;
+  found?: boolean;
   provider?: string;
   paymentId: string;
   redirectURI?: string;
@@ -118,6 +119,10 @@ export const efiOpenFinanceApi = {
       method: 'POST',
       body: JSON.stringify(input),
     }) as Promise<EfiOpenFinanceDeposit>;
+  },
+
+  latestDeposit(accessToken: string) {
+    return request('/open-finance/efi/deposit/latest', accessToken) as Promise<EfiOpenFinanceDeposit>;
   },
 
   depositStatus(accessToken: string, paymentId: string) {
