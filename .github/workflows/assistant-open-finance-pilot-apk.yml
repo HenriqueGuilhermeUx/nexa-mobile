@@ -81,7 +81,7 @@ jobs:
           curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
             'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
           curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
-            'https://nexa-open-finance-homolog.onrender.com/api/v1/health' -o of-health.json
+            'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o of-health.json
           node <<'NODE'
           const fs = require('fs');
           for (const file of ['nexa-health.json', 'of-health.json']) {
@@ -102,11 +102,11 @@ jobs:
           if (!p) throw new Error('open-finance-pilot profile missing');
           if (p.android?.buildType !== 'apk') throw new Error('Pilot must build APK');
           if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Main API mismatch');
-          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL !== 'https://nexa-open-finance-homolog.onrender.com/api/v1') throw new Error('Open Finance API mismatch');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Open Finance API mismatch');
           if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') throw new Error('Financial execution must remain OFF');
           if (p.env?.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED !== 'true') throw new Error('Assistant must be ON');
           if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED !== 'true') throw new Error('Open Finance UI must be ON');
-          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'true') throw new Error('Recurring Open Finance UI must be ON');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'false') throw new Error('Recurring Open Finance UI must be OFF');
           console.log('Integrated pilot profile OK.');
           NODE
 
@@ -146,11 +146,11 @@ jobs:
           CI: 'true'
           EXPO_NO_TELEMETRY: '1'
           EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
-          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-open-finance-homolog.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
           EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
-          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'open-finance-pilot'
         run: npm run export:android
 
