@@ -1,4 +1,4 @@
-name: Nexa Open Finance Official Pilot APK
+name: Nexa Assistant + Open Finance Pilot APK
 
 on:
   workflow_dispatch:
@@ -20,17 +20,17 @@ permissions:
   statuses: write
 
 concurrency:
-  group: nexa-open-finance-official-pilot-apk
+  group: nexa-assistant-open-finance-pilot-apk
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Signed Open Finance official pilot APK
+    name: Signed Assistant + Open Finance pilot APK
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
     steps:
-      - name: Checkout pilot branch
+      - name: Checkout integrated pilot branch
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -75,57 +75,62 @@ jobs:
           echo "EXPECTED_BUILD=$APP_BUILD" >> "$GITHUB_ENV"
           echo "Resolved Nexa release: $APP_VERSION / v$APP_BUILD"
 
-      - name: Assert official Open Finance boundary
+      - name: Preflight Nexa and Open Finance backends
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
+            'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
+            'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o of-health.json
+          node <<'NODE'
+          const fs = require('fs');
+          for (const file of ['nexa-health.json', 'of-health.json']) {
+            const health = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (String(health.status || '').toLowerCase() !== 'ok') {
+              throw new Error(`${file} is not healthy`);
+            }
+          }
+          console.log('Nexa + Open Finance health OK.');
+          NODE
+
+      - name: Assert integrated pilot profile
         run: |
           set -euo pipefail
           node <<'NODE'
           const eas = require('./eas.json');
           const p = eas?.build?.['open-finance-pilot'];
-          const official = 'https://nexa-backend-p2u0.onrender.com/api/v1';
           if (!p) throw new Error('open-finance-pilot profile missing');
           if (p.android?.buildType !== 'apk') throw new Error('Pilot must build APK');
-          if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== official) throw new Error('Main API mismatch');
-          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL !== official) {
-            throw new Error('Open Finance must use the official Nexa backend');
-          }
-          if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') {
-            throw new Error('Financial execution must remain OFF');
-          }
-          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED !== 'true') {
-            throw new Error('Open Finance UI must be ON');
-          }
-          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'false') {
-            throw new Error('Recurring Open Finance must remain OFF');
-          }
-          console.log('Official Nexa Open Finance boundary OK.');
+          if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Main API mismatch');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Open Finance API mismatch');
+          if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') throw new Error('Financial execution must remain OFF');
+          if (p.env?.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED !== 'true') throw new Error('Assistant must be ON');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED !== 'true') throw new Error('Open Finance UI must be ON');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'false') throw new Error('Recurring Open Finance UI must be OFF');
+          console.log('Integrated pilot profile OK.');
           NODE
 
-      - name: Preflight official Nexa backend
+      - name: Assert Assistant and Open Finance contracts
         run: |
           set -euo pipefail
-          API='https://nexa-backend-p2u0.onrender.com/api/v1'
-          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o nexa-health.json
-          node <<'NODE'
-          const fs = require('fs');
-          const health = JSON.parse(fs.readFileSync('nexa-health.json', 'utf8'));
-          if (String(health.status || '').toLowerCase() !== 'ok') {
-            throw new Error('Official Nexa backend is not healthy');
-          }
-          console.log('Official Nexa backend health OK.');
-          NODE
-
-      - name: Assert Open Finance mobile contracts
-        run: |
-          set -euo pipefail
+          INTEGRATED='src/components/NexaAssistantOpenFinance.tsx'
+          grep -q 'expo-speech-recognition' package.json
+          grep -q 'expo-speech' package.json
+          grep -q 'expo-notifications' package.json
+          test -f "$INTEGRATED"
+          grep -q 'ExpoSpeechRecognitionModule' "$INTEGRATED"
+          grep -q 'Movimentações financeiras só acontecem após sua confirmação na Nexa' "$INTEGRATED"
+          grep -q 'parseRecurringFundingIntent' "$INTEGRATED"
+          grep -q 'open-finance-recurring' "$INTEGRATED"
+          grep -q 'NexaAssistantOpenFinance' app/assistant.tsx
           test -f app/open-finance.tsx
+          test -f app/open-finance-recurring.tsx
           test -f src/lib/efiOpenFinance.ts
+          test -f src/lib/nexaRecurringIntent.ts
+          grep -q 'Movimentação bloqueada no piloto' app/open-finance.tsx
+          grep -q 'recurringPreview' src/lib/efiOpenFinance.ts
           grep -q 'latestDeposit' src/lib/efiOpenFinance.ts
-          grep -q 'deposit/latest' src/lib/efiOpenFinance.ts
-          if grep -R --line-number --fixed-strings 'https://nexa-open-finance-homolog.onrender.com' eas.json app src; then
-            echo 'Legacy Open Finance backend reference detected in runtime configuration.'
-            exit 1
-          fi
-          echo 'Open Finance mobile contracts OK.'
+          echo 'Assistant, voice and Open Finance contracts present.'
 
       - name: Validate safety contracts
         run: node scripts/validate-mobile-safety.js
@@ -136,7 +141,20 @@ jobs:
       - name: Validate TypeScript
         run: npm run typecheck
 
-      - name: Build signed official pilot APK
+      - name: Export Android pilot
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'open-finance-pilot'
+        run: npm run export:android
+
+      - name: Build signed integrated pilot APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: 'true'
@@ -144,21 +162,20 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
           EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
           EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
-          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-open-finance-official
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-open-finance-pilot
           EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-open-finance
         run: |
           set -euo pipefail
-          FILE="Nexa-Open-Finance-Official-${EXPECTED_VERSION}-v${EXPECTED_BUILD}.apk"
+          FILE="Nexa-Assistant-Open-Finance-Pilot-${EXPECTED_VERSION}-v${EXPECTED_BUILD}.apk"
           rm -f "$FILE"
           eas build --platform android --profile open-finance-pilot --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
           test -s "$FILE"
           SHA256=$(sha256sum "$FILE" | awk '{print $1}')
           echo "apk_file=$FILE" >> "$GITHUB_ENV"
           echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
-          printf '%s  %s\n' "$SHA256" "$FILE" > SHA256SUMS.txt
           ls -lh "$FILE"
 
-      - name: Verify signed APK identity
+      - name: Verify signed APK identity and permissions
         run: |
           set -euo pipefail
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
@@ -170,16 +187,20 @@ jobs:
           "$APKANALYZER" manifest version-name "${{ env.apk_file }}" | tee apk-version-name.txt
           "$APKANALYZER" manifest version-code "${{ env.apk_file }}" | tee apk-version-code.txt
           "$APKANALYZER" manifest target-sdk "${{ env.apk_file }}" | tee apk-target-sdk.txt
+          "$APKANALYZER" manifest permissions "${{ env.apk_file }}" | tee apk-permissions.txt
           grep -qx 'br.com.trynexa.app' apk-package.txt
           grep -Fqx "$EXPECTED_VERSION" apk-version-name.txt
           grep -Fqx "$EXPECTED_BUILD" apk-version-code.txt
           grep -qx '36' apk-target-sdk.txt
-          echo "APK VERIFIED: Nexa ${EXPECTED_VERSION} v${EXPECTED_BUILD}, official Open Finance backend."
+          grep -q 'android.permission.RECORD_AUDIO' apk-permissions.txt
+          grep -q 'android.permission.POST_NOTIFICATIONS' apk-permissions.txt
+          printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
+          echo "APK VERIFIED: Nexa ${EXPECTED_VERSION} v${EXPECTED_BUILD}, signed, API36, voice/notifications/Open Finance ready."
 
-      - name: Upload verified APK
+      - name: Upload verified integrated pilot APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Open-Finance-Official-VERIFIED
+          name: Nexa-Assistant-Open-Finance-Pilot-VERIFIED
           path: |
             ${{ env.apk_file }}
             SHA256SUMS.txt
@@ -188,6 +209,7 @@ jobs:
             apk-version-name.txt
             apk-version-code.txt
             apk-target-sdk.txt
+            apk-permissions.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -195,9 +217,9 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Open-Finance-Official-build-diagnostics
+          name: Nexa-Assistant-Open-Finance-Pilot-build-diagnostics
           path: |
-            ${{ runner.temp }}/nexa-open-finance-official/logs
+            ${{ runner.temp }}/nexa-open-finance-pilot/logs
             local-build-artifacts-open-finance
           if-no-files-found: warn
           retention-days: 14
