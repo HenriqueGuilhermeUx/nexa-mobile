@@ -64,6 +64,17 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Resolve release identity
+        run: |
+          set -euo pipefail
+          APP_VERSION=$(node -e "const f=require('./app.config.js'); const c=f({config:{}}); process.stdout.write(String(c.version));")
+          APP_BUILD=$(node -e "const f=require('./app.config.js'); const c=f({config:{}}); process.stdout.write(String(c.android.versionCode));")
+          test -n "$APP_VERSION"
+          test -n "$APP_BUILD"
+          echo "EXPECTED_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "EXPECTED_BUILD=$APP_BUILD" >> "$GITHUB_ENV"
+          echo "Resolved Nexa release: $APP_VERSION / v$APP_BUILD"
+
       - name: Preflight Nexa and Open Finance backends
         run: |
           set -euo pipefail
@@ -118,6 +129,7 @@ jobs:
           test -f src/lib/nexaRecurringIntent.ts
           grep -q 'Movimentação bloqueada no piloto' app/open-finance.tsx
           grep -q 'recurringPreview' src/lib/efiOpenFinance.ts
+          grep -q 'latestDeposit' src/lib/efiOpenFinance.ts
           echo 'Assistant, voice and Open Finance contracts present.'
 
       - name: Validate safety contracts
@@ -154,7 +166,7 @@ jobs:
           EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-open-finance
         run: |
           set -euo pipefail
-          FILE='Nexa-Assistant-Open-Finance-Pilot-2.0.14-v109.apk'
+          FILE="Nexa-Assistant-Open-Finance-Pilot-${EXPECTED_VERSION}-v${EXPECTED_BUILD}.apk"
           rm -f "$FILE"
           eas build --platform android --profile open-finance-pilot --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
           test -s "$FILE"
@@ -177,18 +189,18 @@ jobs:
           "$APKANALYZER" manifest target-sdk "${{ env.apk_file }}" | tee apk-target-sdk.txt
           "$APKANALYZER" manifest permissions "${{ env.apk_file }}" | tee apk-permissions.txt
           grep -qx 'br.com.trynexa.app' apk-package.txt
-          grep -qx '2.0.14' apk-version-name.txt
-          grep -qx '109' apk-version-code.txt
+          grep -Fqx "$EXPECTED_VERSION" apk-version-name.txt
+          grep -Fqx "$EXPECTED_BUILD" apk-version-code.txt
           grep -qx '36' apk-target-sdk.txt
           grep -q 'android.permission.RECORD_AUDIO' apk-permissions.txt
           grep -q 'android.permission.POST_NOTIFICATIONS' apk-permissions.txt
           printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
-          echo 'APK VERIFIED: Nexa 2.0.14 v109, signed, API36, voice/notifications/Open Finance ready.'
+          echo "APK VERIFIED: Nexa ${EXPECTED_VERSION} v${EXPECTED_BUILD}, signed, API36, voice/notifications/Open Finance ready."
 
       - name: Upload verified integrated pilot APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Assistant-Open-Finance-Pilot-2.0.14-v109-VERIFIED
+          name: Nexa-Assistant-Open-Finance-Pilot-VERIFIED
           path: |
             ${{ env.apk_file }}
             SHA256SUMS.txt
