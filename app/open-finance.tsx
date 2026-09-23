@@ -38,6 +38,24 @@ export default function OpenFinanceScreen() {
   const [message, setMessage] = useState('');
   const lastAppState = useRef(AppState.currentState);
 
+  function applyDepositStatus(nextStatusRaw: string, ledgerEnabled: boolean) {
+    const nextStatus = String(nextStatusRaw || '').toLowerCase();
+    setStatus(nextStatus);
+    if (nextStatus === 'credited') {
+      setMessage('Dinheiro confirmado e creditado na Nexa.');
+    } else if (nextStatus === 'paid') {
+      setMessage(
+        ledgerEnabled
+          ? 'Pagamento confirmado. A Nexa está finalizando o crédito.'
+          : 'Pagamento confirmado. O crédito no saldo continua desligado por segurança.',
+      );
+    } else if (nextStatus === 'failed') {
+      setMessage('O pagamento não foi concluído. Você pode tentar novamente.');
+    } else if (nextStatus) {
+      setMessage('Aguardando sua autorização e a confirmação do banco.');
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -59,8 +77,9 @@ export default function OpenFinanceScreen() {
 
         const providerStatus = await efiOpenFinanceApi.status(session.accessToken);
         if (!mounted) return;
+        const ledgerEnabled = Boolean(providerStatus.ledgerCreditEnabled);
         setBackendReady(Boolean(providerStatus.enabled && providerStatus.configured));
-        setLedgerCreditEnabled(Boolean(providerStatus.ledgerCreditEnabled));
+        setLedgerCreditEnabled(ledgerEnabled);
         setPaymentInitiationEnabled(Boolean(providerStatus.paymentInitiationEnabled));
 
         if (!providerStatus.enabled || !providerStatus.configured) {
@@ -71,6 +90,20 @@ export default function OpenFinanceScreen() {
         const list = await efiOpenFinanceApi.participants(session.accessToken);
         if (!mounted) return;
         setParticipants(list.filter((item) => participantIdOf(item)));
+
+        try {
+          const latest = await efiOpenFinanceApi.latestDeposit(session.accessToken);
+          if (!mounted) return;
+          if (latest?.found && latest?.paymentId) {
+            setPaymentId(latest.paymentId);
+            if (typeof latest.amountBrl === 'number') {
+              setAmount(String(latest.amountBrl));
+            }
+            applyDepositStatus(String(latest.status || 'pending'), ledgerEnabled);
+          }
+        } catch {
+          // Recovery is best-effort; bank list and new funding remain usable.
+        }
       } catch (error: any) {
         if (mounted) setMessage(error?.message || 'Não foi possível carregar o Open Finance.');
       } finally {
@@ -84,26 +117,12 @@ export default function OpenFinanceScreen() {
     };
   }, []);
 
-  async function refreshDepositStatus(activeToken = token) {
-    if (!activeToken || !paymentId) return;
+  async function refreshDepositStatus(activeToken = token, activePaymentId = paymentId) {
+    if (!activeToken || !activePaymentId) return;
     try {
       setLoading(true);
-      const data = await efiOpenFinanceApi.depositStatus(activeToken, paymentId);
-      const nextStatus = String(data?.status || '').toLowerCase();
-      setStatus(nextStatus);
-      if (nextStatus === 'credited') {
-        setMessage('Dinheiro confirmado e creditado na Nexa.');
-      } else if (nextStatus === 'paid') {
-        setMessage(
-          ledgerCreditEnabled
-            ? 'Pagamento confirmado. A Nexa está finalizando o crédito.'
-            : 'Pagamento confirmado. O crédito no saldo continua desligado por segurança.',
-        );
-      } else if (nextStatus === 'failed') {
-        setMessage('O pagamento não foi concluído. Você pode tentar novamente.');
-      } else {
-        setMessage('Aguardando sua autorização e a confirmação do banco.');
-      }
+      const data = await efiOpenFinanceApi.depositStatus(activeToken, activePaymentId);
+      applyDepositStatus(String(data?.status || ''), ledgerCreditEnabled);
     } catch (error: any) {
       setMessage(error?.message || 'Não foi possível atualizar o depósito.');
     } finally {
@@ -269,7 +288,7 @@ export default function OpenFinanceScreen() {
                 <Text style={styles.eyebrow}>DEPÓSITO NEXA</Text>
                 <Text style={styles.cardTitle}>Status: {status || 'pendente'}</Text>
                 <Text style={styles.cardText}>
-                  Depois de autorizar no banco, toque abaixo caso a confirmação ainda não tenha aparecido.
+                  Este depósito fica vinculado à sua conta Nexa mesmo se o app for fechado durante a autorização bancária.
                 </Text>
                 <TouchableOpacity
                   disabled={loading}
