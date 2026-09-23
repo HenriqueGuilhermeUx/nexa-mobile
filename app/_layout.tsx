@@ -1,14 +1,22 @@
 import { PrivyProvider } from '@privy-io/expo';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { assertPublicConfiguration, config } from '@/config';
+import { initializeNexaNotifications } from '@/lib/nexaNotifications';
 import { colors } from '@/theme';
 
 assertPublicConfiguration();
 
 export default function RootLayout() {
+  useEffect(() => {
+    void initializeNexaNotifications().catch((error) => {
+      console.warn('Nexa notifications initialization failed', error);
+    });
+  }, []);
+
   return (
     <SafeAreaProvider>
       <PrivyProvider
@@ -38,6 +46,7 @@ export default function RootLayout() {
           <Stack.Screen name="sign-in" options={{ title: 'Entrar' }} />
           <Stack.Screen name="sign-up" options={{ title: 'Criar conta' }} />
           <Stack.Screen name="legacy" options={{ headerShown: false }} />
+          <Stack.Screen name="assistant" options={{ title: 'Assistente Nexa' }} />
           <Stack.Screen
             name="onboarding-wallet"
             options={{ title: 'Minha Carteira Premium' }}

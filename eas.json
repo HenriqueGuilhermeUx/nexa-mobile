@@ -44,10 +44,72 @@
       "env": {
         "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
         "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
         "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "production-safe-preview"
       },
       "android": {
         "buildType": "apk"
+      }
+    },
+    "open-finance-pilot": {
+      "distribution": "internal",
+      "channel": "open-finance-pilot",
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL": "https://nexa-open-finance-homolog.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "open-finance-pilot"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "open-finance-pilot-aab": {
+      "channel": "open-finance-pilot-aab",
+      "autoIncrement": false,
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL": "https://nexa-open-finance-homolog.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "open-finance-pilot-aab"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "production-assistant-aab": {
+      "channel": "production-assistant",
+      "autoIncrement": false,
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "production-assistant-aab"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "production-open-finance-aab": {
+      "channel": "production-open-finance",
+      "autoIncrement": false,
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "production-open-finance-aab"
+      },
+      "android": {
+        "buildType": "app-bundle"
       }
     }
   },

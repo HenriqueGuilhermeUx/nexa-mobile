@@ -1,0 +1,74 @@
+name: Nexa Assistant Preview CI
+
+on:
+  push:
+    branches:
+      - feature/nexa-personal-assistant
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-assistant:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert Assistant changes remain controlled
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          ALLOWED_REGEX='^(\.github/workflows/assistant-pilot-apk\.yml|\.github/workflows/assistant-preview-ci\.yml|\.github/workflows/assistant-menu-and-lock\.yml|\.github/workflows/assistant-pilot-cloud-apk\.yml|app\.json|package\.json|package-lock\.json|app/_layout\.tsx|app/assistant\.tsx|app/legacy\.js|eas\.json|src/components/AlignedLegacyApp\.tsx|src/components/NexaAssistant\.tsx|src/config\.ts|src/lib/api\.ts|src/lib/nexaNotifications\.ts)$'
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          echo "$CHANGED"
+          UNEXPECTED=$(printf '%s\n' "$CHANGED" | grep -Ev "$ALLOWED_REGEX" || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'Unexpected existing-app files changed:'
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+          git diff --exit-code origin/main...HEAD -- \
+            app/sign-in.tsx \
+            app/sign-up.tsx \
+            app/onboarding-wallet.tsx \
+            nexa-mobile/nexa-mobile/App.js
+          echo 'Core auth/onboarding and legacy native app remain byte-for-byte unchanged.'
+          grep -q "title=\"Assistente\"" src/components/AlignedLegacyApp.tsx
+          grep -q "router.push('/assistant')" src/components/AlignedLegacyApp.tsx
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.0'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate dependency tree
+        run: npm ls --depth=0
+      - name: Validate mobile safety contracts
+        run: node scripts/validate-mobile-safety.js
+      - name: Validate Android release assets
+        run: node scripts/validate-release-assets.js
+      - name: Validate TypeScript
+        run: npm run typecheck
+      - name: Expo Doctor diagnostic
+        continue-on-error: true
+        run: npx expo-doctor
+      - name: Export Android JavaScript bundle
+        env:
+          CI: 'true'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+        run: npm run export:android
+      - name: Assert assistant is feature-gated, voice-ready, notification-ready and non-executing
+        run: |
+          grep -q "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED" src/config.ts
+          grep -q "config.assistantEnabled" app/legacy.js
+          grep -q "Movimentações financeiras só acontecem após sua confirmação na Nexa" src/components/NexaAssistant.tsx
+          grep -q "expo-speech-recognition" package.json
+          grep -q "expo-speech" package.json
+          grep -q "expo-notifications" package.json
+          grep -q "assistantChat" src/lib/api.ts
+          grep -q "Lembretes Nexa" src/lib/nexaNotifications.ts
+          grep -q "scheduleNexaReminder" src/lib/nexaNotifications.ts
+          grep -q "ensureNexaNotificationPermission" app/assistant.tsx

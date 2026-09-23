@@ -1,0 +1,78 @@
+name: Nexa Assistant + Open Finance Release CI
+
+on:
+  push:
+    branches:
+      - feature/nexa-assistant-open-finance-release
+      - release/nexa-open-finance-2.0.17
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'src/**'
+      - 'app.json'
+      - 'app.config.js'
+      - 'eas.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/assistant-open-finance-release-ci.yml'
+
+jobs:
+  validate:
+    name: TypeScript, export and production safety contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'production-open-finance-aab'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate production profile
+        run: |
+          node <<'NODE'
+          const eas = require('./eas.json');
+          const p = eas?.build?.['production-open-finance-aab'];
+          if (!p) throw new Error('production-open-finance-aab profile missing');
+          if (p.android?.buildType !== 'app-bundle') throw new Error('Production release must be AAB');
+          if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Main API is not production');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Open Finance API is not production');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED !== 'true') throw new Error('Open Finance UI must be ON');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'false') throw new Error('Recurring must remain OFF');
+          if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') throw new Error('Global financial execution must remain OFF');
+          NODE
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Export Android production release
+        run: npm run export:android
+
+      - name: Assert integrated release contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/open-finance.tsx
+          test -f src/lib/efiOpenFinance.ts
+          grep -q 'efiOpenFinanceEnabled' app/legacy.js
+          grep -q "router.push('/open-finance')" app/legacy.js
+          grep -q 'latestDeposit' app/open-finance.tsx
+          grep -q 'loadNexaSession' app/open-finance.tsx
+          ! grep -R -q 'EFI_OPEN_FINANCE_CLIENT_SECRET\|EFI_OPEN_FINANCE_CERTIFICATE_BASE64\|EFI_OPEN_FINANCE_WEBHOOK_HMAC' app src
+          echo 'Production Assistant + Open Finance contracts OK.'

@@ -28,6 +28,20 @@
       "expo-apple-authentication",
       "expo-web-browser",
       [
+        "expo-notifications",
+        {
+          "defaultChannel": "nexa-alerts"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Permita que a Nexa use o microfone para conversar com seu assistente.",
+          "speechRecognitionPermission": "Permita que a Nexa reconheça sua fala para conversar com seu assistente.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

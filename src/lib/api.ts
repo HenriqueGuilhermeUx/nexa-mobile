@@ -1,6 +1,11 @@
 import { Platform } from 'react-native';
+import { router } from 'expo-router';
 
 import { config } from '@/config';
+import {
+  parseRecurringFundingIntent,
+  recurringIntentSummary,
+} from '@/lib/nexaRecurringIntent';
 
 interface ApiOptions extends RequestInit {
   accessToken?: string;
@@ -150,6 +155,35 @@ export interface PixRedemption {
   completedAt?: string | null;
 }
 
+export interface AssistantCapabilities {
+  enabled: boolean;
+  mode?: string;
+  brandSurface?: string;
+  engine?: string;
+  scopes?: string[];
+  financialContext?: string;
+  financialExecution?: boolean;
+  paymentPreparation?: boolean;
+  paymentExecution?: boolean;
+  embeddedExperience?: boolean;
+}
+
+export interface AssistantChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AssistantChatResponse {
+  success: boolean;
+  mode?: string;
+  response: string;
+  capabilities?: AssistantCapabilities;
+  engineMetadata?: {
+    bridgeVersion?: string | null;
+    memoryMode?: string | null;
+  };
+}
+
 export function tokensFromLogin(response: LoginResponse) {
   const accessToken =
     response.accessToken ||
@@ -189,6 +223,57 @@ export const nexaApi = {
 
   me(accessToken: string) {
     return request<any>('/user/me', { accessToken });
+  },
+
+  assistantCapabilities(accessToken: string) {
+    return request<AssistantCapabilities>('/staff/capabilities', {
+      accessToken,
+    });
+  },
+
+  assistantChat(
+    accessToken: string,
+    message: string,
+    conversationHistory: AssistantChatMessage[] = [],
+  ) {
+    const recurringIntent = config.efiOpenFinanceEnabled
+      ? parseRecurringFundingIntent(message)
+      : null;
+
+    if (recurringIntent) {
+      const summary = recurringIntentSummary(recurringIntent);
+      const bankCopy = recurringIntent.bankHint
+        ? ` do ${recurringIntent.bankHint}`
+        : '';
+
+      setTimeout(() => {
+        router.push({
+          pathname: '/open-finance-recurring',
+          params: {
+            amount: String(recurringIntent.amountBrl),
+            day: String(recurringIntent.dayOfMonth),
+            bank: recurringIntent.bankHint || '',
+          },
+        });
+      }, 500);
+
+      return Promise.resolve<AssistantChatResponse>({
+        success: true,
+        mode: 'local-financial-preparation',
+        response:
+          `Entendi: ${summary}${bankCopy}. Vou abrir a preparação dessa recorrência para você revisar. ` +
+          'Nenhuma movimentação será feita agora; a criação só acontece depois da sua confirmação na Nexa e autorização no seu banco.',
+      });
+    }
+
+    return request<AssistantChatResponse>('/staff/chat', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({
+        message,
+        conversationHistory,
+      }),
+    });
   },
 
   startBrazilKyc(accessToken: string, consent = true) {

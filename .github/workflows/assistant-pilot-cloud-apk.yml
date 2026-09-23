@@ -1,0 +1,135 @@
+name: Nexa Assistant Pilot APK Cloud
+
+on:
+  push:
+    branches:
+      - feature/nexa-personal-assistant
+    paths:
+      - '.github/workflows/assistant-pilot-cloud-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-assistant-pilot-cloud-apk
+  cancel-in-progress: true
+
+jobs:
+  build-cloud:
+    name: Cloud production-safe Assistant pilot APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout pilot branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Assert Assistant changes are additive only
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          ALLOWED_RE='^(\.github/workflows/assistant-pilot-apk\.yml|\.github/workflows/assistant-pilot-cloud-apk\.yml|\.github/workflows/assistant-preview-ci\.yml|app/_layout\.tsx|app/assistant\.tsx|app/legacy\.js|eas\.json|src/components/NexaAssistant\.tsx|src/config\.ts|src/lib/api\.ts)$'
+          CHANGED="$(git diff --name-only origin/main...HEAD)"
+          echo "$CHANGED"
+          BAD="$(printf '%s\n' "$CHANGED" | grep -Ev "$ALLOWED_RE" || true)"
+          if [ -n "$BAD" ]; then
+            echo 'Unexpected non-additive changes detected:'
+            echo "$BAD"
+            exit 1
+          fi
+          for FILE in \
+            src/components/AlignedLegacyApp.tsx \
+            app/sign-in.tsx \
+            app/sign-up.tsx \
+            app/onboarding-wallet.tsx \
+            package.json \
+            app.config.js; do
+            git diff --quiet origin/main -- "$FILE" || {
+              echo "Core file changed unexpectedly: $FILE"
+              exit 1
+            }
+          done
+          echo 'Additive-only contract OK.'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Preflight and safety checks
+        run: |
+          set -euo pipefail
+          API='https://nexa-backend-p2u0.onrender.com/api/v1'
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o prod-health.json
+          node scripts/validate-mobile-safety.js
+          node scripts/validate-release-assets.js
+          npm run typecheck
+          node <<'NODE'
+          const eas = require('./eas.json');
+          const p = eas?.build?.['production-safe-preview'];
+          if (!p) throw new Error('production-safe-preview profile missing');
+          if (p.android?.buildType !== 'apk') throw new Error('Pilot must build APK');
+          if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Pilot must use production backend');
+          if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') throw new Error('Financial execution must remain disabled');
+          if (p.env?.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED !== 'true') throw new Error('Assistant must be enabled only in preview');
+          console.log('Production-safe preview profile OK.');
+          NODE
+
+      - name: Build signed APK on EAS Cloud
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+        run: |
+          set -euo pipefail
+          eas build --platform android --profile production-safe-preview --non-interactive --wait
+
+      - name: Resolve finished cloud build and download APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          eas build:list --platform android --status finished --limit 20 --json --non-interactive > eas-builds.json
+          node <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('eas-builds.json','utf8'));
+          const builds = Array.isArray(data) ? data : (data?.builds || []);
+          const sha = process.env.GITHUB_SHA;
+          const candidates = builds.filter((b) => {
+            const profile = b.buildProfile || b.profile || b.metadata?.buildProfile;
+            const commit = b.gitCommitHash || b.gitCommit?.hash || b.metadata?.gitCommitHash;
+            return profile === 'production-safe-preview' && (!commit || commit === sha);
+          });
+          const b = candidates[0] || builds.find((x) => (x.buildProfile || x.profile) === 'production-safe-preview');
+          if (!b) throw new Error('No finished production-safe-preview EAS build found');
+          const url = b.artifacts?.buildUrl || b.artifacts?.applicationArchiveUrl || b.artifactUrl;
+          if (!url) throw new Error('EAS build artifact URL missing');
+          fs.writeFileSync('eas-apk-url.txt', url);
+          console.log('Resolved finished EAS Cloud APK artifact.');
+          NODE
+          URL="$(cat eas-apk-url.txt)"
+          curl --fail --location --retry 5 --retry-delay 5 "$URL" -o Nexa-Assistant-Pilot-2.0.12-v107.apk
+          test -s Nexa-Assistant-Pilot-2.0.12-v107.apk
+          sha256sum Nexa-Assistant-Pilot-2.0.12-v107.apk > SHA256SUMS.txt
+
+      - name: Upload cloud pilot APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Assistant-Pilot-2.0.12-v107-CLOUD
+          path: |
+            Nexa-Assistant-Pilot-2.0.12-v107.apk
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30

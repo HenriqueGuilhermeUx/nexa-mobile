@@ -1,0 +1,256 @@
+name: Nexa Assistant Pilot APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/nexa-personal-assistant
+    paths:
+      - '.github/workflows/assistant-pilot-apk.yml'
+      - '.github/workflows/assistant-preview-ci.yml'
+      - '.github/workflows/assistant-menu-and-lock.yml'
+      - 'eas.json'
+      - 'app.config.js'
+      - 'app.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'app/**'
+      - 'src/**'
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: nexa-assistant-pilot-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Signed production-safe Assistant voice pilot APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout pilot branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Mark pilot build pending
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: 'pending',
+              context: 'nexa-assistant-pilot-apk',
+              description: 'Building verified Nexa Assistant pilot APK',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+
+      - name: Assert Assistant changes are controlled and additive
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          ALLOWED_REGEX='^(\.github/workflows/assistant-pilot-apk\.yml|\.github/workflows/assistant-preview-ci\.yml|\.github/workflows/assistant-menu-and-lock\.yml|\.github/workflows/assistant-pilot-cloud-apk\.yml|app\.json|package\.json|package-lock\.json|app/_layout\.tsx|app/assistant\.tsx|app/legacy\.js|eas\.json|src/components/AlignedLegacyApp\.tsx|src/components/NexaAssistant\.tsx|src/config\.ts|src/lib/api\.ts|src/lib/nexaNotifications\.ts)$'
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          echo "$CHANGED"
+          UNEXPECTED=$(printf '%s\n' "$CHANGED" | grep -Ev "$ALLOWED_REGEX" || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'Unexpected existing-app files changed:'
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+          git diff --exit-code origin/main...HEAD -- \
+            app/sign-in.tsx \
+            app/sign-up.tsx \
+            app/onboarding-wallet.tsx \
+            nexa-mobile/nexa-mobile/App.js
+          echo 'Auth, onboarding and nested legacy app are byte-for-byte unchanged.'
+          grep -q 'title="Assistente"' src/components/AlignedLegacyApp.tsx
+          grep -q "router.push('/assistant')" src/components/AlignedLegacyApp.tsx
+          grep -q 'Vida, rotina e dinheiro' src/components/AlignedLegacyApp.tsx
+          echo 'Only the explicit Assistant entry was added to the existing Menu surface.'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo authentication
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN ausente" && exit 1)
+          eas whoami
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          API='https://nexa-backend-p2u0.onrender.com/api/v1'
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o prod-health.json
+          node <<'NODE'
+          const fs = require('fs');
+          const health = JSON.parse(fs.readFileSync('prod-health.json', 'utf8'));
+          if (String(health.status || '').toLowerCase() !== 'ok') {
+            throw new Error('Production health is not OK');
+          }
+          console.log('Production backend health OK.');
+          NODE
+
+      - name: Assert production-safe pilot profile
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const eas = require('./eas.json');
+          const p = eas?.build?.['production-safe-preview'];
+          if (!p) throw new Error('production-safe-preview profile missing');
+          if (p.android?.buildType !== 'apk') throw new Error('Pilot must build APK');
+          if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Pilot must use production backend');
+          if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') throw new Error('Financial execution must remain disabled');
+          if (p.env?.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED !== 'true') throw new Error('Assistant pilot flag must be enabled');
+          console.log('Pilot profile OK: production backend, assistant ON, financial execution OFF.');
+          NODE
+
+      - name: Assert voice, life-support and notification contracts
+        run: |
+          set -euo pipefail
+          grep -q 'expo-speech-recognition' package.json
+          grep -q 'expo-speech' package.json
+          grep -q 'expo-notifications' package.json
+          grep -q 'ExpoSpeechRecognitionModule' src/components/NexaAssistant.tsx
+          grep -q 'Speech.speak' src/components/NexaAssistant.tsx
+          grep -q 'Seu dia, sua rotina e seu dinheiro' src/components/NexaAssistant.tsx
+          grep -q 'Movimentações financeiras só acontecem após sua confirmação na Nexa' src/components/NexaAssistant.tsx
+          grep -q 'Lembretes Nexa' src/lib/nexaNotifications.ts
+          grep -q 'scheduleNexaReminder' src/lib/nexaNotifications.ts
+          grep -q 'ensureNexaNotificationPermission' app/assistant.tsx
+          echo 'Voice, life-support and native notification contracts are present.'
+
+      - name: Validate safety contracts
+        run: node scripts/validate-mobile-safety.js
+
+      - name: Validate release assets
+        run: node scripts/validate-release-assets.js
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Export Android bundle with Assistant enabled
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'production-safe-preview'
+        run: npm run export:android
+
+      - name: Build signed production-safe pilot APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-assistant-pilot
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-assistant
+        run: |
+          set -euo pipefail
+          FILE='Nexa-Assistant-Voice-Pilot-2.0.12-v107.apk'
+          rm -f "$FILE"
+          eas build --platform android --profile production-safe-preview --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
+          test -s "$FILE"
+          SHA256=$(sha256sum "$FILE" | awk '{print $1}')
+          echo "apk_file=$FILE" >> "$GITHUB_ENV"
+          echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
+          ls -lh "$FILE"
+
+      - name: Verify signed APK identity, voice and notification permissions
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          APKANALYZER="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          test -x "$APKSIGNER"
+          test -x "$APKANALYZER"
+          "$APKSIGNER" verify --verbose --print-certs "${{ env.apk_file }}" > apk-signature.txt
+          "$APKANALYZER" manifest application-id "${{ env.apk_file }}" | tee apk-package.txt
+          "$APKANALYZER" manifest version-name "${{ env.apk_file }}" | tee apk-version-name.txt
+          "$APKANALYZER" manifest version-code "${{ env.apk_file }}" | tee apk-version-code.txt
+          "$APKANALYZER" manifest target-sdk "${{ env.apk_file }}" | tee apk-target-sdk.txt
+          "$APKANALYZER" manifest permissions "${{ env.apk_file }}" | tee apk-permissions.txt
+          grep -qx 'br.com.trynexa.app' apk-package.txt
+          grep -qx '2.0.12' apk-version-name.txt
+          grep -qx '107' apk-version-code.txt
+          grep -qx '36' apk-target-sdk.txt
+          grep -q 'android.permission.RECORD_AUDIO' apk-permissions.txt
+          grep -q 'android.permission.POST_NOTIFICATIONS' apk-permissions.txt
+          grep -q 'android.permission.RECEIVE_BOOT_COMPLETED' apk-permissions.txt
+          printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
+          echo 'APK VERIFIED: signed, same Nexa identity, API36, microphone and native notification permissions present.'
+
+      - name: Upload verified pilot APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Assistant-Voice-Pilot-2.0.12-v107-VERIFIED
+          path: |
+            ${{ env.apk_file }}
+            SHA256SUMS.txt
+            apk-signature.txt
+            apk-package.txt
+            apk-version-name.txt
+            apk-version-code.txt
+            apk-target-sdk.txt
+            apk-permissions.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Assistant-Voice-Pilot-build-diagnostics
+          path: |
+            ${{ runner.temp }}/nexa-assistant-pilot/logs
+            local-build-artifacts-assistant
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish pilot build status
+        if: ${{ always() }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const outcome = '${{ job.status }}';
+            const state = outcome === 'success' ? 'success' : outcome === 'cancelled' ? 'error' : 'failure';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state,
+              context: 'nexa-assistant-pilot-apk',
+              description: state === 'success' ? 'Verified Nexa Assistant pilot APK built' : `Pilot APK build ${outcome}`,
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
