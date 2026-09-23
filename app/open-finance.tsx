@@ -101,8 +101,13 @@ export default function OpenFinanceScreen() {
             }
             applyDepositStatus(String(latest.status || 'pending'), ledgerEnabled);
           }
-        } catch {
-          // Recovery is best-effort; bank list and new funding remain usable.
+        } catch (error: any) {
+          if (mounted) {
+            setMessage(
+              error?.message ||
+                'Open Finance carregado, mas não foi possível recuperar o último depósito.',
+            );
+          }
         }
       } catch (error: any) {
         if (mounted) setMessage(error?.message || 'Não foi possível carregar o Open Finance.');
@@ -117,12 +122,35 @@ export default function OpenFinanceScreen() {
     };
   }, []);
 
-  async function refreshDepositStatus(activeToken = token, activePaymentId = paymentId) {
-    if (!activeToken || !activePaymentId) return;
+  async function refreshDepositStatus() {
     try {
       setLoading(true);
+      setMessage('Consultando a confirmação do banco...');
+
+      const session = await loadNexaSession();
+      const activeToken = String(session?.accessToken || '').trim();
+      if (!activeToken) {
+        throw new Error('Sua sessão Nexa expirou. Entre novamente para consultar o depósito.');
+      }
+      setToken(activeToken);
+
+      let activePaymentId = String(paymentId || '').trim();
+      if (!activePaymentId) {
+        const latest = await efiOpenFinanceApi.latestDeposit(activeToken);
+        if (!latest?.found || !latest?.paymentId) {
+          throw new Error('Nenhum depósito Open Finance pendente foi encontrado para sua conta.');
+        }
+        activePaymentId = String(latest.paymentId).trim();
+        setPaymentId(activePaymentId);
+        if (typeof latest.amountBrl === 'number') {
+          setAmount(String(latest.amountBrl));
+        }
+      }
+
       const data = await efiOpenFinanceApi.depositStatus(activeToken, activePaymentId);
-      applyDepositStatus(String(data?.status || ''), ledgerCreditEnabled);
+      const ledgerEnabled = Boolean(data?.ledgerCreditEnabled ?? ledgerCreditEnabled);
+      setLedgerCreditEnabled(ledgerEnabled);
+      applyDepositStatus(String(data?.status || ''), ledgerEnabled);
     } catch (error: any) {
       setMessage(error?.message || 'Não foi possível atualizar o depósito.');
     } finally {
@@ -139,7 +167,7 @@ export default function OpenFinanceScreen() {
       }
     });
     return () => subscription.remove();
-  }, [paymentId, token, ledgerCreditEnabled]);
+  }, [paymentId, ledgerCreditEnabled]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase('pt-BR');
