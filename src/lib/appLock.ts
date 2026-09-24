@@ -12,6 +12,12 @@ export type AppLockCapability = {
   authenticationTypes: LocalAuthentication.AuthenticationType[];
 };
 
+type AuthenticationResult =
+  | { success: true }
+  | { success: false; error: string };
+
+let activeAuthentication: Promise<AuthenticationResult> | null = null;
+
 const flagOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
@@ -63,9 +69,9 @@ export async function markAppLockOfferSeen() {
   await SecureStore.setItemAsync(APP_LOCK_OFFER_SEEN_KEY, '1', flagOptions);
 }
 
-export async function authenticateDevice(
-  promptMessage = 'Acessar a Nexa',
-): Promise<{ success: true } | { success: false; error: string }> {
+async function runAuthentication(
+  promptMessage: string,
+): Promise<AuthenticationResult> {
   try {
     const capability = await getAppLockCapability();
     if (!capability.available) {
@@ -88,6 +94,20 @@ export async function authenticateDevice(
     return { success: false, error: result.error || 'authentication_failed' };
   } catch {
     return { success: false, error: 'authentication_failed' };
+  }
+}
+
+export async function authenticateDevice(
+  promptMessage = 'Acessar a Nexa',
+): Promise<AuthenticationResult> {
+  if (activeAuthentication) return activeAuthentication;
+
+  const attempt = runAuthentication(promptMessage);
+  activeAuthentication = attempt;
+  try {
+    return await attempt;
+  } finally {
+    if (activeAuthentication === attempt) activeAuthentication = null;
   }
 }
 

@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { config } from '@/config';
+import { reauthenticateSensitiveAction } from '@/lib/appLock';
 import {
   efiOpenFinanceApi,
   participantIdOf,
@@ -194,6 +195,15 @@ export default function OpenFinanceScreen() {
 
     const participantId = participantIdOf(selected);
     if (!participantId) return setMessage('Não foi possível identificar esse banco.');
+
+    const localConfirmation = await reauthenticateSensitiveAction(
+      'Autorizar entrada via Open Finance',
+    );
+    if (!localConfirmation.success) {
+      return setMessage(
+        'Confirme sua identidade para iniciar a autorização no seu banco.',
+      );
+    }
 
     try {
       setLoading(true);

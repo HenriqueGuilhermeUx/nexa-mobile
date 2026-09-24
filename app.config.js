@@ -1,16 +1,16 @@
 module.exports = ({ config }) => ({
   ...config,
-  version: '2.0.19',
+  version: '2.0.20',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '114',
+    buildNumber: '115',
   },
   android: {
     ...(config.android || {}),
-    versionCode: 114,
+    versionCode: 115,
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.19-v114-biometric-open-finance',
+    releaseBuild: 'android16-api36-2.0.20-v115-release-ready',
   },
 });

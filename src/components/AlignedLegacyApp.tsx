@@ -1341,6 +1341,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <MenuTile icon="🔁" title="USDC assinatura" onPress={() => setPage('recurring')} />
           <MenuTile icon="✦" title="Rewards" onPress={() => setPage('rewards')} />
           <MenuTile
+            icon="🛡️"
+            title="Segurança"
+            subtitle="Biometria e proteção"
+            onPress={() => router.push('/security')}
+          />
+          <MenuTile
             icon="🔐"
             title="Minha Carteira"
             subtitle={canAccessCustody ? (isPremium ? 'Premium' : 'Carteira existente') : 'Recurso Premium'}
