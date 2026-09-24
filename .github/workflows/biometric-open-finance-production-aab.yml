@@ -3,7 +3,7 @@ name: Nexa Biometric Open Finance Production AAB
 on:
   push:
     branches:
-      - main
+      - release/nexa-open-finance-2.0.19-v114
     paths:
       - '.github/workflows/biometric-open-finance-production-aab.yml'
       - 'eas.json'
@@ -162,7 +162,7 @@ jobs:
           CI: 'true'
           NODE_ENV: 'production'
           EXPO_NO_TELEMETRY: '1'
-          EAS_BUILD_NO_EXPO_GO_WARNING: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
           EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
           EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-biometric-open-finance-production-aab
           EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-biometric-open-finance-production
