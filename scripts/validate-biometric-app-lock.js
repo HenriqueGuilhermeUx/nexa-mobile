@@ -12,6 +12,9 @@ const gate = read('src/components/AppLockGate.tsx');
 const session = read('src/lib/session.ts');
 const signIn = read('app/sign-in.tsx');
 const rootLayout = read('app/_layout.tsx');
+const security = read('app/security.tsx');
+const alignedApp = read('src/components/AlignedLegacyApp.tsx');
+const openFinance = read('app/open-finance.tsx');
 const eas = json('eas.json');
 
 assert.match(
@@ -43,6 +46,7 @@ assert.match(gate, /clearNexaTokens/);
 assert.match(gate, /router\.replace\('\/sign-in'/);
 assert.match(gate, /Entrar com senha Nexa/);
 assert.match(rootLayout, /<AppLockGate>/);
+assert.match(rootLayout, /name="security"/);
 
 assert.match(session, /SESSION_PRESENT_KEY/);
 assert.match(session, /SecureStore\.setItemAsync/);
@@ -51,9 +55,26 @@ assert.match(signIn, /Proteger a Nexa neste aparelho\?/);
 assert.match(signIn, /enableAppLock/);
 assert.match(signIn, /Sua senha não é armazenada|sua senha não é armazenada/i);
 
-assert.match(appConfig, /version:\s*'2\.0\.19'/);
-assert.match(appConfig, /versionCode:\s*114/);
-assert.match(appConfig, /v114-biometric-open-finance/);
+assert.match(security, /Segurança da Nexa/);
+assert.match(security, /enableAppLock/);
+assert.match(security, /disableAppLock/);
+assert.match(security, /authenticateDevice/);
+assert.match(security, /biometria para a Nexa/i);
+assert.match(security, /senha Nexa nunca é armazenada/i);
+assert.match(alignedApp, /router\.push\('\/security'\)/);
+assert.match(alignedApp, /title="Segurança"/);
+
+assert.match(openFinance, /reauthenticateSensitiveAction/);
+assert.match(openFinance, /Autorizar entrada via Open Finance/);
+assert.match(openFinance, /Confirme sua identidade para iniciar a autorização no seu banco/);
+
+assert.equal(appJson.expo.version, '2.0.20');
+assert.equal(pkg.version, '2.0.20');
+assert.equal(appJson.expo.android.versionCode, 115);
+assert.equal(appJson.expo.ios.buildNumber, '115');
+assert.match(appConfig, /version:\s*'2\.0\.20'/);
+assert.match(appConfig, /versionCode:\s*115/);
+assert.match(appConfig, /v115-release-ready/);
 
 const release = eas?.build?.['production-open-finance-aab'];
 assert.ok(release, 'production-open-finance-aab profile is required');
@@ -70,5 +91,5 @@ assert.equal(release.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false')
 assert.equal(release.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED, 'false');
 
 console.log(
-  'Biometric app-lock invariants OK: strong biometrics + device credential fallback, fresh Nexa password fallback, 30s relock, v114 identity, financial execution OFF.',
+  'Nexa v115 security invariants OK: strong biometrics + device credential fallback, Security Center, fresh Nexa password fallback, 30s relock, sensitive Open Finance re-auth, financial execution OFF.',
 );
