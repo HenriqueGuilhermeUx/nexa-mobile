@@ -1,3 +1,4 @@
+// Release candidate: Nexa 2.0.20 / Android v115.
 module.exports = ({ config }) => ({
   ...config,
   version: '2.0.20',
