@@ -40,6 +40,7 @@ assert.match(appLock, /reauthenticateSensitiveAction/);
 assert.match(gate, /BACKGROUND_RELOCK_MS\s*=\s*30_000/);
 assert.match(gate, /AppState\.addEventListener\('change'/);
 assert.match(gate, /clearNexaTokens/);
+assert.match(gate, /router\.replace\('\/sign-in'/);
 assert.match(gate, /Entrar com senha Nexa/);
 assert.match(rootLayout, /<AppLockGate>/);
 
@@ -69,5 +70,5 @@ assert.equal(release.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false')
 assert.equal(release.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED, 'false');
 
 console.log(
-  'Biometric app-lock invariants OK: strong biometrics + device credential fallback, password recovery path, 30s relock, v114 identity, financial execution OFF.',
+  'Biometric app-lock invariants OK: strong biometrics + device credential fallback, fresh Nexa password fallback, 30s relock, v114 identity, financial execution OFF.',
 );
