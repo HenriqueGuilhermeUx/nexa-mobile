@@ -40,10 +40,10 @@ const metro = read('metro.config.js');
 assert.equal(appConfig.expo.android.package, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
-assert.equal(appConfig.expo.version, '2.0.19');
-assert.equal(packageJson.version, '2.0.19');
-assert.equal(appConfig.expo.android.versionCode, 114);
-assert.equal(appConfig.expo.ios.buildNumber, '114');
+assert.equal(appConfig.expo.version, '2.0.20');
+assert.equal(packageJson.version, '2.0.20');
+assert.equal(appConfig.expo.android.versionCode, 115);
+assert.equal(appConfig.expo.ios.buildNumber, '115');
 assert.equal(appConfig.expo.extra.androidTargetApi, 36);
 assert.equal(appConfig.expo.extra.financialExecutionEnabled, false);
 assert.equal(appConfig.expo.extra.ledgerOperationsEnabled, true);
@@ -75,8 +75,8 @@ assert.doesNotMatch(session, /password/i);
 
 assert.match(config, /appVersion/);
 assert.match(config, /appBuild/);
-assert.match(config, /2\.0\.19/);
-assert.match(config, /114/);
+assert.match(config, /2\.0\.20/);
+assert.match(config, /115/);
 assert.match(config, /androidTargetApi/);
 assert.match(config, /EXPO_PUBLIC_NEXA_API_URL/);
 assert.match(config, /EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED/);
@@ -225,8 +225,8 @@ assert.match(financialBridge, /Authorization/);
 assert.match(financialBridge, /X-Nexa-App-Version/);
 assert.match(financialBridge, /X-Nexa-App-Build/);
 assert.match(financialBridge, /X-Nexa-Platform/);
-assert.match(financialBridge, /2\.0\.19/);
-assert.match(financialBridge, /114/);
+assert.match(financialBridge, /2\.0\.20/);
+assert.match(financialBridge, /115/);
 assert.doesNotMatch(financialBridge, /fromUserId:\s*legacyBody\.fromUserId/);
 assert.doesNotMatch(financialBridge, /userId:\s*legacyBody\.userId/);
 
@@ -264,5 +264,5 @@ assert.doesNotMatch(
 assert.doesNotMatch(codeAndConfig, /seed phrase|mnemonic phrase/i);
 
 console.log(
-  'Nexa mobile 2.0.19 v114 validated on Expo 57: biometric app lock, upgrade-safe session, aligned shell, idempotent financial requests, USDC/BTC/ETH/XAUT and Premium wallet boundary.',
+  'Nexa mobile 2.0.20 v115 validated on Expo 57: biometric app lock, upgrade-safe session, aligned shell, idempotent financial requests, USDC/BTC/ETH/XAUT and Premium wallet boundary.',
 );
