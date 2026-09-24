@@ -72,3 +72,5 @@ assert.equal(release.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED, '
 console.log(
   'Biometric app-lock invariants OK: strong biometrics + device credential fallback, fresh Nexa password fallback, 30s relock, v114 identity, financial execution OFF.',
 );
+
+// Release branch trigger: Nexa 2.0.19 / Android v114 verified AAB.
