@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { router } from 'expo-router';
 import {
   ActivityIndicator,
   AppState,
@@ -133,12 +134,14 @@ export function AppLockGate({ children }: PropsWithChildren) {
     setAuthenticating(true);
     setError('');
 
-    // Remove only session tokens. The e-mail stays available on the sign-in screen
-    // and the app-lock preference remains enabled for the next authenticated session.
+    // Password fallback must start a fresh authenticated session. Clearing the
+    // persisted tokens alone is insufficient because an already-mounted screen
+    // could still hold the old token in memory after a background re-lock.
     await clearNexaTokens();
     backgroundAt.current = null;
     setLocked(false);
     setChildrenMounted(true);
+    router.replace('/sign-in' as any);
 
     authenticatingRef.current = false;
     setAuthenticating(false);
