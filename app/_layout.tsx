@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AppLockGate } from '@/components/AppLockGate';
 import { assertPublicConfiguration, config } from '@/config';
 import { initializeNexaNotifications } from '@/lib/nexaNotifications';
 import { colors } from '@/theme';
@@ -34,25 +35,27 @@ export default function RootLayout() {
         }}
       >
         <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
-            headerShadowVisible: false,
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="sign-in" options={{ title: 'Entrar' }} />
-          <Stack.Screen name="sign-up" options={{ title: 'Criar conta' }} />
-          <Stack.Screen name="legacy" options={{ headerShown: false }} />
-          <Stack.Screen name="assistant" options={{ title: 'Assistente Nexa' }} />
-          <Stack.Screen
-            name="onboarding-wallet"
-            options={{ title: 'Minha Carteira Premium' }}
-          />
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
-        </Stack>
+        <AppLockGate>
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.text,
+              headerShadowVisible: false,
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="sign-in" options={{ title: 'Entrar' }} />
+            <Stack.Screen name="sign-up" options={{ title: 'Criar conta' }} />
+            <Stack.Screen name="legacy" options={{ headerShown: false }} />
+            <Stack.Screen name="assistant" options={{ title: 'Assistente Nexa' }} />
+            <Stack.Screen
+              name="onboarding-wallet"
+              options={{ title: 'Minha Carteira Premium' }}
+            />
+            <Stack.Screen name="(app)" options={{ headerShown: false }} />
+          </Stack>
+        </AppLockGate>
       </PrivyProvider>
     </SafeAreaProvider>
   );
