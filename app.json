@@ -28,6 +28,12 @@
       "expo-apple-authentication",
       "expo-web-browser",
       [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use o Face ID para proteger o acesso à sua conta Nexa."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "defaultChannel": "nexa-alerts"
