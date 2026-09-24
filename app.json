@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nexa",
     "slug": "nexa",
-    "version": "2.0.11",
+    "version": "2.0.19",
     "orientation": "portrait",
     "scheme": "nexa",
     "icon": "./nexa-mobile/nexa-mobile/assets/icon.png",
@@ -10,12 +10,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "105",
+      "buildNumber": "114",
       "usesAppleSignIn": true
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 105,
+      "versionCode": 114,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
@@ -27,6 +27,12 @@
       "expo-secure-store",
       "expo-apple-authentication",
       "expo-web-browser",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use o Face ID para proteger o acesso à sua conta Nexa."
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -74,7 +80,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.11-v105-production-safe",
+      "releaseBuild": "android16-api36-2.0.19-v114-biometric-open-finance",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       }

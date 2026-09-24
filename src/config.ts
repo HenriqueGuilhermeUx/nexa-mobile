@@ -54,8 +54,8 @@ export const config = {
   apiUrl,
   efiOpenFinanceApiUrl:
     envEfiOpenFinanceApiUrl || extra.efiOpenFinanceApiUrl || apiUrl,
-  appVersion: Constants.expoConfig?.version || '2.0.11',
-  appBuild: String(Constants.expoConfig?.android?.versionCode || '105'),
+  appVersion: Constants.expoConfig?.version || '2.0.19',
+  appBuild: String(Constants.expoConfig?.android?.versionCode || '114'),
   privyAppId: extra.privyAppId || '',
   privyClientId: extra.privyClientId || '',
   financialExecutionEnabled:

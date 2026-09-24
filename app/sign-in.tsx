@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionButton,
@@ -11,6 +11,11 @@ import {
   Title,
 } from '@/components/ui';
 import { nexaApi, tokensFromLogin } from '@/lib/api';
+import {
+  enableAppLock,
+  markAppLockOfferSeen,
+  shouldOfferAppLock,
+} from '@/lib/appLock';
 import {
   clearNexaTokens,
   loadNexaEmail,
@@ -34,6 +39,54 @@ export default function SignInScreen() {
     };
   }, []);
 
+  function goToAuthenticatedArea(profile: any) {
+    if (profile?.kycStatus === 'approved') {
+      router.replace('/legacy' as any);
+    } else {
+      router.replace('/kyc' as any);
+    }
+  }
+
+  async function maybeOfferDeviceProtection(profile: any) {
+    if (!(await shouldOfferAppLock())) {
+      goToAuthenticatedArea(profile);
+      return;
+    }
+
+    Alert.alert(
+      'Proteger a Nexa neste aparelho?',
+      'Ative biometria ou a credencial de desbloqueio do aparelho para proteger o acesso à sua conta. Sua senha Nexa continua disponível como recuperação.',
+      [
+        {
+          text: 'Agora não',
+          style: 'cancel',
+          onPress: () => {
+            void markAppLockOfferSeen().finally(() => {
+              goToAuthenticatedArea(profile);
+            });
+          },
+        },
+        {
+          text: 'Ativar proteção',
+          onPress: () => {
+            void (async () => {
+              const result = await enableAppLock();
+              await markAppLockOfferSeen();
+              if (!result.success) {
+                Alert.alert(
+                  'Proteção não ativada',
+                  'Você pode continuar usando a Nexa com sua senha. A proteção do aparelho poderá ser ativada em uma próxima atualização de segurança.',
+                );
+              }
+              goToAuthenticatedArea(profile);
+            })();
+          },
+        },
+      ],
+      { cancelable: false },
+    );
+  }
+
   async function authenticateNexa() {
     const normalizedEmail = email.trim().toLowerCase();
     setError('');
@@ -53,11 +106,7 @@ export default function SignInScreen() {
       });
 
       const profile = response.user || (await nexaApi.me(tokens.accessToken));
-      if (profile?.kycStatus === 'approved') {
-        router.replace('/legacy' as any);
-      } else {
-        router.replace('/kyc' as any);
-      }
+      await maybeOfferDeviceProtection(profile);
     } catch (caught) {
       await clearNexaTokens();
       setError(

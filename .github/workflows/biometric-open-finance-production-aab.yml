@@ -1,0 +1,203 @@
+name: Nexa Biometric Open Finance Production AAB
+
+on:
+  push:
+    branches:
+      - release/nexa-open-finance-2.0.19-v114
+    paths:
+      - '.github/workflows/biometric-open-finance-production-aab.yml'
+      - 'eas.json'
+      - 'app.config.js'
+      - 'app.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'app/**'
+      - 'src/**'
+      - 'scripts/validate-biometric-app-lock.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: nexa-biometric-open-finance-production-aab
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Signed Nexa 2.0.19 v114 biometric AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo authentication
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN" || (echo 'EXPO_TOKEN ausente' && exit 1)
+          eas whoami
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          API='https://nexa-backend-p2u0.onrender.com/api/v1'
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o prod-health.json
+          node <<'NODE'
+          const fs = require('fs');
+          const health = JSON.parse(fs.readFileSync('prod-health.json', 'utf8'));
+          if (String(health.status || '').toLowerCase() !== 'ok') throw new Error('Production health is not OK');
+          console.log('Production backend health OK.');
+          NODE
+
+      - name: Assert production Open Finance profile
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const eas = require('./eas.json');
+          const p = eas?.build?.['production-open-finance-aab'];
+          if (!p) throw new Error('production-open-finance-aab profile missing');
+          if (p.android?.buildType !== 'app-bundle') throw new Error('Release must build an AAB');
+          if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Main API mismatch');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Open Finance API mismatch');
+          if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') throw new Error('Global financial execution must remain OFF');
+          if (p.env?.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED !== 'true') throw new Error('Assistant must be ON');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED !== 'true') throw new Error('Open Finance UI must be ON');
+          if (p.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'false') throw new Error('Recurring Open Finance must remain OFF');
+          console.log('Production Open Finance AAB safety profile OK.');
+          NODE
+
+      - name: Validate biometric and financial safety contracts
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety.js
+          node scripts/validate-biometric-app-lock.js
+          node scripts/validate-release-assets.js
+          npm run typecheck
+
+      - name: Validate release identity
+        env:
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'production-open-finance-aab'
+        run: |
+          set -euo pipefail
+          npx expo config --type public --json > expo-public-config.json
+          node <<'NODE'
+          const fs = require('fs');
+          const c = JSON.parse(fs.readFileSync('expo-public-config.json', 'utf8'));
+          if (c.name !== 'Nexa') throw new Error('Unexpected app name');
+          if (c.android?.package !== 'br.com.trynexa.app') throw new Error('Unexpected Android package');
+          if (c.version !== '2.0.19') throw new Error(`Unexpected version ${c.version}`);
+          if (Number(c.android?.versionCode) !== 114) throw new Error(`Unexpected versionCode ${c.android?.versionCode}`);
+          const plugins = JSON.stringify(c.plugins || []);
+          if (!plugins.includes('expo-local-authentication')) throw new Error('Local authentication plugin missing');
+          if (!plugins.includes('expo-notifications')) throw new Error('Notifications plugin missing');
+          if (!plugins.includes('expo-speech-recognition')) throw new Error('Speech recognition plugin missing');
+          console.log('Release identity OK: Nexa 2.0.19 v114 / br.com.trynexa.app.');
+          NODE
+          ! grep -R -q 'EFI_OPEN_FINANCE_CLIENT_SECRET\|EFI_OPEN_FINANCE_CERTIFICATE_BASE64\|EFI_OPEN_FINANCE_WEBHOOK_HMAC' app src
+
+      - name: Verify generated Android biometric permissions
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform android --no-install --clean
+          MANIFEST='android/app/src/main/AndroidManifest.xml'
+          test -s "$MANIFEST"
+          grep -q 'android.permission.USE_BIOMETRIC' "$MANIFEST"
+          grep -q 'android.permission.USE_FINGERPRINT' "$MANIFEST"
+          cp "$MANIFEST" generated-AndroidManifest.xml
+          echo 'Android biometric permissions generated by Expo config plugin: OK.'
+
+      - name: Export Android JavaScript bundle
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'production-open-finance-aab'
+        run: npm run export:android
+
+      - name: Build signed production AAB
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-biometric-open-finance-production-aab
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-biometric-open-finance-production
+        run: |
+          set -euo pipefail
+          FILE='Nexa-Open-Finance-Biometric-2.0.19-v114.aab'
+          rm -f "$FILE"
+          eas build --platform android --profile production-open-finance-aab --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
+          test -s "$FILE"
+          SHA256=$(sha256sum "$FILE" | awk '{print $1}')
+          echo "aab_file=$FILE" >> "$GITHUB_ENV"
+          echo "aab_sha256=$SHA256" >> "$GITHUB_ENV"
+          ls -lh "$FILE"
+
+      - name: Verify AAB signature and archive structure
+        run: |
+          set -euo pipefail
+          jarsigner -verify -verbose -certs "${{ env.aab_file }}" > aab-signature.txt
+          grep -q 'jar verified' aab-signature.txt
+          unzip -l "${{ env.aab_file }}" > aab-contents.txt
+          grep -q 'base/manifest/AndroidManifest.xml' aab-contents.txt
+          grep -q 'base/dex/classes.dex' aab-contents.txt
+          printf '%s  %s\n' "${{ env.aab_sha256 }}" "${{ env.aab_file }}" > SHA256SUMS.txt
+          echo 'AAB VERIFIED: signed bundle archive with base manifest/dex present.'
+
+      - name: Upload verified biometric AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Open-Finance-Biometric-2.0.19-v114-AAB-VERIFIED
+          path: |
+            ${{ env.aab_file }}
+            SHA256SUMS.txt
+            aab-signature.txt
+            aab-contents.txt
+            expo-public-config.json
+            generated-AndroidManifest.xml
+          if-no-files-found: error
+          retention-days: 30
