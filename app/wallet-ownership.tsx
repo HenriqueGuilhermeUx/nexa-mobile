@@ -162,7 +162,7 @@ export default function WalletOwnershipScreen() {
 
   return (
     <Screen>
-      <Badge tone={verified ? 'success' : 'default'}>
+      <Badge tone={verified ? 'success' : 'info'}>
         {verified ? 'CARTEIRA COMPROVADA' : 'PROVA DE CONTROLE'}
       </Badge>
       <View style={styles.topSpace} />
