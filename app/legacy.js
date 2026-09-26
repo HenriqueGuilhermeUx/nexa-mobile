@@ -123,6 +123,25 @@ export default function LegacyExperience() {
         onLogout={logout}
       />
 
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Comprovar controle da carteira"
+        activeOpacity={0.86}
+        style={[
+          styles.ownershipButton,
+          {
+            bottom:
+              96 +
+              (config.assistantEnabled ? 58 : 0) +
+              (config.efiOpenFinanceEnabled ? 58 : 0),
+          },
+        ]}
+        onPress={() => router.push('/wallet-ownership')}
+      >
+        <Text style={styles.ownershipIcon}>🔐</Text>
+        <Text style={styles.ownershipLabel}>Comprovar carteira</Text>
+      </TouchableOpacity>
+
       {config.efiOpenFinanceEnabled ? (
         <TouchableOpacity
           accessibilityRole="button"
@@ -168,6 +187,31 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   text: { color: colors.muted, textAlign: 'center' },
+  ownershipButton: {
+    position: 'absolute',
+    right: 16,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: '#065f46',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    shadowColor: '#000000',
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 7,
+  },
+  ownershipIcon: {
+    fontSize: 17,
+  },
+  ownershipLabel: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
   openFinanceButton: {
     position: 'absolute',
     right: 16,
