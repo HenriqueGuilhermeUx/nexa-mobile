@@ -172,7 +172,7 @@ export default function OpenFinanceScreen() {
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase('pt-BR');
-    if (!needle) return participants.slice(0, 40);
+    if (!needle) return participants.slice(0, 8);
     return participants
       .filter((item) => participantNameOf(item).toLocaleLowerCase('pt-BR').includes(needle))
       .slice(0, 40);
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 15,
   },
-  bankList: { gap: 8, marginTop: 12, maxHeight: 320 },
+  bankList: { gap: 8, marginTop: 12 },
   bankButton: {
     borderRadius: 14,
     paddingVertical: 12,
