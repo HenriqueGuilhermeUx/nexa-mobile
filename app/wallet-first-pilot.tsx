@@ -83,6 +83,7 @@ export default function WalletFirstPilotScreen() {
   );
 
   const [readiness, setReadiness] = useState<any>(null);
+  const [providerAudit, setProviderAudit] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
@@ -165,6 +166,25 @@ export default function WalletFirstPilotScreen() {
         );
       }
 
+      // Gate 1: provider-side evidence. This is read/audit-only and must not
+      // mutate the user's legacy settlement profile.
+      const audit = await authorizedRequest(
+        session.accessToken,
+        '/direct-settlement/wallet-first/usdc-pilot/wallet/audit',
+        'POST',
+        {},
+      );
+      setProviderAudit(audit);
+      if (audit?.walletFirstReady !== true) {
+        throw new Error(
+          'A auditoria da Privy ainda não confirmou uma wallet individual, não custodial e sem signatários adicionais.',
+        );
+      }
+      if (audit?.legacy?.unchanged !== true) {
+        throw new Error('A proteção do perfil legado não foi confirmada.');
+      }
+
+      // Gate 2: the customer proves control of the same address locally.
       const challenge = await authorizedRequest(
         session.accessToken,
         '/wallet-v15/wallet-ownership/challenge',
@@ -241,9 +261,9 @@ export default function WalletFirstPilotScreen() {
       <Eyebrow>Wallet-First · USDC Polygon</Eyebrow>
       <Title>Você controla a carteira.</Title>
       <Paragraph>
-        Esta etapa comprova o controle da sua wallet Privy com uma assinatura
-        EIP-191. Ela não cria transação, não move USDC e não autoriza a Nexa a
-        movimentar seus ativos.
+        Primeiro a Nexa confere a wallet diretamente na Privy. Depois você prova
+        o controle local com uma assinatura EIP-191. Nenhuma dessas etapas cria
+        transação, move USDC ou concede à Nexa acesso à sua chave privada.
       </Paragraph>
 
       <Card>
@@ -264,9 +284,27 @@ export default function WalletFirstPilotScreen() {
         />
       </Card>
 
+      {providerAudit ? (
+        <Card>
+          <Text style={styles.successTitle}>Auditoria Privy</Text>
+          <Text style={styles.successText}>
+            Associação ao usuário: {providerAudit?.checks?.userAssociationConfirmed === true ? 'confirmada' : 'não confirmada'}
+          </Text>
+          <Text style={styles.successText}>
+            Não custodial: {providerAudit?.checks?.nonCustodial === true ? 'sim' : 'não'}
+          </Text>
+          <Text style={styles.successText}>
+            Signatários adicionais: {Number(providerAudit?.wallet?.additionalSignersCount || 0)}
+          </Text>
+          <Text style={styles.successText}>
+            Perfil legado preservado: {providerAudit?.legacy?.unchanged === true ? 'sim' : 'não'}
+          </Text>
+        </Card>
+      ) : null}
+
       {!ownershipConfirmed ? (
         <ActionButton
-          label="Comprovar controle da minha carteira"
+          label="Auditar e comprovar minha carteira"
           loading={working}
           disabled={!allowlisted || !walletMatches}
           onPress={proveOwnership}
