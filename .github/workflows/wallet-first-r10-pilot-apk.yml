@@ -1,0 +1,173 @@
+name: Nexa Wallet-First R10 Pilot APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/wallet-first-r10-pilot-clean
+    paths:
+      - '.github/workflows/wallet-first-r10-pilot-apk.yml'
+      - 'app/wallet-first-pilot.tsx'
+      - 'app/legacy.js'
+      - 'app.json'
+      - 'eas.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-wallet-first-r10-pilot-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Signed Wallet-First R10 pilot APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout clean pilot branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Assert clean isolated delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          echo "$CHANGED"
+          ALLOWED_REGEX='^(\.github/workflows/wallet-first-r10-pilot-apk\.yml|app/wallet-first-pilot\.tsx|app/legacy\.js|app\.json|eas\.json)$'
+          UNEXPECTED=$(printf '%s\n' "$CHANGED" | grep -Ev "$ALLOWED_REGEX" || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'Unexpected files changed in clean Wallet-First pilot:'
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+          grep -q 'wallet-ownership/challenge' app/wallet-first-pilot.tsx
+          grep -q 'wallet-ownership/verify' app/wallet-first-pilot.tsx
+          grep -q "personal_sign" app/wallet-first-pilot.tsx
+          grep -q 'PILOTO R\$ 10' app/wallet-first-pilot.tsx
+          grep -q "config.releaseChannel === 'wallet-first-pilot'" app/legacy.js
+          grep -q '"versionCode": 116' app.json
+          node -e "const e=require('./eas.json'); if(e.build['wallet-first-pilot']?.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false') throw new Error('mobile financial execution must remain OFF');"
+          echo 'Clean Wallet-First proof-only delta verified.'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo authentication
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN"
+          eas whoami
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate production backend foundation
+        run: |
+          set -euo pipefail
+          API='https://nexa-backend-p2u0.onrender.com/api/v1'
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/health" -o health.json
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 "$API/direct-settlement/wallet-first/foundation" -o foundation.json
+          node <<'NODE'
+          const fs = require('fs');
+          const health = JSON.parse(fs.readFileSync('health.json', 'utf8'));
+          if (String(health.status || '').toLowerCase() !== 'ok') throw new Error('Production health is not OK');
+          const foundation = JSON.parse(fs.readFileSync('foundation.json', 'utf8'));
+          if (foundation?.legacyLedgerUntouched !== true) throw new Error('Legacy ledger preservation missing');
+          if (foundation?.existingBalancesMigrated !== false) throw new Error('Existing balance migration invariant changed');
+          console.log('Production backend foundation OK.');
+          NODE
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Export Android pilot
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+        run: npm run export:android
+
+      - name: Build signed internal APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-wallet-first-r10
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-wallet-first-r10
+        run: |
+          set -euo pipefail
+          FILE='Nexa-Wallet-First-R10-Pilot-2.0.20-v116.apk'
+          rm -f "$FILE"
+          eas build --platform android --profile wallet-first-pilot --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
+          test -s "$FILE"
+          SHA256=$(sha256sum "$FILE" | awk '{print $1}')
+          echo "apk_file=$FILE" >> "$GITHUB_ENV"
+          echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
+
+      - name: Verify signed APK identity
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          APKANALYZER="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          test -x "$APKSIGNER"
+          test -x "$APKANALYZER"
+          "$APKSIGNER" verify --verbose --print-certs "${{ env.apk_file }}" > apk-signature.txt
+          "$APKANALYZER" manifest application-id "${{ env.apk_file }}" | tee apk-package.txt
+          "$APKANALYZER" manifest version-name "${{ env.apk_file }}" | tee apk-version-name.txt
+          "$APKANALYZER" manifest version-code "${{ env.apk_file }}" | tee apk-version-code.txt
+          "$APKANALYZER" manifest target-sdk "${{ env.apk_file }}" | tee apk-target-sdk.txt
+          grep -qx 'br.com.trynexa.app' apk-package.txt
+          grep -Fqx '2.0.20' apk-version-name.txt
+          grep -Fqx '116' apk-version-code.txt
+          grep -qx '36' apk-target-sdk.txt
+          printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
+
+      - name: Upload verified pilot APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Wallet-First-R10-Pilot-VERIFIED
+          path: |
+            ${{ env.apk_file }}
+            SHA256SUMS.txt
+            apk-signature.txt
+            apk-package.txt
+            apk-version-name.txt
+            apk-version-code.txt
+            apk-target-sdk.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Wallet-First-R10-Pilot-build-diagnostics
+          path: |
+            ${{ runner.temp }}/nexa-wallet-first-r10/logs
+            local-build-artifacts-wallet-first-r10
+          if-no-files-found: warn
+          retention-days: 7
