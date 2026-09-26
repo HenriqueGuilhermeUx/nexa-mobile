@@ -48,11 +48,14 @@ jobs:
             echo "$UNEXPECTED"
             exit 1
           fi
-          grep -q 'wallet-ownership/challenge' app/wallet-first-pilot.tsx
-          grep -q 'wallet-ownership/verify' app/wallet-first-pilot.tsx
-          grep -q 'useSignMessage' app/wallet-first-pilot.tsx
-          grep -q 'não move' app/wallet-first-pilot.tsx
-          echo 'Wallet-First pilot remains isolated and proof-only.'
+          grep -q "export { default } from './wallet-ownership';" app/wallet-first-pilot.tsx
+          grep -q 'personal_sign' app/wallet-ownership.tsx
+          grep -q 'auditWallet' app/wallet-ownership.tsx
+          grep -q 'createOwnershipChallenge' app/wallet-ownership.tsx
+          grep -q 'verifyOwnershipSignature' app/wallet-ownership.tsx
+          grep -q 'wallet-ownership/challenge' src/lib/walletFirst.ts
+          grep -q 'wallet-ownership/verify' src/lib/walletFirst.ts
+          echo 'Wallet-First pilot remains isolated and reuses the validated proof-only ownership flow.'
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
