@@ -86,8 +86,8 @@ jobs:
           const health = JSON.parse(fs.readFileSync('prod-health.json', 'utf8'));
           if (String(health.status || '').toLowerCase() !== 'ok') throw new Error('Production health is not OK');
           const foundation = JSON.parse(fs.readFileSync('wallet-first-foundation.json', 'utf8'));
-          if (foundation?.legacyLedgerUntouched !== true) throw new Error('Legacy-ledger preservation invariant missing');
-          if (foundation?.existingBalancesMigrated !== false) throw new Error('Existing-balance migration invariant changed');
+          if (foundation?.safeDefaults?.legacyLedgerUntouched !== true) throw new Error('Legacy-ledger preservation invariant missing');
+          if (foundation?.safeDefaults?.existingBalancesMigrated !== false) throw new Error('Existing-balance migration invariant changed');
           console.log('Production Wallet-First foundation preflight OK.');
           NODE
 
