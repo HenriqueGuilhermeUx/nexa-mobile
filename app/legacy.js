@@ -115,6 +115,8 @@ export default function LegacyExperience() {
     );
   }
 
+  const walletFirstPilot = config.releaseChannel === 'wallet-first-pilot';
+
   return (
     <View style={styles.appShell}>
       <AlignedLegacyApp
@@ -123,6 +125,19 @@ export default function LegacyExperience() {
         onLogout={logout}
       />
 
+      {walletFirstPilot ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Abrir piloto Wallet-First"
+          activeOpacity={0.86}
+          style={styles.walletFirstButton}
+          onPress={() => router.push('/wallet-first-pilot')}
+        >
+          <Text style={styles.walletFirstIcon}>◈</Text>
+          <Text style={styles.walletFirstLabel}>Piloto R$ 10</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {config.efiOpenFinanceEnabled ? (
         <TouchableOpacity
           accessibilityRole="button"
@@ -130,7 +145,13 @@ export default function LegacyExperience() {
           activeOpacity={0.86}
           style={[
             styles.openFinanceButton,
-            { bottom: config.assistantEnabled ? 154 : 96 },
+            {
+              bottom: walletFirstPilot
+                ? 212
+                : config.assistantEnabled
+                  ? 154
+                  : 96,
+            },
           ]}
           onPress={() => router.push('/open-finance')}
         >
@@ -144,7 +165,10 @@ export default function LegacyExperience() {
           accessibilityRole="button"
           accessibilityLabel="Abrir Assistente Nexa"
           activeOpacity={0.86}
-          style={styles.assistantButton}
+          style={[
+            styles.assistantButton,
+            { bottom: walletFirstPilot ? 154 : 96 },
+          ]}
           onPress={() => router.push('/assistant')}
         >
           <Text style={styles.assistantIcon}>✦</Text>
@@ -168,6 +192,34 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   text: { color: colors.muted, textAlign: 'center' },
+  walletFirstButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: 96,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: '#065f46',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    shadowColor: '#000000',
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 7,
+  },
+  walletFirstIcon: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  walletFirstLabel: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
   openFinanceButton: {
     position: 'absolute',
     right: 16,
@@ -196,7 +248,6 @@ const styles = StyleSheet.create({
   assistantButton: {
     position: 'absolute',
     right: 16,
-    bottom: 96,
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
