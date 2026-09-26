@@ -54,6 +54,10 @@ export default function RootLayout() {
               name="onboarding-wallet"
               options={{ title: 'Minha Carteira Premium' }}
             />
+            <Stack.Screen
+              name="wallet-ownership"
+              options={{ title: 'Comprovar minha carteira' }}
+            />
             <Stack.Screen name="(app)" options={{ headerShown: false }} />
           </Stack>
         </AppLockGate>

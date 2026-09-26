@@ -92,7 +92,10 @@ export default function WalletOnboardingScreen() {
         }
 
         if (alreadyLinked) {
-          router.replace('/legacy' as any);
+          // Wallet vinculada não é suficiente para chamar o modelo de
+          // user-controlled. A próxima tela exige auditoria Privy + prova
+          // criptográfica EIP-191 antes de qualquer piloto financeiro.
+          router.replace('/wallet-ownership' as any);
           return;
         }
       } catch (caught) {
@@ -144,8 +147,10 @@ export default function WalletOnboardingScreen() {
         walletAddress: currentWallet.address,
       });
 
-      void nexaApi.auditWallet(session.accessToken).catch(() => undefined);
-      router.replace('/legacy' as any);
+      // A auditoria consulta a API da Privy e grava o estado observado, mas a
+      // prova EIP-191 continua sendo obrigatória e ocorre na tela seguinte.
+      await nexaApi.auditWallet(session.accessToken);
+      router.replace('/wallet-ownership' as any);
     } catch (caught) {
       setError(
         caught instanceof Error
