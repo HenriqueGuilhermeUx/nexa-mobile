@@ -194,8 +194,6 @@ export default function WalletOwnershipScreen() {
       const session = await loadNexaSession();
       if (!session) throw new Error('Sua sessão Nexa expirou. Entre novamente.');
 
-      // 1) O backend consulta a API da Privy e bloqueia qualquer wallet que não
-      // esteja associada ao usuário, que seja custodial ou tenha signers extras.
       const auditResult = await nexaApi.auditWallet(session.accessToken);
       setAudit(auditResult);
       if (auditResult?.directSettlementReady !== true) {
@@ -209,10 +207,6 @@ export default function WalletOwnershipScreen() {
         throw new Error('A auditoria não retornou o endereço da carteira vinculada.');
       }
 
-      // A conta Nexa e a auditoria de servidor não bastam para assinar.
-      // Se a sessão Privy local não estiver restaurada, pedimos OTP e NÃO
-      // criamos outra wallet. Depois do login, somente a wallet já vinculada
-      // pode continuar para a assinatura EIP-191.
       if (!walletFor(auditedDestination)) {
         setPrivyEmail(session.email.trim().toLowerCase());
         setNeedsPrivyAuth(true);
@@ -224,7 +218,6 @@ export default function WalletOwnershipScreen() {
 
       setNeedsPrivyAuth(false);
 
-      // 2) O backend gera um challenge EIP-191 de uso único e curta duração.
       const challenge = await walletFirstApi.createOwnershipChallenge(
         session.accessToken,
       );
@@ -252,8 +245,6 @@ export default function WalletOwnershipScreen() {
         );
       }
 
-      // 3) Somente o dispositivo do usuário pode produzir a assinatura. Não há
-      // transação, approve de token, transferência ou acesso à chave privada.
       const provider = await providerFor(wallet);
       if (!provider || typeof provider.request !== 'function') {
         throw new Error('O provedor Privy não está pronto para assinar mensagens.');
@@ -278,8 +269,6 @@ export default function WalletOwnershipScreen() {
         throw new Error('A wallet não retornou uma assinatura EIP-191 válida.');
       }
 
-      // 4) O servidor recupera o endereço da assinatura e só confirma se ele for
-      // exatamente a destinationWallet registrada no perfil Wallet V1.5.
       const verification = await walletFirstApi.verifyOwnershipSignature(
         session.accessToken,
         String(signature),
@@ -289,8 +278,6 @@ export default function WalletOwnershipScreen() {
       }
       setProof(verification);
 
-      // 5) Nova auditoria + readiness para que a tela nunca trate a assinatura,
-      // sozinha, como autorização para movimentar dinheiro.
       const finalAudit = await nexaApi.auditWallet(session.accessToken);
       setAudit(finalAudit);
       const ready = await walletFirstApi.readiness(session.accessToken);
@@ -465,7 +452,7 @@ const styles = StyleSheet.create({
   },
   otpInput: {
     color: colors.text,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.panelSoft,
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.md,
