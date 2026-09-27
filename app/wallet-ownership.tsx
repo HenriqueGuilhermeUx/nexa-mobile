@@ -1,13 +1,30 @@
-import { useMemo, useState } from 'react';
-import { useEmbeddedEthereumWallet } from '@privy-io/expo';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEmbeddedEthereumWallet,
+  useLoginWithEmail,
+  usePrivy,
+} from '@privy-io/expo';
 import { router } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { ActionButton, Badge, Card, Paragraph, Screen, Title } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { walletFirstApi } from '@/lib/walletFirst';
 import { colors, radius, spacing } from '@/theme';
+
+const WALLET_WAIT_ATTEMPTS = 30;
+const WALLET_WAIT_MS = 500;
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function normalizeAddress(value: unknown) {
   return String(value || '').trim().toLowerCase();
@@ -25,14 +42,29 @@ function uniqueStrings(values: unknown[]) {
 }
 
 export default function WalletOwnershipScreen() {
+  const privy = usePrivy() as any;
+  const emailLogin = useLoginWithEmail() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
+  const walletsRef = useRef<any[]>(wallets);
+
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   const [verified, setVerified] = useState(false);
   const [audit, setAudit] = useState<any>(null);
   const [proof, setProof] = useState<any>(null);
   const [readiness, setReadiness] = useState<any>(null);
+
+  const [needsPrivyAuth, setNeedsPrivyAuth] = useState(false);
+  const [privyEmail, setPrivyEmail] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [authWorking, setAuthWorking] = useState(false);
+  const [authMessage, setAuthMessage] = useState('');
+
+  useEffect(() => {
+    walletsRef.current = wallets;
+  }, [wallets]);
 
   const localAddresses = useMemo(
     () => wallets.map((wallet) => normalizeAddress(wallet?.address)).filter(Boolean),
@@ -49,6 +81,108 @@ export default function WalletOwnershipScreen() {
     throw new Error(
       'A carteira Privy deste dispositivo não expôs o provedor de assinatura. Atualize a sessão e tente novamente.',
     );
+  }
+
+  function walletFor(destination: string) {
+    const target = normalizeAddress(destination);
+    return (walletsRef.current || []).find(
+      (candidate) => normalizeAddress(candidate?.address) === target,
+    );
+  }
+
+  async function waitForWallet(destination: string) {
+    for (let attempt = 0; attempt < WALLET_WAIT_ATTEMPTS; attempt += 1) {
+      const found = walletFor(destination);
+      if (found) return found;
+      await delay(WALLET_WAIT_MS);
+    }
+    return walletFor(destination) || null;
+  }
+
+  async function sendPrivyCode() {
+    setError('');
+    setAuthMessage('');
+    setAuthWorking(true);
+    try {
+      const session = await loadNexaSession();
+      if (!session) throw new Error('Sua sessão Nexa expirou. Entre novamente.');
+
+      const email = session.email.trim().toLowerCase();
+      if (!email) throw new Error('A conta Nexa não possui e-mail para autenticação Privy.');
+      setPrivyEmail(email);
+
+      if (privy?.user && typeof privy?.logout === 'function') {
+        await privy.logout();
+      }
+
+      if (typeof emailLogin?.sendCode !== 'function') {
+        throw new Error('A autenticação Privy por e-mail não está disponível nesta versão.');
+      }
+
+      await emailLogin.sendCode({ email });
+      setOtpSent(true);
+      setAuthMessage(`Código enviado para ${email}.`);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível enviar o código da Privy.',
+      );
+    } finally {
+      setAuthWorking(false);
+    }
+  }
+
+  async function confirmPrivyCode() {
+    const code = String(otpCode || '').trim();
+    if (code.length < 4) {
+      setError('Digite o código recebido por e-mail.');
+      return;
+    }
+
+    setError('');
+    setAuthMessage('Autenticando sua carteira neste aparelho...');
+    setAuthWorking(true);
+    try {
+      const session = await loadNexaSession();
+      if (!session) throw new Error('Sua sessão Nexa expirou. Entre novamente.');
+      const email = (privyEmail || session.email).trim().toLowerCase();
+
+      if (typeof emailLogin?.loginWithCode !== 'function') {
+        throw new Error('A confirmação Privy por código não está disponível nesta versão.');
+      }
+
+      await emailLogin.loginWithCode({ code, email });
+
+      const auditResult = audit || (await nexaApi.auditWallet(session.accessToken));
+      setAudit(auditResult);
+      const destination = normalizeAddress(auditResult?.wallet?.address);
+      if (!destination) {
+        throw new Error('A auditoria não retornou o endereço da carteira vinculada.');
+      }
+
+      const wallet = await waitForWallet(destination);
+      if (!wallet) {
+        throw new Error(
+          'A Privy autenticou sua conta, mas a carteira vinculada ainda não apareceu neste aparelho.',
+        );
+      }
+
+      setNeedsPrivyAuth(false);
+      setOtpSent(false);
+      setOtpCode('');
+      setAuthMessage('Carteira restaurada neste aparelho. Continuando a comprovação...');
+
+      await proveControl();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível restaurar a sessão Privy.',
+      );
+    } finally {
+      setAuthWorking(false);
+    }
   }
 
   async function proveControl() {
@@ -70,6 +204,26 @@ export default function WalletOwnershipScreen() {
         );
       }
 
+      const auditedDestination = normalizeAddress(auditResult?.wallet?.address);
+      if (!auditedDestination) {
+        throw new Error('A auditoria não retornou o endereço da carteira vinculada.');
+      }
+
+      // A conta Nexa e a auditoria de servidor não bastam para assinar.
+      // Se a sessão Privy local não estiver restaurada, pedimos OTP e NÃO
+      // criamos outra wallet. Depois do login, somente a wallet já vinculada
+      // pode continuar para a assinatura EIP-191.
+      if (!walletFor(auditedDestination)) {
+        setPrivyEmail(session.email.trim().toLowerCase());
+        setNeedsPrivyAuth(true);
+        setAuthMessage(
+          'Confirme seu e-mail na Privy para disponibilizar neste aparelho a carteira que já está vinculada à Nexa.',
+        );
+        return;
+      }
+
+      setNeedsPrivyAuth(false);
+
       // 2) O backend gera um challenge EIP-191 de uso único e curta duração.
       const challenge = await walletFirstApi.createOwnershipChallenge(
         session.accessToken,
@@ -89,12 +243,12 @@ export default function WalletOwnershipScreen() {
         throw new Error('A Nexa não retornou um challenge de propriedade válido.');
       }
 
-      const wallet = wallets.find(
-        (candidate) => normalizeAddress(candidate?.address) === destination,
-      );
+      const wallet = walletFor(destination);
       if (!wallet) {
+        setPrivyEmail(session.email.trim().toLowerCase());
+        setNeedsPrivyAuth(true);
         throw new Error(
-          `A wallet vinculada à Nexa (${challenge.destinationWallet}) não está disponível neste dispositivo.`,
+          'A carteira vinculada à Nexa ainda não está disponível neste aparelho. Confirme sua sessão Privy abaixo.',
         );
       }
 
@@ -203,6 +357,56 @@ export default function WalletOwnershipScreen() {
         </Card>
       ) : null}
 
+      {needsPrivyAuth ? (
+        <Card>
+          <Text style={styles.cardTitle}>Ativar assinatura neste aparelho</Text>
+          <Text style={styles.item}>
+            A wallet já existe e já está vinculada. Confirme o mesmo e-mail da Nexa para a Privy restaurar somente a sessão necessária para assinar a prova de controle.
+          </Text>
+          <Text style={styles.label}>E-mail da conta Nexa</Text>
+          <Text style={styles.address}>{privyEmail || '—'}</Text>
+
+          {!otpSent ? (
+            <ActionButton
+              label="Enviar código Privy"
+              loading={authWorking}
+              disabled={working}
+              onPress={sendPrivyCode}
+            />
+          ) : (
+            <>
+              <TextInput
+                value={otpCode}
+                onChangeText={setOtpCode}
+                placeholder="Código recebido por e-mail"
+                placeholderTextColor={colors.muted}
+                keyboardType="number-pad"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.otpInput}
+              />
+              <ActionButton
+                label="Confirmar código e continuar"
+                loading={authWorking}
+                disabled={working}
+                onPress={confirmPrivyCode}
+              />
+              <ActionButton
+                label="Reenviar código"
+                variant="secondary"
+                disabled={authWorking || working}
+                onPress={sendPrivyCode}
+              />
+            </>
+          )}
+
+          {authMessage ? <Text style={styles.authMessage}>{authMessage}</Text> : null}
+          <Text style={styles.safety}>
+            Este passo não cria outra wallet, não transfere ativos e não envia sua chave privada à Nexa.
+          </Text>
+        </Card>
+      ) : null}
+
       {proof ? (
         <Card>
           <Text style={styles.cardTitle}>Prova criptográfica</Text>
@@ -234,12 +438,14 @@ export default function WalletOwnershipScreen() {
       <ActionButton
         label={verified ? 'Verificar novamente' : 'Comprovar minha carteira'}
         loading={working}
+        disabled={authWorking}
         onPress={proveControl}
       />
       {working ? <ActivityIndicator color={colors.primary} /> : null}
       <ActionButton
         label="Voltar para a Nexa"
         variant="secondary"
+        disabled={working || authWorking}
         onPress={() => router.replace('/legacy' as any)}
       />
     </Screen>
@@ -250,12 +456,35 @@ const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
   cardTitle: { color: colors.text, fontSize: 17, fontWeight: '900' },
   item: { color: colors.muted, lineHeight: 22, marginTop: spacing.xs },
-  label: { color: colors.muted, fontSize: 12, fontWeight: '800' },
+  label: { color: colors.muted, fontSize: 12, fontWeight: '800', marginTop: spacing.md },
   address: {
     color: colors.text,
     fontSize: 12,
     lineHeight: 18,
     marginTop: spacing.sm,
+  },
+  otpInput: {
+    color: colors.text,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    fontSize: 16,
+  },
+  authMessage: {
+    color: colors.text,
+    lineHeight: 20,
+    marginTop: spacing.sm,
+  },
+  safety: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: spacing.md,
   },
   blockers: {
     color: colors.warning,
