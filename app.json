@@ -10,12 +10,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "117",
+      "buildNumber": "118",
       "usesAppleSignIn": true
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 117,
+      "versionCode": 118,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
@@ -80,7 +80,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.20-v117-wallet-first-internal",
+      "releaseBuild": "android16-api36-2.0.20-v117-hf1-build118-wallet-first-internal",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       }
