@@ -1,0 +1,214 @@
+name: Nexa Wallet-First Pilot APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/wallet-first-pilot-apk.yml'
+      - '.github/build-triggers/wallet-first-pilot-v119.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-wallet-first-pilot-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build verified Wallet-First pilot APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout release
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo authentication
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN" || (echo 'EXPO_TOKEN ausente' && exit 1)
+          eas whoami
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Resolve release identity
+        run: |
+          set -euo pipefail
+          APP_VERSION=$(node -e "const f=require('./app.config.js'); const c=f({config:require('./app.json').expo}); process.stdout.write(String(c.version));")
+          APP_BUILD=$(node -e "const f=require('./app.config.js'); const c=f({config:require('./app.json').expo}); process.stdout.write(String(c.android.versionCode));")
+          test -n "$APP_VERSION"
+          test -n "$APP_BUILD"
+          echo "EXPECTED_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "EXPECTED_BUILD=$APP_BUILD" >> "$GITHUB_ENV"
+          echo "Wallet-First release: $APP_VERSION / v$APP_BUILD"
+
+      - name: Assert Wallet-First pilot identity
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          if (app.version !== '2.0.21') throw new Error(`Unexpected version ${app.version}`);
+          if (Number(app.android?.versionCode) !== 119) throw new Error(`Unexpected versionCode ${app.android?.versionCode}`);
+          if (app.android?.package !== 'br.com.trynexa.app') throw new Error(`Unexpected package ${app.android?.package}`);
+          if (app.extra?.financialExecutionEnabled !== false) throw new Error('Mobile financialExecutionEnabled must remain false');
+          if (app.extra?.releaseBuild !== 'android16-api36-2.0.21-v119-wallet-first-pilot') throw new Error(`Unexpected releaseBuild ${app.extra?.releaseBuild}`);
+          console.log('Wallet-First v119 identity OK.');
+          NODE
+
+      - name: Assert Wallet-First customer flow contracts
+        run: |
+          set -euo pipefail
+          grep -q 'createWalletFirstPixCharge' src/lib/api.ts
+          grep -q 'getWalletFirstPixStatus' src/lib/api.ts
+          grep -q 'reconcileWalletFirstPixCharge' src/lib/api.ts
+          grep -q 'Adicionar dinheiro' 'app/(app)/new-order.tsx'
+          grep -q 'Gerar Pix' 'app/(app)/new-order.tsx'
+          grep -q 'USDC na carteira' 'app/(app)/new-order.tsx'
+          grep -q 'wallet-first/pix/status' src/lib/api.ts
+          echo 'Wallet-First customer flow present.'
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
+            'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          node <<'NODE'
+          const health = require('./nexa-health.json');
+          if (String(health.status || '').toLowerCase() !== 'ok') {
+            throw new Error('Production backend is not healthy');
+          }
+          console.log('Production backend health OK.');
+          NODE
+
+      - name: Assert internal pilot profile
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const eas = require('./eas.json');
+          const p = eas?.build?.['open-finance-pilot'];
+          if (!p) throw new Error('open-finance-pilot profile missing');
+          if (p.android?.buildType !== 'apk') throw new Error('Pilot must build APK');
+          if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') throw new Error('Main API mismatch');
+          if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') throw new Error('Mobile financial execution flag must remain OFF');
+          console.log('Internal pilot profile OK.');
+          NODE
+
+      - name: Validate mobile safety contracts
+        run: node scripts/validate-mobile-safety.js
+
+      - name: Validate biometric app lock
+        run: node scripts/validate-biometric-app-lock.js
+
+      - name: Validate Android release assets
+        run: node scripts/validate-release-assets.js
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Validate Expo project
+        run: npx expo-doctor
+
+      - name: Export Android bundle
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'wallet-first-pilot'
+        run: npm run export:android
+
+      - name: Build signed Wallet-First pilot APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-wallet-first-pilot
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-wallet-first
+        run: |
+          set -euo pipefail
+          FILE="Nexa-Wallet-First-Pilot-${EXPECTED_VERSION}-v${EXPECTED_BUILD}.apk"
+          rm -f "$FILE"
+          eas build --platform android --profile open-finance-pilot --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
+          test -s "$FILE"
+          SHA256=$(sha256sum "$FILE" | awk '{print $1}')
+          echo "apk_file=$FILE" >> "$GITHUB_ENV"
+          echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
+          ls -lh "$FILE"
+
+      - name: Verify signed APK identity and permissions
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          APKANALYZER="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          test -x "$APKSIGNER"
+          test -x "$APKANALYZER"
+          "$APKSIGNER" verify --verbose --print-certs "${{ env.apk_file }}" > apk-signature.txt
+          "$APKANALYZER" manifest application-id "${{ env.apk_file }}" | tee apk-package.txt
+          "$APKANALYZER" manifest version-name "${{ env.apk_file }}" | tee apk-version-name.txt
+          "$APKANALYZER" manifest version-code "${{ env.apk_file }}" | tee apk-version-code.txt
+          "$APKANALYZER" manifest target-sdk "${{ env.apk_file }}" | tee apk-target-sdk.txt
+          "$APKANALYZER" manifest permissions "${{ env.apk_file }}" | tee apk-permissions.txt
+          grep -qx 'br.com.trynexa.app' apk-package.txt
+          grep -Fqx "$EXPECTED_VERSION" apk-version-name.txt
+          grep -Fqx "$EXPECTED_BUILD" apk-version-code.txt
+          grep -qx '36' apk-target-sdk.txt
+          printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
+          echo "APK VERIFIED: Nexa ${EXPECTED_VERSION} v${EXPECTED_BUILD}, signed, API36."
+
+      - name: Upload verified Wallet-First pilot APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Wallet-First-Pilot-v119-VERIFIED
+          path: |
+            ${{ env.apk_file }}
+            SHA256SUMS.txt
+            apk-signature.txt
+            apk-package.txt
+            apk-version-name.txt
+            apk-version-code.txt
+            apk-target-sdk.txt
+            apk-permissions.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Wallet-First-Pilot-v119-build-diagnostics
+          path: |
+            ${{ runner.temp }}/nexa-wallet-first-pilot/logs
+            local-build-artifacts-wallet-first
+          if-no-files-found: warn
+          retention-days: 14
