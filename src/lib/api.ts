@@ -321,6 +321,26 @@ export const nexaApi = {
     return request<PixRedemption[]>('/payment/user', { accessToken });
   },
 
+  listFiatDeposits(accessToken: string) {
+    return request<any[]>('/fiat-deposit/list', { accessToken });
+  },
+
+  createWalletFirstPixCharge(accessToken: string, amountBrl: number) {
+    return request<any>('/fiat-deposit/woovi/create-charge', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ amountBrl }),
+    });
+  },
+
+  reconcileWalletFirstPixCharge(accessToken: string, correlationID: string) {
+    return request<any>('/fiat-deposit/woovi/reconcile-controlled-charge', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ correlationID }),
+    });
+  },
+
   getPixRedemption(accessToken: string, paymentId: string) {
     return request<PixRedemption>(
       `/payment/status/${encodeURIComponent(paymentId)}`,
