@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
 import {
   ActionButton,
@@ -17,10 +17,9 @@ import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
-type Operation = 'entry' | 'exit';
 type Result =
   | { kind: 'redemption'; payload: any }
-  | { kind: 'direct-order'; payload: any };
+  | { kind: 'pix-charge'; payload: any };
 
 function parseAmount(value: string) {
   const text = value.trim().replace(/R\$/gi, '').replace(/\s/g, '');
@@ -69,35 +68,26 @@ function formatUsdc(value: unknown) {
   })} USDC`;
 }
 
-function Choice({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
+function AssetPill({ label, enabled }: { label: string; enabled?: boolean }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.choice, selected && styles.choiceSelected]}
-    >
-      <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>
+    <View style={[styles.assetPill, enabled && styles.assetPillEnabled]}>
+      <Text style={[styles.assetPillText, enabled && styles.assetPillTextEnabled]}>
         {label}
       </Text>
-    </Pressable>
+      <Text style={styles.assetPillState}>{enabled ? 'AGORA' : 'EM BREVE'}</Text>
+    </View>
   );
 }
 
 export default function NewOrderScreen() {
-  const [operation, setOperation] = useState<Operation>('entry');
   const [amount, setAmount] = useState('');
   const [pixKey, setPixKey] = useState('');
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [checkingPix, setCheckingPix] = useState(false);
   const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const [result, setResult] = useState<Result | null>(null);
 
   useEffect(() => {
@@ -111,7 +101,7 @@ export default function NewOrderScreen() {
         setError(
           caught instanceof Error
             ? caught.message
-            : 'Não foi possível identificar o perfil da conta.',
+            : 'Não foi possível preparar sua conta.',
         );
       } finally {
         setProfileLoading(false);
@@ -123,13 +113,20 @@ export default function NewOrderScreen() {
 
   async function submit() {
     setError('');
+    setStatusMessage('');
     const parsed = parseAmount(amount);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      setError('Informe um valor maior que zero.');
-      return;
-    }
-    if (legacy && !pixKey.trim()) {
-      setError('Informe a chave Pix que receberá o valor final.');
+
+    if (legacy) {
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        setError('Informe uma quantidade de USDC maior que zero.');
+        return;
+      }
+      if (!pixKey.trim()) {
+        setError('Informe a chave Pix que receberá o valor final.');
+        return;
+      }
+    } else if (!Number.isFinite(parsed) || parsed < 10) {
+      setError('O valor mínimo para adicionar é R$ 10,00.');
       return;
     }
 
@@ -150,27 +147,123 @@ export default function NewOrderScreen() {
         return;
       }
 
-      const clientRequestId = Crypto.randomUUID();
-      const response =
-        operation === 'entry'
-          ? await nexaApi.createEntryOrder(session.accessToken, {
-              grossBrl: parsed,
-              clientRequestId,
-            })
-          : await nexaApi.createExitOrder(session.accessToken, {
-              amountUsdc: parsed,
-              clientRequestId,
-            });
-      setResult({ kind: 'direct-order', payload: response });
+      const response = await nexaApi.createWalletFirstPixCharge(
+        session.accessToken,
+        parsed,
+      );
+      setResult({ kind: 'pix-charge', payload: response });
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível registrar a operação.',
+          : 'Não foi possível gerar seu Pix.',
       );
     } finally {
       setLoading(false);
     }
+  }
+
+  async function checkPix() {
+    if (result?.kind !== 'pix-charge') return;
+    const correlationID = String(result.payload?.correlationID || '').trim();
+    if (!correlationID) {
+      setError('Não foi possível identificar este Pix.');
+      return;
+    }
+
+    setCheckingPix(true);
+    setError('');
+    setStatusMessage('');
+    try {
+      const session = await loadNexaSession();
+      if (!session) throw new Error('Sua sessão Nexa expirou.');
+      const response = await nexaApi.reconcileWalletFirstPixCharge(
+        session.accessToken,
+        correlationID,
+      );
+      if (response?.recovered === true) {
+        setStatusMessage('Pix recebido. A Nexa já está processando seu USDC.');
+      } else {
+        setStatusMessage('Ainda aguardando a confirmação do Pix.');
+      }
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível atualizar o Pix agora.',
+      );
+    } finally {
+      setCheckingPix(false);
+    }
+  }
+
+  if (result?.kind === 'pix-charge') {
+    const charge = result.payload || {};
+    const pixCode = String(
+      charge.copyPasteCode ||
+        charge?.charge?.brCode ||
+        charge?.charge?.paymentMethods?.pix?.brCode ||
+        '',
+    ).trim();
+
+    return (
+      <Screen>
+        <Badge tone="success">PIX PRONTO</Badge>
+        <View style={styles.topSpace} />
+        <Title>Pague {formatBrl(charge.amountBrl)}.</Title>
+        <Paragraph>
+          Assim que o Pix for confirmado, a Nexa cuida da conversão e entrega o
+          USDC direto na sua carteira. Você não precisa escolher rede nem informar
+          endereço.
+        </Paragraph>
+
+        <Card style={styles.pixCard}>
+          {pixCode ? (
+            <View style={styles.qrWrap}>
+              <QRCode value={pixCode} size={210} />
+            </View>
+          ) : null}
+          <Text style={styles.resultLabel}>Pix copia e cola</Text>
+          <Text selectable style={styles.pixCode}>
+            {pixCode || 'Código Pix disponível no link da cobrança.'}
+          </Text>
+          {charge.paymentLinkUrl ? (
+            <Text selectable style={styles.reference}>
+              {charge.paymentLinkUrl}
+            </Text>
+          ) : null}
+        </Card>
+
+        <View style={styles.progressRow}>
+          <View style={[styles.progressDot, styles.progressDone]} />
+          <Text style={styles.progressText}>Pix criado</Text>
+          <View style={styles.progressLine} />
+          <View style={styles.progressDot} />
+          <Text style={styles.progressText}>Recebido</Text>
+          <View style={styles.progressLine} />
+          <View style={styles.progressDot} />
+          <Text style={styles.progressText}>USDC na carteira</Text>
+        </View>
+
+        {statusMessage ? (
+          <Card>
+            <Text style={styles.statusText}>{statusMessage}</Text>
+          </Card>
+        ) : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <ActionButton
+          label="Já paguei · atualizar"
+          loading={checkingPix}
+          onPress={checkPix}
+        />
+        <ActionButton
+          label="Acompanhar"
+          variant="secondary"
+          onPress={() => router.replace('/(app)/activity')}
+        />
+      </Screen>
+    );
   }
 
   if (result?.kind === 'redemption') {
@@ -182,9 +275,7 @@ export default function NewOrderScreen() {
         <View style={styles.topSpace} />
         <Title>Seu USDC foi reservado.</Title>
         <Paragraph>
-          A estimativa em reais ainda não é uma promessa de pagamento. A Nexa
-          venderá exatamente o USDC reservado e confirmará o valor final após a
-          entrada real do BRL, em até 1 dia útil.
+          O valor final em reais será confirmado depois da venda e da conciliação.
         </Paragraph>
 
         <Card>
@@ -192,91 +283,19 @@ export default function NewOrderScreen() {
           <Text style={styles.resultValue}>
             {formatUsdc(redemption.reservedUsdc)}
           </Text>
-          <Text style={styles.resultLabel}>Estimativa líquida em BRL</Text>
+          <Text style={styles.resultLabel}>Estimativa líquida</Text>
           <Text style={styles.resultValue}>
             {formatBrl(redemption.estimatedPayoutBrl)}
           </Text>
-          <Text style={styles.estimateNotice}>ESTIMATIVA — NÃO GARANTIDA</Text>
           <Text style={styles.resultLabel}>Fee Nexa estimada</Text>
           <Text style={styles.resultValue}>
             {formatBrl(fees.nexaFeeBrl)} ({Number(fees.nexaFeePercent || 1.5)}%)
           </Text>
-          <Text style={styles.resultLabel}>Pix Out estimado</Text>
-          <Text style={styles.resultValue}>
-            {formatBrl(fees.pixOutFeeBrl)}
-          </Text>
-          <Text style={styles.resultLabel}>Identificador</Text>
-          <Text selectable style={styles.reference}>
-            {redemption.paymentId || '—'}
-          </Text>
-        </Card>
-
-        <Card>
-          <Text style={styles.ruleTitle}>Como o valor final será definido</Text>
-          <Text style={styles.ruleText}>
-            BRL líquido realmente recebido na venda − fee Nexa de 1,5% − custo
-            real do Pix Out.
-          </Text>
-          <Text style={styles.ruleText}>
-            A Nexa não usa caixa próprio para cobrir diferença entre estimativa e
-            venda real. Isso protege a continuidade da operação e mantém as
-            contas corretas.
-          </Text>
         </Card>
 
         <ActionButton
-          label="Acompanhar na atividade"
+          label="Acompanhar"
           onPress={() => router.replace('/(app)/activity')}
-        />
-        <ActionButton
-          label="Voltar"
-          variant="secondary"
-          onPress={() => router.back()}
-        />
-      </Screen>
-    );
-  }
-
-  if (result?.kind === 'direct-order') {
-    const response = result.payload || {};
-    const order = response.order || response;
-    const fundsMoved = response.fundsMoved === true;
-    const executionEnabled = response.executionEnabled === true;
-    return (
-      <Screen>
-        <Badge tone={fundsMoved ? 'danger' : 'success'}>
-          {fundsMoved ? 'REVISÃO NECESSÁRIA' : 'SOLICITAÇÃO REGISTRADA'}
-        </Badge>
-        <View style={styles.topSpace} />
-        <Title>Nenhum dinheiro foi movimentado.</Title>
-        <Paragraph>
-          A solicitação foi registrada para acompanhamento. Enquanto a execução
-          direta estiver em homologação, ela não representa compra, venda, Pix ou
-          crédito final.
-        </Paragraph>
-        <Card>
-          <Text style={styles.resultLabel}>Identificador</Text>
-          <Text selectable style={styles.reference}>
-            {order.id || order.orderId || '—'}
-          </Text>
-          <Text style={styles.resultLabel}>Status</Text>
-          <Text style={styles.resultValue}>{order.status || 'created'}</Text>
-          <Text style={styles.resultLabel}>Plano aplicado pelo backend</Text>
-          <Text style={styles.resultValue}>{order.plan || 'FREE'}</Text>
-          <Text style={styles.resultLabel}>Execução habilitada</Text>
-          <Text style={styles.resultValue}>
-            {executionEnabled ? 'Sim' : 'Não'}
-          </Text>
-          <Text style={styles.resultLabel}>Fundos movimentados</Text>
-          <Text style={styles.resultValue}>{fundsMoved ? 'Sim' : 'Não'}</Text>
-        </Card>
-        <ActionButton
-          label="Registrar outra solicitação"
-          variant="secondary"
-          onPress={() => {
-            setResult(null);
-            setAmount('');
-          }}
         />
       </Screen>
     );
@@ -285,12 +304,9 @@ export default function NewOrderScreen() {
   if (profileLoading) {
     return (
       <Screen>
-        <Eyebrow>Preparando sua operação</Eyebrow>
-        <Title>Validando as regras da sua conta.</Title>
-        <Paragraph>
-          A Nexa escolhe automaticamente o fluxo compatível com seu perfil, sem
-          alterar sua carteira ou seu histórico.
-        </Paragraph>
+        <Eyebrow>Nexa</Eyebrow>
+        <Title>Preparando sua conta…</Title>
+        <Paragraph>Só um instante.</Paragraph>
       </Screen>
     );
   }
@@ -298,16 +314,12 @@ export default function NewOrderScreen() {
   if (legacy) {
     return (
       <Screen>
-        <Eyebrow>Resgate Pix</Eyebrow>
-        <Title>Quanto USDC deseja converter?</Title>
-        <Paragraph>
-          Primeiro você escolhe o USDC. O valor em reais exibido após a
-          solicitação será apenas uma estimativa. O valor final aparecerá quando
-          a venda real for conciliada.
-        </Paragraph>
+        <Eyebrow>Resgatar</Eyebrow>
+        <Title>Quanto USDC você quer sacar?</Title>
+        <Paragraph>Informe o valor e a chave Pix. A Nexa cuida do restante.</Paragraph>
 
         <Field
-          label="Quantidade em USDC"
+          label="USDC"
           value={amount}
           onChangeText={setAmount}
           keyboardType="decimal-pad"
@@ -321,126 +333,139 @@ export default function NewOrderScreen() {
           placeholder="CPF, e-mail, telefone ou chave aleatória"
         />
 
-        <Card>
-          <Text style={styles.ruleTitle}>Regra do resgate</Text>
-          <Text style={styles.ruleText}>
-            Prazo de processamento: até 1 dia útil. Fee Nexa: 1,5% sobre o BRL
-            líquido realmente recebido na venda. Pix Out: custo efetivo do
-            provedor.
-          </Text>
-          <Text style={styles.ruleText}>
-            Antes da venda, qualquer valor em reais é somente estimativo. Depois
-            da venda, o app mostra BRL recebido, fee, Pix Out e valor final.
-          </Text>
-        </Card>
-
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <ActionButton
-          label="Solicitar resgate"
-          loading={loading}
-          onPress={submit}
-        />
+        <ActionButton label="Continuar" loading={loading} onPress={submit} />
       </Screen>
     );
   }
 
   return (
     <Screen>
-      <Eyebrow>Operação em homologação</Eyebrow>
-      <Title>Registre sua solicitação.</Title>
+      <Eyebrow>Adicionar dinheiro</Eyebrow>
+      <Title>Quanto você quer adicionar?</Title>
       <Paragraph>
-        Sua conta usa carteira individual. A Nexa registra a solicitação e as
-        regras aplicáveis, mas não movimenta fundos até a liquidação direta estar
-        homologada.
+        Você paga em reais. A Nexa entrega USDC na sua carteira automaticamente.
       </Paragraph>
 
-      <Text style={styles.sectionLabel}>Operação</Text>
-      <View style={styles.row}>
-        <View style={styles.flex}>
-          <Choice
-            label="Entrar: Pix → USDC"
-            selected={operation === 'entry'}
-            onPress={() => {
-              setOperation('entry');
-              setAmount('');
-            }}
-          />
-        </View>
-        <View style={styles.flex}>
-          <Choice
-            label="Sair: USDC → Pix"
-            selected={operation === 'exit'}
-            onPress={() => {
-              setOperation('exit');
-              setAmount('');
-            }}
-          />
-        </View>
-      </View>
-
       <Field
-        label={operation === 'entry' ? 'Valor em reais' : 'Quantidade em USDC'}
+        label="Valor em R$"
         value={amount}
         onChangeText={setAmount}
         keyboardType="decimal-pad"
-        placeholder={operation === 'entry' ? 'Ex.: 500,00' : 'Ex.: 100,00'}
+        placeholder="Ex.: 10,00"
       />
 
+      <View style={styles.quickRow}>
+        {[10, 50, 100].map((value) => (
+          <Pressable
+            key={value}
+            onPress={() => setAmount(String(value))}
+            style={styles.quickButton}
+          >
+            <Text style={styles.quickButtonText}>R$ {value}</Text>
+          </Pressable>
+        ))}
+      </View>
+
       <Card>
-        <Text style={styles.ruleTitle}>Regras atuais</Text>
+        <Text style={styles.ruleTitle}>Você recebe</Text>
+        <View style={styles.assetRow}>
+          <AssetPill label="USDC" enabled />
+          <AssetPill label="ETH" />
+          <AssetPill label="OURO" />
+          <AssetPill label="BTC" />
+        </View>
         <Text style={styles.ruleText}>
-          Entrada Free: 8%. Entrada Pro: 2%, mínimo de R$ 9,90 e teto de
-          R$ 750,00. Saída Free: 1,5%. Saída Pro: 1%.
-        </Text>
-        <Text style={styles.ruleText}>
-          A cotação é informativa. O valor final nasce da operação real e da
-          conciliação do provedor.
+          Hoje o piloto entrega USDC. ETH, ouro digital e Bitcoin estão sendo
+          conectados ao mesmo fluxo simples, sem expor rede, bridge ou endereço.
         </Text>
       </Card>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <ActionButton
-        label="Registrar solicitação"
-        loading={loading}
-        onPress={submit}
-      />
+      <ActionButton label="Gerar Pix" loading={loading} onPress={submit} />
+      <Text style={styles.microcopy}>Mínimo R$ 10 · sua carteira já está vinculada</Text>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
-  sectionLabel: {
-    color: colors.text,
-    fontWeight: '900',
-    marginBottom: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  row: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
-  flex: { flex: 1 },
-  choice: {
-    minHeight: 72,
+  pixCard: { alignItems: 'stretch' },
+  qrWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
     padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+  },
+  pixCode: {
+    color: colors.text,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  quickRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  quickButton: {
+    flex: 1,
+    paddingVertical: 12,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.panelSoft,
-    justifyContent: 'center',
+    alignItems: 'center',
   },
-  choiceSelected: {
+  quickButtonText: { color: colors.text, fontWeight: '900' },
+  assetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  assetPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.panelSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  assetPillEnabled: {
     borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
   },
-  choiceText: { color: colors.muted, fontWeight: '800', textAlign: 'center' },
-  choiceTextSelected: { color: colors.text },
+  assetPillText: { color: colors.muted, fontWeight: '900' },
+  assetPillTextEnabled: { color: colors.text },
+  assetPillState: { color: colors.muted, fontSize: 8, fontWeight: '900', marginTop: 2 },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.md,
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  progressDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.border,
+  },
+  progressDone: { backgroundColor: colors.primary },
+  progressLine: { height: 1, width: 14, backgroundColor: colors.border },
+  progressText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
   ruleTitle: { color: colors.text, fontWeight: '900', fontSize: 17 },
   ruleText: { color: colors.muted, lineHeight: 21, marginTop: spacing.sm },
-  estimateNotice: {
-    color: colors.warning,
-    fontWeight: '900',
-    fontSize: 11,
-    marginTop: 6,
+  microcopy: {
+    color: colors.muted,
+    textAlign: 'center',
+    fontSize: 12,
+    marginTop: spacing.sm,
   },
+  statusText: { color: colors.text, fontWeight: '800', lineHeight: 20 },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerSoft,
