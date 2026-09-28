@@ -72,9 +72,9 @@ export const config = {
     (envEfiOpenFinanceRecurringEnabled !== 'false' &&
       extra.efiOpenFinanceRecurringEnabled === true),
   ledgerOperationsEnabled: extra.ledgerOperationsEnabled !== false,
-  balanceSource: extra.balanceSource || 'blockchain',
+  balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
-  releaseChannel: envReleaseChannel || extra.releaseChannel || 'wallet-first-pilot',
+  releaseChannel: envReleaseChannel || extra.releaseChannel || 'production',
   androidTargetApi: Number(extra.androidTargetApi || 36),
 };
 
