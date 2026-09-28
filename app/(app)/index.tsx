@@ -165,7 +165,7 @@ export default function HomeScreen() {
         </Badge>
       </View>
 
-      <Eyebrow>Olá, {me.fullName?.split(' ')[0] || 'Nexa'}</Eyrow>
+      <Eyebrow>Olá, {me.fullName?.split(' ')[0] || 'Nexa'}</Eyebrow>
       <Title>Cripto sem complicação.</Title>
       <Paragraph>
         Adicione reais por Pix e receba ativos digitais na sua carteira. A Nexa
