@@ -76,9 +76,9 @@
       "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3",
       "financialExecutionEnabled": false,
       "ledgerOperationsEnabled": true,
-      "balanceSource": "blockchain",
+      "balanceSource": "ledger",
       "privyOptional": true,
-      "releaseChannel": "wallet-first-pilot",
+      "releaseChannel": "production",
       "androidTargetApi": 36,
       "releaseBuild": "android16-api36-2.0.21-v119-wallet-first-pilot",
       "eas": {
