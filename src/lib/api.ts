@@ -341,6 +341,13 @@ export const nexaApi = {
     });
   },
 
+  getWalletFirstPixStatus(accessToken: string, correlationID: string) {
+    return request<any>(
+      `/fiat-deposit/wallet-first/status/${encodeURIComponent(correlationID)}`,
+      { accessToken },
+    );
+  },
+
   getPixRedemption(accessToken: string, paymentId: string) {
     return request<PixRedemption>(
       `/payment/status/${encodeURIComponent(paymentId)}`,
