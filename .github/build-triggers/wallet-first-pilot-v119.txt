@@ -1,3 +1,3 @@
-Wallet-First pilot rebuild after PR #38 routing fix.
-Commit: 8208659e1f9159f65e1a5d10b64c377da4e27b5b
-Purpose: ensure pilot profiles cannot remain in legacy EFI/Open Finance shell.
+Wallet-First pilot rebuild after PR #39 profile precedence fix.
+Commit: af2c0d589b538480c06502d86eb7b33738843176
+Purpose: make wallet_v15 status=pilot take precedence over the historical legacy_beta marker in the mobile experience.
