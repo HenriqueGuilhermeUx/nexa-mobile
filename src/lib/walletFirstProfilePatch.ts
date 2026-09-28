@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { config } from '@/config';
 import { nexaApi } from '@/lib/api';
 
@@ -49,6 +51,9 @@ export function installWalletFirstProfilePatch() {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: 'application/json',
+          'X-Nexa-App-Version': config.appVersion,
+          'X-Nexa-App-Build': config.appBuild,
+          'X-Nexa-Platform': Platform.OS,
         },
       });
 
