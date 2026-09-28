@@ -199,6 +199,28 @@ export function tokensFromLogin(response: LoginResponse) {
   return { accessToken, refreshToken };
 }
 
+function normalizeDirectProfile(response: any) {
+  const profile = response?.profile || response || {};
+  const status = String(profile?.status || '').trim().toLowerCase();
+
+  if (status !== 'pilot') return response;
+
+  const normalizedProfile = {
+    ...profile,
+    isLegacyBeta: false,
+    settlementProfile: 'wallet_first_pilot',
+  };
+
+  if (response?.profile) {
+    return {
+      ...response,
+      profile: normalizedProfile,
+    };
+  }
+
+  return normalizedProfile;
+}
+
 export const nexaApi = {
   register(data: RegistrationData) {
     return request<LoginResponse>('/auth/register', {
@@ -288,8 +310,9 @@ export const nexaApi = {
     return request<BrazilKycStatus>('/kyc/didit/me', { accessToken });
   },
 
-  directProfile(accessToken: string) {
-    return request<any>('/direct-settlement/profile', { accessToken });
+  async directProfile(accessToken: string) {
+    const response = await request<any>('/direct-settlement/profile', { accessToken });
+    return normalizeDirectProfile(response);
   },
 
   linkWallet(
