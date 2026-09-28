@@ -9,7 +9,6 @@ import {
   Brand,
   Card,
   Eyebrow,
-  KeyValue,
   Paragraph,
   Screen,
   Title,
@@ -41,12 +40,27 @@ function formatUsdc(value: unknown) {
   })} USDC`;
 }
 
+function depositStatus(deposit: any) {
+  const routing = deposit?.rawPayload?.walletV15Routing || {};
+  if (routing.onchainVerified === true || routing.completed === true) {
+    return 'Disponível na carteira';
+  }
+  if (routing.walletFirstTreasurySubmitted === true) {
+    return 'Enviando USDC';
+  }
+  if (routing.routed === true || String(deposit?.status || '').toLowerCase() === 'paid') {
+    return 'Pix recebido';
+  }
+  return 'Processando';
+}
+
 export default function HomeScreen() {
   const privy = usePrivy() as any;
   const [me, setMe] = useState<any>({});
   const [profile, setProfile] = useState<any>({});
   const [orders, setOrders] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [deposits, setDeposits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -61,17 +75,19 @@ export default function HomeScreen() {
         router.replace('/sign-in');
         return;
       }
-      const [meResponse, profileResponse, ordersResponse, paymentsResponse] =
+      const [meResponse, profileResponse, ordersResponse, paymentsResponse, depositsResponse] =
         await Promise.all([
           nexaApi.me(session.accessToken),
           nexaApi.directProfile(session.accessToken),
           nexaApi.listOrders(session.accessToken),
           nexaApi.listPixRedemptions(session.accessToken),
+          nexaApi.listFiatDeposits(session.accessToken),
         ]);
       setMe(meResponse?.user || meResponse || {});
       setProfile(profileFrom(profileResponse));
       setOrders(ordersResponse?.orders || []);
       setPayments(Array.isArray(paymentsResponse) ? paymentsResponse : []);
+      setDeposits(Array.isArray(depositsResponse) ? depositsResponse : []);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Falha ao carregar a conta.');
     } finally {
@@ -91,8 +107,6 @@ export default function HomeScreen() {
   }
 
   const legacy = isLegacyProfile(profile);
-  const executionEnabled = profile.executable === true;
-  const directReady = profile.directSettlementReady === true;
   const walletAddress = profile.wallet?.address || me.walletAddress || null;
   const walletLinked = profile.wallet?.linked === true || Boolean(walletAddress);
   const legacyBalance = Number(me.availableBalanceUsdc || 0);
@@ -100,33 +114,29 @@ export default function HomeScreen() {
   const latest = useMemo(
     () =>
       [
+        ...deposits.map((deposit) => ({
+          id: `deposit-${deposit.id}`,
+          title: 'PIX → USDC',
+          createdAt: deposit.createdAt,
+          amount: formatBrl(deposit.amountBrl),
+          status: depositStatus(deposit),
+        })),
         ...payments.map((payment) => ({
           id: `payment-${payment.id}`,
-          title: 'RESGATE PIX',
+          title: 'USDC → PIX',
           createdAt: payment.createdAt,
           amount: formatUsdc(payment.amountUsdc),
           status:
             String(payment.status).toLowerCase() === 'completed'
-              ? `Pix enviado: ${formatBrl(
-                  payment.settledAmountBrl ?? payment.amountBrl,
-                )}`
-              : Number(payment.settledAmountBrl || 0) > 0
-                ? `Valor final: ${formatBrl(payment.settledAmountBrl)}`
-                : `Estimativa: ${formatBrl(
-                    payment.estimatedAmountBrl ?? payment.amountBrl,
-                  )}`,
+              ? `Pix enviado: ${formatBrl(payment.settledAmountBrl ?? payment.amountBrl)}`
+              : 'Processando resgate',
         })),
         ...orders.map((order) => ({
           id: `order-${order.id}`,
-          title: String(order.type || 'solicitação').toUpperCase(),
+          title: String(order.type || 'operação').toUpperCase(),
           createdAt: order.createdAt,
-          amount: order.grossBrl
-            ? formatBrl(order.grossBrl)
-            : formatUsdc(order.amountUsdc),
-          status:
-            order.executionEnabled === true
-              ? String(order.status || 'em processamento')
-              : 'Solicitação registrada',
+          amount: order.grossBrl ? formatBrl(order.grossBrl) : formatUsdc(order.amountUsdc),
+          status: String(order.status || 'processando'),
         })),
       ]
         .sort(
@@ -135,7 +145,7 @@ export default function HomeScreen() {
             new Date(a.createdAt || 0).getTime(),
         )
         .slice(0, 3),
-    [orders, payments],
+    [deposits, orders, payments],
   );
 
   return (
@@ -150,46 +160,41 @@ export default function HomeScreen() {
     >
       <View style={styles.topRow}>
         <Brand />
-        <Badge tone={legacy || executionEnabled ? 'success' : 'warning'}>
-          {legacy
-            ? 'CONTA NEXA'
-            : executionEnabled
-              ? 'OPERAÇÃO LIBERADA'
-              : 'ABERTURA GRADUAL'}
+        <Badge tone={walletLinked || legacy ? 'success' : 'warning'}>
+          {legacy ? 'CONTA NEXA' : walletLinked ? 'CARTEIRA PRONTA' : 'CONFIGURANDO'}
         </Badge>
       </View>
 
-      <Eyebrow>Olá, {me.fullName?.split(' ')[0] || 'Nexa'}</Eyebrow>
-      <Title>Seu acesso aos ativos digitais.</Title>
+      <Eyebrow>Olá, {me.fullName?.split(' ')[0] || 'Nexa'}</Eyrow>
+      <Title>Cripto sem complicação.</Title>
       <Paragraph>
-        A conta mostra apenas informações registradas pela API, pelo ledger ou
-        pela carteira. Estimativas nunca são apresentadas como dinheiro
-        liquidado.
+        Adicione reais por Pix e receba ativos digitais na sua carteira. A Nexa
+        cuida da parte técnica para você.
       </Paragraph>
 
       <Card style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>
-          {legacy ? 'Saldo USDC disponível' : 'Saldo USDC na carteira'}
-        </Text>
+        <Text style={styles.balanceLabel}>{legacy ? 'Seu saldo' : 'Sua carteira'}</Text>
         <Text style={styles.balanceValue}>
-          {legacy ? formatUsdc(legacyBalance) : 'Aguardando leitura on-chain'}
+          {legacy ? formatUsdc(legacyBalance) : 'USDC · Polygon'}
         </Text>
         <Text style={styles.balanceExplanation}>
           {legacy
-            ? 'Saldo oficial preservado no ledger da sua conta existente.'
-            : 'O app não substitui a leitura da blockchain por um saldo interno.'}
+            ? 'Seu saldo existente continua preservado.'
+            : walletLinked
+              ? 'Carteira vinculada e sob seu controle.'
+              : 'Finalize a carteira para começar.'}
         </Text>
-        <Text style={styles.walletText} numberOfLines={1}>
-          {legacy
-            ? 'Conta existente preservada sem migração automática'
-            : walletAddress || 'Carteira ainda não vinculada'}
-        </Text>
+        {!legacy && walletAddress ? (
+          <Text style={styles.walletText} numberOfLines={1}>
+            {walletAddress}
+          </Text>
+        ) : null}
       </Card>
 
       <View style={styles.actionGrid}>
         <View style={styles.actionItem}>
           <ActionButton
-            label={legacy ? 'Resgatar USDC' : 'Nova solicitação'}
+            label={legacy ? 'Resgatar' : 'Adicionar dinheiro'}
             disabled={!legacy && !walletLinked}
             onPress={() => router.push('/(app)/new-order')}
           />
@@ -203,55 +208,28 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <Card>
-        <Text style={styles.sectionTitle}>Status da conta</Text>
-        <KeyValue
-          label="Modelo"
-          value={legacy ? 'Conta Nexa existente' : 'Carteira individual'}
-        />
-        <KeyValue
-          label={legacy ? 'Histórico' : 'Carteira vinculada'}
-          valueNode={
-            <Badge tone={legacy || walletLinked ? 'success' : 'warning'}>
-              {legacy ? 'Preservado' : walletLinked ? 'Sim' : 'Pendente'}
-            </Badge>
-          }
-        />
-        <KeyValue
-          label="Operação disponível"
-          valueNode={
-            <Badge tone={legacy || directReady ? 'success' : 'warning'}>
-              {legacy
-                ? 'Resgate conciliado'
-                : directReady
-                  ? 'Carteira validada'
-                  : 'Aguardando homologação'}
-            </Badge>
-          }
-        />
-        <KeyValue
-          label="Movimentação automática"
-          valueNode={
-            <Badge tone={executionEnabled ? 'success' : 'warning'}>
-              {executionEnabled ? 'Liberada' : 'Desativada'}
-            </Badge>
-          }
-        />
-      </Card>
+      {!legacy ? (
+        <Card>
+          <Text style={styles.sectionTitle}>Simples por padrão</Text>
+          <Text style={styles.simpleText}>Você escolhe o valor.</Text>
+          <Text style={styles.simpleText}>A Nexa gera o Pix.</Text>
+          <Text style={styles.simpleText}>O ativo chega na sua carteira.</Text>
+        </Card>
+      ) : null}
 
       <Card>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Atividade recente</Text>
-          <Text style={styles.sectionCount}>{orders.length + payments.length}</Text>
+          <Text style={styles.sectionTitle}>Últimas movimentações</Text>
+          <Text style={styles.sectionCount}>
+            {deposits.length + orders.length + payments.length}
+          </Text>
         </View>
         {latest.map((item) => (
           <View key={item.id} style={styles.orderRow}>
             <View style={styles.orderLeft}>
               <Text style={styles.orderTitle}>{item.title}</Text>
               <Text style={styles.orderDate}>
-                {item.createdAt
-                  ? new Date(item.createdAt).toLocaleString('pt-BR')
-                  : '—'}
+                {item.createdAt ? new Date(item.createdAt).toLocaleString('pt-BR') : '—'}
               </Text>
             </View>
             <View style={styles.orderRight}>
@@ -261,12 +239,12 @@ export default function HomeScreen() {
           </View>
         ))}
         {!latest.length ? (
-          <Text style={styles.empty}>Nenhuma atividade registrada.</Text>
+          <Text style={styles.empty}>Sua primeira movimentação aparecerá aqui.</Text>
         ) : null}
       </Card>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {loading ? <Text style={styles.loading}>Atualizando dados oficiais...</Text> : null}
+      {loading ? <Text style={styles.loading}>Atualizando…</Text> : null}
 
       <ActionButton label="Sair da conta" variant="secondary" onPress={logout} />
     </Screen>
@@ -287,6 +265,7 @@ const styles = StyleSheet.create({
   walletText: { color: colors.cyan, fontSize: 12, marginTop: spacing.md },
   actionGrid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   actionItem: { flex: 1 },
+  simpleText: { color: colors.muted, lineHeight: 22, marginTop: 5 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
