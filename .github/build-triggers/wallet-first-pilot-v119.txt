@@ -1,3 +1,3 @@
-Wallet-First pilot rebuild after PR #40 wallet-v15 source-of-truth fix.
-Commit: 54dcc45e32f2efe783e70cd64539dbbb21a683e6
-Purpose: route pilot users from the real /wallet-v15/me profile instead of the historical direct-settlement legacy_beta marker.
+Wallet-First pilot rebuild after PR #41 client-version header fix.
+Commit: da16022635bc0282e05b2da0be49deab94c7d9c1
+Purpose: ensure /wallet-v15/me receives X-Nexa-App-Version, X-Nexa-App-Build and X-Nexa-Platform so pilot routing is not rejected with HTTP 426.
