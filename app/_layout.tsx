@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppLockGate } from '@/components/AppLockGate';
 import { assertPublicConfiguration, config } from '@/config';
 import { initializeNexaNotifications } from '@/lib/nexaNotifications';
+import '@/lib/walletFirstProfilePatch';
 import { colors } from '@/theme';
 
 assertPublicConfiguration();
