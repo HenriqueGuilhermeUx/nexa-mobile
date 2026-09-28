@@ -1,0 +1,3 @@
+Wallet-First pilot rebuild after PR #38 routing fix.
+Commit: 8208659e1f9159f65e1a5d10b64c377da4e27b5b
+Purpose: ensure pilot profiles cannot remain in legacy EFI/Open Finance shell.
