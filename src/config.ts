@@ -54,8 +54,8 @@ export const config = {
   apiUrl,
   efiOpenFinanceApiUrl:
     envEfiOpenFinanceApiUrl || extra.efiOpenFinanceApiUrl || apiUrl,
-  appVersion: Constants.expoConfig?.version || '2.0.20',
-  appBuild: String(Constants.expoConfig?.android?.versionCode || '115'),
+  appVersion: Constants.expoConfig?.version || '2.0.21',
+  appBuild: String(Constants.expoConfig?.android?.versionCode || '119'),
   privyAppId: extra.privyAppId || '',
   privyClientId: extra.privyClientId || '',
   financialExecutionEnabled:
@@ -72,9 +72,9 @@ export const config = {
     (envEfiOpenFinanceRecurringEnabled !== 'false' &&
       extra.efiOpenFinanceRecurringEnabled === true),
   ledgerOperationsEnabled: extra.ledgerOperationsEnabled !== false,
-  balanceSource: extra.balanceSource || 'ledger',
+  balanceSource: extra.balanceSource || 'blockchain',
   privyOptional: extra.privyOptional !== false,
-  releaseChannel: envReleaseChannel || extra.releaseChannel || 'production',
+  releaseChannel: envReleaseChannel || extra.releaseChannel || 'wallet-first-pilot',
   androidTargetApi: Number(extra.androidTargetApi || 36),
 };
 
