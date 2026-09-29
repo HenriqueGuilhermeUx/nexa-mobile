@@ -80,7 +80,10 @@ export default function BuyCryptoScreen() {
       (candidate) => normalizeWalletAddress(candidate?.address) === expected,
     );
     if (!wallet) {
-      throw new Error('A carteira vinculada à Nexa não está disponível neste dispositivo.');
+      router.push('/wallet-recovery' as any);
+      throw new Error(
+        'Esta carteira precisa ser recuperada neste aparelho antes de assinar. Nenhuma nova carteira será criada.',
+      );
     }
     if (typeof wallet.getProvider === 'function') return wallet.getProvider();
     if (typeof wallet.getEthereumProvider === 'function') return wallet.getEthereumProvider();
