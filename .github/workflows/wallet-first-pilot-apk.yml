@@ -91,6 +91,9 @@ jobs:
           grep -q 'wallet-first/status' src/lib/api.ts
           echo 'Wallet-First customer flow present.'
 
+      - name: Assert sanitized Wallet-First exit quote
+        run: node scripts/validate-wallet-first-exit-quote.js
+
       - name: Preflight production backend
         run: |
           set -euo pipefail
