@@ -24,6 +24,7 @@ const required = [
   '/wallet-v15/swap/quote',
   '/wallet-v15/swap/prepare',
   '/wallet-v15/swap/confirm',
+  '/wallet-v15/swap/execute-sponsored',
   "method: 'eth_sendTransaction'",
   "method: 'eth_accounts'",
   "method: 'eth_chainId'",
@@ -66,14 +67,33 @@ for (const token of sendRequired) {
 const buyRequired = [
   "type Asset = 'BTC' | 'ETH'",
   'Cotação Nexa',
-  "asset === 'BTC' ? 'WBTC' : 'WETH'",
-  'A Nexa não possui sua chave',
-  'approvalRequired',
-  'approvalTransaction',
+  'executeSponsoredWalletFirstSwap',
+  'usePrivy',
+  'getAccessToken',
   'swapTransaction',
+  'AUTORIZAÇÃO SEGURA',
+  'Confirmar compra',
+  'A Nexa cuida automaticamente',
 ];
 for (const token of buyRequired) {
-  if (!buy.includes(token)) throw new Error(`Wallet-First buy customer contract missing: ${token}`);
+  if (!buy.includes(token)) throw new Error(`Wallet-First sponsored buy contract missing: ${token}`);
+}
+
+const buyForbidden = [
+  'sendPreparedWalletTransaction',
+  'approvalTransaction',
+  "method: 'eth_sendTransaction'",
+  'WBTC',
+  'WETH',
+  'Polygon ·',
+  'gas fee',
+  'POL',
+  'MATIC',
+];
+for (const token of buyForbidden) {
+  if (buy.includes(token)) {
+    throw new Error(`Wallet-First sponsored buy must hide direct network mechanics: ${token}`);
+  }
 }
 
 if (!home.includes('label="Enviar"') || !home.includes('label="Comprar"')) {
@@ -81,5 +101,5 @@ if (!home.includes('label="Enviar"') || !home.includes('label="Comprar"')) {
 }
 
 console.log(
-  'Wallet-First mobile user actions validated: direct Nexa-to-Nexa, BTC/ETH user-signed swaps, Polygon binding and no legacy ledger route.',
+  'Wallet-First mobile user actions validated: direct Nexa-to-Nexa, BTC/ETH sponsored user-authorized swaps, gas abstraction and no legacy ledger route.',
 );
