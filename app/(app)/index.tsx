@@ -201,12 +201,25 @@ export default function HomeScreen() {
         </View>
         <View style={styles.actionItem}>
           <ActionButton
+            label={legacy ? 'Atividade' : 'Sacar'}
+            variant="secondary"
+            disabled={!legacy && !walletLinked}
+            onPress={() =>
+              router.push(legacy ? '/(app)/activity' : '/(app)/cash-out')
+            }
+          />
+        </View>
+      </View>
+
+      {!legacy ? (
+        <View style={styles.activityAction}>
+          <ActionButton
             label="Atividade"
             variant="secondary"
             onPress={() => router.push('/(app)/activity')}
           />
         </View>
-      </View>
+      ) : null}
 
       {!legacy ? (
         <Card>
@@ -263,8 +276,9 @@ const styles = StyleSheet.create({
   },
   balanceExplanation: { color: colors.muted, fontSize: 12, marginTop: 7 },
   walletText: { color: colors.cyan, fontSize: 12, marginTop: spacing.md },
-  actionGrid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  actionGrid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   actionItem: { flex: 1 },
+  activityAction: { marginBottom: spacing.md },
   simpleText: { color: colors.muted, lineHeight: 22, marginTop: 5 },
   sectionHeader: {
     flexDirection: 'row',
