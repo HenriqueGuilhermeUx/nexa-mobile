@@ -1,0 +1,1 @@
+Wallet-First v122 release trigger: Privy-sponsored gas abstraction for BTC/ETH purchases, user-owned wallet authorization, and verified Wallet-First pilot APK.
