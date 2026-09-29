@@ -19,6 +19,13 @@ const forbiddenCustomerTerms = [
   'taxa foxbit',
 ];
 
+const quoteStart = client.indexOf('export async function getWalletFirstExitQuote');
+const executionStart = client.indexOf('export function createWalletFirstExitIntent');
+const quoteFunction =
+  quoteStart >= 0 && executionStart > quoteStart
+    ? client.slice(quoteStart, executionStart)
+    : '';
+
 const checks = [
   [
     'cash-out customer surface uses only Nexa quote language',
@@ -39,11 +46,11 @@ const checks = [
       client.includes("'X-Nexa-Platform': Platform.OS"),
   ],
   [
-    'quote call is read-only from the customer perspective and has no execution endpoints',
-    client.includes('/direct-settlement/wallet-first/usdc-pilot/exit/quote') &&
-      !client.includes('/sell/submit') &&
-      !client.includes('/pix/approve') &&
-      !client.includes('/intents'),
+    'quote function itself remains read-only and isolated from execution endpoints',
+    quoteFunction.includes('`${EXIT_BASE}/quote`') &&
+      !quoteFunction.includes('/sell/submit') &&
+      !quoteFunction.includes('/pix/approve') &&
+      !quoteFunction.includes('/intents'),
   ],
   [
     'Wallet-First home exposes Sacar separately from Add money and Activity',
