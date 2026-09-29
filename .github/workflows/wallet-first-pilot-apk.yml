@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - '.github/workflows/wallet-first-pilot-apk.yml'
-      - '.github/build-triggers/wallet-first-pilot-v120.txt'
+      - '.github/build-triggers/wallet-first-pilot-v121.txt'
 
 permissions:
   contents: read
@@ -72,14 +72,14 @@ jobs:
           node <<'NODE'
           const app = require('./app.json').expo;
           const dynamic = require('./app.config.js')({ config: app });
-          if (app.version !== '2.0.22') throw new Error(`Unexpected app.json version ${app.version}`);
-          if (Number(app.android?.versionCode) !== 120) throw new Error(`Unexpected app.json versionCode ${app.android?.versionCode}`);
-          if (dynamic.version !== '2.0.22') throw new Error(`Unexpected dynamic version ${dynamic.version}`);
-          if (Number(dynamic.android?.versionCode) !== 120) throw new Error(`Unexpected dynamic versionCode ${dynamic.android?.versionCode}`);
+          if (app.version !== '2.0.23') throw new Error(`Unexpected app.json version ${app.version}`);
+          if (Number(app.android?.versionCode) !== 121) throw new Error(`Unexpected app.json versionCode ${app.android?.versionCode}`);
+          if (dynamic.version !== '2.0.23') throw new Error(`Unexpected dynamic version ${dynamic.version}`);
+          if (Number(dynamic.android?.versionCode) !== 121) throw new Error(`Unexpected dynamic versionCode ${dynamic.android?.versionCode}`);
           if (app.android?.package !== 'br.com.trynexa.app') throw new Error(`Unexpected package ${app.android?.package}`);
           if (app.extra?.financialExecutionEnabled !== false) throw new Error('Mobile financialExecutionEnabled must remain false');
-          if (app.extra?.releaseBuild !== 'android16-api36-2.0.22-v120-wallet-first-pilot') throw new Error(`Unexpected releaseBuild ${app.extra?.releaseBuild}`);
-          console.log('Wallet-First v120 identity OK.');
+          if (app.extra?.releaseBuild !== 'android16-api36-2.0.23-v121-wallet-first-pilot') throw new Error(`Unexpected releaseBuild ${app.extra?.releaseBuild}`);
+          console.log('Wallet-First v121 identity OK.');
           NODE
 
       - name: Assert Wallet-First customer flow contracts
@@ -105,6 +105,9 @@ jobs:
 
       - name: Validate Wallet-First transfer and BTC/ETH flows
         run: node scripts/validate-wallet-first-user-actions.js
+
+      - name: Validate cross-device wallet recovery
+        run: node scripts/validate-wallet-cross-device-recovery.js
 
       - name: Preflight production backend
         run: |
@@ -204,7 +207,7 @@ jobs:
       - name: Upload verified Wallet-First pilot APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Wallet-First-Pilot-v120-VERIFIED
+          name: Nexa-Wallet-First-Pilot-v121-VERIFIED
           path: |
             ${{ env.apk_file }}
             SHA256SUMS.txt
@@ -221,7 +224,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Wallet-First-Pilot-v120-build-diagnostics
+          name: Nexa-Wallet-First-Pilot-v121-build-diagnostics
           path: |
             ${{ runner.temp }}/nexa-wallet-first-pilot/logs
             local-build-artifacts-wallet-first

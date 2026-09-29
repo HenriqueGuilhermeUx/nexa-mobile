@@ -246,7 +246,7 @@ export default function HomeScreen() {
         <Card>
           <Text style={styles.sectionTitle}>Wallet-First por padrão</Text>
           <Text style={styles.simpleText}>Pix entra. USDC chega à sua carteira.</Text>
-          <Text style={styles.simpleText}>Envios Nexa → Nexa vão carteira → carteira.</Text>
+          <Text style={styles.simpleText}>Envios Nexa → Nexa: direto de carteira para carteira.</Text>
           <Text style={styles.simpleText}>Trocas são autorizadas por você na sua wallet.</Text>
         </Card>
       ) : null}
