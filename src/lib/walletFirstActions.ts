@@ -98,6 +98,19 @@ export function prepareWalletFirstSwap(
   });
 }
 
+export function executeSponsoredWalletFirstSwap(
+  accessToken: string,
+  intentToken: string,
+  swapTransaction: PreparedWalletTransaction,
+  privyAccessToken: string,
+) {
+  return postJson<any>(accessToken, '/wallet-v15/swap/execute-sponsored', {
+    intentToken,
+    swapTransaction,
+    privyAccessToken,
+  });
+}
+
 export function confirmWalletFirstSwap(
   accessToken: string,
   intentToken: string,
