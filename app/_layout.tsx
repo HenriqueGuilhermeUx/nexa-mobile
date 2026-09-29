@@ -59,6 +59,10 @@ export default function RootLayout() {
               name="wallet-ownership"
               options={{ title: 'Comprovar minha carteira' }}
             />
+            <Stack.Screen
+              name="wallet-recovery"
+              options={{ title: 'Recuperar carteira' }}
+            />
             <Stack.Screen name="(app)" options={{ headerShown: false }} />
           </Stack>
         </AppLockGate>
