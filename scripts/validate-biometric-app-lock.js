@@ -68,13 +68,13 @@ assert.match(openFinance, /reauthenticateSensitiveAction/);
 assert.match(openFinance, /Autorizar entrada via Open Finance/);
 assert.match(openFinance, /Confirme sua identidade para iniciar a autorização no seu banco/);
 
-assert.equal(appJson.expo.version, '2.0.21');
-assert.equal(pkg.version, '2.0.21');
-assert.equal(appJson.expo.android.versionCode, 119);
-assert.equal(appJson.expo.ios.buildNumber, '119');
-assert.match(appConfig, /version:\s*'2\.0\.21'/);
-assert.match(appConfig, /versionCode:\s*119/);
-assert.match(appConfig, /v119-wallet-first-pilot/);
+assert.equal(appJson.expo.version, '2.0.22');
+assert.equal(pkg.version, '2.0.22');
+assert.equal(appJson.expo.android.versionCode, 120);
+assert.equal(appJson.expo.ios.buildNumber, '120');
+assert.match(appConfig, /version:\s*'2\.0\.22'/);
+assert.match(appConfig, /versionCode:\s*120/);
+assert.match(appConfig, /v120-wallet-first-pilot/);
 
 const release = eas?.build?.['production-open-finance-aab'];
 assert.ok(release, 'production-open-finance-aab profile is required');
@@ -91,5 +91,5 @@ assert.equal(release.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false')
 assert.equal(release.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED, 'false');
 
 console.log(
-  'Nexa v119 security invariants OK: strong biometrics + device credential fallback, Security Center, fresh Nexa password fallback, 30s relock, sensitive Open Finance re-auth, financial execution OFF.',
+  'Nexa v120 security invariants OK: strong biometrics + device credential fallback, Security Center, fresh Nexa password fallback, 30s relock, sensitive Open Finance re-auth, financial execution OFF.',
 );
