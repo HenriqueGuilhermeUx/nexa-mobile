@@ -1,0 +1,5 @@
+Nexa Wallet-First Pilot v120
+Version: 2.0.22
+Build: 120
+Purpose: validate the complete Wallet-First pilot surface after Nexa→Nexa direct transfers, user-signed BTC/ETH swaps and the guarded USDC→Pix exit flow.
+Financial execution remains disabled in the mobile build and backend gates stay fail-closed until an explicit test window.

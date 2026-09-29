@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - '.github/workflows/wallet-first-pilot-apk.yml'
-      - '.github/build-triggers/wallet-first-pilot-v119.txt'
+      - '.github/build-triggers/wallet-first-pilot-v120.txt'
 
 permissions:
   contents: read
@@ -71,12 +71,15 @@ jobs:
           set -euo pipefail
           node <<'NODE'
           const app = require('./app.json').expo;
-          if (app.version !== '2.0.21') throw new Error(`Unexpected version ${app.version}`);
-          if (Number(app.android?.versionCode) !== 119) throw new Error(`Unexpected versionCode ${app.android?.versionCode}`);
+          const dynamic = require('./app.config.js')({ config: app });
+          if (app.version !== '2.0.22') throw new Error(`Unexpected app.json version ${app.version}`);
+          if (Number(app.android?.versionCode) !== 120) throw new Error(`Unexpected app.json versionCode ${app.android?.versionCode}`);
+          if (dynamic.version !== '2.0.22') throw new Error(`Unexpected dynamic version ${dynamic.version}`);
+          if (Number(dynamic.android?.versionCode) !== 120) throw new Error(`Unexpected dynamic versionCode ${dynamic.android?.versionCode}`);
           if (app.android?.package !== 'br.com.trynexa.app') throw new Error(`Unexpected package ${app.android?.package}`);
           if (app.extra?.financialExecutionEnabled !== false) throw new Error('Mobile financialExecutionEnabled must remain false');
-          if (app.extra?.releaseBuild !== 'android16-api36-2.0.21-v119-wallet-first-pilot') throw new Error(`Unexpected releaseBuild ${app.extra?.releaseBuild}`);
-          console.log('Wallet-First v119 identity OK.');
+          if (app.extra?.releaseBuild !== 'android16-api36-2.0.22-v120-wallet-first-pilot') throw new Error(`Unexpected releaseBuild ${app.extra?.releaseBuild}`);
+          console.log('Wallet-First v120 identity OK.');
           NODE
 
       - name: Assert Wallet-First customer flow contracts
@@ -89,10 +92,19 @@ jobs:
           grep -q 'Gerar Pix' 'app/(app)/new-order.tsx'
           grep -q 'Entrega na carteira' 'app/(app)/new-order.tsx'
           grep -q 'wallet-first/status' src/lib/api.ts
-          echo 'Wallet-First customer flow present.'
+          grep -q 'prepareDirectTransfer' src/lib/walletFirstActions.ts
+          grep -q 'prepareWalletFirstSwap' src/lib/walletFirstActions.ts
+          grep -q 'prepareWalletFirstExitTransfer' src/lib/walletFirstExit.ts
+          echo 'Wallet-First customer flows present.'
 
-      - name: Assert sanitized Wallet-First exit quote
+      - name: Validate sanitized Wallet-First exit quote
         run: node scripts/validate-wallet-first-exit-quote.js
+
+      - name: Validate Wallet-First USDC to Pix execution flow
+        run: node scripts/validate-wallet-first-exit-flow.js
+
+      - name: Validate Wallet-First transfer and BTC/ETH flows
+        run: node scripts/validate-wallet-first-user-actions.js
 
       - name: Preflight production backend
         run: |
@@ -192,7 +204,7 @@ jobs:
       - name: Upload verified Wallet-First pilot APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Wallet-First-Pilot-v119-VERIFIED
+          name: Nexa-Wallet-First-Pilot-v120-VERIFIED
           path: |
             ${{ env.apk_file }}
             SHA256SUMS.txt
@@ -209,7 +221,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Wallet-First-Pilot-v119-build-diagnostics
+          name: Nexa-Wallet-First-Pilot-v120-build-diagnostics
           path: |
             ${{ runner.temp }}/nexa-wallet-first-pilot/logs
             local-build-artifacts-wallet-first
