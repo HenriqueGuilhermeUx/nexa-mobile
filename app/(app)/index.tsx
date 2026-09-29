@@ -168,8 +168,8 @@ export default function HomeScreen() {
       <Eyebrow>Olá, {me.fullName?.split(' ')[0] || 'Nexa'}</Eyebrow>
       <Title>Cripto sem complicação.</Title>
       <Paragraph>
-        Adicione reais por Pix e receba ativos digitais na sua carteira. A Nexa
-        cuida da parte técnica para você.
+        Adicione reais por Pix, envie e troque ativos diretamente pela sua
+        carteira. A Nexa cuida da parte técnica para você.
       </Paragraph>
 
       <Card style={styles.balanceCard}>
@@ -212,6 +212,27 @@ export default function HomeScreen() {
       </View>
 
       {!legacy ? (
+        <View style={styles.actionGrid}>
+          <View style={styles.actionItem}>
+            <ActionButton
+              label="Enviar"
+              variant="secondary"
+              disabled={!walletLinked}
+              onPress={() => router.push('/(app)/send-nexa' as any)}
+            />
+          </View>
+          <View style={styles.actionItem}>
+            <ActionButton
+              label="Comprar"
+              variant="secondary"
+              disabled={!walletLinked}
+              onPress={() => router.push('/(app)/buy-crypto' as any)}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {!legacy ? (
         <View style={styles.activityAction}>
           <ActionButton
             label="Atividade"
@@ -223,10 +244,10 @@ export default function HomeScreen() {
 
       {!legacy ? (
         <Card>
-          <Text style={styles.sectionTitle}>Simples por padrão</Text>
-          <Text style={styles.simpleText}>Você escolhe o valor.</Text>
-          <Text style={styles.simpleText}>A Nexa gera o Pix.</Text>
-          <Text style={styles.simpleText}>O ativo chega na sua carteira.</Text>
+          <Text style={styles.sectionTitle}>Wallet-First por padrão</Text>
+          <Text style={styles.simpleText}>Pix entra. USDC chega à sua carteira.</Text>
+          <Text style={styles.simpleText}>Envios Nexa → Nexa vão carteira → carteira.</Text>
+          <Text style={styles.simpleText}>Trocas são autorizadas por você na sua wallet.</Text>
         </Card>
       ) : null}
 
