@@ -1,3 +1,3 @@
-Wallet-First pilot rebuild after PR #41 client-version header fix.
-Commit: da16022635bc0282e05b2da0be49deab94c7d9c1
-Purpose: ensure /wallet-v15/me receives X-Nexa-App-Version, X-Nexa-App-Build and X-Nexa-Platform so pilot routing is not rejected with HTTP 426.
+Wallet-First pilot rebuild after PR #42 sanitized Nexa cash-out quote.
+Commit: 56bb5b51f139a03e3710492ffb724e36db788b6d
+Purpose: include the Wallet-First USDC → Pix read-only Cotação Nexa screen, keep provider pricing details hidden from the customer, and preserve mobile financial execution disabled.
