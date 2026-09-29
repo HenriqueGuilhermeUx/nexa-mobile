@@ -48,16 +48,21 @@ for (const token of forbiddenRecoveryTokens) {
   }
 }
 
-if (!buy.includes("router.push('/wallet-recovery' as any)")) {
-  throw new Error('Missing-wallet signer must route to the recovery screen.');
+const requiredBuyRecoveryTokens = [
+  "router.push('/wallet-recovery' as any)",
+  'normalizeWalletAddress(candidate?.address) === expected',
+  'Confirme sua identidade para continuar com a mesma carteira Nexa.',
+];
+for (const token of requiredBuyRecoveryTokens) {
+  if (!buy.includes(token)) {
+    throw new Error(`Sponsored buy must preserve the already-linked wallet: ${token}`);
+  }
 }
-if (!buy.includes('Nenhuma nova carteira será criada')) {
-  throw new Error('Buy flow must explicitly preserve the already-linked wallet.');
-}
+
 if (!layout.includes('name="wallet-recovery"')) {
   throw new Error('Wallet recovery route is not registered in the app stack.');
 }
 
 console.log(
-  'Cross-device wallet recovery safety validated: existing identity only, disableSignup enforced, exact linked address match, no wallet creation/relink.',
+  'Cross-device wallet recovery safety validated: existing identity only, disableSignup enforced, exact linked address match, sponsored buy recovery and no wallet creation/relink.',
 );
