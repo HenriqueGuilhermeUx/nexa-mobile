@@ -65,6 +65,10 @@ export default function RootLayout() {
               name="wallet-recovery"
               options={{ title: 'Recuperar carteira' }}
             />
+            <Stack.Screen
+              name="purchase-authorization"
+              options={{ title: 'Autorizar compra' }}
+            />
             <Stack.Screen name="(app)" options={{ headerShown: false }} />
           </Stack>
         </AppLockGate>
