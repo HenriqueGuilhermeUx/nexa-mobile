@@ -424,6 +424,11 @@ export default function NewOrderScreen() {
       </Card>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <ActionButton label="Gerar Pix" loading={loading} onPress={submit} />
+      <ActionButton
+        label="Cartão / Apple Pay / Google Pay"
+        variant="secondary"
+        onPress={() => router.push('/(app)/card-funding' as any)}
+      />
       <Text style={styles.microcopy}>Mínimo R$ 10 · sua carteira já está vinculada</Text>
     </Screen>
   );
