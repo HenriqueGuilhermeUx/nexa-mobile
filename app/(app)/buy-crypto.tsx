@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
+import { useEmbeddedEthereumWallet, useIdentityToken } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -45,7 +45,7 @@ function formatUsdc(value: unknown) {
 }
 
 export default function BuyCryptoScreen() {
-  const privy = usePrivy() as any;
+  const identity = useIdentityToken() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
   const [asset, setAsset] = useState<Asset>('BTC');
@@ -130,11 +130,11 @@ export default function BuyCryptoScreen() {
     try {
       assertRecoveredWallet(prepared.wallet);
 
-      if (typeof privy?.getAccessToken !== 'function') {
+      if (typeof identity?.getIdentityToken !== 'function') {
         throw new Error('Sua autorização segura precisa ser renovada.');
       }
-      const privyAccessToken = String((await privy.getAccessToken()) || '').trim();
-      if (!privyAccessToken) {
+      const privyUserJwt = String((await identity.getIdentityToken()) || '').trim();
+      if (!privyUserJwt) {
         router.push('/wallet-recovery' as any);
         throw new Error('Confirme sua identidade para autorizar esta compra.');
       }
@@ -145,7 +145,7 @@ export default function BuyCryptoScreen() {
         session.accessToken,
         prepared.intentToken,
         prepared.swapTransaction,
-        privyAccessToken,
+        privyUserJwt,
       );
       const hash = String(result?.txHash || '').trim();
       if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {

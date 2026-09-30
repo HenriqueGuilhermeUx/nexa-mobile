@@ -1,4 +1,5 @@
 import { PrivyProvider } from '@privy-io/expo';
+import { PrivyElements } from '@privy-io/expo/ui';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -35,6 +36,7 @@ export default function RootLayout() {
           },
         }}
       >
+        <PrivyElements config={{ appearance: { colorScheme: 'dark' } }} />
         <StatusBar style="light" />
         <AppLockGate>
           <Stack
