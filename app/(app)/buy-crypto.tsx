@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useEmbeddedEthereumWallet, useIdentityToken } from '@privy-io/expo';
-import { router } from 'expo-router';
+import { useIdentityToken } from '@privy-io/expo';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -18,12 +18,15 @@ import { loadNexaSession } from '@/lib/session';
 import {
   executeSponsoredWalletFirstSwap,
   getWalletFirstSwapQuote,
-  normalizeWalletAddress,
   prepareWalletFirstSwap,
 } from '@/lib/walletFirstActions';
 import { colors, radius, spacing } from '@/theme';
 
 type Asset = 'BTC' | 'ETH';
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function parseUsdc(value: string) {
   const parsed = Number(value.trim().replace(',', '.'));
@@ -45,11 +48,18 @@ function formatUsdc(value: unknown) {
 }
 
 export default function BuyCryptoScreen() {
+  const params = useLocalSearchParams<{
+    asset?: string | string[];
+    amount?: string | string[];
+    identityRecovered?: string | string[];
+  }>();
   const identity = useIdentityToken() as any;
-  const embedded = useEmbeddedEthereumWallet() as any;
-  const wallets = (embedded.wallets || []) as any[];
-  const [asset, setAsset] = useState<Asset>('BTC');
-  const [amount, setAmount] = useState('');
+
+  const initialAsset: Asset = firstParam(params.asset) === 'ETH' ? 'ETH' : 'BTC';
+  const initialAmount = firstParam(params.amount) || '';
+
+  const [asset, setAsset] = useState<Asset>(initialAsset);
+  const [amount, setAmount] = useState(initialAmount);
   const [quote, setQuote] = useState<any>(null);
   const [prepared, setPrepared] = useState<any>(null);
   const [txHash, setTxHash] = useState('');
@@ -57,28 +67,15 @@ export default function BuyCryptoScreen() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
 
-  function assertRecoveredWallet(address: string) {
-    const expected = normalizeWalletAddress(address);
-    const localAddresses = wallets
-      .map((candidate) => normalizeWalletAddress(candidate?.address))
-      .filter(Boolean);
-
-    // O SDK Privy pode reidratar a lista de embedded wallets alguns instantes
-    // depois da autenticação. Lista vazia não significa wallet divergente.
-    // A autorização final continua protegida server-side pelo user JWT da Privy,
-    // vinculado à wallet presente no intent assinado pelo backend.
-    if (localAddresses.length === 0) return;
-
-    const recovered = localAddresses.includes(expected);
-    if (!recovered) {
-      router.push({
-        pathname: '/wallet-recovery',
-        params: { returnTo: 'buy-crypto' },
-      } as any);
-      throw new Error(
-        'Confirme sua identidade para continuar com a mesma carteira Nexa.',
-      );
-    }
+  function requestPrivyAuthorization() {
+    router.push({
+      pathname: '/wallet-recovery',
+      params: {
+        returnTo: 'buy-crypto',
+        asset,
+        amount,
+      },
+    } as any);
   }
 
   async function requestQuote() {
@@ -139,21 +136,25 @@ export default function BuyCryptoScreen() {
     setError('');
     setWorking(true);
     try {
-      assertRecoveredWallet(prepared.wallet);
-
+      // A compra patrocinada é autorizada server-side pela Privy com o identity JWT.
+      // Não exigimos que a embedded wallet esteja reidratada localmente no aparelho:
+      // o backend vincula o intent à wallet correta e a Privy rejeita o JWT caso o
+      // usuário autenticado não tenha autoridade sobre essa wallet.
       if (typeof identity?.getIdentityToken !== 'function') {
-        router.push({
-          pathname: '/wallet-recovery',
-          params: { returnTo: 'buy-crypto' },
-        } as any);
-        throw new Error('Sua autorização segura precisa ser renovada.');
+        requestPrivyAuthorization();
+        throw new Error('Confirme sua identidade para autorizar esta compra.');
       }
-      const privyUserJwt = String((await identity.getIdentityToken()) || '').trim();
+
+      let privyUserJwt = '';
+      try {
+        privyUserJwt = String((await identity.getIdentityToken()) || '').trim();
+      } catch {
+        requestPrivyAuthorization();
+        throw new Error('Confirme sua identidade para autorizar esta compra.');
+      }
+
       if (!privyUserJwt) {
-        router.push({
-          pathname: '/wallet-recovery',
-          params: { returnTo: 'buy-crypto' },
-        } as any);
+        requestPrivyAuthorization();
         throw new Error('Confirme sua identidade para autorizar esta compra.');
       }
 
@@ -179,6 +180,7 @@ export default function BuyCryptoScreen() {
   }
 
   const completed = confirmation?.completed === true;
+  const identityRecovered = firstParam(params.identityRecovered) === '1';
 
   return (
     <Screen>
@@ -189,6 +191,15 @@ export default function BuyCryptoScreen() {
         Escolha o ativo e veja a Cotação Nexa. A Nexa cuida automaticamente da
         parte técnica da operação.
       </Paragraph>
+
+      {identityRecovered ? (
+        <Card>
+          <Badge tone="success">IDENTIDADE CONFIRMADA</Badge>
+          <Text style={styles.explain}>
+            Sua identidade Privy foi confirmada. Você pode refazer a cotação e concluir a compra.
+          </Text>
+        </Card>
+      ) : null}
 
       <Card>
         <Text style={styles.label}>Qual ativo?</Text>
@@ -249,8 +260,8 @@ export default function BuyCryptoScreen() {
         <Card>
           <Badge tone="warning">AUTORIZAÇÃO SEGURA</Badge>
           <Text style={styles.explain}>
-            Confirme a compra com sua carteira Nexa. A Nexa cuida automaticamente
-            dos detalhes técnicos necessários para concluir a operação.
+            Confirme a compra com sua identidade Privy. A wallet de destino é
+            validada pela Nexa e pela Privy antes da execução.
           </Text>
           <ActionButton label="Confirmar compra" onPress={confirmPurchase} loading={working} />
         </Card>
