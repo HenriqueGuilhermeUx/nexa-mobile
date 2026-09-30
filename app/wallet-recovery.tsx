@@ -4,7 +4,7 @@ import {
   useLoginWithEmail,
   usePrivy,
 } from '@privy-io/expo';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -44,6 +44,10 @@ function maskedEmail(value: string) {
 }
 
 export default function WalletRecoveryScreen() {
+  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const returnToRaw = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const returnToPurchase = returnToRaw === 'buy-crypto';
+
   const privy = usePrivy() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
   const emailLogin = useLoginWithEmail() as any;
@@ -176,6 +180,14 @@ export default function WalletRecoveryScreen() {
     }
   }
 
+  function continueInNexa() {
+    if (returnToPurchase) {
+      router.replace('/(app)/buy-crypto' as any);
+      return;
+    }
+    router.replace('/(app)' as any);
+  }
+
   if (loading || !privy?.isReady) {
     return (
       <View style={styles.loader}>
@@ -214,8 +226,8 @@ export default function WalletRecoveryScreen() {
             vinculada. Nenhuma nova carteira foi criada.
           </Text>
           <ActionButton
-            label="Continuar na Nexa"
-            onPress={() => router.replace('/(app)' as any)}
+            label={returnToPurchase ? 'Voltar para a compra' : 'Continuar na Nexa'}
+            onPress={continueInNexa}
           />
         </Card>
       ) : (
