@@ -14,6 +14,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { consumePurchaseIdentityToken } from '@/lib/privyPurchaseAuthorization';
 import { loadNexaSession } from '@/lib/session';
 import {
   executeSponsoredWalletFirstSwap,
@@ -131,28 +132,25 @@ export default function BuyCryptoScreen() {
     }
   }
 
+  async function getPrivyIdentityTokenForPurchase() {
+    const authorizedToken = consumePurchaseIdentityToken();
+    if (authorizedToken) return authorizedToken;
+
+    if (typeof identity?.getIdentityToken !== 'function') return '';
+    try {
+      const token = String((await identity.getIdentityToken()) || '').trim();
+      return token.split('.').length === 3 ? token : '';
+    } catch {
+      return '';
+    }
+  }
+
   async function confirmPurchase() {
     if (!prepared) return;
     setError('');
     setWorking(true);
     try {
-      // A compra patrocinada é autorizada server-side pela Privy com o identity JWT.
-      // Não exigimos que a embedded wallet esteja reidratada localmente no aparelho:
-      // o backend vincula o intent à wallet correta e a Privy rejeita o JWT caso o
-      // usuário autenticado não tenha autoridade sobre essa wallet.
-      if (typeof identity?.getIdentityToken !== 'function') {
-        requestPrivyAuthorization();
-        throw new Error('Confirme sua identidade para autorizar esta compra.');
-      }
-
-      let privyUserJwt = '';
-      try {
-        privyUserJwt = String((await identity.getIdentityToken()) || '').trim();
-      } catch {
-        requestPrivyAuthorization();
-        throw new Error('Confirme sua identidade para autorizar esta compra.');
-      }
-
+      const privyUserJwt = await getPrivyIdentityTokenForPurchase();
       if (!privyUserJwt) {
         requestPrivyAuthorization();
         throw new Error('Confirme sua identidade para autorizar esta compra.');
