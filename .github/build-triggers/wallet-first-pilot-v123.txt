@@ -1,0 +1,1 @@
+Wallet-First v123 release trigger: Treasury JIT gas abstraction, user-signed BTC/ETH swaps, Privy/MoonPay card funding, and Expo OTA updates.
