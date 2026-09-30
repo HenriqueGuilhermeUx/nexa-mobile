@@ -3,9 +3,10 @@ const path = require('path');
 
 const recoveryPath = path.join(process.cwd(), 'app/wallet-recovery.tsx');
 const buyPath = path.join(process.cwd(), 'app/(app)/buy-crypto.tsx');
+const authHandoffPath = path.join(process.cwd(), 'src/lib/privyPurchaseAuthorization.ts');
 const layoutPath = path.join(process.cwd(), 'app/_layout.tsx');
 
-for (const file of [recoveryPath, buyPath, layoutPath]) {
+for (const file of [recoveryPath, buyPath, authHandoffPath, layoutPath]) {
   if (!fs.existsSync(file)) {
     throw new Error(`Wallet recovery safety file missing: ${file}`);
   }
@@ -13,6 +14,7 @@ for (const file of [recoveryPath, buyPath, layoutPath]) {
 
 const recovery = fs.readFileSync(recoveryPath, 'utf8');
 const buy = fs.readFileSync(buyPath, 'utf8');
+const authHandoff = fs.readFileSync(authHandoffPath, 'utf8');
 const layout = fs.readFileSync(layoutPath, 'utf8');
 
 const requiredRecoveryTokens = [
@@ -35,6 +37,26 @@ for (const token of requiredRecoveryTokens) {
   }
 }
 
+const requiredPurchaseAuthTokens = [
+  'useIdentityToken',
+  'returnToPurchase',
+  'waitForIdentityToken',
+  'stashPurchaseIdentityToken',
+  'router.back()',
+  "pathname: '/wallet-recovery'",
+  'consumePurchaseIdentityToken',
+  'getIdentityToken',
+];
+for (const token of requiredPurchaseAuthTokens) {
+  if (!recovery.includes(token) && !buy.includes(token) && !authHandoff.includes(token)) {
+    throw new Error(`Sponsored purchase authorization contract missing: ${token}`);
+  }
+}
+
+if (!recovery.includes("if (!returnToPurchase && typeof privy?.logout === 'function'")) {
+  throw new Error('Sponsored purchase authorization must not log out the active Privy session.');
+}
+
 const forbiddenRecoveryTokens = [
   'embedded.create(',
   'createAdditional',
@@ -48,21 +70,10 @@ for (const token of forbiddenRecoveryTokens) {
   }
 }
 
-const requiredBuyRecoveryTokens = [
-  "router.push('/wallet-recovery' as any)",
-  'normalizeWalletAddress(candidate?.address) === expected',
-  'Confirme sua identidade para continuar com a mesma carteira Nexa.',
-];
-for (const token of requiredBuyRecoveryTokens) {
-  if (!buy.includes(token)) {
-    throw new Error(`Sponsored buy must preserve the already-linked wallet: ${token}`);
-  }
-}
-
 if (!layout.includes('name="wallet-recovery"')) {
   throw new Error('Wallet recovery route is not registered in the app stack.');
 }
 
 console.log(
-  'Cross-device wallet recovery safety validated: existing identity only, disableSignup enforced, exact linked address match, sponsored buy recovery and no wallet creation/relink.',
+  'Wallet recovery safety validated: exact wallet match remains for cross-device recovery; sponsored purchase uses Privy identity JWT without local-wallet gating or wallet creation/relink.',
 );
