@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   useEmbeddedEthereumWallet,
+  useIdentityToken,
   useLoginWithEmail,
   usePrivy,
 } from '@privy-io/expo';
@@ -17,6 +18,7 @@ import {
   Title,
 } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
+import { stashPurchaseIdentityToken } from '@/lib/privyPurchaseAuthorization';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -47,6 +49,8 @@ function maskedEmail(value: string) {
   return `${visible}${'*'.repeat(Math.max(name.length - visible.length, 2))}@${domain}`;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export default function WalletRecoveryScreen() {
   const params = useLocalSearchParams<{
     returnTo?: string | string[];
@@ -54,10 +58,9 @@ export default function WalletRecoveryScreen() {
     amount?: string | string[];
   }>();
   const returnToPurchase = firstParam(params.returnTo) === 'buy-crypto';
-  const returnAsset = firstParam(params.asset) === 'ETH' ? 'ETH' : 'BTC';
-  const returnAmount = firstParam(params.amount) || '';
 
   const privy = usePrivy() as any;
+  const identity = useIdentityToken() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
   const emailLogin = useLoginWithEmail() as any;
   const wallets = (embedded.wallets || []) as any[];
@@ -88,6 +91,14 @@ export default function WalletRecoveryScreen() {
           router.replace('/sign-in');
           return;
         }
+
+        if (!active) return;
+        setEmail(session.email.trim().toLowerCase());
+
+        // Purchase authorization does not depend on the wallet being rehydrated
+        // locally. The signed swap intent and Privy validate the linked wallet.
+        if (returnToPurchase) return;
+
         const [profileResponse, meResponse] = await Promise.all([
           nexaApi.directProfile(session.accessToken),
           nexaApi.me(session.accessToken),
@@ -97,14 +108,13 @@ export default function WalletRecoveryScreen() {
         if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
           throw new Error('A Nexa não encontrou a carteira Wallet-First vinculada à sua conta.');
         }
-        setEmail(session.email.trim().toLowerCase());
         setExpectedWallet(address);
       } catch (caught) {
         if (active) {
           setError(
             caught instanceof Error
               ? caught.message
-              : 'Não foi possível preparar a recuperação da carteira.',
+              : 'Não foi possível preparar a autorização segura.',
           );
         }
       } finally {
@@ -114,7 +124,7 @@ export default function WalletRecoveryScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [returnToPurchase]);
 
   useEffect(() => {
     if (returnToPurchase || !otpVerified || recovered) return;
@@ -132,15 +142,14 @@ export default function WalletRecoveryScreen() {
     try {
       if (!email) throw new Error('E-mail da conta Nexa indisponível.');
 
-      // Para a autorização da compra patrocinada, precisamos renovar a identidade
-      // Privy do usuário. Se houver uma sessão local diferente, encerramos somente
-      // essa sessão Privy antes de autenticar o e-mail já vinculado à conta Nexa.
-      if (typeof privy?.logout === 'function' && !recovered) {
+      // Only the cross-device wallet recovery flow needs to reset the local Privy
+      // session. Purchase authorization must not destroy a valid session/wallet.
+      if (!returnToPurchase && typeof privy?.logout === 'function' && !recovered) {
         await privy.logout().catch(() => undefined);
       }
 
       if (typeof emailLogin?.sendCode !== 'function') {
-        throw new Error('A recuperação Privy por e-mail não está disponível nesta versão.');
+        throw new Error('A confirmação Privy por e-mail não está disponível nesta versão.');
       }
 
       await emailLogin.sendCode({ email, disableSignup: true });
@@ -150,22 +159,35 @@ export default function WalletRecoveryScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível enviar o código de recuperação.',
+          : 'Não foi possível enviar o código de confirmação.',
       );
     } finally {
       setWorking(false);
     }
   }
 
-  function returnToPurchaseScreen() {
-    router.replace({
-      pathname: '/(app)/buy-crypto',
-      params: {
-        asset: returnAsset,
-        amount: returnAmount,
-        identityRecovered: '1',
-      },
-    } as any);
+  async function waitForIdentityToken(timeoutMs = 10_000) {
+    if (typeof identity?.getIdentityToken !== 'function') {
+      throw new Error('A autorização Privy não está disponível nesta instalação.');
+    }
+
+    const deadline = Date.now() + timeoutMs;
+    let lastError: unknown = null;
+    while (Date.now() < deadline) {
+      try {
+        const token = String((await identity.getIdentityToken()) || '').trim();
+        if (token.split('.').length === 3 && token.length > 40) return token;
+      } catch (caught) {
+        lastError = caught;
+      }
+      await sleep(400);
+    }
+
+    throw new Error(
+      lastError instanceof Error
+        ? `Sua identidade foi confirmada, mas a Privy ainda não liberou a autorização: ${lastError.message}`
+        : 'Sua identidade foi confirmada, mas a Privy ainda não liberou a autorização. Tente novamente em alguns segundos.',
+    );
   }
 
   async function verifyRecoveryCode() {
@@ -185,11 +207,10 @@ export default function WalletRecoveryScreen() {
       await emailLogin.loginWithCode({ email, code: normalizedCode });
       setOtpVerified(true);
 
-      // Para compra patrocinada, o que autoriza a operação é a identidade Privy
-      // (identity JWT) verificada server-side contra a wallet vinculada no intent.
-      // Não aguardamos a embedded wallet local reaparecer no aparelho.
       if (returnToPurchase) {
-        returnToPurchaseScreen();
+        const token = await waitForIdentityToken();
+        stashPurchaseIdentityToken(token);
+        router.back();
       }
     } catch (caught) {
       setError(
@@ -203,10 +224,6 @@ export default function WalletRecoveryScreen() {
   }
 
   function continueInNexa() {
-    if (returnToPurchase) {
-      returnToPurchaseScreen();
-      return;
-    }
     router.replace('/(app)' as any);
   }
 
@@ -228,17 +245,24 @@ export default function WalletRecoveryScreen() {
       <Title>{returnToPurchase ? 'Confirme sua identidade.' : 'Recupere a mesma carteira.'}</Title>
       <Paragraph>
         {returnToPurchase
-          ? 'Vamos confirmar sua identidade Privy. A wallet vinculada à compra será validada novamente pela Nexa e pela Privy antes da execução.'
+          ? 'Confirme seu e-mail Privy para autorizar esta compra. A carteira da operação será validada no backend e pela própria Privy.'
           : 'A Nexa não criará outro endereço. Vamos autenticar sua identidade Privy existente e só continuar se a carteira recuperada for exatamente a já vinculada à sua conta.'}
       </Paragraph>
 
-      <Card>
-        <Text style={styles.label}>Carteira vinculada</Text>
-        <Text selectable style={styles.address}>{expectedWallet || '—'}</Text>
-        <Text style={styles.muted}>
-          Código de confirmação: {email ? maskedEmail(email) : '—'}
-        </Text>
-      </Card>
+      {returnToPurchase ? (
+        <Card>
+          <Text style={styles.label}>Conta Nexa</Text>
+          <Text style={styles.muted}>Código de confirmação: {email ? maskedEmail(email) : '—'}</Text>
+        </Card>
+      ) : (
+        <Card>
+          <Text style={styles.label}>Carteira vinculada</Text>
+          <Text selectable style={styles.address}>{expectedWallet || '—'}</Text>
+          <Text style={styles.muted}>
+            Código de recuperação: {email ? maskedEmail(email) : '—'}
+          </Text>
+        </Card>
+      )}
 
       {!returnToPurchase && recovered ? (
         <Card>
@@ -253,7 +277,7 @@ export default function WalletRecoveryScreen() {
         <>
           {!codeSent ? (
             <ActionButton
-              label="Enviar código de confirmação"
+              label={returnToPurchase ? 'Enviar código de autorização' : 'Enviar código de recuperação'}
               loading={working}
               onPress={sendRecoveryCode}
             />
@@ -268,7 +292,7 @@ export default function WalletRecoveryScreen() {
                 placeholder="Digite o código"
               />
               <ActionButton
-                label={returnToPurchase ? 'Validar e voltar para a compra' : 'Validar e recuperar carteira'}
+                label={returnToPurchase ? 'Validar autorização' : 'Validar e recuperar carteira'}
                 loading={working}
                 onPress={verifyRecoveryCode}
               />
