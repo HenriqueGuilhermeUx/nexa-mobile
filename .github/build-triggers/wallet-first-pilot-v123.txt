@@ -1,0 +1,1 @@
+Wallet-First v123: Privy identity-JWT sponsored BTC/ETH swaps, MoonPay-prioritized BRL card funding, and Expo OTA update support.
