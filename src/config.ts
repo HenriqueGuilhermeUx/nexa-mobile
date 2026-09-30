@@ -5,6 +5,8 @@ interface NexaExtra {
   efiOpenFinanceApiUrl?: string;
   privyAppId?: string;
   privyClientId?: string;
+  alchemyApiKey?: string;
+  alchemyGasPolicyId?: string;
   financialExecutionEnabled?: boolean;
   ledgerOperationsEnabled?: boolean;
   balanceSource?: string;
@@ -20,6 +22,12 @@ const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
 const envApiUrl = String(process.env.EXPO_PUBLIC_NEXA_API_URL || '').trim();
 const envEfiOpenFinanceApiUrl = String(
   process.env.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL || '',
+).trim();
+const envAlchemyApiKey = String(
+  process.env.EXPO_PUBLIC_NEXA_ALCHEMY_API_KEY || '',
+).trim();
+const envAlchemyGasPolicyId = String(
+  process.env.EXPO_PUBLIC_NEXA_ALCHEMY_GAS_POLICY_ID || '',
 ).trim();
 const envFinancialExecution = String(
   process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED || '',
@@ -58,6 +66,13 @@ export const config = {
   appBuild: String(Constants.expoConfig?.android?.versionCode || '124'),
   privyAppId: extra.privyAppId || '',
   privyClientId: extra.privyClientId || '',
+  alchemyApiKey: envAlchemyApiKey || extra.alchemyApiKey || '',
+  alchemyGasPolicyId:
+    envAlchemyGasPolicyId || extra.alchemyGasPolicyId || '',
+  clientGasSponsorshipConfigured: Boolean(
+    (envAlchemyApiKey || extra.alchemyApiKey) &&
+      (envAlchemyGasPolicyId || extra.alchemyGasPolicyId),
+  ),
   financialExecutionEnabled:
     envFinancialExecution === 'true' ||
     (envFinancialExecution !== 'false' && extra.financialExecutionEnabled === true),
