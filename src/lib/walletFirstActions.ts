@@ -124,6 +124,17 @@ export function confirmWalletFirstSwap(
   });
 }
 
+export function confirmClientSponsoredWalletFirstSwap(
+  accessToken: string,
+  intentToken: string,
+  txHash: string,
+) {
+  return postJson<any>(accessToken, '/wallet-v15/swap/confirm-client-sponsored', {
+    intentToken,
+    txHash,
+  });
+}
+
 export function normalizeWalletAddress(value: unknown) {
   return String(value || '').trim().toLowerCase();
 }
