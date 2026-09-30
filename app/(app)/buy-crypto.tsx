@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { useIdentityToken, usePrivy } from '@privy-io/expo';
+import { useAlchemySendTransaction } from '@account-kit/privy-integration/react-native';
+import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -14,16 +15,25 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
-import { consumePurchaseIdentityToken } from '@/lib/privyPurchaseAuthorization';
+import { config } from '@/config';
 import { loadNexaSession } from '@/lib/session';
 import {
-  executeSponsoredWalletFirstSwap,
+  assertPolygonProvider,
+  confirmClientSponsoredWalletFirstSwap,
   getWalletFirstSwapQuote,
+  normalizeWalletAddress,
   prepareWalletFirstSwap,
+  PreparedWalletTransaction,
 } from '@/lib/walletFirstActions';
 import { colors, radius, spacing } from '@/theme';
 
 type Asset = 'BTC' | 'ETH';
+
+type SponsoredCall = {
+  to: `0x${string}`;
+  data: `0x${string}`;
+  value: string;
+};
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -48,19 +58,59 @@ function formatUsdc(value: unknown) {
   })} USDC`;
 }
 
-function looksLikeJwt(value: unknown) {
-  const token = String(value || '').trim();
-  return token.length > 40 && token.split('.').length === 3;
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function toSponsoredCall(transaction: PreparedWalletTransaction): SponsoredCall {
+  return {
+    to: transaction.to as `0x${string}`,
+    data: transaction.data as `0x${string}`,
+    value: String(transaction.value || '0x0'),
+  };
+}
+
+async function providerFor(wallet: any) {
+  if (typeof wallet?.getProvider === 'function') return wallet.getProvider();
+  if (typeof wallet?.getEthereumProvider === 'function') {
+    return wallet.getEthereumProvider();
+  }
+  throw new Error('A carteira Privy não expôs o provedor de assinatura.');
+}
+
+function SponsorshipUnavailableScreen() {
+  return (
+    <Screen>
+      <Brand />
+      <Eyebrow>ATIVOS DIGITAIS</Eyebrow>
+      <Title>Comprar com USDC.</Title>
+      <Card>
+        <Badge tone="warning">CONFIGURAÇÃO EM ANDAMENTO</Badge>
+        <Text style={styles.explain}>
+          A execução patrocinada ainda não está habilitada neste build. Nenhuma
+          transação será enviada sem a política de gas da Nexa configurada.
+        </Text>
+      </Card>
+      <ActionButton label="Voltar" variant="secondary" onPress={() => router.back()} />
+    </Screen>
+  );
 }
 
 export default function BuyCryptoScreen() {
+  if (!config.clientGasSponsorshipConfigured) {
+    return <SponsorshipUnavailableScreen />;
+  }
+  return <SponsoredBuyCryptoScreen />;
+}
+
+function SponsoredBuyCryptoScreen() {
   const params = useLocalSearchParams<{
     asset?: string | string[];
     amount?: string | string[];
-    identityRecovered?: string | string[];
   }>();
-  const privy = usePrivy() as any;
-  const identity = useIdentityToken() as any;
+  const embedded = useEmbeddedEthereumWallet() as any;
+  const wallets = (embedded.wallets || []) as any[];
+  const { sendTransaction } = useAlchemySendTransaction();
 
   const initialAsset: Asset = firstParam(params.asset) === 'ETH' ? 'ETH' : 'BTC';
   const initialAmount = firstParam(params.amount) || '';
@@ -73,10 +123,6 @@ export default function BuyCryptoScreen() {
   const [confirmation, setConfirmation] = useState<any>(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
-
-  function requestPrivyAuthorization() {
-    router.push('/purchase-authorization' as any);
-  }
 
   async function requestQuote() {
     setError('');
@@ -101,7 +147,11 @@ export default function BuyCryptoScreen() {
       );
       setQuote(response);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Cotação Nexa indisponível agora.');
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Cotação Nexa indisponível agora.',
+      );
     } finally {
       setWorking(false);
     }
@@ -125,79 +175,93 @@ export default function BuyCryptoScreen() {
       setPrepared(response);
       setQuote(response.quote || quote);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'A compra ainda não está disponível.');
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'A compra ainda não está disponível.',
+      );
     } finally {
       setWorking(false);
     }
   }
 
-  async function getPrivyAccessTokenForPurchase() {
-    if (!privy?.user || typeof privy?.getAccessToken !== 'function') return '';
-    try {
-      const token = String((await privy.getAccessToken()) || '').trim();
-      return looksLikeJwt(token) ? token : '';
-    } catch {
-      return '';
+  async function confirmOnBackend(
+    accessToken: string,
+    intentToken: string,
+    hash: string,
+  ) {
+    let lastResult: any = null;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      lastResult = await confirmClientSponsoredWalletFirstSwap(
+        accessToken,
+        intentToken,
+        hash,
+      );
+      if (lastResult?.completed === true) return lastResult;
+      if (attempt < 7) await delay(4_000);
     }
-  }
-
-  async function getPrivyIdentityTokenForPurchase() {
-    const authorizedToken = consumePurchaseIdentityToken();
-    if (looksLikeJwt(authorizedToken)) return authorizedToken;
-
-    const direct = String(identity?.identityToken || '').trim();
-    if (looksLikeJwt(direct)) return direct;
-
-    if (typeof identity?.getIdentityToken === 'function') {
-      try {
-        const token = String((await identity.getIdentityToken()) || '').trim();
-        if (looksLikeJwt(token)) return token;
-      } catch {
-        return '';
-      }
-    }
-    return '';
+    return lastResult;
   }
 
   async function confirmPurchase() {
     if (!prepared) return;
     setError('');
     setWorking(true);
-    try {
-      const [privyAccessToken, privyIdentityToken] = await Promise.all([
-        getPrivyAccessTokenForPurchase(),
-        getPrivyIdentityTokenForPurchase(),
-      ]);
 
-      if (!privyAccessToken || !privyIdentityToken) {
-        requestPrivyAuthorization();
-        return;
+    let submittedHash = '';
+    try {
+      const expectedWallet = normalizeWalletAddress(prepared.wallet);
+      const wallet = wallets.find(
+        (candidate) => normalizeWalletAddress(candidate?.address) === expectedWallet,
+      );
+      if (!wallet) {
+        throw new Error(
+          'A carteira vinculada à Nexa não está disponível neste dispositivo.',
+        );
       }
+
+      const provider = await providerFor(wallet);
+      await assertPolygonProvider(provider);
+
+      const calls: SponsoredCall[] = [];
+      if (prepared.approvalRequired && prepared.approvalTransaction) {
+        calls.push(toSponsoredCall(prepared.approvalTransaction));
+      }
+      calls.push(toSponsoredCall(prepared.swapTransaction));
+
+      const result = await sendTransaction(calls.length === 1 ? calls[0] : calls);
+      submittedHash = String(result?.txnHash || '').trim();
+      if (!/^0x[a-fA-F0-9]{64}$/.test(submittedHash)) {
+        throw new Error('A carteira não retornou um hash de transação válido.');
+      }
+      setTxHash(submittedHash);
 
       const session = await loadNexaSession();
-      if (!session) throw new Error('Sua sessão Nexa expirou.');
-      const result = await executeSponsoredWalletFirstSwap(
+      if (!session) {
+        throw new Error(
+          'A compra foi enviada, mas sua sessão Nexa expirou antes da confirmação.',
+        );
+      }
+
+      const confirmed = await confirmOnBackend(
         session.accessToken,
         prepared.intentToken,
-        prepared.swapTransaction,
-        privyAccessToken,
-        privyIdentityToken,
+        submittedHash,
       );
-      const hash = String(result?.txHash || '').trim();
-      if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {
-        throw new Error('A compra foi enviada, mas ainda está sendo confirmada.');
-      }
-      setTxHash(hash);
-      setConfirmation(result);
+      setConfirmation(confirmed);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Não foi possível concluir a compra.');
+      const prefix = submittedHash
+        ? 'A transação foi enviada. A confirmação automática falhou: '
+        : '';
+      setError(
+        `${prefix}${caught instanceof Error ? caught.message : 'Não foi possível concluir a compra.'}`,
+      );
     } finally {
       setWorking(false);
     }
   }
 
   const completed = confirmation?.completed === true;
-  const identityRecovered = firstParam(params.identityRecovered) === '1';
 
   return (
     <Screen>
@@ -205,18 +269,9 @@ export default function BuyCryptoScreen() {
       <Eyebrow>ATIVOS DIGITAIS</Eyebrow>
       <Title>Comprar com USDC.</Title>
       <Paragraph>
-        Escolha o ativo e veja a Cotação Nexa. A Nexa cuida automaticamente da
-        parte técnica da operação.
+        Escolha o ativo e veja a Cotação Nexa. A transação é autorizada pela sua
+        carteira Privy no dispositivo e a Nexa patrocina a taxa da rede.
       </Paragraph>
-
-      {identityRecovered ? (
-        <Card>
-          <Badge tone="success">IDENTIDADE CONFIRMADA</Badge>
-          <Text style={styles.explain}>
-            Sua sessão Privy foi confirmada. Você pode refazer a cotação e concluir a compra.
-          </Text>
-        </Card>
-      ) : null}
 
       <Card>
         <Text style={styles.label}>Qual ativo?</Text>
@@ -229,6 +284,7 @@ export default function BuyCryptoScreen() {
                 setQuote(null);
                 setPrepared(null);
                 setConfirmation(null);
+                setTxHash('');
               }}
               style={[styles.assetButton, asset === item && styles.assetButtonActive]}
             >
@@ -246,11 +302,16 @@ export default function BuyCryptoScreen() {
             setQuote(null);
             setPrepared(null);
             setConfirmation(null);
+            setTxHash('');
           }}
           keyboardType="decimal-pad"
           placeholder="Ex.: 0,50"
         />
-        <ActionButton label="Ver Cotação Nexa" onPress={requestQuote} loading={working && !quote} />
+        <ActionButton
+          label="Ver Cotação Nexa"
+          onPress={requestQuote}
+          loading={working && !quote}
+        />
       </Card>
 
       {quote ? (
@@ -262,7 +323,9 @@ export default function BuyCryptoScreen() {
             {formatAsset(quote.to?.estimatedAmount, asset)}
           </Text>
           <Text style={styles.network}>Valor estimado da compra</Text>
-          <Text style={styles.validity}>Cotação válida por aproximadamente {quote.validForSeconds || 30}s.</Text>
+          <Text style={styles.validity}>
+            Cotação válida por aproximadamente {quote.validForSeconds || 30}s.
+          </Text>
           {!prepared && !txHash ? (
             <ActionButton
               label="Continuar compra"
@@ -275,12 +338,22 @@ export default function BuyCryptoScreen() {
 
       {prepared && !txHash ? (
         <Card>
-          <Badge tone="warning">AUTORIZAÇÃO SEGURA</Badge>
+          <Badge tone="warning">AUTORIZAÇÃO NA SUA CARTEIRA</Badge>
           <Text style={styles.explain}>
-            Confirme a compra com sua sessão Privy. A wallet de destino é
-            validada pela Nexa e pela Privy antes da execução.
+            Ao confirmar, sua carteira Privy assina a operação no dispositivo.
+            A Nexa não recebe sua chave privada e patrocina o gas da transação.
           </Text>
-          <ActionButton label="Confirmar compra" onPress={confirmPurchase} loading={working} />
+          {prepared.approvalRequired ? (
+            <Text style={styles.explain}>
+              A aprovação de USDC e o swap serão enviados juntos em uma única
+              operação patrocinada.
+            </Text>
+          ) : null}
+          <ActionButton
+            label="Confirmar compra"
+            onPress={confirmPurchase}
+            loading={working}
+          />
         </Card>
       ) : null}
 
@@ -295,7 +368,10 @@ export default function BuyCryptoScreen() {
               {formatAsset(confirmation.receivedAmount, asset)} confirmado na sua carteira.
             </Text>
           ) : (
-            <Text style={styles.explain}>A Nexa está concluindo a confirmação da sua compra.</Text>
+            <Text style={styles.explain}>
+              A operação já foi enviada. A Nexa está validando as confirmações e
+              os movimentos on-chain.
+            </Text>
           )}
         </Card>
       ) : null}
