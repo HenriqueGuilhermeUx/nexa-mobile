@@ -24,6 +24,10 @@ function normalizeAddress(value: unknown) {
   return String(value || '').trim().toLowerCase();
 }
 
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 function expectedWalletFrom(profileResponse: any, meResponse: any) {
   const profile = profileResponse?.profile || profileResponse || {};
   const me = meResponse?.user || meResponse || {};
@@ -44,9 +48,14 @@ function maskedEmail(value: string) {
 }
 
 export default function WalletRecoveryScreen() {
-  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
-  const returnToRaw = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
-  const returnToPurchase = returnToRaw === 'buy-crypto';
+  const params = useLocalSearchParams<{
+    returnTo?: string | string[];
+    asset?: string | string[];
+    amount?: string | string[];
+  }>();
+  const returnToPurchase = firstParam(params.returnTo) === 'buy-crypto';
+  const returnAsset = firstParam(params.asset) === 'ETH' ? 'ETH' : 'BTC';
+  const returnAmount = firstParam(params.amount) || '';
 
   const privy = usePrivy() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
@@ -108,14 +117,14 @@ export default function WalletRecoveryScreen() {
   }, []);
 
   useEffect(() => {
-    if (!otpVerified || recovered) return;
+    if (returnToPurchase || !otpVerified || recovered) return;
     const timeout = setTimeout(() => {
       setError(
         'A autenticação Privy foi concluída, mas a carteira recuperada não corresponde à carteira já vinculada à Nexa. Nenhuma nova carteira foi criada.',
       );
     }, 10_000);
     return () => clearTimeout(timeout);
-  }, [otpVerified, recovered]);
+  }, [otpVerified, recovered, returnToPurchase]);
 
   async function sendRecoveryCode() {
     setError('');
@@ -123,9 +132,9 @@ export default function WalletRecoveryScreen() {
     try {
       if (!email) throw new Error('E-mail da conta Nexa indisponível.');
 
-      // Se este aparelho estiver com outra sessão Privy, ela não pode ser usada
-      // para assinar pela wallet já vinculada. Encerramos somente a sessão Privy
-      // local e autenticamos explicitamente a identidade já existente.
+      // Para a autorização da compra patrocinada, precisamos renovar a identidade
+      // Privy do usuário. Se houver uma sessão local diferente, encerramos somente
+      // essa sessão Privy antes de autenticar o e-mail já vinculado à conta Nexa.
       if (typeof privy?.logout === 'function' && !recovered) {
         await privy.logout().catch(() => undefined);
       }
@@ -134,9 +143,6 @@ export default function WalletRecoveryScreen() {
         throw new Error('A recuperação Privy por e-mail não está disponível nesta versão.');
       }
 
-      // disableSignup é essencial: recuperação nunca pode criar uma nova
-      // identidade/wallet silenciosamente se o e-mail não corresponder ao usuário
-      // Privy já existente.
       await emailLogin.sendCode({ email, disableSignup: true });
       setCodeSent(true);
       setCode('');
@@ -149,6 +155,17 @@ export default function WalletRecoveryScreen() {
     } finally {
       setWorking(false);
     }
+  }
+
+  function returnToPurchaseScreen() {
+    router.replace({
+      pathname: '/(app)/buy-crypto',
+      params: {
+        asset: returnAsset,
+        amount: returnAmount,
+        identityRecovered: '1',
+      },
+    } as any);
   }
 
   async function verifyRecoveryCode() {
@@ -165,10 +182,15 @@ export default function WalletRecoveryScreen() {
         throw new Error('A validação Privy por código não está disponível nesta versão.');
       }
 
-      // O SDK Expo mantém o e-mail da etapa sendCode. O campo email adicional
-      // mantém compatibilidade com versões anteriores sem alterar a identidade.
       await emailLogin.loginWithCode({ email, code: normalizedCode });
       setOtpVerified(true);
+
+      // Para compra patrocinada, o que autoriza a operação é a identidade Privy
+      // (identity JWT) verificada server-side contra a wallet vinculada no intent.
+      // Não aguardamos a embedded wallet local reaparecer no aparelho.
+      if (returnToPurchase) {
+        returnToPurchaseScreen();
+      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -182,7 +204,7 @@ export default function WalletRecoveryScreen() {
 
   function continueInNexa() {
     if (returnToPurchase) {
-      router.replace('/(app)/buy-crypto' as any);
+      returnToPurchaseScreen();
       return;
     }
     router.replace('/(app)' as any);
@@ -192,49 +214,46 @@ export default function WalletRecoveryScreen() {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.muted}>Preparando recuperação segura...</Text>
+        <Text style={styles.muted}>Preparando autorização segura...</Text>
       </View>
     );
   }
 
   return (
     <Screen>
-      <Badge tone={recovered ? 'success' : 'warning'}>
-        {recovered ? 'CARTEIRA DISPONÍVEL' : 'NOVO DISPOSITIVO'}
+      <Badge tone={returnToPurchase || recovered ? 'success' : 'warning'}>
+        {returnToPurchase ? 'AUTORIZAÇÃO DA COMPRA' : recovered ? 'CARTEIRA DISPONÍVEL' : 'NOVO DISPOSITIVO'}
       </Badge>
       <View style={styles.topSpace} />
-      <Title>Recupere a mesma carteira.</Title>
+      <Title>{returnToPurchase ? 'Confirme sua identidade.' : 'Recupere a mesma carteira.'}</Title>
       <Paragraph>
-        A Nexa não criará outro endereço. Vamos autenticar sua identidade Privy
-        existente e só continuar se a carteira recuperada for exatamente a já
-        vinculada à sua conta.
+        {returnToPurchase
+          ? 'Vamos confirmar sua identidade Privy. A wallet vinculada à compra será validada novamente pela Nexa e pela Privy antes da execução.'
+          : 'A Nexa não criará outro endereço. Vamos autenticar sua identidade Privy existente e só continuar se a carteira recuperada for exatamente a já vinculada à sua conta.'}
       </Paragraph>
 
       <Card>
         <Text style={styles.label}>Carteira vinculada</Text>
         <Text selectable style={styles.address}>{expectedWallet || '—'}</Text>
         <Text style={styles.muted}>
-          Código de recuperação: {email ? maskedEmail(email) : '—'}
+          Código de confirmação: {email ? maskedEmail(email) : '—'}
         </Text>
       </Card>
 
-      {recovered ? (
+      {!returnToPurchase && recovered ? (
         <Card>
           <Text style={styles.successTitle}>Acesso restaurado neste aparelho</Text>
           <Text style={styles.muted}>
             O endereço local corresponde exatamente à carteira Wallet-First já
             vinculada. Nenhuma nova carteira foi criada.
           </Text>
-          <ActionButton
-            label={returnToPurchase ? 'Voltar para a compra' : 'Continuar na Nexa'}
-            onPress={continueInNexa}
-          />
+          <ActionButton label="Continuar na Nexa" onPress={continueInNexa} />
         </Card>
       ) : (
         <>
           {!codeSent ? (
             <ActionButton
-              label="Enviar código de recuperação"
+              label="Enviar código de confirmação"
               loading={working}
               onPress={sendRecoveryCode}
             />
@@ -249,7 +268,7 @@ export default function WalletRecoveryScreen() {
                 placeholder="Digite o código"
               />
               <ActionButton
-                label="Validar e recuperar carteira"
+                label={returnToPurchase ? 'Validar e voltar para a compra' : 'Validar e recuperar carteira'}
                 loading={working}
                 onPress={verifyRecoveryCode}
               />
@@ -264,7 +283,7 @@ export default function WalletRecoveryScreen() {
         </>
       )}
 
-      {otpVerified && !recovered && !error ? (
+      {!returnToPurchase && otpVerified && !recovered && !error ? (
         <Card>
           <Text style={styles.muted}>
             Identidade Privy confirmada. Recuperando a carteira neste aparelho...
