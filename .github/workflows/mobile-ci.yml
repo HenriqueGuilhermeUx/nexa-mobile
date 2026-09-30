@@ -23,16 +23,16 @@ jobs:
       - name: Validate dependency tree
         run: npm ls --depth=0
       - name: Validate mobile safety contracts
-        run: node scripts/validate-mobile-safety.js
+        run: node scripts/validate-mobile-safety-v123.js
       - name: Validate Wallet-First exit quote customer surface
         run: node scripts/validate-wallet-first-exit-quote.js
       - name: Validate Wallet-First USDC to Pix execution flow
         run: node scripts/validate-wallet-first-exit-flow.js
-      - name: Validate Wallet-First send and swap customer flows
+      - name: Validate Wallet-First send, swap and funding customer flows
         run: node scripts/validate-wallet-first-user-actions.js
       - name: Validate cross-device wallet recovery
         run: node scripts/validate-wallet-cross-device-recovery.js
-      - name: Validate biometric app lock
+      - name: Validate biometric app lock and OTA boundary
         run: node scripts/validate-biometric-app-lock.js
       - name: Validate Android release assets
         run: node scripts/validate-release-assets.js
