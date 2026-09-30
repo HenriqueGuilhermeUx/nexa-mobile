@@ -43,6 +43,9 @@ jobs:
           packager: npm
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Install project dependencies
+        run: npm ci --include=dev --no-audit --no-fund
+
       - name: Verify v123 identity
         run: |
           set -euo pipefail
