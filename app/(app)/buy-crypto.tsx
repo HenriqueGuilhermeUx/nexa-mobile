@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useIdentityToken } from '@privy-io/expo';
+import { usePrivy } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -48,13 +48,18 @@ function formatUsdc(value: unknown) {
   })} USDC`;
 }
 
+function looksLikeJwt(value: unknown) {
+  const token = String(value || '').trim();
+  return token.length > 40 && token.split('.').length === 3;
+}
+
 export default function BuyCryptoScreen() {
   const params = useLocalSearchParams<{
     asset?: string | string[];
     amount?: string | string[];
     identityRecovered?: string | string[];
   }>();
-  const identity = useIdentityToken() as any;
+  const privy = usePrivy() as any;
 
   const initialAsset: Asset = firstParam(params.asset) === 'ETH' ? 'ETH' : 'BTC';
   const initialAmount = firstParam(params.amount) || '';
@@ -125,17 +130,14 @@ export default function BuyCryptoScreen() {
     }
   }
 
-  async function getPrivyIdentityTokenForPurchase() {
+  async function getPrivyAccessTokenForPurchase() {
     const authorizedToken = consumePurchaseIdentityToken();
-    if (authorizedToken) return authorizedToken;
+    if (looksLikeJwt(authorizedToken)) return authorizedToken;
 
-    const direct = String(identity?.identityToken || '').trim();
-    if (direct.split('.').length === 3 && direct.length > 40) return direct;
-
-    if (typeof identity?.getIdentityToken !== 'function') return '';
+    if (!privy?.user || typeof privy?.getAccessToken !== 'function') return '';
     try {
-      const token = String((await identity.getIdentityToken()) || '').trim();
-      return token.split('.').length === 3 ? token : '';
+      const token = String((await privy.getAccessToken()) || '').trim();
+      return looksLikeJwt(token) ? token : '';
     } catch {
       return '';
     }
@@ -146,8 +148,10 @@ export default function BuyCryptoScreen() {
     setError('');
     setWorking(true);
     try {
-      const privyUserJwt = await getPrivyIdentityTokenForPurchase();
-      if (!privyUserJwt) {
+      // Privy's wallet authorization context expects the authenticated app access
+      // token. Identity tokens are profile-data tokens and are not used here.
+      const privyAccessToken = await getPrivyAccessTokenForPurchase();
+      if (!privyAccessToken) {
         requestPrivyAuthorization();
         return;
       }
@@ -158,7 +162,7 @@ export default function BuyCryptoScreen() {
         session.accessToken,
         prepared.intentToken,
         prepared.swapTransaction,
-        privyUserJwt,
+        privyAccessToken,
       );
       const hash = String(result?.txHash || '').trim();
       if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {
@@ -190,7 +194,7 @@ export default function BuyCryptoScreen() {
         <Card>
           <Badge tone="success">IDENTIDADE CONFIRMADA</Badge>
           <Text style={styles.explain}>
-            Sua identidade Privy foi confirmada. Você pode refazer a cotação e concluir a compra.
+            Sua sessão Privy foi confirmada. Você pode refazer a cotação e concluir a compra.
           </Text>
         </Card>
       ) : null}
@@ -198,6 +202,7 @@ export default function BuyCryptoScreen() {
       <Card>
         <Text style={styles.label}>Qual ativo?</Text>
         <View style={styles.assetRow}>
+          {(['BTC', 'ETH'] as Asset).map ? null : null}
           {(['BTC', 'ETH'] as Asset[]).map((item) => (
             <Pressable
               key={item}
@@ -254,7 +259,7 @@ export default function BuyCryptoScreen() {
         <Card>
           <Badge tone="warning">AUTORIZAÇÃO SEGURA</Badge>
           <Text style={styles.explain}>
-            Confirme a compra com sua identidade Privy. A wallet de destino é
+            Confirme a compra com sua sessão Privy. A wallet de destino é
             validada pela Nexa e pela Privy antes da execução.
           </Text>
           <ActionButton label="Confirmar compra" onPress={confirmPurchase} loading={working} />
