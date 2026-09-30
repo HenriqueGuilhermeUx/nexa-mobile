@@ -59,11 +59,22 @@ export default function BuyCryptoScreen() {
 
   function assertRecoveredWallet(address: string) {
     const expected = normalizeWalletAddress(address);
-    const recovered = wallets.some(
-      (candidate) => normalizeWalletAddress(candidate?.address) === expected,
-    );
+    const localAddresses = wallets
+      .map((candidate) => normalizeWalletAddress(candidate?.address))
+      .filter(Boolean);
+
+    // O SDK Privy pode reidratar a lista de embedded wallets alguns instantes
+    // depois da autenticação. Lista vazia não significa wallet divergente.
+    // A autorização final continua protegida server-side pelo user JWT da Privy,
+    // vinculado à wallet presente no intent assinado pelo backend.
+    if (localAddresses.length === 0) return;
+
+    const recovered = localAddresses.includes(expected);
     if (!recovered) {
-      router.push('/wallet-recovery' as any);
+      router.push({
+        pathname: '/wallet-recovery',
+        params: { returnTo: 'buy-crypto' },
+      } as any);
       throw new Error(
         'Confirme sua identidade para continuar com a mesma carteira Nexa.',
       );
@@ -131,11 +142,18 @@ export default function BuyCryptoScreen() {
       assertRecoveredWallet(prepared.wallet);
 
       if (typeof identity?.getIdentityToken !== 'function') {
+        router.push({
+          pathname: '/wallet-recovery',
+          params: { returnTo: 'buy-crypto' },
+        } as any);
         throw new Error('Sua autorização segura precisa ser renovada.');
       }
       const privyUserJwt = String((await identity.getIdentityToken()) || '').trim();
       if (!privyUserJwt) {
-        router.push('/wallet-recovery' as any);
+        router.push({
+          pathname: '/wallet-recovery',
+          params: { returnTo: 'buy-crypto' },
+        } as any);
         throw new Error('Confirme sua identidade para autorizar esta compra.');
       }
 
