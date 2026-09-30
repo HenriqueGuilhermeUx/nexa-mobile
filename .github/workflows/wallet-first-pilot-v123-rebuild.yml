@@ -1,25 +1,32 @@
-name: Nexa Wallet-First v123 APK Rebuild
+name: Nexa Wallet-First v123 Native Android
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/wallet-first-pilot-v123-rebuild.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: nexa-wallet-first-v123-rebuild
+  group: nexa-wallet-first-v123-native-android
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Build verified v123 APK with hardened Gradle memory
+    name: Build signed v123 APK with native Gradle
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 120
+    env:
+      CI: 'true'
+      NODE_ENV: production
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: open-finance-pilot
+      GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-ci
 
     steps:
       - name: Checkout v123
@@ -28,23 +35,18 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: '22'
+          cache: npm
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
-      - name: Set up Expo and EAS CLI
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          packager: npm
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Install and synchronize project dependencies
-        run: npm install --include=dev --no-audit --no-fund
+      - name: Install project dependencies
+        run: npm ci --include=dev --no-audit --no-fund
 
       - name: Verify v123 identity
         run: |
@@ -58,83 +60,108 @@ jobs:
           if (app.android?.package !== 'br.com.trynexa.app') throw new Error(`Unexpected package ${app.android?.package}`);
           if (app.runtimeVersion?.policy !== 'appVersion') throw new Error('OTA runtime boundary missing');
           if (!app.updates?.url) throw new Error('OTA update URL missing');
-          console.log('Nexa v123 identity and OTA boundary OK.');
+          console.log('Nexa v123 identity OK.');
           NODE
 
-      - name: Configure hardened Gradle memory
+      - name: Require existing Android signing key
         env:
-          GRADLE_USER_HOME: ${{ runner.temp }}/nexa-gradle-home
+          NEXA_ANDROID_KEYSTORE_BASE64: ${{ secrets.NEXA_ANDROID_KEYSTORE_BASE64 }}
+          NEXA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.NEXA_ANDROID_KEYSTORE_PASSWORD }}
+          NEXA_ANDROID_KEY_ALIAS: ${{ secrets.NEXA_ANDROID_KEY_ALIAS }}
+          NEXA_ANDROID_KEY_PASSWORD: ${{ secrets.NEXA_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$NEXA_ANDROID_KEYSTORE_BASE64" || { echo 'Missing NEXA_ANDROID_KEYSTORE_BASE64'; exit 2; }
+          test -n "$NEXA_ANDROID_KEYSTORE_PASSWORD" || { echo 'Missing NEXA_ANDROID_KEYSTORE_PASSWORD'; exit 2; }
+          test -n "$NEXA_ANDROID_KEY_ALIAS" || { echo 'Missing NEXA_ANDROID_KEY_ALIAS'; exit 2; }
+          test -n "$NEXA_ANDROID_KEY_PASSWORD" || { echo 'Missing NEXA_ANDROID_KEY_PASSWORD'; exit 2; }
+          echo 'Existing Android signing credentials are available.'
+
+      - name: Generate native Android project locally
+        run: npx expo prebuild --platform android --clean --non-interactive
+
+      - name: Configure signing without EAS Build
+        env:
+          NEXA_ANDROID_KEYSTORE_BASE64: ${{ secrets.NEXA_ANDROID_KEYSTORE_BASE64 }}
+          NEXA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.NEXA_ANDROID_KEYSTORE_PASSWORD }}
+          NEXA_ANDROID_KEY_ALIAS: ${{ secrets.NEXA_ANDROID_KEY_ALIAS }}
+          NEXA_ANDROID_KEY_PASSWORD: ${{ secrets.NEXA_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$NEXA_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/nexa-release.jks
+          test -s android/app/nexa-release.jks
+          cat >> android/app/build.gradle <<'GRADLE'
+
+          // Nexa CI release signing. Secret values are supplied only at build time.
+          android {
+              signingConfigs {
+                  nexaRelease {
+                      storeFile file('nexa-release.jks')
+                      storePassword System.getenv('NEXA_ANDROID_KEYSTORE_PASSWORD')
+                      keyAlias System.getenv('NEXA_ANDROID_KEY_ALIAS')
+                      keyPassword System.getenv('NEXA_ANDROID_KEY_PASSWORD')
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.nexaRelease
+                  }
+              }
+          }
+          GRADLE
+
+      - name: Configure hardened Gradle memory
         run: |
           set -euo pipefail
           mkdir -p "$GRADLE_USER_HOME"
           cat > "$GRADLE_USER_HOME/gradle.properties" <<'EOF'
-          org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1536m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+          org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8
           kotlin.daemon.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=768m
           org.gradle.workers.max=2
           org.gradle.parallel=false
-          org.gradle.daemon=true
+          org.gradle.daemon=false
           reactNativeArchitectures=arm64-v8a
           EOF
-          echo 'Gradle user properties:'
-          cat "$GRADLE_USER_HOME/gradle.properties"
-          free -h
 
-      - name: Add emergency swap space
-        run: |
-          set -euo pipefail
-          if sudo fallocate -l 4G /swapfile-v123 2>/dev/null; then
-            sudo chmod 600 /swapfile-v123
-            sudo mkswap /swapfile-v123
-            sudo swapon /swapfile-v123 || true
-          fi
-          free -h
-          swapon --show || true
-
-      - name: Build signed Wallet-First v123 APK
+      - name: Build signed Wallet-First v123 APK with Gradle
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          CI: 'true'
-          NODE_ENV: 'production'
-          EXPO_NO_TELEMETRY: '1'
-          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
-          GRADLE_USER_HOME: ${{ runner.temp }}/nexa-gradle-home
-          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
-          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-wallet-first-v123
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v123
+          NEXA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.NEXA_ANDROID_KEYSTORE_PASSWORD }}
+          NEXA_ANDROID_KEY_ALIAS: ${{ secrets.NEXA_ANDROID_KEY_ALIAS }}
+          NEXA_ANDROID_KEY_PASSWORD: ${{ secrets.NEXA_ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          eas whoami
+          cd android
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+          cd ..
+          SOURCE_APK='android/app/build/outputs/apk/release/app-release.apk'
           FILE='Nexa-Wallet-First-Pilot-2.0.23-v123.apk'
-          rm -f "$FILE"
-          eas build --platform android --profile open-finance-pilot --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
-          test -s "$FILE"
+          test -s "$SOURCE_APK"
+          cp "$SOURCE_APK" "$FILE"
           SHA256=$(sha256sum "$FILE" | awk '{print $1}')
           echo "apk_file=$FILE" >> "$GITHUB_ENV"
           echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
           ls -lh "$FILE"
 
-      - name: Verify signed APK identity with Android build tools
+      - name: Verify signed APK identity
         run: |
           set -euo pipefail
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
           AAPT2=$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)
           test -x "$APKSIGNER"
           test -x "$AAPT2"
-
           "$APKSIGNER" verify --verbose --print-certs "${{ env.apk_file }}" | tee apk-signature.txt
           "$AAPT2" dump badging "${{ env.apk_file }}" | tee apk-badging.txt
-
           grep -Eq "^package: name='br\.com\.trynexa\.app' .*versionCode='123' .*versionName='2\.0\.23'" apk-badging.txt
           grep -Fq "targetSdkVersion:'36'" apk-badging.txt
-
           printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
           sha256sum -c SHA256SUMS.txt
-          echo 'APK VERIFIED: Nexa 2.0.23 v123, signed, API36, OTA-enabled.'
+          echo 'APK VERIFIED: Nexa 2.0.23 v123, signed, API36.'
 
       - name: Upload verified v123 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-Wallet-First-Pilot-v123-VERIFIED
+          name: Nexa-Wallet-First-Pilot-v123-NATIVE-GRADLE
           path: |
             ${{ env.apk_file }}
             SHA256SUMS.txt
@@ -142,17 +169,3 @@ jobs:
             apk-badging.txt
           if-no-files-found: error
           retention-days: 30
-
-      - name: Upload diagnostics on failure
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: Nexa-Wallet-First-Pilot-v123-rebuild-diagnostics
-          path: |
-            ${{ runner.temp }}/nexa-wallet-first-v123/logs
-            local-build-artifacts-v123
-            Nexa-Wallet-First-Pilot-2.0.23-v123.apk
-            apk-signature.txt
-            apk-badging.txt
-          if-no-files-found: warn
-          retention-days: 14
