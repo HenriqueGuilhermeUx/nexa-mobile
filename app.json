@@ -2,20 +2,28 @@
   "expo": {
     "name": "Nexa",
     "slug": "nexa",
-    "version": "2.0.23",
+    "version": "2.0.24",
     "orientation": "portrait",
     "scheme": "nexa",
     "icon": "./nexa-mobile/nexa-mobile/assets/icon.png",
     "userInterfaceStyle": "dark",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b3faabec-283a-4ba2-88b5-f096304e68aa",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "122",
+      "buildNumber": "123",
       "usesAppleSignIn": true
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 122,
+      "versionCode": 123,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
@@ -80,7 +88,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.23-v122-wallet-first-pilot",
+      "releaseBuild": "android16-api36-2.0.24-v123-wallet-first-pilot-ota",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       }
