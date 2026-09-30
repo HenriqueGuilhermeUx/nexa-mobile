@@ -113,23 +113,22 @@ jobs:
           echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
           ls -lh "$FILE"
 
-      - name: Verify signed APK identity
+      - name: Verify signed APK identity with Android build tools
         run: |
           set -euo pipefail
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
-          APKANALYZER="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)
           test -x "$APKSIGNER"
-          test -x "$APKANALYZER"
-          "$APKSIGNER" verify --verbose --print-certs "${{ env.apk_file }}" > apk-signature.txt
-          "$APKANALYZER" manifest application-id "${{ env.apk_file }}" | tee apk-package.txt
-          "$APKANALYZER" manifest version-name "${{ env.apk_file }}" | tee apk-version-name.txt
-          "$APKANALYZER" manifest version-code "${{ env.apk_file }}" | tee apk-version-code.txt
-          "$APKANALYZER" manifest target-sdk "${{ env.apk_file }}" | tee apk-target-sdk.txt
-          grep -qx 'br.com.trynexa.app' apk-package.txt
-          grep -Fqx '2.0.23' apk-version-name.txt
-          grep -Fqx '123' apk-version-code.txt
-          grep -qx '36' apk-target-sdk.txt
+          test -x "$AAPT2"
+
+          "$APKSIGNER" verify --verbose --print-certs "${{ env.apk_file }}" | tee apk-signature.txt
+          "$AAPT2" dump badging "${{ env.apk_file }}" | tee apk-badging.txt
+
+          grep -Eq "^package: name='br\.com\.trynexa\.app' .*versionCode='123' .*versionName='2\.0\.23'" apk-badging.txt
+          grep -Fq "targetSdkVersion:'36'" apk-badging.txt
+
           printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
           echo 'APK VERIFIED: Nexa 2.0.23 v123, signed, API36, OTA-enabled.'
 
       - name: Upload verified v123 APK
@@ -140,10 +139,7 @@ jobs:
             ${{ env.apk_file }}
             SHA256SUMS.txt
             apk-signature.txt
-            apk-package.txt
-            apk-version-name.txt
-            apk-version-code.txt
-            apk-target-sdk.txt
+            apk-badging.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -155,5 +151,8 @@ jobs:
           path: |
             ${{ runner.temp }}/nexa-wallet-first-v123/logs
             local-build-artifacts-v123
+            Nexa-Wallet-First-Pilot-2.0.23-v123.apk
+            apk-signature.txt
+            apk-badging.txt
           if-no-files-found: warn
           retention-days: 14
