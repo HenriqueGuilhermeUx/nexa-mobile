@@ -1,0 +1,71 @@
+name: Publish v124 purchase authorization hotfix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/publish-v124-purchase-auth-hotfix.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v124-purchase-auth-hotfix
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Validate and publish OTA hotfix
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate purchase authorization hotfix
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          grep -q "purchase-authorization" 'app/(app)/buy-crypto.tsx'
+          grep -q "Already logged in" app/purchase-authorization.tsx
+          grep -q "privy?.user" app/purchase-authorization.tsx
+          grep -q "Return user data in an identity token" app/purchase-authorization.tsx
+          node -e "const a=require('./app.json').expo; if(a.version!=='2.0.23'||a.android.versionCode!==124) process.exit(1);"
+
+      - name: Publish Android OTA to v124 runtime
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'open-finance-pilot'
+        run: |
+          set -euo pipefail
+          eas update \
+            --channel open-finance-pilot \
+            --platform android \
+            --message "v124: fix Privy already-logged-in purchase authorization" \
+            --non-interactive
