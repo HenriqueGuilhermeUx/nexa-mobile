@@ -98,6 +98,10 @@ export function prepareWalletFirstSwap(
   });
 }
 
+export function ensureWalletFirstGas(accessToken: string) {
+  return postJson<any>(accessToken, '/wallet-v15/swap/ensure-gas', {});
+}
+
 export function executeSponsoredWalletFirstSwap(
   accessToken: string,
   intentToken: string,
@@ -145,7 +149,7 @@ export async function assertPolygonProvider(provider: any) {
     (await provider.request({ method: 'eth_chainId' }).catch(() => '')) || '',
   ).toLowerCase();
   if (switched !== '0x89' && switched !== '137') {
-    throw new Error('Não foi possível selecionar a rede Polygon.');
+    throw new Error('Não foi possível preparar a rede da sua carteira.');
   }
 }
 
@@ -182,7 +186,7 @@ export async function sendPreparedWalletTransaction(
   });
   const normalized = String(txHash || '').trim();
   if (!/^0x[a-fA-F0-9]{64}$/.test(normalized)) {
-    throw new Error('A carteira não retornou um hash de transação válido.');
+    throw new Error('A carteira não retornou um comprovante de transação válido.');
   }
   return normalized;
 }
