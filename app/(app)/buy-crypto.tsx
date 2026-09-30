@@ -198,7 +198,6 @@ export default function BuyCryptoScreen() {
       <Card>
         <Text style={styles.label}>Qual ativo?</Text>
         <View style={styles.assetRow}>
-          {(['BTC', 'ETH'] as Asset).map ? null : null}
           {(['BTC', 'ETH'] as Asset[]).map((item) => (
             <Pressable
               key={item}
