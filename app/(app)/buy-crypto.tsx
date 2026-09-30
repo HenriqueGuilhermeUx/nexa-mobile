@@ -69,14 +69,7 @@ export default function BuyCryptoScreen() {
   const [error, setError] = useState('');
 
   function requestPrivyAuthorization() {
-    router.push({
-      pathname: '/wallet-recovery',
-      params: {
-        returnTo: 'buy-crypto',
-        asset,
-        amount,
-      },
-    } as any);
+    router.push('/purchase-authorization' as any);
   }
 
   async function requestQuote() {
@@ -136,6 +129,9 @@ export default function BuyCryptoScreen() {
     const authorizedToken = consumePurchaseIdentityToken();
     if (authorizedToken) return authorizedToken;
 
+    const direct = String(identity?.identityToken || '').trim();
+    if (direct.split('.').length === 3 && direct.length > 40) return direct;
+
     if (typeof identity?.getIdentityToken !== 'function') return '';
     try {
       const token = String((await identity.getIdentityToken()) || '').trim();
@@ -153,7 +149,7 @@ export default function BuyCryptoScreen() {
       const privyUserJwt = await getPrivyIdentityTokenForPurchase();
       if (!privyUserJwt) {
         requestPrivyAuthorization();
-        throw new Error('Confirme sua identidade para autorizar esta compra.');
+        return;
       }
 
       const session = await loadNexaSession();
@@ -202,6 +198,7 @@ export default function BuyCryptoScreen() {
       <Card>
         <Text style={styles.label}>Qual ativo?</Text>
         <View style={styles.assetRow}>
+          {(['BTC', 'ETH'] as Asset).map ? null : null}
           {(['BTC', 'ETH'] as Asset[]).map((item) => (
             <Pressable
               key={item}
