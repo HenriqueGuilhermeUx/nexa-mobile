@@ -1,0 +1,83 @@
+name: Nexa v123 OTA Hotfix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/(app)/buy-crypto.tsx'
+      - 'app/wallet-recovery.tsx'
+      - '.github/workflows/wallet-first-v123-ota-hotfix.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v123-ota-hotfix
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Validate and publish v123 OTA
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: open-finance-pilot
+
+    steps:
+      - name: Checkout hotfix
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install project dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Verify OTA compatibility boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          if (app.version !== '2.0.23') throw new Error(`Unexpected app version ${app.version}`);
+          if (Number(app.android?.versionCode) !== 123) throw new Error(`Unexpected Android versionCode ${app.android?.versionCode}`);
+          if (app.runtimeVersion?.policy !== 'appVersion') throw new Error('runtimeVersion appVersion policy missing');
+          if (app.updates?.url !== 'https://u.expo.dev/b3faabec-283a-4ba2-88b5-f096304e68aa') {
+            throw new Error('Unexpected EAS Update URL');
+          }
+          console.log('OTA boundary OK: runtime 2.0.23 / Android v123.');
+          NODE
+
+      - name: Install stable EAS CLI
+        run: npm install --global eas-cli@16.17.4 --no-audit --no-fund
+
+      - name: Authenticate Expo
+        run: eas whoami
+
+      - name: Publish Android OTA to installed v123 pilot
+        run: |
+          set -euo pipefail
+          eas update \
+            --channel open-finance-pilot \
+            --platform android \
+            --message "v123 hotfix: stop wallet recovery purchase loop" \
+            --clear-cache \
+            --non-interactive
+
+      - name: Confirm publish completed
+        run: echo 'Nexa v123 OTA hotfix published to open-finance-pilot.'
