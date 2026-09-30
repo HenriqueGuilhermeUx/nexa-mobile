@@ -1,0 +1,156 @@
+name: Nexa Wallet-First v123 APK Rebuild
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/wallet-first-pilot-v123-rebuild.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-wallet-first-v123-rebuild
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build verified v123 APK with hardened Gradle memory
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout v123
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify v123 identity
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const dynamic = require('./app.config.js')({ config: app });
+          if (app.version !== '2.0.23') throw new Error(`Unexpected app version ${app.version}`);
+          if (Number(app.android?.versionCode) !== 123) throw new Error(`Unexpected versionCode ${app.android?.versionCode}`);
+          if (Number(dynamic.android?.versionCode) !== 123) throw new Error(`Unexpected dynamic versionCode ${dynamic.android?.versionCode}`);
+          if (app.android?.package !== 'br.com.trynexa.app') throw new Error(`Unexpected package ${app.android?.package}`);
+          if (app.runtimeVersion?.policy !== 'appVersion') throw new Error('OTA runtime boundary missing');
+          if (!app.updates?.url) throw new Error('OTA update URL missing');
+          console.log('Nexa v123 identity and OTA boundary OK.');
+          NODE
+
+      - name: Configure hardened Gradle memory
+        env:
+          GRADLE_USER_HOME: ${{ runner.temp }}/nexa-gradle-home
+        run: |
+          set -euo pipefail
+          mkdir -p "$GRADLE_USER_HOME"
+          cat > "$GRADLE_USER_HOME/gradle.properties" <<'EOF'
+          org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1536m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=768m
+          org.gradle.workers.max=2
+          org.gradle.parallel=false
+          org.gradle.daemon=true
+          reactNativeArchitectures=arm64-v8a
+          EOF
+          echo 'Gradle user properties:'
+          cat "$GRADLE_USER_HOME/gradle.properties"
+          free -h
+
+      - name: Add emergency swap space
+        run: |
+          set -euo pipefail
+          if sudo fallocate -l 4G /swapfile-v123 2>/dev/null; then
+            sudo chmod 600 /swapfile-v123
+            sudo mkswap /swapfile-v123
+            sudo swapon /swapfile-v123 || true
+          fi
+          free -h
+          swapon --show || true
+
+      - name: Build signed Wallet-First v123 APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          GRADLE_USER_HOME: ${{ runner.temp }}/nexa-gradle-home
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-wallet-first-v123
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v123
+        run: |
+          set -euo pipefail
+          eas whoami
+          FILE='Nexa-Wallet-First-Pilot-2.0.23-v123.apk'
+          rm -f "$FILE"
+          eas build --platform android --profile open-finance-pilot --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
+          test -s "$FILE"
+          SHA256=$(sha256sum "$FILE" | awk '{print $1}')
+          echo "apk_file=$FILE" >> "$GITHUB_ENV"
+          echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
+          ls -lh "$FILE"
+
+      - name: Verify signed APK identity
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          APKANALYZER="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          test -x "$APKSIGNER"
+          test -x "$APKANALYZER"
+          "$APKSIGNER" verify --verbose --print-certs "${{ env.apk_file }}" > apk-signature.txt
+          "$APKANALYZER" manifest application-id "${{ env.apk_file }}" | tee apk-package.txt
+          "$APKANALYZER" manifest version-name "${{ env.apk_file }}" | tee apk-version-name.txt
+          "$APKANALYZER" manifest version-code "${{ env.apk_file }}" | tee apk-version-code.txt
+          "$APKANALYZER" manifest target-sdk "${{ env.apk_file }}" | tee apk-target-sdk.txt
+          grep -qx 'br.com.trynexa.app' apk-package.txt
+          grep -Fqx '2.0.23' apk-version-name.txt
+          grep -Fqx '123' apk-version-code.txt
+          grep -qx '36' apk-target-sdk.txt
+          printf '%s  %s\n' "${{ env.apk_sha256 }}" "${{ env.apk_file }}" > SHA256SUMS.txt
+          echo 'APK VERIFIED: Nexa 2.0.23 v123, signed, API36, OTA-enabled.'
+
+      - name: Upload verified v123 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Wallet-First-Pilot-v123-VERIFIED
+          path: |
+            ${{ env.apk_file }}
+            SHA256SUMS.txt
+            apk-signature.txt
+            apk-package.txt
+            apk-version-name.txt
+            apk-version-code.txt
+            apk-target-sdk.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Wallet-First-Pilot-v123-rebuild-diagnostics
+          path: |
+            ${{ runner.temp }}/nexa-wallet-first-v123/logs
+            local-build-artifacts-v123
+          if-no-files-found: warn
+          retention-days: 14
