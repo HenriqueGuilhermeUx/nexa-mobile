@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
+import {
+  useIdentityToken,
+  useLoginWithEmail,
+  usePrivy,
+} from '@privy-io/expo';
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
@@ -32,6 +36,7 @@ function maskedEmail(value: string) {
 
 export default function PurchaseAuthorizationScreen() {
   const privy = usePrivy() as any;
+  const identity = useIdentityToken() as any;
   const emailLogin = useLoginWithEmail() as any;
 
   const [email, setEmail] = useState('');
@@ -40,22 +45,40 @@ export default function PurchaseAuthorizationScreen() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
-  const [status, setStatus] = useState('Verificando sua sessão Privy...');
+  const [status, setStatus] = useState('Verificando sua autorização Privy...');
 
-  async function readAccessToken() {
-    if (!privy?.user || typeof privy?.getAccessToken !== 'function') return '';
-    try {
-      const token = String((await privy.getAccessToken()) || '').trim();
-      return looksLikeJwt(token) ? token : '';
-    } catch {
-      return '';
+  async function readIdentityToken() {
+    const direct = String(identity?.identityToken || '').trim();
+    if (looksLikeJwt(direct)) return direct;
+
+    if (typeof identity?.getIdentityToken === 'function') {
+      try {
+        const token = String((await identity.getIdentityToken()) || '').trim();
+        if (looksLikeJwt(token)) return token;
+      } catch {
+        // The refresh path below remains the fallback.
+      }
     }
+    return '';
   }
 
-  async function waitForAccessToken(timeoutMs = 15_000) {
+  async function refreshAndReadIdentityToken(timeoutMs = 12_000) {
+    let token = await readIdentityToken();
+    if (token) return token;
+
+    // Refreshing the authenticated Privy session can also refresh the identity
+    // token. The identity token is the JWT Privy expects in user_jwts.
+    if (privy?.user && typeof privy?.getAccessToken === 'function') {
+      try {
+        await privy.getAccessToken();
+      } catch {
+        // The retry loop remains the source of truth.
+      }
+    }
+
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const token = await readAccessToken();
+      token = await readIdentityToken();
       if (token) return token;
       await sleep(500);
     }
@@ -63,8 +86,6 @@ export default function PurchaseAuthorizationScreen() {
   }
 
   function finishAuthorization(token: string) {
-    // The server wallet authorization context expects the authenticated Privy
-    // app access token (JWT), not the Identity Token used for profile data.
     stashPurchaseIdentityToken(token);
     router.back();
   }
@@ -83,13 +104,11 @@ export default function PurchaseAuthorizationScreen() {
 
         if (!privy?.isReady) return;
 
-        // Normal path: reuse the current authenticated Privy session. No OTP,
-        // no wallet recovery and no second login are necessary.
         if (privy?.user) {
-          const token = await waitForAccessToken(5_000);
+          const token = await refreshAndReadIdentityToken(5_000);
           if (!active) return;
           if (token) {
-            setStatus('Sessão Privy confirmada. Voltando para sua compra...');
+            setStatus('Autorização Privy confirmada. Voltando para sua compra...');
             finishAuthorization(token);
             return;
           }
@@ -109,7 +128,7 @@ export default function PurchaseAuthorizationScreen() {
     return () => {
       active = false;
     };
-  }, [privy?.isReady, privy?.user?.id]);
+  }, [privy?.isReady, privy?.user?.id, identity?.identityToken]);
 
   async function beginOtpAuthorization() {
     setError('');
@@ -117,9 +136,8 @@ export default function PurchaseAuthorizationScreen() {
     try {
       if (!email) throw new Error('E-mail da conta Nexa indisponível.');
 
-      // Try the valid logged-in session once more before starting a fresh login.
       if (privy?.user) {
-        const currentToken = await readAccessToken();
+        const currentToken = await refreshAndReadIdentityToken(3_000);
         if (currentToken) {
           finishAuthorization(currentToken);
           return;
@@ -136,7 +154,7 @@ export default function PurchaseAuthorizationScreen() {
       await emailLogin.sendCode({ email, disableSignup: true });
       setCode('');
       setCodeSent(true);
-      setStatus('Digite o código enviado para confirmar sua sessão Privy.');
+      setStatus('Digite o código enviado para confirmar a autorização Privy.');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível enviar o código.');
     } finally {
@@ -154,10 +172,8 @@ export default function PurchaseAuthorizationScreen() {
 
     setWorking(true);
     try {
-      // Never call loginWithCode over an authenticated session. First reuse its
-      // access token; only logout if the session cannot issue one.
       if (privy?.user) {
-        const existingToken = await readAccessToken();
+        const existingToken = await refreshAndReadIdentityToken(3_000);
         if (existingToken) {
           finishAuthorization(existingToken);
           return;
@@ -173,11 +189,13 @@ export default function PurchaseAuthorizationScreen() {
       }
 
       await emailLogin.loginWithCode({ email, code: normalizedCode });
-      setStatus('Código confirmado. Obtendo autorização da sua sessão Privy...');
+      setStatus('Código confirmado. Obtendo autorização da sua carteira...');
 
-      const token = await waitForAccessToken(20_000);
+      const token = await refreshAndReadIdentityToken(20_000);
       if (!token) {
-        throw new Error('A Privy confirmou o login, mas não liberou um access token válido.');
+        throw new Error(
+          'A Privy confirmou o login, mas não forneceu o Identity Token de autorização.',
+        );
       }
 
       finishAuthorization(token);
@@ -203,7 +221,7 @@ export default function PurchaseAuthorizationScreen() {
       <View style={styles.topSpace} />
       <Title>Confirmação segura.</Title>
       <Paragraph>
-        A Nexa usa a sessão autenticada da Privy para autorizar esta compra. Não criamos nem trocamos sua carteira neste processo.
+        A Nexa usa sua sessão Privy para autorizar esta compra. Não criamos nem trocamos sua carteira neste processo.
       </Paragraph>
 
       <Card>
