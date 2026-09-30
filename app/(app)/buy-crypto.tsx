@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { usePrivy } from '@privy-io/expo';
+import { useIdentityToken, usePrivy } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -60,6 +60,7 @@ export default function BuyCryptoScreen() {
     identityRecovered?: string | string[];
   }>();
   const privy = usePrivy() as any;
+  const identity = useIdentityToken() as any;
 
   const initialAsset: Asset = firstParam(params.asset) === 'ETH' ? 'ETH' : 'BTC';
   const initialAmount = firstParam(params.amount) || '';
@@ -131,9 +132,6 @@ export default function BuyCryptoScreen() {
   }
 
   async function getPrivyAccessTokenForPurchase() {
-    const authorizedToken = consumePurchaseIdentityToken();
-    if (looksLikeJwt(authorizedToken)) return authorizedToken;
-
     if (!privy?.user || typeof privy?.getAccessToken !== 'function') return '';
     try {
       const token = String((await privy.getAccessToken()) || '').trim();
@@ -143,15 +141,35 @@ export default function BuyCryptoScreen() {
     }
   }
 
+  async function getPrivyIdentityTokenForPurchase() {
+    const authorizedToken = consumePurchaseIdentityToken();
+    if (looksLikeJwt(authorizedToken)) return authorizedToken;
+
+    const direct = String(identity?.identityToken || '').trim();
+    if (looksLikeJwt(direct)) return direct;
+
+    if (typeof identity?.getIdentityToken === 'function') {
+      try {
+        const token = String((await identity.getIdentityToken()) || '').trim();
+        if (looksLikeJwt(token)) return token;
+      } catch {
+        return '';
+      }
+    }
+    return '';
+  }
+
   async function confirmPurchase() {
     if (!prepared) return;
     setError('');
     setWorking(true);
     try {
-      // Privy's wallet authorization context expects the authenticated app access
-      // token. Identity tokens are profile-data tokens and are not used here.
-      const privyAccessToken = await getPrivyAccessTokenForPurchase();
-      if (!privyAccessToken) {
+      const [privyAccessToken, privyIdentityToken] = await Promise.all([
+        getPrivyAccessTokenForPurchase(),
+        getPrivyIdentityTokenForPurchase(),
+      ]);
+
+      if (!privyAccessToken || !privyIdentityToken) {
         requestPrivyAuthorization();
         return;
       }
@@ -163,6 +181,7 @@ export default function BuyCryptoScreen() {
         prepared.intentToken,
         prepared.swapTransaction,
         privyAccessToken,
+        privyIdentityToken,
       );
       const hash = String(result?.txHash || '').trim();
       if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {
@@ -202,6 +221,7 @@ export default function BuyCryptoScreen() {
       <Card>
         <Text style={styles.label}>Qual ativo?</Text>
         <View style={styles.assetRow}>
+          {(['BTC', 'ETH'] as Asset).map ? null : null}
           {(['BTC', 'ETH'] as Asset[]).map((item) => (
             <Pressable
               key={item}
