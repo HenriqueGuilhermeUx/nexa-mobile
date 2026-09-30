@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  useIdentityToken,
-  useLoginWithEmail,
-  usePrivy,
-} from '@privy-io/expo';
+import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
@@ -36,7 +32,6 @@ function maskedEmail(value: string) {
 
 export default function PurchaseAuthorizationScreen() {
   const privy = usePrivy() as any;
-  const identity = useIdentityToken() as any;
   const emailLogin = useLoginWithEmail() as any;
 
   const [email, setEmail] = useState('');
@@ -47,38 +42,20 @@ export default function PurchaseAuthorizationScreen() {
   const [error, setError] = useState('');
   const [status, setStatus] = useState('Verificando sua sessão Privy...');
 
-  async function readIdentityToken() {
-    const direct = String(identity?.identityToken || '').trim();
-    if (looksLikeJwt(direct)) return direct;
-
-    if (typeof identity?.getIdentityToken === 'function') {
-      try {
-        const token = String((await identity.getIdentityToken()) || '').trim();
-        if (looksLikeJwt(token)) return token;
-      } catch {
-        // Continue with the refresh path below.
-      }
+  async function readAccessToken() {
+    if (!privy?.user || typeof privy?.getAccessToken !== 'function') return '';
+    try {
+      const token = String((await privy.getAccessToken()) || '').trim();
+      return looksLikeJwt(token) ? token : '';
+    } catch {
+      return '';
     }
-    return '';
   }
 
-  async function refreshAndReadIdentityToken(timeoutMs = 12_000) {
-    let token = await readIdentityToken();
-    if (token) return token;
-
-    // Privy documents that refreshing the authenticated session can also refresh
-    // the identity token. This is safe to call only when a user session exists.
-    if (privy?.user && typeof privy?.getAccessToken === 'function') {
-      try {
-        await privy.getAccessToken();
-      } catch {
-        // The retry loop below remains the source of truth.
-      }
-    }
-
+  async function waitForAccessToken(timeoutMs = 15_000) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      token = await readIdentityToken();
+      const token = await readAccessToken();
       if (token) return token;
       await sleep(500);
     }
@@ -86,6 +63,8 @@ export default function PurchaseAuthorizationScreen() {
   }
 
   function finishAuthorization(token: string) {
+    // The server wallet authorization context expects the authenticated Privy
+    // app access token (JWT), not the Identity Token used for profile data.
     stashPurchaseIdentityToken(token);
     router.back();
   }
@@ -104,13 +83,13 @@ export default function PurchaseAuthorizationScreen() {
 
         if (!privy?.isReady) return;
 
-        // Most purchases should end here: the customer is already logged in to
-        // Privy, so reuse that session instead of trying to log in a second time.
+        // Normal path: reuse the current authenticated Privy session. No OTP,
+        // no wallet recovery and no second login are necessary.
         if (privy?.user) {
-          const token = await refreshAndReadIdentityToken(5_000);
+          const token = await waitForAccessToken(5_000);
           if (!active) return;
           if (token) {
-            setStatus('Identidade confirmada. Voltando para sua compra...');
+            setStatus('Sessão Privy confirmada. Voltando para sua compra...');
             finishAuthorization(token);
             return;
           }
@@ -138,12 +117,17 @@ export default function PurchaseAuthorizationScreen() {
     try {
       if (!email) throw new Error('E-mail da conta Nexa indisponível.');
 
-      // loginWithCode is a login operation. Privy correctly rejects it when a
-      // user is already logged in. If the current session could not issue an
-      // identity token, end only the Privy session before starting a fresh OTP.
-      if (privy?.user && typeof privy?.logout === 'function') {
-        await privy.logout();
-        await sleep(300);
+      // Try the valid logged-in session once more before starting a fresh login.
+      if (privy?.user) {
+        const currentToken = await readAccessToken();
+        if (currentToken) {
+          finishAuthorization(currentToken);
+          return;
+        }
+        if (typeof privy?.logout === 'function') {
+          await privy.logout();
+          await sleep(300);
+        }
       }
 
       if (typeof emailLogin?.sendCode !== 'function') {
@@ -152,7 +136,7 @@ export default function PurchaseAuthorizationScreen() {
       await emailLogin.sendCode({ email, disableSignup: true });
       setCode('');
       setCodeSent(true);
-      setStatus('Digite o código enviado para confirmar a autorização.');
+      setStatus('Digite o código enviado para confirmar sua sessão Privy.');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível enviar o código.');
     } finally {
@@ -170,10 +154,10 @@ export default function PurchaseAuthorizationScreen() {
 
     setWorking(true);
     try {
-      // Defensive path: never call loginWithCode over an existing authenticated
-      // session, which is what produced the "Already logged in" loop in v124.
+      // Never call loginWithCode over an authenticated session. First reuse its
+      // access token; only logout if the session cannot issue one.
       if (privy?.user) {
-        const existingToken = await refreshAndReadIdentityToken(3_000);
+        const existingToken = await readAccessToken();
         if (existingToken) {
           finishAuthorization(existingToken);
           return;
@@ -189,13 +173,11 @@ export default function PurchaseAuthorizationScreen() {
       }
 
       await emailLogin.loginWithCode({ email, code: normalizedCode });
-      setStatus('Código confirmado. Obtendo autorização da Privy...');
+      setStatus('Código confirmado. Obtendo autorização da sua sessão Privy...');
 
-      const token = await refreshAndReadIdentityToken(20_000);
+      const token = await waitForAccessToken(20_000);
       if (!token) {
-        throw new Error(
-          'A Privy confirmou o login, mas não forneceu o Identity Token. Verifique no Privy Dashboard se “Return user data in an identity token” está ativado.',
-        );
+        throw new Error('A Privy confirmou o login, mas não liberou um access token válido.');
       }
 
       finishAuthorization(token);
@@ -219,9 +201,9 @@ export default function PurchaseAuthorizationScreen() {
     <Screen>
       <Badge tone="success">AUTORIZAÇÃO DA COMPRA</Badge>
       <View style={styles.topSpace} />
-      <Title>Confirme sua identidade.</Title>
+      <Title>Confirmação segura.</Title>
       <Paragraph>
-        A Nexa usa sua sessão Privy para autorizar esta compra. Não criamos nem trocamos sua carteira neste processo.
+        A Nexa usa a sessão autenticada da Privy para autorizar esta compra. Não criamos nem trocamos sua carteira neste processo.
       </Paragraph>
 
       <Card>
@@ -232,7 +214,7 @@ export default function PurchaseAuthorizationScreen() {
 
       {!codeSent ? (
         <ActionButton
-          label={privy?.user ? 'Renovar autorização Privy' : 'Enviar código de autorização'}
+          label={privy?.user ? 'Continuar com sessão Privy' : 'Enviar código de autorização'}
           loading={working}
           onPress={beginOtpAuthorization}
         />
