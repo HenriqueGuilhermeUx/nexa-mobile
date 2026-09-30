@@ -14,6 +14,7 @@ export default function AuthenticatedLayout() {
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="new-order" options={{ title: 'Nova operação' }} />
+      <Stack.Screen name="card-funding" options={{ title: 'Adicionar com cartão' }} />
       <Stack.Screen name="activity" options={{ title: 'Atividade' }} />
     </Stack>
   );
