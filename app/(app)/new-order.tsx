@@ -400,9 +400,9 @@ export default function NewOrderScreen() {
   return (
     <Screen>
       <Eyebrow>Adicionar dinheiro</Eyebrow>
-      <Title>Quanto você quer adicionar?</Title>
-      <Paragraph>Você paga em reais. A Nexa entrega USDC na sua carteira automaticamente.</Paragraph>
-      <Field label="Valor em R$" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Ex.: 10,00" />
+      <Title>Como você quer adicionar?</Title>
+      <Paragraph>Pix continua sendo a forma principal. Agora você também pode usar cartão, Apple Pay ou Google Pay quando disponíveis.</Paragraph>
+      <Field label="Valor em R$ para Pix" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Ex.: 10,00" />
       <View style={styles.quickRow}>
         {[10, 50, 100].map((value) => (
           <Pressable key={value} onPress={() => setAmount(String(value))} style={styles.quickButton}>
@@ -423,8 +423,13 @@ export default function NewOrderScreen() {
         </Text>
       </Card>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <ActionButton label="Gerar Pix" loading={loading} onPress={submit} />
-      <Text style={styles.microcopy}>Mínimo R$ 10 · sua carteira já está vinculada</Text>
+      <ActionButton label="Adicionar por Pix" loading={loading} onPress={submit} />
+      <ActionButton
+        label="Cartão · Apple Pay · Google Pay"
+        variant="secondary"
+        onPress={() => router.push('/(app)/fund-card' as any)}
+      />
+      <Text style={styles.microcopy}>Pix: mínimo R$ 10 · cartão: condições do provedor exibidas antes da confirmação</Text>
     </Screen>
   );
 }
