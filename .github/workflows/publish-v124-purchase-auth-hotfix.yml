@@ -45,9 +45,11 @@ jobs:
           set -euo pipefail
           npm run typecheck
           grep -q "purchase-authorization" 'app/(app)/buy-crypto.tsx'
-          grep -q "Already logged in" app/purchase-authorization.tsx
+          grep -q "getAccessToken" 'app/(app)/buy-crypto.tsx'
+          grep -q "getAccessToken" app/purchase-authorization.tsx
+          ! grep -q "useIdentityToken" 'app/(app)/buy-crypto.tsx'
+          ! grep -q "useIdentityToken" app/purchase-authorization.tsx
           grep -q "privy?.user" app/purchase-authorization.tsx
-          grep -q "Return user data in an identity token" app/purchase-authorization.tsx
           node -e "const a=require('./app.json').expo; if(a.version!=='2.0.23'||a.android.versionCode!==124) process.exit(1);"
 
       - name: Publish Android OTA to v124 runtime
@@ -67,5 +69,5 @@ jobs:
           eas update \
             --channel open-finance-pilot \
             --platform android \
-            --message "v124: fix Privy already-logged-in purchase authorization" \
+            --message "v124: use Privy access token for sponsored purchase" \
             --non-interactive
