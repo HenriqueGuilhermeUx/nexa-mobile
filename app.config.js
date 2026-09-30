@@ -3,14 +3,14 @@ module.exports = ({ config }) => ({
   version: '2.0.23',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '123',
+    buildNumber: '124',
   },
   android: {
     ...(config.android || {}),
-    versionCode: 123,
+    versionCode: 124,
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.23-v123-wallet-first-ota-funding',
+    releaseBuild: 'android16-api36-2.0.23-v124-wallet-first-auth-fix',
   },
 });
