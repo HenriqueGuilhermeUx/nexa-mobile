@@ -103,11 +103,13 @@ export function executeSponsoredWalletFirstSwap(
   intentToken: string,
   swapTransaction: PreparedWalletTransaction,
   privyAccessToken: string,
+  privyIdentityToken: string,
 ) {
   return postJson<any>(accessToken, '/wallet-v15/swap/execute-sponsored', {
     intentToken,
     swapTransaction,
     privyAccessToken,
+    privyIdentityToken,
   });
 }
 
@@ -171,8 +173,6 @@ export async function sendPreparedWalletTransaction(
     value: transaction.value || '0x0',
   };
 
-  // Gas values are accepted only when they came from the backend-prepared route.
-  // The wallet may still estimate them itself when absent.
   if (transaction.gas) request.gas = transaction.gas;
   if (transaction.gasPrice) request.gasPrice = transaction.gasPrice;
 
