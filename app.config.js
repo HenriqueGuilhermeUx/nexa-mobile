@@ -1,3 +1,4 @@
+// Nexa Rewards v128 pilot build trigger. Financial execution remains server-gated.
 module.exports = ({ config }) => ({
   ...config,
   version: '2.0.27',
