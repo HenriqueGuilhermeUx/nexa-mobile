@@ -1,4 +1,4 @@
-import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
+import { useIdentityToken, useLoginWithEmail } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -32,7 +32,7 @@ function maskEmail(value: string) {
 export default function WalletSessionScreen() {
   const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const returnTo = firstParam(params.returnTo) || '';
-  const privy = usePrivy() as any;
+  const identity = useIdentityToken() as any;
   const emailLogin = useLoginWithEmail() as any;
 
   const [email, setEmail] = useState('');
@@ -42,10 +42,10 @@ export default function WalletSessionScreen() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
 
-  async function currentPrivyToken() {
-    if (typeof privy?.getAccessToken !== 'function') return '';
+  async function currentAuthorizationToken() {
+    if (typeof identity?.getIdentityToken !== 'function') return '';
     try {
-      const token = String((await privy.getAccessToken()) || '').trim();
+      const token = String((await identity.getIdentityToken()) || '').trim();
       return token.length > 40 && token.split('.').length === 3 ? token : '';
     } catch {
       return '';
@@ -63,7 +63,7 @@ export default function WalletSessionScreen() {
         }
         if (!active) return;
         setEmail(session.email.trim().toLowerCase());
-        const token = await currentPrivyToken();
+        const token = await currentAuthorizationToken();
         if (active && token) setReady(true);
       } catch (caught) {
         if (active) {
@@ -78,7 +78,7 @@ export default function WalletSessionScreen() {
     return () => {
       active = false;
     };
-  }, [privy?.isReady]);
+  }, [identity?.getIdentityToken]);
 
   async function sendCode() {
     setError('');
@@ -102,12 +102,12 @@ export default function WalletSessionScreen() {
     }
   }
 
-  async function waitForAccessToken(timeoutMs = 12_000) {
+  async function waitForIdentityToken(timeoutMs = 12_000) {
     const deadline = Date.now() + timeoutMs;
     let lastError: unknown = null;
     while (Date.now() < deadline) {
       try {
-        const token = await currentPrivyToken();
+        const token = await currentAuthorizationToken();
         if (token) return token;
       } catch (caught) {
         lastError = caught;
@@ -116,8 +116,8 @@ export default function WalletSessionScreen() {
     }
     throw new Error(
       lastError instanceof Error
-        ? `Sua identidade foi confirmada, mas a sessão da carteira ainda não ficou disponível: ${lastError.message}`
-        : 'Sua identidade foi confirmada, mas a sessão da carteira ainda não ficou disponível. Tente novamente em alguns segundos.',
+        ? `Sua identidade foi confirmada, mas a autorização da carteira ainda não ficou disponível: ${lastError.message}`
+        : 'Sua identidade foi confirmada, mas a autorização da carteira ainda não ficou disponível. Tente novamente em alguns segundos.',
     );
   }
 
@@ -135,7 +135,7 @@ export default function WalletSessionScreen() {
         throw new Error('A validação Privy por código não está disponível nesta versão.');
       }
       await emailLogin.loginWithCode({ email, code: normalizedCode });
-      await waitForAccessToken();
+      await waitForIdentityToken();
       setCodeSent(false);
       setReady(true);
     } catch (caught) {
@@ -167,8 +167,8 @@ export default function WalletSessionScreen() {
       <Title>{ready ? 'Sua carteira está pronta.' : 'Confirme sua carteira.'}</Title>
       <Paragraph>
         {ready
-          ? 'A sessão Privy foi restaurada neste aparelho. Nenhuma nova carteira foi criada.'
-          : 'Use o mesmo e-mail da sua conta Nexa para restaurar a sessão Privy da carteira já vinculada. A Nexa não cria nem troca seu endereço neste fluxo.'}
+          ? 'A autorização Privy da sua carteira foi restaurada neste aparelho. Nenhuma nova carteira foi criada.'
+          : 'Use o mesmo e-mail da sua conta Nexa para restaurar a autorização Privy da carteira já vinculada. A Nexa não cria nem troca seu endereço neste fluxo.'}
       </Paragraph>
 
       <Card>
