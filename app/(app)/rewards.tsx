@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePrivy } from '@privy-io/expo';
+import { useIdentityToken } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -21,6 +21,7 @@ import {
   getRewardsBridgeQuote,
   getRewardsPosition,
   getRewardsVault,
+  getRewardsWalletBalances,
   returnRewardsToWallet,
   withdrawRewardsFull,
 } from '@/lib/rewardsActions';
@@ -110,7 +111,7 @@ function safeReturnAmount(result: any, fallback?: number) {
 }
 
 export default function RewardsScreen() {
-  const privy = usePrivy() as any;
+  const identity = useIdentityToken() as any;
   const [vault, setVault] = useState<any>(null);
   const [position, setPosition] = useState<any>(null);
   const [amount, setAmount] = useState('1,00');
@@ -136,8 +137,8 @@ export default function RewardsScreen() {
   async function privyJwtOrThrow() {
     let token = '';
     try {
-      if (typeof privy?.getAccessToken === 'function') {
-        token = String((await privy.getAccessToken()) || '').trim();
+      if (typeof identity?.getIdentityToken === 'function') {
+        token = String((await identity.getIdentityToken()) || '').trim();
       }
     } catch {
       token = '';
@@ -254,6 +255,24 @@ export default function RewardsScreen() {
     setStatusText('USDC turbinado com sucesso.');
   }
 
+  async function startDepositFromBase(
+    accessToken: string,
+    privyJwt: string,
+    amountUsdc: number,
+  ) {
+    setStatusText('USDC já localizado na rede Rewards. Ativando seus Rewards…');
+    const deposit = await depositRewards(accessToken, privyJwt, amountUsdc);
+    const depositId = String(deposit?.action?.id || '').trim();
+    if (!depositId) {
+      throw new Error('O depósito foi solicitado, mas não recebemos o identificador da action. Não repita a operação.');
+    }
+    await savePending({ type: 'deposit', actionId: depositId, requestedAmount: amountUsdc });
+    await waitForAction(accessToken, depositId);
+    await savePending(null);
+    await refreshPosition(accessToken);
+    setStatusText('USDC turbinado com sucesso.');
+  }
+
   async function continueBridge(
     accessToken: string,
     privyJwt: string,
@@ -325,6 +344,23 @@ export default function RewardsScreen() {
         const result = await getRewardsBridgeQuote(session.accessToken, requested);
         setQuote(result);
       }
+
+      setStatusText('Conferindo seus saldos antes de movimentar…');
+      const balances = await getRewardsWalletBalances(session.accessToken);
+      const polygonUsdc = Number(balances?.polygonUsdc || 0);
+      const baseUsdc = Number(balances?.baseUsdc || 0);
+
+      if (Number.isFinite(baseUsdc) && baseUsdc + 0.000001 >= requested) {
+        await startDepositFromBase(session.accessToken, privyJwt, requested);
+        return;
+      }
+
+      if (!Number.isFinite(polygonUsdc) || polygonUsdc + 0.000001 < requested) {
+        throw new Error(
+          `Saldo disponível na Polygon insuficiente para turbinar ${formatUsdc(requested)}. Nenhuma nova movimentação foi feita.`,
+        );
+      }
+
       setStatusText('Preparando seu USDC para o Rewards…');
       const bridge = await bridgeRewardsToBase(session.accessToken, privyJwt, requested);
       await continueBridge(session.accessToken, privyJwt, bridge, requested);
