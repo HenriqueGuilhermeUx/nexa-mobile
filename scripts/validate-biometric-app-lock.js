@@ -6,7 +6,8 @@ const json = (path) => JSON.parse(read(path));
 
 const pkg = json('package.json');
 const appJson = json('app.json');
-const appConfig = read('app.config.js');
+const appConfigFactory = require('../app.config.js');
+const dynamicConfig = appConfigFactory({ config: appJson.expo });
 const appLock = read('src/lib/appLock.ts');
 const gate = read('src/components/AppLockGate.tsx');
 const session = read('src/lib/session.ts');
@@ -68,14 +69,20 @@ assert.match(openFinance, /reauthenticateSensitiveAction/);
 assert.match(openFinance, /Autorizar entrada via Open Finance/);
 assert.match(openFinance, /Confirme sua identidade para iniciar a autorização no seu banco/);
 
-// Current validated Wallet-First release identity.
-assert.equal(appJson.expo.version, '2.0.26');
-assert.equal(pkg.version, '2.0.26');
-assert.equal(appJson.expo.android.versionCode, 127);
-assert.equal(appJson.expo.ios.buildNumber, '127');
-assert.match(appConfig, /version:\s*'2\.0\.26'/);
-assert.match(appConfig, /versionCode:\s*127/);
-assert.match(appConfig, /v127-privy-wallet-session-recovery/);
+// Release identity and OTA runtime boundary must remain coherent across app.json and app.config.js.
+const appVersion = String(appJson.expo.version || '');
+const androidBuild = Number(appJson.expo.android?.versionCode);
+const iosBuild = String(appJson.expo.ios?.buildNumber || '');
+const releaseBuild = String(appJson.expo.extra?.releaseBuild || '');
+assert.match(appVersion, /^\d+\.\d+\.\d+$/);
+assert.ok(Number.isInteger(androidBuild) && androidBuild > 0, 'Android versionCode must be a positive integer');
+assert.equal(iosBuild, String(androidBuild));
+assert.equal(dynamicConfig.version, appVersion);
+assert.equal(Number(dynamicConfig.android?.versionCode), androidBuild);
+assert.equal(String(dynamicConfig.ios?.buildNumber), iosBuild);
+assert.equal(String(dynamicConfig.extra?.releaseBuild || ''), releaseBuild);
+assert.match(releaseBuild, new RegExp(appVersion.replace(/\./g, '\\.')));
+assert.match(releaseBuild, new RegExp(`v${androidBuild}(?:-|$)`));
 assert.equal(appJson.expo.runtimeVersion?.policy, 'appVersion');
 assert.equal(
   appJson.expo.updates?.url,
@@ -98,5 +105,5 @@ assert.equal(release.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false')
 assert.equal(release.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED, 'false');
 
 console.log(
-  'Nexa v127 security invariants OK: strong biometrics, OTA runtime boundary, fresh Nexa password fallback, 30s relock and sensitive Open Finance re-auth.',
+  `Nexa ${appVersion} v${androidBuild} security invariants OK: strong biometrics, OTA runtime boundary, fresh Nexa password fallback, 30s relock and sensitive Open Finance re-auth.`,
 );

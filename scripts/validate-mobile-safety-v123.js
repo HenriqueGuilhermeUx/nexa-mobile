@@ -11,19 +11,20 @@ const funding = read('app/(app)/fund-card.tsx');
 const addMoney = read('app/(app)/new-order.tsx');
 const layout = read('app/_layout.tsx');
 
-// Current production release identity.
-assert.equal(app.expo.version, '2.0.26');
-assert.equal(pkg.version, '2.0.26');
-assert.equal(app.expo.android.versionCode, 127);
-assert.equal(app.expo.ios.buildNumber, '127');
+// Release identity must stay internally coherent without pinning CI to one historical build.
+const appVersion = String(app.expo.version || '');
+const androidBuild = Number(app.expo.android?.versionCode);
+const iosBuild = String(app.expo.ios?.buildNumber || '');
+const releaseBuild = String(app.expo.extra?.releaseBuild || '');
+assert.match(appVersion, /^\d+\.\d+\.\d+$/);
+assert.ok(Number.isInteger(androidBuild) && androidBuild > 0, 'Android versionCode must be a positive integer');
+assert.equal(iosBuild, String(androidBuild));
+assert.match(releaseBuild, new RegExp(appVersion.replace(/\./g, '\\.')));
+assert.match(releaseBuild, new RegExp(`v${androidBuild}(?:-|$)`));
 assert.equal(app.expo.runtimeVersion?.policy, 'appVersion');
 assert.equal(
   app.expo.updates?.url,
   'https://u.expo.dev/b3faabec-283a-4ba2-88b5-f096304e68aa',
-);
-assert.equal(
-  app.expo.extra?.releaseBuild,
-  'android16-api36-2.0.26-v127-privy-wallet-session-recovery',
 );
 assert.ok(pkg.dependencies?.['expo-updates'], 'expo-updates must be installed');
 assert.equal(pkg.dependencies?.['@alchemy/wallet-apis'], '5.2.7');
@@ -33,7 +34,7 @@ assert.match(config, /appVersion/);
 assert.match(config, /appBuild/);
 assert.match(config, /androidTargetApi/);
 
-// Wallet-First v127: user-owned Privy wallet signs on-device and Alchemy sponsors gas.
+// Wallet-First: user-owned Privy wallet signs on-device and Alchemy sponsors gas.
 assert.match(buy, /createSmartWalletClient/);
 assert.match(buy, /alchemyWalletTransport/);
 assert.match(buy, /useEmbeddedEthereumWallet/);
@@ -73,5 +74,5 @@ assert.doesNotMatch(
 );
 
 console.log(
-  'Nexa v127 safety validated: user-owned Privy signing + Alchemy sponsorship + wallet-session recovery + Woovi Pix / Meld card routing boundary.',
+  `Nexa ${appVersion} v${androidBuild} safety validated: user-owned Privy signing + Alchemy sponsorship + wallet-session recovery + Woovi Pix / Meld card routing boundary.`,
 );
