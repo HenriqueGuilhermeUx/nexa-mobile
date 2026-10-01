@@ -26,22 +26,19 @@ export default function FundCardScreen() {
         throw new Error('Confirme sua identidade para usar a mesma carteira Nexa.');
       }
 
+      // Do not pin a single provider here. The Privy Funding configuration is
+      // the source of truth and may route between MoonPay, Meld and any other
+      // provider enabled for the user's region/payment method.
       await fundWallet({
         address,
         asset: 'USDC',
         chain: polygon as any,
         defaultPaymentMethod: 'card',
-        card: { preferredProvider: 'moonpay' },
-        moonpay: {
-          uiConfig: {
-            theme: 'dark',
-          },
-        },
       } as any);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught || '');
       if (!message.toLowerCase().includes('cancel')) {
-        setError(message || 'Não foi possível abrir o pagamento por cartão agora.');
+        setError(message || 'Não foi possível abrir o pagamento agora.');
       }
     } finally {
       setWorking(false);
@@ -63,10 +60,10 @@ export default function FundCardScreen() {
           Funding Nexa
         </Text>
         <Text style={{ color: colors.muted, lineHeight: 21, marginTop: spacing.sm }}>
-          A Privy seleciona os provedores habilitados para sua região. Para o Brasil, a Nexa prioriza a rota MoonPay configurada no projeto.
+          A Privy seleciona automaticamente entre os provedores habilitados para sua região e forma de pagamento. MoonPay continua disponível e o Meld pode ampliar cobertura e roteamento sem prender a Nexa a um único parceiro.
         </Text>
         <Text style={{ color: colors.muted, lineHeight: 21, marginTop: spacing.sm }}>
-          O provedor pode solicitar dados adicionais de pagamento ou verificação antes de concluir a compra.
+          O provedor escolhido pode solicitar dados adicionais de pagamento ou verificação antes de concluir a compra.
         </Text>
       </Card>
 
