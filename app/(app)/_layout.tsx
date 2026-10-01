@@ -15,6 +15,7 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="new-order" options={{ title: 'Nova operação' }} />
       <Stack.Screen name="activity" options={{ title: 'Atividade' }} />
+      <Stack.Screen name="rewards" options={{ title: 'Rewards' }} />
     </Stack>
   );
 }
