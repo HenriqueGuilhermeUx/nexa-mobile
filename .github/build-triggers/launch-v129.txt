@@ -1,0 +1,5 @@
+Nexa v129 launch candidate
+Version: 2.0.28
+Build: 129
+Scope: Rewards Privy reauthentication + Premium Gold/PAXG + card funding launch validation.
+Financial execution remains server-gated during homologation.
