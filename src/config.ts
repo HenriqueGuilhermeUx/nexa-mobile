@@ -5,6 +5,8 @@ interface NexaExtra {
   efiOpenFinanceApiUrl?: string;
   privyAppId?: string;
   privyClientId?: string;
+  earnVaultId?: string;
+  earnEnabled?: boolean;
   financialExecutionEnabled?: boolean;
   ledgerOperationsEnabled?: boolean;
   balanceSource?: string;
@@ -21,6 +23,14 @@ const envApiUrl = String(process.env.EXPO_PUBLIC_NEXA_API_URL || '').trim();
 const envEfiOpenFinanceApiUrl = String(
   process.env.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL || '',
 ).trim();
+const envEarnVaultId = String(
+  process.env.EXPO_PUBLIC_NEXA_EARN_VAULT_ID || '',
+).trim();
+const envEarnEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_EARN_ENABLED || '',
+)
+  .trim()
+  .toLowerCase();
 const envFinancialExecution = String(
   process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED || '',
 )
@@ -58,6 +68,10 @@ export const config = {
   appBuild: String(Constants.expoConfig?.android?.versionCode || '124'),
   privyAppId: extra.privyAppId || '',
   privyClientId: extra.privyClientId || '',
+  earnVaultId: envEarnVaultId || extra.earnVaultId || '',
+  earnEnabled:
+    envEarnEnabled === 'true' ||
+    (envEarnEnabled !== 'false' && extra.earnEnabled === true),
   financialExecutionEnabled:
     envFinancialExecution === 'true' ||
     (envFinancialExecution !== 'false' && extra.financialExecutionEnabled === true),
@@ -84,5 +98,8 @@ export function assertPublicConfiguration() {
   }
   if (!config.efiOpenFinanceApiUrl.startsWith('https://')) {
     throw new Error('A API Open Finance móvel deve usar HTTPS.');
+  }
+  if (config.earnEnabled && !config.earnVaultId) {
+    throw new Error('Nexa Rewards exige um vault_id configurado.');
   }
 }
