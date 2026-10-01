@@ -102,6 +102,18 @@ export function withdrawRewardsFull(
   });
 }
 
+export function returnRewardsToWallet(
+  accessToken: string,
+  privyUserJwt: string,
+  amountUsdc: number,
+) {
+  return rewardsRequest<any>(accessToken, '/rewards/v2/return-to-wallet', {
+    method: 'POST',
+    privyUserJwt,
+    body: { amountUsdc },
+  });
+}
+
 export function getRewardsAction(accessToken: string, actionId: string) {
   return rewardsRequest<any>(
     accessToken,
