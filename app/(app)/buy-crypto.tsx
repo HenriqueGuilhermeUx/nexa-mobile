@@ -2,7 +2,11 @@ import {
   alchemyWalletTransport,
   createSmartWalletClient,
 } from '@alchemy/wallet-apis';
-import { useEmbeddedEthereumWallet } from '@privy-io/expo';
+import {
+  useEmbeddedEthereumWallet,
+  useLoginWithEmail,
+  usePrivy,
+} from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -68,6 +72,13 @@ function formatUsdc(value: unknown) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 6,
   })} USDC`;
+}
+
+function maskEmail(value: string) {
+  const [name, domain] = String(value || '').split('@');
+  if (!name || !domain) return value;
+  const visible = name.slice(0, Math.min(2, name.length));
+  return `${visible}${'*'.repeat(Math.max(name.length - visible.length, 2))}@${domain}`;
 }
 
 function delay(ms: number) {
@@ -176,22 +187,108 @@ function SponsoredConfirmation(props: {
   onTxHash: (hash: string) => void;
   onConfirmation: (result: any) => void;
   onError: (message: string) => void;
+  onWalletReconnected: () => void;
 }) {
   const { wallets } = useEmbeddedEthereumWallet();
+  const privy = usePrivy() as any;
+  const emailLogin = useLoginWithEmail() as any;
   const [isLoading, setIsLoading] = useState(false);
+  const [reconnectLoading, setReconnectLoading] = useState(false);
+  const [reconnectEmail, setReconnectEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [reconnected, setReconnected] = useState(false);
+  const [reconnectStatus, setReconnectStatus] = useState('');
+
+  const wallet = wallets?.find(
+    (candidate) =>
+      String(candidate.address || '').toLowerCase() ===
+      String(props.credentials.wallet || '').toLowerCase(),
+  );
+
+  async function sendReconnectCode() {
+    props.onError('');
+    setReconnectLoading(true);
+    try {
+      const session = await loadNexaSession();
+      if (!session) throw new Error('Sua sessão Nexa expirou.');
+      const email = String(session.email || '').trim().toLowerCase();
+      if (!email) throw new Error('O e-mail da sua conta Nexa não está disponível.');
+
+      if (privy?.user && !wallet && typeof privy?.logout === 'function') {
+        await privy.logout();
+        await delay(300);
+      }
+
+      if (typeof emailLogin?.sendCode !== 'function') {
+        throw new Error('A reconexão da carteira Privy não está disponível nesta instalação.');
+      }
+
+      await emailLogin.sendCode({ email, disableSignup: true });
+      setReconnectEmail(email);
+      setCode('');
+      setCodeSent(true);
+      setReconnectStatus(`Código enviado para ${maskEmail(email)}.`);
+    } catch (caught) {
+      props.onError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível iniciar a reconexão da carteira.',
+      );
+    } finally {
+      setReconnectLoading(false);
+    }
+  }
+
+  async function validateReconnectCode() {
+    const normalizedCode = code.replace(/\D/g, '').trim();
+    props.onError('');
+    if (normalizedCode.length < 4) {
+      props.onError('Informe o código recebido no e-mail.');
+      return;
+    }
+
+    setReconnectLoading(true);
+    try {
+      const session = await loadNexaSession();
+      if (!session) throw new Error('Sua sessão Nexa expirou.');
+      const email = reconnectEmail || String(session.email || '').trim().toLowerCase();
+      if (!email) throw new Error('O e-mail da sua conta Nexa não está disponível.');
+
+      if (privy?.user && !wallet && typeof privy?.logout === 'function') {
+        await privy.logout();
+        await delay(300);
+      }
+
+      if (typeof emailLogin?.loginWithCode !== 'function') {
+        throw new Error('A validação da carteira Privy não está disponível nesta instalação.');
+      }
+
+      await emailLogin.loginWithCode({ email, code: normalizedCode });
+      if (typeof privy?.getAccessToken === 'function') {
+        await privy.getAccessToken();
+      }
+      setCodeSent(false);
+      setReconnected(true);
+      setReconnectStatus('Sessão Privy confirmada. Carregando sua carteira existente...');
+    } catch (caught) {
+      props.onError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível validar a reconexão da carteira.',
+      );
+    } finally {
+      setReconnectLoading(false);
+    }
+  }
 
   async function execute() {
     props.onError('');
     let submittedHash = '';
     setIsLoading(true);
     try {
-      const wallet = wallets?.find(
-        (candidate) =>
-          String(candidate.address || '').toLowerCase() ===
-          String(props.credentials.wallet || '').toLowerCase(),
-      );
       if (!wallet) {
-        throw new Error('A carteira Privy desta compra não está disponível neste dispositivo.');
+        throw new Error('Reconecte sua carteira Privy antes de confirmar a compra.');
       }
 
       const signer = await buildPrivySigner(wallet);
@@ -247,6 +344,65 @@ function SponsoredConfirmation(props: {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  if (!wallet) {
+    return (
+      <Card>
+        <Badge tone="warning">RECONECTAR CARTEIRA PRIVY</Badge>
+        <Text style={styles.explain}>
+          Sua conta Nexa está ativa, mas a sessão da carteira usada nesta compra
+          não está carregada neste aparelho. Confirme o mesmo e-mail para recuperar
+          a carteira já existente. A Nexa não criará nem trocará seu endereço.
+        </Text>
+        {reconnectStatus ? <Text style={styles.reconnectStatus}>{reconnectStatus}</Text> : null}
+        {!codeSent ? (
+          <ActionButton
+            label={reconnected ? 'Tentar carregar carteira novamente' : 'Reconectar carteira'}
+            onPress={sendReconnectCode}
+            loading={reconnectLoading}
+          />
+        ) : (
+          <>
+            <Field
+              label="Código recebido por e-mail"
+              value={code}
+              onChangeText={setCode}
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              placeholder="Digite o código"
+            />
+            <ActionButton
+              label="Validar carteira"
+              onPress={validateReconnectCode}
+              loading={reconnectLoading}
+            />
+            <ActionButton
+              label="Enviar novo código"
+              variant="secondary"
+              disabled={reconnectLoading}
+              onPress={sendReconnectCode}
+            />
+          </>
+        )}
+      </Card>
+    );
+  }
+
+  if (reconnected) {
+    return (
+      <Card>
+        <Badge tone="success">CARTEIRA RECONECTADA</Badge>
+        <Text style={styles.explain}>
+          A carteira correta voltou a ficar disponível neste aparelho. Atualize a
+          autorização da compra para gerar um novo intent e um novo patrocínio de gas.
+        </Text>
+        <ActionButton
+          label="Atualizar autorização da compra"
+          onPress={props.onWalletReconnected}
+        />
+      </Card>
+    );
   }
 
   return (
@@ -369,6 +525,14 @@ export default function BuyCryptoScreen() {
     }
   }
 
+  function refreshAfterWalletReconnect() {
+    setPrepared(null);
+    setCredentials(null);
+    setTxHash('');
+    setConfirmation(null);
+    setError('Carteira reconectada. Toque em “Continuar compra” para gerar uma autorização nova.');
+  }
+
   const completed = confirmation?.completed === true;
 
   return (
@@ -447,6 +611,7 @@ export default function BuyCryptoScreen() {
           onTxHash={setTxHash}
           onConfirmation={setConfirmation}
           onError={setError}
+          onWalletReconnected={refreshAfterWalletReconnect}
         />
       ) : null}
 
@@ -497,6 +662,7 @@ const styles = StyleSheet.create({
   network: { color: colors.muted, marginTop: spacing.sm },
   validity: { color: colors.muted, fontSize: 12, marginVertical: spacing.lg },
   explain: { color: colors.muted, lineHeight: 21, marginVertical: spacing.lg },
+  reconnectStatus: { color: colors.cyan, lineHeight: 20, marginBottom: spacing.md },
   hash: { color: colors.cyan, fontSize: 11, lineHeight: 17, marginTop: spacing.md },
   success: { color: colors.success, fontWeight: '800', marginTop: spacing.md },
   error: { color: colors.danger, fontWeight: '700', marginBottom: spacing.md },
