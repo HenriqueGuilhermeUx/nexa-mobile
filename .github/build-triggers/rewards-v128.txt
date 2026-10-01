@@ -1,0 +1,5 @@
+Nexa Rewards/Turbinar pilot build trigger
+version=2.0.27
+build=128
+source=c96e3ec7ca3e89b88a9f8d0c0e7f7f7bfa3f8a62
+financial_execution=false
