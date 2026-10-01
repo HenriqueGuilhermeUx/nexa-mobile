@@ -107,11 +107,14 @@ export function prepareWalletFirstSwap(
   });
 }
 
-export function getClientSwapSponsorshipCredentials(accessToken: string) {
+export function getClientSwapSponsorshipCredentials(
+  accessToken: string,
+  intentToken: string,
+) {
   return postJson<ClientSponsorshipCredentials>(
     accessToken,
     '/wallet-v15/swap/client-sponsorship-credentials',
-    {},
+    { intentToken },
   );
 }
 
