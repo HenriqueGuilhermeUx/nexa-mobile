@@ -1,0 +1,5 @@
+Nexa v130 Rewards authorization correction
+Version: 2.0.29
+Build: 130
+Scope: Privy identity-token authorization + Polygon/Base USDC reconciliation before Rewards bridge.
+Financial execution remains server-gated.
