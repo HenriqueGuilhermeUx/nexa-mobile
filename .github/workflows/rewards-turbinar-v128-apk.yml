@@ -7,6 +7,7 @@ on:
     paths:
       - 'app/**'
       - 'src/**'
+      - 'scripts/prepare-v128-rewards-return.js'
       - 'app.config.js'
       - 'app.json'
       - 'package.json'
@@ -52,6 +53,9 @@ jobs:
       - name: Install dependencies
         run: npm install --include=dev --no-audit --no-fund
 
+      - name: Prepare complete Rewards return flow
+        run: node scripts/prepare-v128-rewards-return.js
+
       - name: Verify v128 release identity
         run: |
           set -euo pipefail
@@ -79,16 +83,19 @@ jobs:
           grep -q '+20% de Rewards' 'app/(app)/rewards.tsx'
           grep -q 'getAccessToken' 'app/(app)/rewards.tsx'
           grep -q 'nexa_rewards_pending_action_v1' 'app/(app)/rewards.tsx'
+          grep -q 'returnWithdrawnUsdc' 'app/(app)/rewards.tsx'
+          grep -q 'Resgate confirmado no seu saldo Nexa' 'app/(app)/rewards.tsx'
           grep -q '/rewards/v2/bridge-quote' src/lib/rewardsActions.ts
           grep -q '/rewards/v2/bridge-to-base' src/lib/rewardsActions.ts
           grep -q '/rewards/v2/deposit' src/lib/rewardsActions.ts
           grep -q '/rewards/v2/withdraw' src/lib/rewardsActions.ts
+          grep -q '/rewards/v2/return-to-wallet' src/lib/rewardsActions.ts
           grep -q '/rewards/v2/action/' src/lib/rewardsActions.ts
           if grep -q "'Morpho'\|'Steakhouse'\|'Base network'\|'Vault ID'" 'app/(app)/rewards.tsx'; then
             echo 'Turbinar customer copy exposes provider/network internals.'
             exit 1
           fi
-          echo 'Turbinar customer safety contract validated.'
+          echo 'Turbinar customer safety contract validated: deposit and full return to normal Nexa wallet.'
 
       - name: Validate TypeScript
         run: npm run typecheck
