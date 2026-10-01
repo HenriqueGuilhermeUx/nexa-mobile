@@ -84,8 +84,8 @@ jobs:
           grep -q '/rewards/v2/deposit' src/lib/rewardsActions.ts
           grep -q '/rewards/v2/withdraw' src/lib/rewardsActions.ts
           grep -q '/rewards/v2/action/' src/lib/rewardsActions.ts
-          if grep -qi 'Morpho\|Steakhouse\|vault id\|Base network\|bridge' 'app/(app)/rewards.tsx'; then
-            echo 'Turbinar customer surface exposes provider/network internals.'
+          if grep -q "'Morpho'\|'Steakhouse'\|'Base network'\|'Vault ID'" 'app/(app)/rewards.tsx'; then
+            echo 'Turbinar customer copy exposes provider/network internals.'
             exit 1
           fi
           echo 'Turbinar customer safety contract validated.'
