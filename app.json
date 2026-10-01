@@ -80,6 +80,8 @@
       "apiUrl": "https://nexa-backend-p2u0.onrender.com/api/v1",
       "privyAppId": "cmpen2gm3007v0cjswjlyefji",
       "privyClientId": "client-WY6ZY2Ptr39FTjXumMRAfqM2Bx8m9DUWxcU1kwXxJGPh3",
+      "earnVaultId": "el4826b7pa9il0ve1zp59rt2",
+      "earnEnabled": false,
       "financialExecutionEnabled": false,
       "ledgerOperationsEnabled": true,
       "balanceSource": "ledger",
