@@ -1,0 +1,203 @@
+name: Nexa Wallet-First v125 Client-Sponsored APK
+
+on:
+  push:
+    branches:
+      - fix/client-sponsored-swap
+    paths:
+      - 'app/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'app.json'
+      - 'app.config.js'
+      - '.github/workflows/wallet-first-v125-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-wallet-first-v125-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and build Nexa v125 signed APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout release candidate
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Verify v125 release identity
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const pkg = require('./package.json');
+          const app = require('./app.json').expo;
+          const dynamic = require('./app.config.js')({ config: app });
+          if (pkg.version !== '2.0.24') throw new Error(`Unexpected package version ${pkg.version}`);
+          if (app.version !== '2.0.24') throw new Error(`Unexpected app version ${app.version}`);
+          if (Number(app.android?.versionCode) !== 125) throw new Error(`Unexpected app.json versionCode ${app.android?.versionCode}`);
+          if (Number(dynamic.android?.versionCode) !== 125) throw new Error(`Unexpected dynamic versionCode ${dynamic.android?.versionCode}`);
+          if (String(dynamic.ios?.buildNumber) !== '125') throw new Error(`Unexpected iOS build ${dynamic.ios?.buildNumber}`);
+          if (dynamic.extra?.releaseBuild !== 'android16-api36-2.0.24-v125-client-sponsored-swap') throw new Error(`Unexpected releaseBuild ${dynamic.extra?.releaseBuild}`);
+          if (app.android?.package !== 'br.com.trynexa.app') throw new Error(`Unexpected package ${app.android?.package}`);
+          if (app.runtimeVersion?.policy !== 'appVersion') throw new Error('runtimeVersion policy must remain appVersion');
+          if (pkg.dependencies?.['@account-kit/privy-integration'] !== '4.88.5') throw new Error('Account Kit Privy integration must be pinned to 4.88.5');
+          console.log('Nexa v125 release identity OK.');
+          NODE
+          echo 'EXPECTED_VERSION=2.0.24' >> "$GITHUB_ENV"
+          echo 'EXPECTED_BUILD=125' >> "$GITHUB_ENV"
+
+      - name: Validate client-sponsored architecture
+        run: |
+          set -euo pipefail
+          grep -q "@account-kit/privy-integration/react-native" 'app/(app)/buy-crypto.tsx'
+          grep -q 'accountAuthMode="eip7702"' 'app/(app)/buy-crypto.tsx'
+          grep -q 'walletAddress={credentials.wallet}' 'app/(app)/buy-crypto.tsx'
+          grep -q 'getClientSwapSponsorshipCredentials' 'app/(app)/buy-crypto.tsx'
+          grep -q 'response.intentToken' 'app/(app)/buy-crypto.tsx'
+          grep -q '/wallet-v15/swap/client-sponsorship-credentials' src/lib/walletFirstActions.ts
+          grep -q '{ intentToken }' src/lib/walletFirstActions.ts
+          grep -q '/wallet-v15/swap/confirm-client-sponsored' src/lib/walletFirstActions.ts
+          echo 'Client-sponsored swap architecture validated.'
+
+      - name: Validate TypeScript
+        run: npm run typecheck
+
+      - name: Validate Expo config
+        run: npx expo config --type public >/tmp/nexa-expo-config.txt
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
+            'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1); console.log('Backend production OK')"
+
+      - name: Add build swap
+        run: |
+          set -euo pipefail
+          if ! swapon --show | grep -q .; then
+            sudo fallocate -l 4G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
+          free -h
+
+      - name: Build signed v125 APK with EAS local
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-wallet-first-v125
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v125
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+          KOTLIN_DAEMON_JVM_OPTIONS: '-Xmx1536m,-XX:MaxMetaspaceSize=1024m'
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN" || (echo 'EXPO_TOKEN ausente' && exit 1)
+          eas whoami
+          FILE="Nexa-Wallet-First-Pilot-${EXPECTED_VERSION}-v${EXPECTED_BUILD}.apk"
+          rm -f "$FILE"
+          eas build --platform android --profile open-finance-pilot --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
+          test -s "$FILE"
+          SHA256=$(sha256sum "$FILE" | awk '{print $1}')
+          echo "apk_file=$FILE" >> "$GITHUB_ENV"
+          echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
+          printf '%s  %s\n' "$SHA256" "$FILE" > SHA256SUMS.txt
+          ls -lh "$FILE"
+
+      - name: Preserve generated v125 APK immediately
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Wallet-First-Pilot-v125-RAW
+          path: |
+            ${{ env.apk_file }}
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Verify signed APK with aapt2 and apksigner
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)
+          test -x "$APKSIGNER"
+          test -x "$AAPT2"
+
+          "$APKSIGNER" verify --verbose --print-certs "$apk_file" > apk-signature.txt
+          "$AAPT2" dump badging "$apk_file" > apk-badging.txt
+          "$AAPT2" dump permissions "$apk_file" > apk-permissions.txt
+
+          PACKAGE=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          VERSION_NAME=$(sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          VERSION_CODE=$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          TARGET_SDK=$(sed -n "s/^targetSdkVersion:'\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+
+          printf '%s\n' "$PACKAGE" > apk-package.txt
+          printf '%s\n' "$VERSION_NAME" > apk-version-name.txt
+          printf '%s\n' "$VERSION_CODE" > apk-version-code.txt
+          printf '%s\n' "$TARGET_SDK" > apk-target-sdk.txt
+
+          test "$PACKAGE" = 'br.com.trynexa.app'
+          test "$VERSION_NAME" = "$EXPECTED_VERSION"
+          test "$VERSION_CODE" = "$EXPECTED_BUILD"
+          test "$TARGET_SDK" = '36'
+          echo "APK VERIFIED: Nexa $EXPECTED_VERSION v$EXPECTED_BUILD, signed, target API 36."
+
+      - name: Upload verified v125 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Wallet-First-Pilot-v125-VERIFIED
+          path: |
+            ${{ env.apk_file }}
+            SHA256SUMS.txt
+            apk-signature.txt
+            apk-badging.txt
+            apk-package.txt
+            apk-version-name.txt
+            apk-version-code.txt
+            apk-target-sdk.txt
+            apk-permissions.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Wallet-First-Pilot-v125-build-diagnostics
+          path: |
+            ${{ runner.temp }}/nexa-wallet-first-v125/logs
+            local-build-artifacts-v125
+          if-no-files-found: warn
+          retention-days: 14
