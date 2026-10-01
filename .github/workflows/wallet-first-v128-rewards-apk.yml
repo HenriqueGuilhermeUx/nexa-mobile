@@ -107,12 +107,13 @@ jobs:
       - name: Validate existing Wallet-First safety contracts
         run: |
           set -euo pipefail
-          node scripts/validate-mobile-safety.js
+          node scripts/validate-mobile-safety-v123.js
           node scripts/validate-wallet-first-exit-quote.js
           node scripts/validate-wallet-first-exit-flow.js
           node scripts/validate-wallet-first-user-actions.js
           node scripts/validate-wallet-cross-device-recovery.js
           node scripts/validate-biometric-app-lock.js
+          node scripts/validate-release-assets.js
 
       - name: Validate TypeScript and Expo config
         run: |
