@@ -51,6 +51,15 @@ export type PreparedWalletTransaction = {
   gasPrice?: string | null;
 };
 
+export type ClientSponsorshipCredentials = {
+  success: true;
+  chainId: 137;
+  wallet: string;
+  jwt: string;
+  policyId: string;
+  expiresAt: string;
+};
+
 export function prepareDirectTransfer(
   accessToken: string,
   receiverUsername: string,
@@ -98,6 +107,17 @@ export function prepareWalletFirstSwap(
   });
 }
 
+export function getClientSwapSponsorshipCredentials(
+  accessToken: string,
+  intentToken: string,
+) {
+  return postJson<ClientSponsorshipCredentials>(
+    accessToken,
+    '/wallet-v15/swap/client-sponsorship-credentials',
+    { intentToken },
+  );
+}
+
 export function executeSponsoredWalletFirstSwap(
   accessToken: string,
   intentToken: string,
@@ -119,6 +139,17 @@ export function confirmWalletFirstSwap(
   txHash: string,
 ) {
   return postJson<any>(accessToken, '/wallet-v15/swap/confirm', {
+    intentToken,
+    txHash,
+  });
+}
+
+export function confirmClientSponsoredWalletFirstSwap(
+  accessToken: string,
+  intentToken: string,
+  txHash: string,
+) {
+  return postJson<any>(accessToken, '/wallet-v15/swap/confirm-client-sponsored', {
     intentToken,
     txHash,
   });
