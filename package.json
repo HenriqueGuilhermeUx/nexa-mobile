@@ -1,6 +1,6 @@
 {
   "name": "nexa-mobile",
-  "version": "2.0.24",
+  "version": "2.0.25",
   "private": true,
   "main": "entrypoint.js",
   "packageManager": "npm@10.8.2",
@@ -13,7 +13,7 @@
     "export:android": "expo export --platform android --output-dir dist-ci"
   },
   "dependencies": {
-    "@account-kit/privy-integration": "4.88.5",
+    "@alchemy/wallet-apis": "5.2.7",
     "@ethersproject/shims": "^5.8.0",
     "@privy-io/expo": "0.70.4",
     "@privy-io/expo-native-extensions": "0.0.12",
@@ -53,7 +53,7 @@
     "react-native-web": "~0.21.0",
     "react-native-webview": "13.16.1",
     "react-native-worklets": "0.10.1",
-    "viem": "^2.31.6"
+    "viem": "2.55.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
