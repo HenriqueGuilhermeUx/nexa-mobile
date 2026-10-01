@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release/rewards-v128
+      - main
     paths:
       - 'app/**'
       - 'src/**'
@@ -12,6 +13,7 @@ on:
       - 'app.json'
       - 'app.config.js'
       - 'eas.json'
+      - '.github/build-triggers/rewards-v128.txt'
       - '.github/workflows/wallet-first-v128-rewards-apk.yml'
   workflow_dispatch:
 
