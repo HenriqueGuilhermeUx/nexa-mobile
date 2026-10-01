@@ -1,20 +1,21 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const realReadFileSync = fs.readFileSync.bind(fs);
-const readReal = (file) => realReadFileSync(file, 'utf8');
+const read = (file) => fs.readFileSync(file, 'utf8');
 
-const app = JSON.parse(readReal('app.json'));
-const pkg = JSON.parse(readReal('package.json'));
-const config = readReal('src/config.ts');
-const buy = readReal('app/(app)/buy-crypto.tsx');
-const funding = readReal('app/(app)/fund-card.tsx');
-const addMoney = readReal('app/(app)/new-order.tsx');
-const layout = readReal('app/_layout.tsx');
+const app = JSON.parse(read('app.json'));
+const pkg = JSON.parse(read('package.json'));
+const config = read('src/config.ts');
+const buy = read('app/(app)/buy-crypto.tsx');
+const funding = read('app/(app)/fund-card.tsx');
+const addMoney = read('app/(app)/new-order.tsx');
+const layout = read('app/_layout.tsx');
 
-assert.equal(app.expo.version, '2.0.23');
-assert.equal(app.expo.android.versionCode, 123);
-assert.equal(app.expo.ios.buildNumber, '123');
+// Current production release identity.
+assert.equal(app.expo.version, '2.0.26');
+assert.equal(pkg.version, '2.0.26');
+assert.equal(app.expo.android.versionCode, 127);
+assert.equal(app.expo.ios.buildNumber, '127');
 assert.equal(app.expo.runtimeVersion?.policy, 'appVersion');
 assert.equal(
   app.expo.updates?.url,
@@ -22,24 +23,45 @@ assert.equal(
 );
 assert.equal(
   app.expo.extra?.releaseBuild,
-  'android16-api36-2.0.23-v123-wallet-first-ota-funding',
+  'android16-api36-2.0.26-v127-privy-wallet-session-recovery',
 );
 assert.ok(pkg.dependencies?.['expo-updates'], 'expo-updates must be installed');
-assert.match(config, /android.*versionCode\s*\|\|\s*'123'/s);
+assert.equal(pkg.dependencies?.['@alchemy/wallet-apis'], '5.2.7');
+assert.equal(pkg.dependencies?.['@privy-io/expo'], '0.70.4');
+assert.equal(pkg.dependencies?.viem, '2.55.5');
+assert.match(config, /appVersion/);
+assert.match(config, /appBuild/);
+assert.match(config, /androidTargetApi/);
 
-assert.match(buy, /useIdentityToken/);
-assert.match(buy, /getIdentityToken/);
-assert.doesNotMatch(buy, /usePrivy/);
-assert.doesNotMatch(buy, /getAccessToken/);
-assert.match(buy, /executeSponsoredWalletFirstSwap/);
-assert.doesNotMatch(buy, /sendPreparedWalletTransaction/);
+// Wallet-First v127: user-owned Privy wallet signs on-device and Alchemy sponsors gas.
+assert.match(buy, /createSmartWalletClient/);
+assert.match(buy, /alchemyWalletTransport/);
+assert.match(buy, /useEmbeddedEthereumWallet/);
+assert.match(buy, /useLoginWithEmail/);
+assert.match(buy, /usePrivy/);
+assert.match(buy, /disableSignup:\s*true/);
+assert.match(buy, /loginWithCode/);
+assert.match(buy, /secp256k1_sign/);
+assert.match(buy, /hashAuthorization/);
+assert.match(buy, /sendCalls/);
+assert.match(buy, /waitForCallsStatus/);
+assert.match(buy, /onWalletReconnected/);
+assert.match(buy, /Atualizar autorização da compra/);
+assert.doesNotMatch(buy, /@account-kit\/privy-integration/);
+assert.doesNotMatch(
+  buy,
+  /A carteira Privy desta compra não está disponível neste dispositivo\./,
+);
 assert.doesNotMatch(buy, /\bPOL\b|\bMATIC\b|gas fee/i);
 
+// Funding policy: Pix stays on Nexa + Woovi. Card/digital wallets may be routed
+// across the enabled Privy/Meld providers; MoonPay must not be hard-pinned.
 assert.match(layout, /PrivyElements/);
 assert.match(funding, /useFundWallet/);
-assert.match(funding, /preferredProvider:\s*'moonpay'/);
 assert.match(funding, /asset:\s*'USDC'/);
 assert.match(funding, /defaultPaymentMethod:\s*'card'/);
+assert.doesNotMatch(funding, /preferredProvider:\s*'moonpay'/);
+assert.match(funding, /Pix continua separado/);
 assert.match(addMoney, /Adicionar por Pix/);
 assert.match(addMoney, /Cartão · Apple Pay · Google Pay/);
 assert.match(addMoney, /\(app\)\/fund-card/);
@@ -50,30 +72,6 @@ assert.doesNotMatch(
   /PRIVY_APP_SECRET\s*[:=]|PRIVY_SECRET_KEY\s*[:=]|MASTER_WALLET_PRIVATE_KEY\s*[:=]|BEGIN PRIVATE KEY/,
 );
 
-// Preserve every v122 invariant while adapting only the historical release-number
-// expectations. This intentionally does not alter the repository on disk.
-fs.readFileSync = function patchedReadFileSync(file, options) {
-  const text = realReadFileSync(file, options);
-  if (typeof text !== 'string') return text;
-  const normalized = String(file).replace(/\\/g, '/');
-  if (normalized.endsWith('/app.json') || normalized === 'app.json') {
-    const legacy = JSON.parse(text);
-    legacy.expo.android.versionCode = 122;
-    legacy.expo.ios.buildNumber = '122';
-    return JSON.stringify(legacy);
-  }
-  if (normalized.endsWith('/src/config.ts') || normalized === 'src/config.ts') {
-    return text.replace("versionCode || '123'", "versionCode || '122'");
-  }
-  return text;
-};
-
-try {
-  require('./validate-mobile-safety.js');
-} finally {
-  fs.readFileSync = realReadFileSync;
-}
-
 console.log(
-  'Nexa v123 safety validated: all legacy invariants preserved + Privy identity-JWT sponsorship + Funding + Expo OTA boundary.',
+  'Nexa v127 safety validated: user-owned Privy signing + Alchemy sponsorship + wallet-session recovery + Woovi Pix / Meld card routing boundary.',
 );

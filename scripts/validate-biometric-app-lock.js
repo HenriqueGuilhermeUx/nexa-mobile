@@ -68,13 +68,14 @@ assert.match(openFinance, /reauthenticateSensitiveAction/);
 assert.match(openFinance, /Autorizar entrada via Open Finance/);
 assert.match(openFinance, /Confirme sua identidade para iniciar a autorização no seu banco/);
 
-assert.equal(appJson.expo.version, '2.0.23');
-assert.equal(pkg.version, '2.0.23');
-assert.equal(appJson.expo.android.versionCode, 123);
-assert.equal(appJson.expo.ios.buildNumber, '123');
-assert.match(appConfig, /version:\s*'2\.0\.23'/);
-assert.match(appConfig, /versionCode:\s*123/);
-assert.match(appConfig, /v123-wallet-first-ota-funding/);
+// Current validated Wallet-First release identity.
+assert.equal(appJson.expo.version, '2.0.26');
+assert.equal(pkg.version, '2.0.26');
+assert.equal(appJson.expo.android.versionCode, 127);
+assert.equal(appJson.expo.ios.buildNumber, '127');
+assert.match(appConfig, /version:\s*'2\.0\.26'/);
+assert.match(appConfig, /versionCode:\s*127/);
+assert.match(appConfig, /v127-privy-wallet-session-recovery/);
 assert.equal(appJson.expo.runtimeVersion?.policy, 'appVersion');
 assert.equal(
   appJson.expo.updates?.url,
@@ -97,5 +98,5 @@ assert.equal(release.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false')
 assert.equal(release.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED, 'false');
 
 console.log(
-  'Nexa v123 security invariants OK: strong biometrics, OTA runtime boundary, fresh Nexa password fallback, 30s relock, sensitive Open Finance re-auth, financial execution OFF.',
+  'Nexa v127 security invariants OK: strong biometrics, OTA runtime boundary, fresh Nexa password fallback, 30s relock and sensitive Open Finance re-auth.',
 );

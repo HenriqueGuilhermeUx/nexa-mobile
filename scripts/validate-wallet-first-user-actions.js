@@ -29,8 +29,8 @@ const required = [
   '/wallet-v15/transfer/onchain-direct/confirm',
   '/wallet-v15/swap/quote',
   '/wallet-v15/swap/prepare',
-  '/wallet-v15/swap/confirm',
-  '/wallet-v15/swap/execute-sponsored',
+  '/wallet-v15/swap/client-sponsorship-credentials',
+  '/wallet-v15/swap/confirm-client-sponsored',
   "method: 'eth_sendTransaction'",
   "method: 'eth_accounts'",
   "method: 'eth_chainId'",
@@ -73,30 +73,31 @@ for (const token of sendRequired) {
 const buyRequired = [
   "type Asset = 'BTC' | 'ETH'",
   'Cotação Nexa',
-  'executeSponsoredWalletFirstSwap',
-  'useIdentityToken',
-  'getIdentityToken',
+  'getClientSwapSponsorshipCredentials',
+  'confirmClientSponsoredWalletFirstSwap',
+  'createSmartWalletClient',
+  'alchemyWalletTransport',
+  'useEmbeddedEthereumWallet',
+  'useLoginWithEmail',
+  'usePrivy',
+  'disableSignup: true',
+  'loginWithCode',
+  'secp256k1_sign',
+  'hashAuthorization',
+  'sendCalls',
+  'waitForCallsStatus',
   'swapTransaction',
-  'AUTORIZAÇÃO SEGURA',
+  'AUTORIZAÇÃO NA SUA CARTEIRA',
   'Confirmar compra',
-  'A Nexa cuida automaticamente',
+  'Atualizar autorização da compra',
 ];
 for (const token of buyRequired) {
   if (!buy.includes(token)) throw new Error(`Wallet-First sponsored buy contract missing: ${token}`);
 }
 
-for (const token of ['usePrivy', 'getAccessToken']) {
-  if (buy.includes(token)) {
-    throw new Error(`Sponsored wallet authorization must use the Privy identity JWT, not ${token}.`);
-  }
-}
-
 const buyForbidden = [
-  'sendPreparedWalletTransaction',
-  'approvalTransaction',
-  "method: 'eth_sendTransaction'",
-  'WBTC',
-  'WETH',
+  '@account-kit/privy-integration',
+  'A carteira Privy desta compra não está disponível neste dispositivo.',
   'Polygon ·',
   'gas fee',
   'POL',
@@ -104,7 +105,7 @@ const buyForbidden = [
 ];
 for (const token of buyForbidden) {
   if (buy.includes(token)) {
-    throw new Error(`Wallet-First sponsored buy must hide direct network mechanics: ${token}`);
+    throw new Error(`Wallet-First sponsored buy must hide obsolete/network mechanics: ${token}`);
   }
 }
 
@@ -112,18 +113,21 @@ const fundingRequired = [
   'useFundWallet',
   "asset: 'USDC'",
   "defaultPaymentMethod: 'card'",
-  "preferredProvider: 'moonpay'",
   'Cartão, Apple Pay ou Google Pay',
   'wallet-recovery',
+  'Pix continua separado',
 ];
 for (const token of fundingRequired) {
   if (!funding.includes(token)) throw new Error(`Funding contract missing: ${token}`);
 }
+if (funding.includes("preferredProvider: 'moonpay'")) {
+  throw new Error('Card funding must allow Privy/Meld routing instead of hard-pinning MoonPay.');
+}
 if (!rootLayout.includes('PrivyElements')) {
   throw new Error('PrivyElements must be mounted for the native funding flow.');
 }
-if (!addMoney.includes('Cartão · Apple Pay · Google Pay') || !addMoney.includes("/(app)/fund-card")) {
-  throw new Error('Adicionar dinheiro must surface the card funding route alongside Pix.');
+if (!addMoney.includes('Adicionar por Pix') || !addMoney.includes('Cartão · Apple Pay · Google Pay') || !addMoney.includes("/(app)/fund-card")) {
+  throw new Error('Adicionar dinheiro must surface Woovi Pix separately from card/digital-wallet funding.');
 }
 
 if (!home.includes('label="Enviar"') || !home.includes('label="Comprar"')) {
@@ -131,5 +135,5 @@ if (!home.includes('label="Enviar"') || !home.includes('label="Comprar"')) {
 }
 
 console.log(
-  'Wallet-First mobile user actions validated: direct Nexa-to-Nexa, identity-JWT sponsored BTC/ETH swaps, gas abstraction, Privy/MoonPay funding and no legacy ledger route.',
+  'Wallet-First mobile user actions validated: direct Nexa-to-Nexa, client-signed Alchemy-sponsored BTC/ETH swaps, Woovi Pix separation and Privy/Meld card routing.',
 );

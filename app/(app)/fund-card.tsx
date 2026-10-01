@@ -26,17 +26,14 @@ export default function FundCardScreen() {
         throw new Error('Confirme sua identidade para usar a mesma carteira Nexa.');
       }
 
+      // This screen is card / digital-wallet only. Pix remains on the native
+      // Nexa + Woovi flow. Do not pin MoonPay: Privy/Meld may choose the best
+      // enabled card provider for the customer's region and payment method.
       await fundWallet({
         address,
         asset: 'USDC',
         chain: polygon as any,
         defaultPaymentMethod: 'card',
-        card: { preferredProvider: 'moonpay' },
-        moonpay: {
-          uiConfig: {
-            theme: 'dark',
-          },
-        },
       } as any);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught || '');
@@ -58,15 +55,15 @@ export default function FundCardScreen() {
       </Paragraph>
 
       <Card>
-        <Badge tone="info">BRL DISPONÍVEL</Badge>
+        <Badge tone="info">CARTÃO E CARTEIRAS DIGITAIS</Badge>
         <Text style={{ color: colors.text, fontWeight: '900', fontSize: 17, marginTop: spacing.md }}>
           Funding Nexa
         </Text>
         <Text style={{ color: colors.muted, lineHeight: 21, marginTop: spacing.sm }}>
-          A Privy seleciona os provedores habilitados para sua região. Para o Brasil, a Nexa prioriza a rota MoonPay configurada no projeto.
+          A Nexa usa os provedores de cartão habilitados para sua região e pode selecionar automaticamente a melhor rota disponível, sem prender sua compra a um único parceiro.
         </Text>
         <Text style={{ color: colors.muted, lineHeight: 21, marginTop: spacing.sm }}>
-          O provedor pode solicitar dados adicionais de pagamento ou verificação antes de concluir a compra.
+          Pix continua separado no fluxo Nexa e não é roteado por esta tela.
         </Text>
       </Card>
 
