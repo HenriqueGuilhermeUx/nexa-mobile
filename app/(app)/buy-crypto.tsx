@@ -1,10 +1,21 @@
 import {
-  AlchemyProvider,
-  useAlchemySendTransaction,
-} from '@account-kit/privy-integration/react-native';
+  alchemyWalletTransport,
+  createSmartWalletClient,
+} from '@alchemy/wallet-apis';
+import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  createWalletClient,
+  custom,
+  parseSignature,
+  type AuthorizationRequest,
+  type Hex,
+} from 'viem';
+import { toAccount } from 'viem/accounts';
+import { polygon } from 'viem/chains';
+import { hashAuthorization } from 'viem/utils';
 
 import {
   ActionButton,
@@ -33,7 +44,7 @@ type Asset = 'BTC' | 'ETH';
 type SponsoredCall = {
   to: `0x${string}`;
   data: `0x${string}`;
-  value: string;
+  value: bigint;
 };
 
 function firstParam(value: string | string[] | undefined) {
@@ -67,8 +78,13 @@ function toSponsoredCall(transaction: PreparedWalletTransaction): SponsoredCall 
   return {
     to: transaction.to as `0x${string}`,
     data: transaction.data as `0x${string}`,
-    value: String(transaction.value || '0x0'),
+    value: BigInt(String(transaction.value || '0x0')),
   };
+}
+
+function isPolygonChainId(value: unknown) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === '0x89' || normalized === '137' || normalized === 'eip155:137';
 }
 
 async function confirmOnBackend(
@@ -89,28 +105,120 @@ async function confirmOnBackend(
   return lastResult;
 }
 
+async function buildPrivySigner(wallet: any) {
+  const provider = await wallet?.getProvider?.();
+  if (!provider) {
+    throw new Error('A carteira Privy não disponibilizou o assinador Ethereum.');
+  }
+
+  let currentChainId = await provider.request({
+    method: 'eth_chainId',
+    params: [],
+  });
+  if (!isPolygonChainId(currentChainId)) {
+    await provider.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0x89' }],
+    });
+    currentChainId = await provider.request({
+      method: 'eth_chainId',
+      params: [],
+    });
+  }
+  if (!isPolygonChainId(currentChainId)) {
+    throw new Error('Não foi possível preparar sua carteira na Polygon.');
+  }
+
+  const address = String(wallet.address || '') as `0x${string}`;
+  const rpcWallet = createWalletClient({
+    account: address,
+    chain: polygon,
+    transport: custom(provider),
+  });
+
+  return toAccount({
+    address,
+    signAuthorization: async (request: AuthorizationRequest) => {
+      const implementationAddress =
+        'address' in request ? request.address : request.contractAddress;
+      if (!implementationAddress) {
+        throw new Error('A autorização EIP-7702 não informou o contrato de delegação.');
+      }
+
+      const authorization = {
+        chainId: Number(request.chainId),
+        address: implementationAddress,
+        nonce: Number(request.nonce),
+      };
+      const authorizationHash = hashAuthorization(authorization);
+      const signature = (await provider.request({
+        method: 'secp256k1_sign',
+        params: [authorizationHash],
+      })) as Hex;
+
+      return {
+        ...authorization,
+        ...parseSignature(signature),
+      };
+    },
+    signMessage: async ({ message }) =>
+      (await rpcWallet.signMessage({ message })) as Hex,
+    signTypedData: async (parameters) =>
+      (await rpcWallet.signTypedData(parameters as any)) as Hex,
+    signTransaction: async (transaction) =>
+      (await rpcWallet.signTransaction(transaction as any)) as Hex,
+  });
+}
+
 function SponsoredConfirmation(props: {
   prepared: any;
   credentials: ClientSponsorshipCredentials;
-  asset: Asset;
   onTxHash: (hash: string) => void;
   onConfirmation: (result: any) => void;
   onError: (message: string) => void;
 }) {
-  const { sendTransaction, isLoading } = useAlchemySendTransaction();
+  const { wallets } = useEmbeddedEthereumWallet();
+  const [isLoading, setIsLoading] = useState(false);
 
   async function execute() {
     props.onError('');
     let submittedHash = '';
+    setIsLoading(true);
     try {
+      const wallet = wallets?.find(
+        (candidate) =>
+          String(candidate.address || '').toLowerCase() ===
+          String(props.credentials.wallet || '').toLowerCase(),
+      );
+      if (!wallet) {
+        throw new Error('A carteira Privy desta compra não está disponível neste dispositivo.');
+      }
+
+      const signer = await buildPrivySigner(wallet);
+      const client = createSmartWalletClient({
+        signer,
+        chain: polygon,
+        transport: alchemyWalletTransport({ jwt: props.credentials.jwt }),
+        paymaster: { policyId: props.credentials.policyId },
+      });
+
       const calls: SponsoredCall[] = [];
       if (props.prepared.approvalRequired && props.prepared.approvalTransaction) {
         calls.push(toSponsoredCall(props.prepared.approvalTransaction));
       }
       calls.push(toSponsoredCall(props.prepared.swapTransaction));
 
-      const result = await sendTransaction(calls.length === 1 ? calls[0] : calls);
-      submittedHash = String(result?.txnHash || '').trim();
+      const result = await client.sendCalls({ calls });
+      const status = await client.waitForCallsStatus({
+        id: result.id,
+        timeout: 120_000,
+      });
+      if (status.status !== 'success') {
+        throw new Error('A operação patrocinada não foi confirmada pela rede.');
+      }
+
+      const receipt = status.receipts?.[status.receipts.length - 1];
+      submittedHash = String(receipt?.transactionHash || '').trim();
       if (!/^0x[a-fA-F0-9]{64}$/.test(submittedHash)) {
         throw new Error('A carteira não retornou um hash de transação válido.');
       }
@@ -136,6 +244,8 @@ function SponsoredConfirmation(props: {
           ? `A transação foi enviada. A confirmação automática falhou: ${detail}`
           : detail,
       );
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -148,8 +258,7 @@ function SponsoredConfirmation(props: {
       </Text>
       {props.prepared.approvalRequired ? (
         <Text style={styles.explain}>
-          A aprovação de USDC e o swap serão enviados juntos em uma única operação
-          patrocinada.
+          A aprovação de USDC e o swap serão executados juntos no fluxo patrocinado.
         </Text>
       ) : null}
       <ActionButton label="Confirmar compra" onPress={execute} loading={isLoading} />
@@ -332,21 +441,13 @@ export default function BuyCryptoScreen() {
       ) : null}
 
       {prepared && credentials && !txHash ? (
-        <AlchemyProvider
-          jwt={credentials.jwt}
-          policyId={credentials.policyId}
-          accountAuthMode="eip7702"
-          walletAddress={credentials.wallet}
-        >
-          <SponsoredConfirmation
-            prepared={prepared}
-            credentials={credentials}
-            asset={asset}
-            onTxHash={setTxHash}
-            onConfirmation={setConfirmation}
-            onError={setError}
-          />
-        </AlchemyProvider>
+        <SponsoredConfirmation
+          prepared={prepared}
+          credentials={credentials}
+          onTxHash={setTxHash}
+          onConfirmation={setConfirmation}
+          onError={setError}
+        />
       ) : null}
 
       {txHash ? (
