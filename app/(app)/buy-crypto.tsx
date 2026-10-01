@@ -232,6 +232,7 @@ export default function BuyCryptoScreen() {
 
       const sponsorship = await getClientSwapSponsorshipCredentials(
         session.accessToken,
+        response.intentToken,
       );
       if (
         sponsorship?.chainId !== 137 ||
