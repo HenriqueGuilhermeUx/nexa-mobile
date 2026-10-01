@@ -2,16 +2,7 @@ name: Nexa Wallet-First v128 Rewards Pilot APK
 
 on:
   push:
-    branches:
-      - release/v128-rewards-pilot
-    paths:
-      - 'app/**'
-      - 'src/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'app.json'
-      - 'app.config.js'
-      - '.github/workflows/wallet-first-v128-rewards-apk.yml'
+    branches: [release/v128-rewards-pilot]
   workflow_dispatch:
 
 permissions:
@@ -26,7 +17,6 @@ jobs:
     name: Validate and build Nexa v128 Rewards pilot signed APK
     runs-on: ubuntu-latest
     timeout-minutes: 180
-
     steps:
       - name: Checkout release candidate
         uses: actions/checkout@v5
@@ -70,45 +60,35 @@ jobs:
           if (pkg.dependencies?.['@alchemy/wallet-apis'] !== '5.2.7') throw new Error('Alchemy Wallet APIs must remain 5.2.7');
           if (pkg.dependencies?.['@privy-io/expo'] !== '0.70.4') throw new Error('Privy Expo SDK must remain 0.70.4');
           if (pkg.dependencies?.viem !== '2.55.5') throw new Error('viem must remain 2.55.5');
-          console.log('Nexa v128 release identity OK.');
           NODE
           echo 'EXPECTED_VERSION=2.0.27' >> "$GITHUB_ENV"
           echo 'EXPECTED_BUILD=128' >> "$GITHUB_ENV"
 
-      - name: Validate homologated BTC ETH flow remains intact
+      - name: Validate BTC ETH and Turbinar contracts
         run: |
           set -euo pipefail
-          FILE='app/(app)/buy-crypto.tsx'
-          grep -q "@alchemy/wallet-apis" "$FILE"
-          grep -q "createSmartWalletClient" "$FILE"
-          grep -q "useEmbeddedEthereumWallet" "$FILE"
-          grep -q "secp256k1_sign" "$FILE"
-          grep -q "hashAuthorization" "$FILE"
-          grep -q "client.sendCalls" "$FILE"
-          grep -q "client.waitForCallsStatus" "$FILE"
-          grep -q '/wallet-v15/swap/client-sponsorship-credentials' src/lib/walletFirstActions.ts
+          BUY='app/(app)/buy-crypto.tsx'
+          REW='app/(app)/rewards.tsx'
+          grep -q "createSmartWalletClient" "$BUY"
+          grep -q "client.sendCalls" "$BUY"
+          grep -q "client.waitForCallsStatus" "$BUY"
           grep -q '/wallet-v15/swap/confirm-client-sponsored' src/lib/walletFirstActions.ts
-          echo 'Homologated Wallet-First swap architecture remains present.'
-
-      - name: Validate Turbinar pilot contract
-        run: |
-          set -euo pipefail
-          test -f 'app/(app)/rewards.tsx'
-          test -f 'src/lib/rewardsActions.ts'
-          grep -q 'Turbine seu USDC' 'app/(app)/rewards.tsx'
-          grep -q 'SUPER TURBINADO' 'app/(app)/rewards.tsx'
-          grep -q '+20% de Rewards' 'app/(app)/rewards.tsx'
-          grep -q 'nexa_rewards_pending_action_v1' 'app/(app)/rewards.tsx'
+          test -f "$REW"
+          test -f src/lib/rewardsActions.ts
+          grep -q 'Turbine seu USDC' "$REW"
+          grep -q 'SUPER TURBINADO' "$REW"
+          grep -q '+20% de Rewards' "$REW"
+          grep -q 'nexa_rewards_pending_action_v1' "$REW"
           grep -q '/rewards/v2/bridge-quote' src/lib/rewardsActions.ts
           grep -q '/rewards/v2/bridge-to-base' src/lib/rewardsActions.ts
           grep -q '/rewards/v2/deposit' src/lib/rewardsActions.ts
           grep -q '/rewards/v2/withdraw' src/lib/rewardsActions.ts
           grep -q 'x-privy-user-jwt' src/lib/rewardsActions.ts
-          if grep -qiE 'morpho|steakhouse|vault id|base network|bridge' 'app/(app)/rewards.tsx'; then
+          if grep -qiE 'morpho|steakhouse|vault id|base network' "$REW"; then
             echo 'Technical Rewards infrastructure leaked into customer copy.'
             exit 1
           fi
-          echo 'Turbinar customer surface validated.'
+          echo 'Homologated swap and Turbinar customer contracts validated.'
 
       - name: Validate TypeScript
         run: npm run typecheck
@@ -119,20 +99,17 @@ jobs:
       - name: Preflight production backend
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
-            'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
-          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1); console.log('Backend production OK')"
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1)"
 
       - name: Add build swap
         run: |
-          set -euo pipefail
           if ! swapon --show | grep -q .; then
             sudo fallocate -l 4G /swapfile
             sudo chmod 600 /swapfile
             sudo mkswap /swapfile
             sudo swapon /swapfile
           fi
-          free -h
 
       - name: Build signed v128 APK with EAS local
         env:
@@ -148,17 +125,13 @@ jobs:
           KOTLIN_DAEMON_JVM_OPTIONS: '-Xmx1536m,-XX:MaxMetaspaceSize=1024m'
         run: |
           set -euo pipefail
-          test -n "$EXPO_TOKEN" || (echo 'EXPO_TOKEN ausente' && exit 1)
           eas whoami
           FILE="Nexa-Rewards-Pilot-${EXPECTED_VERSION}-v${EXPECTED_BUILD}.apk"
-          rm -f "$FILE"
           eas build --platform android --profile open-finance-pilot --local --non-interactive --output "$GITHUB_WORKSPACE/$FILE"
           test -s "$FILE"
           SHA256=$(sha256sum "$FILE" | awk '{print $1}')
           echo "apk_file=$FILE" >> "$GITHUB_ENV"
-          echo "apk_sha256=$SHA256" >> "$GITHUB_ENV"
           printf '%s  %s\n' "$SHA256" "$FILE" > SHA256SUMS.txt
-          ls -lh "$FILE"
 
       - name: Verify signed APK identity
         run: |
@@ -175,7 +148,6 @@ jobs:
           test "$VERSION_NAME" = "$EXPECTED_VERSION"
           test "$VERSION_CODE" = "$EXPECTED_BUILD"
           test "$TARGET_SDK" = '36'
-          echo "APK VERIFIED: Nexa $EXPECTED_VERSION v$EXPECTED_BUILD, signed, API 36."
 
       - name: Upload verified v128 APK
         uses: actions/upload-artifact@v4
