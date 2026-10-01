@@ -60,6 +60,10 @@ export function getRewardsPosition(accessToken: string) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/position');
 }
 
+export function getRewardsWalletBalances(accessToken: string) {
+  return rewardsRequest<any>(accessToken, '/rewards/v2/wallet-balances');
+}
+
 export function getRewardsBridgeQuote(accessToken: string, amountUsdc: number) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/bridge-quote', {
     method: 'POST',
