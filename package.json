@@ -3,6 +3,7 @@
   "version": "2.0.24",
   "private": true,
   "main": "entrypoint.js",
+  "packageManager": "npm@10.8.2",
   "scripts": {
     "start": "expo start --dev-client",
     "android": "expo run:android",
