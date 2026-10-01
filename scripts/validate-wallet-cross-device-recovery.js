@@ -3,10 +3,9 @@ const path = require('path');
 
 const recoveryPath = path.join(process.cwd(), 'app/wallet-recovery.tsx');
 const buyPath = path.join(process.cwd(), 'app/(app)/buy-crypto.tsx');
-const authHandoffPath = path.join(process.cwd(), 'src/lib/privyPurchaseAuthorization.ts');
 const layoutPath = path.join(process.cwd(), 'app/_layout.tsx');
 
-for (const file of [recoveryPath, buyPath, authHandoffPath, layoutPath]) {
+for (const file of [recoveryPath, buyPath, layoutPath]) {
   if (!fs.existsSync(file)) {
     throw new Error(`Wallet recovery safety file missing: ${file}`);
   }
@@ -14,9 +13,10 @@ for (const file of [recoveryPath, buyPath, authHandoffPath, layoutPath]) {
 
 const recovery = fs.readFileSync(recoveryPath, 'utf8');
 const buy = fs.readFileSync(buyPath, 'utf8');
-const authHandoff = fs.readFileSync(authHandoffPath, 'utf8');
 const layout = fs.readFileSync(layoutPath, 'utf8');
 
+// Cross-device recovery remains fail-closed: authenticate an existing Privy
+// identity and accept only the exact wallet already linked to the Nexa account.
 const requiredRecoveryTokens = [
   'useLoginWithEmail',
   'useEmbeddedEthereumWallet',
@@ -37,26 +37,6 @@ for (const token of requiredRecoveryTokens) {
   }
 }
 
-const requiredPurchaseAuthTokens = [
-  'useIdentityToken',
-  'returnToPurchase',
-  'waitForIdentityToken',
-  'stashPurchaseIdentityToken',
-  'router.back()',
-  "pathname: '/wallet-recovery'",
-  'consumePurchaseIdentityToken',
-  'getIdentityToken',
-];
-for (const token of requiredPurchaseAuthTokens) {
-  if (!recovery.includes(token) && !buy.includes(token) && !authHandoff.includes(token)) {
-    throw new Error(`Sponsored purchase authorization contract missing: ${token}`);
-  }
-}
-
-if (!recovery.includes("if (!returnToPurchase && typeof privy?.logout === 'function'")) {
-  throw new Error('Sponsored purchase authorization must not log out the active Privy session.');
-}
-
 const forbiddenRecoveryTokens = [
   'embedded.create(',
   'createAdditional',
@@ -74,6 +54,48 @@ if (!layout.includes('name="wallet-recovery"')) {
   throw new Error('Wallet recovery route is not registered in the app stack.');
 }
 
+// v127 purchase recovery is intentionally inline. The purchase must find the
+// exact wallet returned by the backend, use login-only OTP (no signup/new user),
+// refresh the Privy session and force a fresh swap authorization after recovery.
+const requiredInlinePurchaseTokens = [
+  'useEmbeddedEthereumWallet',
+  'useLoginWithEmail',
+  'usePrivy',
+  'props.credentials.wallet',
+  'disableSignup: true',
+  'emailLogin.sendCode',
+  'emailLogin.loginWithCode',
+  'privy.getAccessToken',
+  'CARTEIRA RECONECTADA',
+  'Atualizar autorização da compra',
+  'onWalletReconnected',
+  'Reconecte sua carteira Privy antes de confirmar a compra.',
+];
+for (const token of requiredInlinePurchaseTokens) {
+  if (!buy.includes(token)) {
+    throw new Error(`v127 inline purchase recovery contract missing: ${token}`);
+  }
+}
+
+if (!buy.includes("if (privy?.user && !wallet && typeof privy?.logout === 'function')")) {
+  throw new Error('Purchase recovery must clear a mismatched Privy session before login recovery.');
+}
+if (!buy.includes('String(candidate.address || \'\').toLowerCase()') ||
+    !buy.includes('String(props.credentials.wallet || \'\').toLowerCase()')) {
+  throw new Error('Purchase recovery must match the exact backend-authorized wallet address.');
+}
+
+for (const forbidden of [
+  'embedded.create(',
+  'createAdditional',
+  'nexaApi.linkWallet',
+  'A carteira Privy desta compra não está disponível neste dispositivo.',
+]) {
+  if (buy.includes(forbidden)) {
+    throw new Error(`v127 purchase recovery contains an obsolete/unsafe token: ${forbidden}`);
+  }
+}
+
 console.log(
-  'Wallet recovery safety validated: exact wallet match remains for cross-device recovery; sponsored purchase uses Privy identity JWT without local-wallet gating or wallet creation/relink.',
+  'Wallet recovery safety validated: exact cross-device wallet recovery + v127 inline login-only Privy session restoration with fresh purchase authorization.',
 );
