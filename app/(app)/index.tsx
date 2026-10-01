@@ -233,6 +233,21 @@ export default function HomeScreen() {
       ) : null}
 
       {!legacy ? (
+        <Card style={styles.rewardsCard}>
+          <Badge tone="success">NEXA REWARDS</Badge>
+          <Text style={styles.rewardsTitle}>Turbine seu USDC</Text>
+          <Text style={styles.simpleText}>
+            Coloque seu USDC para trabalhar e acompanhe seus Rewards sem lidar com redes ou protocolos.
+          </Text>
+          <ActionButton
+            label="Turbinar"
+            disabled={!walletLinked}
+            onPress={() => router.push('/(app)/rewards' as any)}
+          />
+        </Card>
+      ) : null}
+
+      {!legacy ? (
         <View style={styles.activityAction}>
           <ActionButton
             label="Atividade"
@@ -300,6 +315,13 @@ const styles = StyleSheet.create({
   actionGrid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   actionItem: { flex: 1 },
   activityAction: { marginBottom: spacing.md },
+  rewardsCard: { backgroundColor: '#11143C' },
+  rewardsTitle: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: '900',
+    marginTop: spacing.md,
+  },
   simpleText: { color: colors.muted, lineHeight: 22, marginTop: 5 },
   sectionHeader: {
     flexDirection: 'row',
