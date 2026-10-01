@@ -20,6 +20,7 @@ import {
   getRewardsBridgeQuote,
   getRewardsPosition,
   getRewardsVault,
+  returnRewardsToWallet,
   withdrawRewardsFull,
 } from '@/lib/rewardsActions';
 import { loadNexaSession } from '@/lib/session';
@@ -28,9 +29,10 @@ import { colors, radius, spacing } from '@/theme';
 const PENDING_KEY = 'nexa_rewards_pending_action_v1';
 
 type PendingAction = {
-  type: 'bridge' | 'deposit' | 'withdraw';
+  type: 'bridge' | 'deposit' | 'withdraw' | 'return';
   actionId: string;
   requestedAmount?: number;
+  nextRequestStarted?: 'deposit' | 'return';
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -79,6 +81,33 @@ function normalizedStatus(action: any) {
   return String(action?.status || '').trim().toLowerCase();
 }
 
+function isCompleted(status: string) {
+  return status === 'succeeded' || status === 'success' || status === 'completed';
+}
+
+function isFailed(status: string) {
+  return status === 'failed' || status === 'rejected';
+}
+
+function failureMessage(result: any) {
+  const detail = String(result?.action?.failureReason || '').trim();
+  return detail
+    ? `A operação não foi concluída: ${detail}. Não repita antes de verificarmos esta action.`
+    : 'A operação não foi concluída. Não repita antes de verificarmos esta action.';
+}
+
+function safeReturnAmount(result: any, fallback?: number) {
+  const preferred = Number(fallback || 0);
+  if (Number.isFinite(preferred) && preferred > 0) return preferred;
+
+  const candidates = [result?.action?.destinationAmount, result?.action?.amount];
+  for (const candidate of candidates) {
+    const value = Number(candidate);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return 0;
+}
+
 export default function RewardsScreen() {
   const privy = usePrivy() as any;
   const [vault, setVault] = useState<any>(null);
@@ -120,6 +149,11 @@ export default function RewardsScreen() {
     else await AsyncStorage.removeItem(PENDING_KEY);
   }
 
+  async function refreshPosition(accessToken: string) {
+    const refreshed = await getRewardsPosition(accessToken);
+    setPosition(refreshed);
+  }
+
   async function load() {
     setLoading(true);
     setError('');
@@ -156,17 +190,8 @@ export default function RewardsScreen() {
     for (let attempt = 0; attempt < 40; attempt += 1) {
       last = await getRewardsAction(accessToken, actionId);
       const status = normalizedStatus(last?.action);
-      if (status === 'succeeded' || status === 'success' || status === 'completed') {
-        return last;
-      }
-      if (status === 'failed' || status === 'rejected') {
-        const detail = String(last?.action?.failureReason || '').trim();
-        throw new Error(
-          detail
-            ? `A operação não foi concluída: ${detail}`
-            : 'A operação não foi concluída pela carteira.',
-        );
-      }
+      if (isCompleted(status)) return last;
+      if (isFailed(status)) throw new Error(failureMessage(last));
       setStatusText('Confirmando sua operação com segurança…');
       await sleep(3_000);
     }
@@ -193,6 +218,30 @@ export default function RewardsScreen() {
     }
   }
 
+  async function startDepositAfterBridge(
+    accessToken: string,
+    privyJwt: string,
+    bridgeActionId: string,
+    arrived: number,
+  ) {
+    await savePending({
+      type: 'bridge',
+      actionId: bridgeActionId,
+      requestedAmount: arrived,
+      nextRequestStarted: 'deposit',
+    });
+    setStatusText('Ativando seus Rewards…');
+    const deposit = await depositRewards(accessToken, privyJwt, arrived);
+    const depositId = String(deposit?.action?.id || '').trim();
+    if (!depositId) {
+      throw new Error('O depósito foi solicitado, mas não recebemos o identificador da action. Não repita a operação.');
+    }
+    await savePending({ type: 'deposit', actionId: depositId, requestedAmount: arrived });
+    await waitForAction(accessToken, depositId);
+    await savePending(null);
+    setStatusText('USDC turbinado com sucesso.');
+  }
+
   async function continueBridge(
     accessToken: string,
     privyJwt: string,
@@ -210,15 +259,39 @@ export default function RewardsScreen() {
         'Seu USDC já foi movimentado para o Rewards, mas o valor final ainda não ficou disponível. Não repita a operação; atualize o status.',
       );
     }
+    await startDepositAfterBridge(accessToken, privyJwt, actionId, arrived);
+  }
 
-    setStatusText('Ativando seus Rewards…');
-    const deposit = await depositRewards(accessToken, privyJwt, arrived);
-    const depositId = String(deposit?.action?.id || '').trim();
-    if (!depositId) throw new Error('O Rewards não retornou o identificador do depósito.');
-    await savePending({ type: 'deposit', actionId: depositId, requestedAmount: arrived });
-    await waitForAction(accessToken, depositId);
+  async function startReturnToWallet(
+    accessToken: string,
+    privyJwt: string,
+    withdrawActionId: string,
+    amountUsdc: number,
+  ) {
+    if (!Number.isFinite(amountUsdc) || amountUsdc <= 0) {
+      throw new Error(
+        'O resgate saiu do Rewards, mas o valor de retorno ainda não pôde ser confirmado. Não repita a operação.',
+      );
+    }
+
+    await savePending({
+      type: 'withdraw',
+      actionId: withdrawActionId,
+      requestedAmount: amountUsdc,
+      nextRequestStarted: 'return',
+    });
+    setStatusText('Devolvendo seu USDC ao saldo Nexa…');
+    const returned = await returnRewardsToWallet(accessToken, privyJwt, amountUsdc);
+    const returnId = String(returned?.action?.id || '').trim();
+    if (!returnId) {
+      throw new Error('O retorno ao saldo Nexa foi solicitado, mas não recebemos o identificador da action. Não repita a operação.');
+    }
+
+    await savePending({ type: 'return', actionId: returnId, requestedAmount: amountUsdc });
+    await waitForAction(accessToken, returnId);
     await savePending(null);
-    setStatusText('USDC turbinado com sucesso.');
+    await refreshPosition(accessToken);
+    setStatusText('Resgate concluído no seu saldo Nexa.');
   }
 
   async function turbocharge() {
@@ -243,8 +316,7 @@ export default function RewardsScreen() {
       setStatusText('Preparando seu USDC para o Rewards…');
       const bridge = await bridgeRewardsToBase(session.accessToken, privyJwt, requested);
       await continueBridge(session.accessToken, privyJwt, bridge, requested);
-      const refreshed = await getRewardsPosition(session.accessToken);
-      setPosition(refreshed);
+      await refreshPosition(session.accessToken);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível concluir o Turbinar.');
     } finally {
@@ -260,35 +332,62 @@ export default function RewardsScreen() {
       const session = await sessionOrThrow();
       const result = await getRewardsAction(session.accessToken, pending.actionId);
       const status = normalizedStatus(result?.action);
-      if (status === 'failed' || status === 'rejected') {
-        await savePending(null);
-        throw new Error('A operação anterior não foi concluída. Você pode tentar novamente.');
+
+      if (isFailed(status)) {
+        throw new Error(failureMessage(result));
       }
-      if (status !== 'succeeded' && status !== 'success' && status !== 'completed') {
+      if (!isCompleted(status)) {
         setStatusText('Sua operação ainda está sendo confirmada.');
         return;
       }
 
       if (pending.type === 'bridge') {
+        if (pending.nextRequestStarted === 'deposit') {
+          throw new Error(
+            'A próxima etapa do Rewards foi solicitada, mas ficou sem confirmação. Não repita; precisamos verificar antes de continuar.',
+          );
+        }
         const arrived = Number(result?.action?.destinationAmount || 0);
         if (!Number.isFinite(arrived) || arrived <= 0) {
-          throw new Error('A transferência foi concluída, mas o valor final ainda não está disponível. Atualize novamente em instantes.');
+          throw new Error(
+            'A transferência foi concluída, mas o valor final ainda não está disponível. Não repita; atualize novamente em instantes.',
+          );
         }
         const privyJwt = await privyJwtOrThrow();
-        setStatusText('Ativando seus Rewards…');
-        const deposit = await depositRewards(session.accessToken, privyJwt, arrived);
-        const depositId = String(deposit?.action?.id || '').trim();
-        if (!depositId) throw new Error('O Rewards não retornou o identificador do depósito.');
-        await savePending({ type: 'deposit', actionId: depositId, requestedAmount: arrived });
-        await waitForAction(session.accessToken, depositId);
-      } else if (pending.type === 'deposit' || pending.type === 'withdraw') {
-        await waitForAction(session.accessToken, pending.actionId);
+        await startDepositAfterBridge(session.accessToken, privyJwt, pending.actionId, arrived);
+        await refreshPosition(session.accessToken);
+        return;
       }
 
-      await savePending(null);
-      const refreshed = await getRewardsPosition(session.accessToken);
-      setPosition(refreshed);
-      setStatusText(pending.type === 'withdraw' ? 'Resgate confirmado.' : 'Rewards confirmados.');
+      if (pending.type === 'deposit') {
+        await savePending(null);
+        await refreshPosition(session.accessToken);
+        setStatusText('Rewards confirmados.');
+        return;
+      }
+
+      if (pending.type === 'withdraw') {
+        if (pending.nextRequestStarted === 'return') {
+          throw new Error(
+            'O retorno ao saldo Nexa foi solicitado, mas ficou sem confirmação. Não repita; precisamos verificar a action antes de continuar.',
+          );
+        }
+        const returnAmount = safeReturnAmount(result, pending.requestedAmount);
+        const privyJwt = await privyJwtOrThrow();
+        await startReturnToWallet(
+          session.accessToken,
+          privyJwt,
+          pending.actionId,
+          returnAmount,
+        );
+        return;
+      }
+
+      if (pending.type === 'return') {
+        await savePending(null);
+        await refreshPosition(session.accessToken);
+        setStatusText('Resgate concluído no seu saldo Nexa.');
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível atualizar a operação.');
     } finally {
@@ -301,6 +400,11 @@ export default function RewardsScreen() {
       setError('Já existe uma operação Rewards em andamento. Atualize o status primeiro.');
       return;
     }
+    if (!Number.isFinite(assetsInVault) || assetsInVault <= 0) {
+      setError('Você não possui USDC turbinado para resgatar.');
+      return;
+    }
+
     setWorking(true);
     setError('');
     try {
@@ -310,12 +414,20 @@ export default function RewardsScreen() {
       const result = await withdrawRewardsFull(session.accessToken, privyJwt);
       const actionId = String(result?.action?.id || '').trim();
       if (!actionId) throw new Error('O Rewards não retornou o identificador do resgate.');
-      await savePending({ type: 'withdraw', actionId });
-      await waitForAction(session.accessToken, actionId);
-      await savePending(null);
-      const refreshed = await getRewardsPosition(session.accessToken);
-      setPosition(refreshed);
-      setStatusText('Resgate confirmado na sua carteira.');
+
+      await savePending({
+        type: 'withdraw',
+        actionId,
+        requestedAmount: assetsInVault,
+      });
+      const finalWithdraw = await waitForAction(session.accessToken, actionId);
+      const returnAmount = safeReturnAmount(finalWithdraw, assetsInVault);
+      await startReturnToWallet(
+        session.accessToken,
+        privyJwt,
+        actionId,
+        returnAmount,
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível resgatar agora.');
     } finally {
@@ -374,7 +486,12 @@ export default function RewardsScreen() {
             ) : null}
           </View>
         ) : null}
-        <ActionButton label="Ver estimativa" variant="secondary" onPress={seeQuote} loading={working} />
+        <ActionButton
+          label="Ver estimativa"
+          variant="secondary"
+          onPress={seeQuote}
+          loading={working}
+        />
         <ActionButton
           label={premium ? 'Ativar Super Turbinado' : 'Turbinar USDC'}
           onPress={turbocharge}
@@ -382,22 +499,33 @@ export default function RewardsScreen() {
           disabled={Boolean(pending) || vault?.liveActionsEnabled !== true}
         />
         {vault?.liveActionsEnabled !== true ? (
-          <Text style={styles.pilot}>Homologação final em andamento. Nenhum valor será movimentado até a liberação do piloto.</Text>
+          <Text style={styles.pilot}>
+            Homologação final em andamento. Nenhum valor será movimentado até a liberação do piloto.
+          </Text>
         ) : null}
       </Card>
 
       {pending ? (
         <Card>
           <Badge tone="warning">OPERAÇÃO EM ANDAMENTO</Badge>
-          <Text style={styles.muted}>Não inicie outra operação enquanto esta estiver sendo confirmada.</Text>
-          <ActionButton label="Atualizar status" variant="secondary" onPress={resumePending} loading={working} />
+          <Text style={styles.muted}>
+            Não inicie outra operação enquanto esta estiver sendo confirmada.
+          </Text>
+          <ActionButton
+            label="Atualizar status"
+            variant="secondary"
+            onPress={resumePending}
+            loading={working}
+          />
         </Card>
       ) : null}
 
       {assetsInVault > 0 ? (
         <Card>
           <Text style={styles.sectionTitle}>Seu Rewards está ativo</Text>
-          <Text style={styles.muted}>Você pode resgatar seu saldo quando quiser, sujeito à liquidez da estratégia.</Text>
+          <Text style={styles.muted}>
+            Você pode resgatar seu saldo quando quiser, sujeito à liquidez da estratégia.
+          </Text>
           <ActionButton
             label="Resgatar tudo"
             variant="secondary"
@@ -428,8 +556,18 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   label: { color: colors.muted, fontSize: 13, fontWeight: '800' },
-  balance: { color: colors.text, fontSize: 30, fontWeight: '900', marginTop: spacing.sm },
-  reward: { color: colors.cyan, fontWeight: '900', marginTop: spacing.sm, marginBottom: spacing.sm },
+  balance: {
+    color: colors.text,
+    fontSize: 30,
+    fontWeight: '900',
+    marginTop: spacing.sm,
+  },
+  reward: {
+    color: colors.cyan,
+    fontWeight: '900',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   muted: { color: colors.muted, lineHeight: 21 },
   quoteBox: {
     borderColor: colors.border,
@@ -440,8 +578,18 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   quoteTitle: { color: colors.text, fontWeight: '900' },
-  sectionTitle: { color: colors.text, fontWeight: '900', fontSize: 18, marginBottom: spacing.sm },
-  pilot: { color: colors.warning, fontSize: 12, lineHeight: 18, marginTop: spacing.sm },
+  sectionTitle: {
+    color: colors.text,
+    fontWeight: '900',
+    fontSize: 18,
+    marginBottom: spacing.sm,
+  },
+  pilot: {
+    color: colors.warning,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: spacing.sm,
+  },
   status: {
     color: colors.cyan,
     backgroundColor: '#101B2F',
@@ -458,5 +606,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   loading: { color: colors.muted, textAlign: 'center', marginBottom: spacing.md },
-  disclaimer: { color: colors.muted, fontSize: 11, lineHeight: 17, marginBottom: spacing.xl },
+  disclaimer: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 17,
+    marginBottom: spacing.xl,
+  },
 });
