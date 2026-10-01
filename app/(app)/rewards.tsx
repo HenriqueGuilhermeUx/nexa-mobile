@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePrivy } from '@privy-io/expo';
+import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -133,12 +134,23 @@ export default function RewardsScreen() {
   }
 
   async function privyJwtOrThrow() {
-    if (typeof privy?.getAccessToken !== 'function') {
-      throw new Error('Sua carteira precisa ser autenticada para continuar.');
+    let token = '';
+    try {
+      if (typeof privy?.getAccessToken === 'function') {
+        token = String((await privy.getAccessToken()) || '').trim();
+      }
+    } catch {
+      token = '';
     }
-    const token = String((await privy.getAccessToken()) || '').trim();
+
     if (token.length < 40 || token.split('.').length !== 3) {
-      throw new Error('Sua sessão da carteira expirou. Entre novamente na Nexa para continuar.');
+      router.push({
+        pathname: '/wallet-session',
+        params: { returnTo: 'rewards' },
+      } as any);
+      throw new Error(
+        'Confirme sua carteira para continuar. Nenhum valor foi movimentado.',
+      );
     }
     return token;
   }
