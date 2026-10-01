@@ -155,6 +155,36 @@ export function confirmClientSponsoredWalletFirstSwap(
   });
 }
 
+export function getPremiumGoldQuote(accessToken: string, amountUsdc: number) {
+  return postJson<any>(accessToken, '/wallet-v15/gold/quote', { amountUsdc });
+}
+
+export function preparePremiumGoldPurchase(accessToken: string, amountUsdc: number) {
+  return postJson<any>(accessToken, '/wallet-v15/gold/prepare', { amountUsdc });
+}
+
+export function getPremiumGoldSponsorshipCredentials(
+  accessToken: string,
+  intentToken: string,
+) {
+  return postJson<ClientSponsorshipCredentials>(
+    accessToken,
+    '/wallet-v15/gold/client-sponsorship-credentials',
+    { intentToken },
+  );
+}
+
+export function confirmPremiumGoldPurchase(
+  accessToken: string,
+  intentToken: string,
+  originTxHash: string,
+) {
+  return postJson<any>(accessToken, '/wallet-v15/gold/confirm', {
+    intentToken,
+    originTxHash,
+  });
+}
+
 export function normalizeWalletAddress(value: unknown) {
   return String(value || '').trim().toLowerCase();
 }
