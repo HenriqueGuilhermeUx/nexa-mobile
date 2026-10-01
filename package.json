@@ -1,6 +1,6 @@
 {
   "name": "nexa-mobile",
-  "version": "2.0.23",
+  "version": "2.0.24",
   "private": true,
   "main": "entrypoint.js",
   "scripts": {
@@ -12,7 +12,7 @@
     "export:android": "expo export --platform android --output-dir dist-ci"
   },
   "dependencies": {
-    "@account-kit/privy-integration": "^4.88.5",
+    "@account-kit/privy-integration": "4.88.5",
     "@ethersproject/shims": "^5.8.0",
     "@privy-io/expo": "0.70.4",
     "@privy-io/expo-native-extensions": "0.0.12",
