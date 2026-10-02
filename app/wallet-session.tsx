@@ -154,6 +154,10 @@ export default function WalletSessionScreen() {
       router.replace('/(app)/rewards' as any);
       return;
     }
+    if (returnTo === 'cash-out') {
+      router.replace('/(app)/cash-out' as any);
+      return;
+    }
     router.back();
   }
 
@@ -208,7 +212,7 @@ export default function WalletSessionScreen() {
         )
       ) : (
         <ActionButton
-          label={returnTo === 'rewards' ? 'Voltar ao Turbinar' : 'Continuar'}
+          label={returnTo === 'rewards' ? 'Voltar ao Turbinar' : returnTo === 'cash-out' ? 'Voltar ao saque' : 'Continuar'}
           onPress={continueFlow}
         />
       )}
