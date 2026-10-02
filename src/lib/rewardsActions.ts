@@ -33,14 +33,29 @@ async function rewardsRequest<T>(
   }
 
   if (!response.ok) {
-    const raw = payload?.message || payload?.error || payload?.code;
+    const nested =
+      payload?.message && typeof payload.message === 'object'
+        ? payload.message
+        : null;
+    const raw =
+      nested?.message ||
+      payload?.message ||
+      payload?.error?.message ||
+      payload?.error ||
+      nested?.code ||
+      payload?.code;
     const message = Array.isArray(raw)
       ? raw.join(', ')
       : typeof raw === 'object'
         ? JSON.stringify(raw)
         : String(raw || `Falha no Nexa Rewards (${response.status}).`);
     const error = new Error(message) as Error & { code?: string; details?: any };
-    error.code = String(payload?.code || '');
+    error.code = String(
+      payload?.code ||
+        nested?.code ||
+        payload?.error?.code ||
+        '',
+    );
     error.details = payload;
     throw error;
   }
