@@ -1,0 +1,5 @@
+Nexa v132 Rewards client-signed authorization
+Version: 2.0.31
+Build: 132
+Scope: Privy useAuthorizationSignature on device + exact server-prepared request + safe non-financial personal_sign diagnostic before any Rewards transfer.
+Financial execution remains server-gated. PRIVY_EARN_BRIDGE_DIAGNOSTIC_ONLY stays enabled until the signed v132 diagnostic is accepted by Privy.
