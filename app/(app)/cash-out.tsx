@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useEmbeddedEthereumWallet } from '@privy-io/expo';
+import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -107,6 +107,7 @@ function requiresManualReview(result: any) {
 }
 
 export default function CashOutScreen() {
+  const privy = usePrivy() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
   const [amountUsdc, setAmountUsdc] = useState('');
@@ -133,14 +134,40 @@ export default function CashOutScreen() {
     setPhase('idle');
   }
 
+  async function ensurePrivyWalletSession() {
+    let token = '';
+    try {
+      if (typeof privy?.getAccessToken === 'function') {
+        token = String((await privy.getAccessToken()) || '').trim();
+      }
+    } catch {
+      token = '';
+    }
+
+    if (token.length >= 40 && token.split('.').length === 3) return;
+
+    router.push({
+      pathname: '/wallet-session',
+      params: { returnTo: 'cash-out' },
+    } as any);
+    throw new Error(
+      'Confirme sua carteira neste aparelho e depois gere uma nova cotação. Nenhum valor foi movimentado.',
+    );
+  }
+
   async function providerFor(address: string) {
+    await ensurePrivyWalletSession();
     const expected = normalizeWalletAddress(address);
     const wallet = wallets.find(
       (candidate) => normalizeWalletAddress(candidate?.address) === expected,
     );
     if (!wallet) {
+      router.push({
+        pathname: '/wallet-session',
+        params: { returnTo: 'cash-out' },
+      } as any);
       throw new Error(
-        'A carteira vinculada à Nexa não está disponível neste dispositivo.',
+        'A sessão da carteira precisa ser restaurada neste aparelho. Nenhum valor foi movimentado.',
       );
     }
     if (typeof wallet.getProvider === 'function') return wallet.getProvider();
