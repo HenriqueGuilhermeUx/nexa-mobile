@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import { useAuthorizationSignature, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,6 +19,8 @@ import {
   bridgeRewardsToBase,
   depositRewards,
   getRewardsAction,
+  getRewardsActivity,
+  getRewardsActivityDetail,
   getRewardsBridgeQuote,
   getRewardsPosition,
   getRewardsVault,
@@ -39,9 +42,34 @@ type PendingAction = {
   actionId: string;
   requestedAmount?: number;
   nextRequestStarted?: 'deposit' | 'return';
+  clientOperationId?: string;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function newRewardsOperationId() {
+  return `rw-${Crypto.randomUUID()}`;
+}
+
+function operationStatusLabel(status: unknown) {
+  const value = String(status || '').toLowerCase();
+  if (value === 'completed') return 'Concluído';
+  if (value === 'failed') return 'Falhou';
+  if (value === 'provider_uncertain') return 'Em verificação';
+  return 'Processando';
+}
+
+function operationKindLabel(kind: unknown) {
+  return String(kind || '').toLowerCase() === 'redeem'
+    ? 'Resgate Rewards'
+    : 'Turbinar USDC';
+}
+
+function formatDateTime(value: unknown) {
+  const date = new Date(String(value || ''));
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-BR');
+}
 
 function parseAmount(value: string) {
   const amount = Number(String(value || '').trim().replace(',', '.'));
@@ -145,6 +173,9 @@ export default function RewardsScreen() {
   const [loading, setLoading] = useState(true);
   const [statusText, setStatusText] = useState('');
   const [error, setError] = useState('');
+  const [activity, setActivity] = useState<any>(null);
+  const [selectedActivity, setSelectedActivity] = useState<any>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
 
   const premium = String(vault?.plan || position?.plan || '') === 'premium';
   const apy = useMemo(() => currentApyPercent(vault), [vault]);
@@ -227,6 +258,36 @@ export default function RewardsScreen() {
     setPosition(refreshed);
   }
 
+  async function refreshActivity(accessToken: string) {
+    try {
+      const refreshed = await getRewardsActivity(accessToken, 20);
+      setActivity(refreshed);
+    } catch {
+      // v135 remains usable while the activity backend deploy is propagating.
+    }
+  }
+
+  async function openActivityDetail(operationId: string) {
+    setActivityLoading(true);
+    setError('');
+    try {
+      const session = await sessionOrThrow();
+      const detail = await getRewardsActivityDetail(
+        session.accessToken,
+        operationId,
+      );
+      setSelectedActivity(detail?.operation || null);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível abrir os detalhes desta operação.',
+      );
+    } finally {
+      setActivityLoading(false);
+    }
+  }
+
   async function load() {
     setLoading(true);
     setError('');
@@ -239,6 +300,7 @@ export default function RewardsScreen() {
       ]);
       setVault(vaultResponse);
       setPosition(positionResponse);
+      void refreshActivity(session.accessToken);
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
@@ -295,12 +357,14 @@ export default function RewardsScreen() {
     accessToken: string,
     bridgeActionId: string,
     arrived: number,
+    clientOperationId?: string,
   ) {
     await savePending({
       type: 'bridge',
       actionId: bridgeActionId,
       requestedAmount: arrived,
       nextRequestStarted: 'deposit',
+      clientOperationId,
     });
     setStatusText('Autorizando depósito no Rewards…');
     const authorization = await authorizeRewardsAction(
@@ -309,20 +373,32 @@ export default function RewardsScreen() {
       { amountUsdc: arrived },
     );
     setStatusText('Ativando seus Rewards…');
-    const deposit = await depositRewards(accessToken, arrived, authorization);
+    const deposit = await depositRewards(
+      accessToken,
+      arrived,
+      authorization,
+      clientOperationId,
+    );
     const depositId = String(deposit?.action?.id || '').trim();
     if (!depositId) {
       throw new Error('O depósito foi solicitado, mas não recebemos o identificador da action. Não repita a operação.');
     }
-    await savePending({ type: 'deposit', actionId: depositId, requestedAmount: arrived });
+    await savePending({
+      type: 'deposit',
+      actionId: depositId,
+      requestedAmount: arrived,
+      clientOperationId,
+    });
     await waitForAction(accessToken, depositId);
     await savePending(null);
+    await refreshActivity(accessToken);
     setStatusText('USDC turbinado com sucesso.');
   }
 
   async function startDepositFromBase(
     accessToken: string,
     amountUsdc: number,
+    clientOperationId?: string,
   ) {
     setStatusText('USDC já localizado na rede Rewards. Autorizando depósito…');
     const authorization = await authorizeRewardsAction(
@@ -335,15 +411,22 @@ export default function RewardsScreen() {
       accessToken,
       amountUsdc,
       authorization,
+      clientOperationId,
     );
     const depositId = String(deposit?.action?.id || '').trim();
     if (!depositId) {
       throw new Error('O depósito foi solicitado, mas não recebemos o identificador da action. Não repita a operação.');
     }
-    await savePending({ type: 'deposit', actionId: depositId, requestedAmount: amountUsdc });
+    await savePending({
+      type: 'deposit',
+      actionId: depositId,
+      requestedAmount: amountUsdc,
+      clientOperationId,
+    });
     await waitForAction(accessToken, depositId);
     await savePending(null);
     await refreshPosition(accessToken);
+    await refreshActivity(accessToken);
     setStatusText('USDC turbinado com sucesso.');
   }
 
@@ -351,10 +434,16 @@ export default function RewardsScreen() {
     accessToken: string,
     bridgeAction: any,
     requestedAmount: number,
+    clientOperationId?: string,
   ) {
     const actionId = String(bridgeAction?.action?.id || bridgeAction?.id || '').trim();
     if (!actionId) throw new Error('A carteira não retornou o identificador da operação.');
-    await savePending({ type: 'bridge', actionId, requestedAmount });
+    await savePending({
+      type: 'bridge',
+      actionId,
+      requestedAmount,
+      clientOperationId,
+    });
     setStatusText('Preparando seu USDC para o Rewards…');
     const finalBridge = await waitForAction(accessToken, actionId);
     const arrived = Number(finalBridge?.action?.destinationAmount || 0);
@@ -363,13 +452,19 @@ export default function RewardsScreen() {
         'Seu USDC já foi movimentado para o Rewards, mas o valor final ainda não ficou disponível. Não repita a operação; atualize o status.',
       );
     }
-    await startDepositAfterBridge(accessToken, actionId, arrived);
+    await startDepositAfterBridge(
+      accessToken,
+      actionId,
+      arrived,
+      clientOperationId,
+    );
   }
 
   async function startReturnToWallet(
     accessToken: string,
     withdrawActionId: string,
     amountUsdc: number,
+    clientOperationId?: string,
   ) {
     if (!Number.isFinite(amountUsdc) || amountUsdc <= 0) {
       throw new Error(
@@ -382,6 +477,7 @@ export default function RewardsScreen() {
       actionId: withdrawActionId,
       requestedAmount: amountUsdc,
       nextRequestStarted: 'return',
+      clientOperationId,
     });
     setStatusText('Autorizando retorno ao saldo Nexa…');
     const authorization = await authorizeRewardsAction(
@@ -394,16 +490,23 @@ export default function RewardsScreen() {
       accessToken,
       amountUsdc,
       authorization,
+      clientOperationId,
     );
     const returnId = String(returned?.action?.id || '').trim();
     if (!returnId) {
       throw new Error('O retorno ao saldo Nexa foi solicitado, mas não recebemos o identificador da action. Não repita a operação.');
     }
 
-    await savePending({ type: 'return', actionId: returnId, requestedAmount: amountUsdc });
+    await savePending({
+      type: 'return',
+      actionId: returnId,
+      requestedAmount: amountUsdc,
+      clientOperationId,
+    });
     await waitForAction(accessToken, returnId);
     await savePending(null);
     await refreshPosition(accessToken);
+    await refreshActivity(accessToken);
     setStatusText('Resgate concluído no seu saldo Nexa.');
   }
 
@@ -453,8 +556,14 @@ export default function RewardsScreen() {
         return;
       }
 
+      const clientOperationId = newRewardsOperationId();
+
       if (Number.isFinite(baseUsdc) && baseUsdc + 0.000001 >= requested) {
-        await startDepositFromBase(session.accessToken, requested);
+        await startDepositFromBase(
+          session.accessToken,
+          requested,
+          clientOperationId,
+        );
         return;
       }
 
@@ -475,8 +584,14 @@ export default function RewardsScreen() {
         session.accessToken,
         requested,
         authorization,
+        clientOperationId,
       );
-      await continueBridge(session.accessToken, bridge, requested);
+      await continueBridge(
+        session.accessToken,
+        bridge,
+        requested,
+        clientOperationId,
+      );
       await refreshPosition(session.accessToken);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível concluir o Turbinar.');
@@ -533,6 +648,7 @@ export default function RewardsScreen() {
           session.accessToken,
           pending.actionId,
           arrived,
+          pending.clientOperationId,
         );
         await refreshPosition(session.accessToken);
         return;
@@ -541,6 +657,7 @@ export default function RewardsScreen() {
       if (pending.type === 'deposit') {
         await savePending(null);
         await refreshPosition(session.accessToken);
+        await refreshActivity(session.accessToken);
         setStatusText('Rewards confirmados.');
         return;
       }
@@ -556,6 +673,7 @@ export default function RewardsScreen() {
           session.accessToken,
           pending.actionId,
           returnAmount,
+          pending.clientOperationId,
         );
         return;
       }
@@ -563,6 +681,7 @@ export default function RewardsScreen() {
       if (pending.type === 'return') {
         await savePending(null);
         await refreshPosition(session.accessToken);
+        await refreshActivity(session.accessToken);
         setStatusText('Resgate concluído no seu saldo Nexa.');
       }
     } catch (caught) {
@@ -586,6 +705,7 @@ export default function RewardsScreen() {
     setError('');
     try {
       const session = await sessionOrThrow();
+      const clientOperationId = newRewardsOperationId();
       setStatusText('Autorizando resgate na sua carteira…');
       const authorization = await authorizeRewardsAction(
         session.accessToken,
@@ -596,6 +716,7 @@ export default function RewardsScreen() {
       const result = await withdrawRewardsFull(
         session.accessToken,
         authorization,
+        clientOperationId,
       );
       const actionId = String(result?.action?.id || '').trim();
       if (!actionId) throw new Error('O Rewards não retornou o identificador do resgate.');
@@ -604,6 +725,7 @@ export default function RewardsScreen() {
         type: 'withdraw',
         actionId,
         requestedAmount: assetsInVault,
+        clientOperationId,
       });
       const finalWithdraw = await waitForAction(session.accessToken, actionId);
       const returnAmount = safeReturnAmount(finalWithdraw, assetsInVault);
@@ -611,6 +733,7 @@ export default function RewardsScreen() {
         session.accessToken,
         actionId,
         returnAmount,
+        clientOperationId,
       );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível resgatar agora.');
