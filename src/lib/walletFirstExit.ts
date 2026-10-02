@@ -94,6 +94,30 @@ export function createWalletFirstExitIntent(
   });
 }
 
+export function prepareWalletFirstExitUsdtSwap(
+  accessToken: string,
+  orderId: string,
+) {
+  return requestJson<any>(
+    accessToken,
+    `${EXIT_BASE}/intents/${encodeURIComponent(orderId)}/swap/prepare`,
+    { body: {} },
+  );
+}
+
+export function confirmWalletFirstExitUsdtSwap(
+  accessToken: string,
+  orderId: string,
+  intentToken: string,
+  txHash: string,
+) {
+  return requestJson<any>(
+    accessToken,
+    `${EXIT_BASE}/intents/${encodeURIComponent(orderId)}/swap/confirm`,
+    { body: { intentToken, txHash } },
+  );
+}
+
 export function prepareWalletFirstExitTransfer(
   accessToken: string,
   orderId: string,
