@@ -263,8 +263,14 @@ export default function CashOutScreen() {
   const [quote, setQuote] = useState<WalletFirstExitQuote | null>(null);
   const [intent, setIntent] = useState<any>(null);
   const [swapPrepared, setSwapPrepared] = useState<any>(null);
+  const [swapSponsorship, setSwapSponsorship] =
+    useState<WalletFirstExitSponsorshipCredentials | null>(null);
+  const [swapCallId, setSwapCallId] = useState('');
   const [swapTxHash, setSwapTxHash] = useState('');
   const [prepared, setPrepared] = useState<any>(null);
+  const [transferSponsorship, setTransferSponsorship] =
+    useState<WalletFirstExitSponsorshipCredentials | null>(null);
+  const [transferCallId, setTransferCallId] = useState('');
   const [txHash, setTxHash] = useState('');
   const [phase, setPhase] = useState<ExitPhase>('idle');
   const [statusText, setStatusText] = useState('');
@@ -275,8 +281,12 @@ export default function CashOutScreen() {
   function resetExecution() {
     setIntent(null);
     setSwapPrepared(null);
+    setSwapSponsorship(null);
+    setSwapCallId('');
     setSwapTxHash('');
     setPrepared(null);
+    setTransferSponsorship(null);
+    setTransferCallId('');
     setTxHash('');
     setFinalResult(null);
     setStatusText('');
@@ -304,7 +314,7 @@ export default function CashOutScreen() {
     );
   }
 
-  async function providerFor(address: string) {
+  async function walletFor(address: string) {
     await ensurePrivyWalletSession();
     const expected = normalizeWalletAddress(address);
     const wallet = wallets.find(
@@ -319,13 +329,7 @@ export default function CashOutScreen() {
         'A sessão da carteira precisa ser restaurada neste aparelho. Nenhum valor foi movimentado.',
       );
     }
-    if (typeof wallet.getProvider === 'function') return wallet.getProvider();
-    if (typeof wallet.getEthereumProvider === 'function') {
-      return wallet.getEthereumProvider();
-    }
-    throw new Error(
-      'A carteira deste dispositivo não expôs o provedor de assinatura.',
-    );
+    return wallet;
   }
 
   async function sessionToken() {
