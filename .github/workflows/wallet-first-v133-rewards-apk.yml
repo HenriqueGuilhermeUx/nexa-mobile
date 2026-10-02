@@ -1,19 +1,6 @@
 name: Nexa Wallet-First v133 Rewards APK
 
 on:
-  push:
-    branches:
-      - fix/rewards-identity-token-v130
-    paths:
-      - 'app/**'
-      - 'src/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'app.json'
-      - 'app.config.js'
-      - 'eas.json'
-      - '.github/build-triggers/rewards-v133.txt'
-      - '.github/workflows/wallet-first-v133-rewards-apk.yml'
   workflow_dispatch:
 
 permissions:
