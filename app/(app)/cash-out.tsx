@@ -629,7 +629,7 @@ export default function CashOutScreen() {
       orderId,
     );
     if (requiresManualReview(provider)) {
-      throw new Error('O crédito de USDC requer revisão manual da Nexa.');
+      throw new Error('O crédito de USDT requer revisão manual da Nexa.');
     }
     const providerCredited =
       provider?.providerDepositCredited === true || provider?.credited === true;
@@ -698,14 +698,39 @@ export default function CashOutScreen() {
   }
 
   async function signAndWithdraw() {
-    if (!prepared?.transaction || !intent?.order?.id) return;
+    if (
+      !prepared?.transaction ||
+      !transferSponsorship ||
+      !intent?.order?.id
+    ) {
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      const provider = await providerFor(prepared.transaction.from);
-      const hash = await sendPreparedWalletTransaction(
-        provider,
-        prepared.transaction,
+      const wallet = await walletFor(transferSponsorship.wallet);
+      const client = await sponsoredClient(wallet, transferSponsorship);
+      setStatusText(
+        'Enviando USDT para liquidação com gas patrocinado pela Nexa…',
+      );
+      const result = await client.sendCalls({
+        calls: [toSponsoredCall(prepared.transaction)],
+      });
+      const callId = String(result?.id || '').trim();
+      if (!callId) {
+        throw new Error(
+          'A carteira não retornou o identificador da transferência patrocinada.',
+        );
+      }
+      setTransferCallId(callId);
+      setPhase('onchain');
+      setStatusText(
+        'Transferência patrocinada enviada. Aguardando confirmação; não repita.',
+      );
+      const hash = await waitSponsoredCall(
+        wallet,
+        transferSponsorship,
+        callId,
       );
       setTxHash(hash);
       await advanceExit(intent.order.id, hash);
@@ -721,11 +746,26 @@ export default function CashOutScreen() {
   }
 
   async function continueProcessing() {
-    if (!intent?.order?.id || !txHash) return;
+    if (
+      !intent?.order?.id ||
+      (!txHash && (!transferCallId || !transferSponsorship))
+    ) {
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await advanceExit(intent.order.id, txHash);
+      let hash = txHash;
+      if (!hash) {
+        const wallet = await walletFor(transferSponsorship!.wallet);
+        hash = await waitSponsoredCall(
+          wallet,
+          transferSponsorship!,
+          transferCallId,
+        );
+        setTxHash(hash);
+      }
+      await advanceExit(intent.order.id, hash);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -750,7 +790,7 @@ export default function CashOutScreen() {
       <Title>Sacar para Pix.</Title>
       <Paragraph>
         Você autoriza a saída na sua própria carteira. A Nexa confirma a Polygon,
-        liquida USDC em reais e só conclui quando o Pix real estiver confirmado.
+        converte para USDT, liquida em reais e só conclui quando o Pix real estiver confirmado.
       </Paragraph>
 
       <Card>
@@ -811,7 +851,7 @@ export default function CashOutScreen() {
             Estimado: {Number(swapPrepared.estimatedAmountUsdt || 0).toLocaleString('pt-BR', { maximumFractionDigits: 6 })} USDT
           </Text>
           <Text style={styles.stepText}>
-            A Nexa não possui sua chave privada. Se houver aprovação 0x, ela é limitada ao valor deste saque.
+            A Nexa não possui sua chave privada. Se houver aprovação 0x, ela é limitada ao valor deste saque e o gas da Polygon é patrocinado pela Nexa.
           </Text>
           <ActionButton
             label="Autorizar conversão USDC → USDT"
@@ -821,11 +861,13 @@ export default function CashOutScreen() {
         </Card>
       ) : null}
 
-      {swapPrepared && swapTxHash && phase === 'swap_confirming' ? (
+      {swapPrepared && (swapTxHash || swapCallId) && phase === 'swap_confirming' ? (
         <Card>
           <Badge tone="info">CONVERSÃO EM ANDAMENTO</Badge>
           <Text style={styles.stepTitle}>{statusText || 'Confirmando na Polygon…'}</Text>
-          <Text selectable style={styles.hash}>{swapTxHash}</Text>
+          <Text selectable style={styles.hash}>
+            {swapTxHash || `Operação patrocinada: ${swapCallId}`}
+          </Text>
           <ActionButton
             label="Continuar confirmação"
             variant="secondary"
@@ -847,7 +889,7 @@ export default function CashOutScreen() {
             Pix próprio verificado: {prepared?.beneficiary?.pixKeyType || 'sim'}
           </Text>
           <Text style={styles.stepText}>
-            A Nexa não possui sua chave privada e não consegue assinar esta saída por você.
+            A Nexa não possui sua chave privada e não consegue assinar esta saída por você. O gas da Polygon é patrocinado pela Nexa.
           </Text>
           <ActionButton
             label="Enviar USDT para liquidação"
@@ -857,11 +899,13 @@ export default function CashOutScreen() {
         </Card>
       ) : null}
 
-      {txHash && phase !== 'completed' ? (
+      {(txHash || transferCallId) && phase !== 'completed' ? (
         <Card>
           <Badge tone="info">SAQUE EM ANDAMENTO</Badge>
           <Text style={styles.stepTitle}>{statusText || 'Processando…'}</Text>
-          <Text selectable style={styles.hash}>{txHash}</Text>
+          <Text selectable style={styles.hash}>
+            {txHash || `Operação patrocinada: ${transferCallId}`}
+          </Text>
           <ActionButton
             label="Continuar processamento"
             variant="secondary"
