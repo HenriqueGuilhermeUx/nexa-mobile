@@ -96,7 +96,26 @@ function isFailed(status: string) {
 }
 
 function failureMessage(result: any) {
-  const detail = String(result?.action?.failureReason || '').trim();
+  const reason = result?.action?.failureReason;
+  let detail = '';
+  if (typeof reason === 'string') {
+    detail = reason.trim();
+  } else if (reason && typeof reason === 'object') {
+    detail = String(
+      reason?.message ||
+        reason?.messageTail ||
+        reason?.messageHead ||
+        reason?.error ||
+        '',
+    ).trim();
+    if (!detail) {
+      try {
+        detail = JSON.stringify(reason);
+      } catch {
+        detail = '';
+      }
+    }
+  }
   return detail
     ? `A operação não foi concluída: ${detail}. Não repita antes de verificarmos esta action.`
     : 'A operação não foi concluída. Não repita antes de verificarmos esta action.';
@@ -492,6 +511,14 @@ export default function RewardsScreen() {
 
       if (pending.type === 'bridge') {
         if (pending.nextRequestStarted === 'deposit') {
+          if (result?.recovery?.depositRetryAllowed === true) {
+            await savePending(null);
+            await refreshPosition(session.accessToken);
+            setStatusText(
+              'A tentativa anterior foi reconciliada e não criou um depósito. Você pode tentar novamente com segurança.',
+            );
+            return;
+          }
           throw new Error(
             'A próxima etapa do Rewards foi solicitada, mas ficou sem confirmação. Não repita; precisamos verificar antes de continuar.',
           );
