@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePrivy } from '@privy-io/expo';
+import { useAuthorizationSignature, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -22,7 +22,10 @@ import {
   getRewardsPosition,
   getRewardsVault,
   getRewardsWalletBalances,
+  prepareRewardsAuthorization,
   returnRewardsToWallet,
+  type RewardsAuthorizationAction,
+  type RewardsAuthorizationProof,
   withdrawRewardsFull,
 } from '@/lib/rewardsActions';
 import { loadNexaSession } from '@/lib/session';
@@ -112,6 +115,7 @@ function safeReturnAmount(result: any, fallback?: number) {
 
 export default function RewardsScreen() {
   const privy = usePrivy() as any;
+  const walletAuthorization = useAuthorizationSignature() as any;
   const [vault, setVault] = useState<any>(null);
   const [position, setPosition] = useState<any>(null);
   const [amount, setAmount] = useState('1,00');
@@ -134,7 +138,7 @@ export default function RewardsScreen() {
     return session;
   }
 
-  async function privyJwtOrThrow() {
+  async function ensurePrivySession() {
     let token = '';
     try {
       if (typeof privy?.getAccessToken === 'function') {
@@ -153,7 +157,43 @@ export default function RewardsScreen() {
         'Confirme sua carteira para continuar. Nenhum valor foi movimentado.',
       );
     }
-    return token;
+  }
+
+  async function authorizeRewardsAction(
+    accessToken: string,
+    action: RewardsAuthorizationAction,
+    input: { amountUsdc?: number; full?: boolean } = {},
+  ): Promise<RewardsAuthorizationProof> {
+    await ensurePrivySession();
+    const prepared = await prepareRewardsAuthorization(
+      accessToken,
+      action,
+      input,
+    );
+
+    if (
+      !prepared?.request ||
+      typeof walletAuthorization?.generateAuthorizationSignature !== 'function'
+    ) {
+      throw new Error(
+        'A assinatura segura da carteira não está disponível nesta versão.',
+      );
+    }
+
+    const signed = await walletAuthorization.generateAuthorizationSignature(
+      prepared.request,
+    );
+    const signature = String(signed?.signature || '').trim();
+    if (signature.length < 40) {
+      throw new Error(
+        'A carteira não conseguiu autorizar esta operação. Nenhum valor foi movimentado.',
+      );
+    }
+
+    return {
+      ...prepared.execution,
+      signature,
+    };
   }
 
   async function savePending(next: PendingAction | null) {
@@ -233,7 +273,6 @@ export default function RewardsScreen() {
 
   async function startDepositAfterBridge(
     accessToken: string,
-    privyJwt: string,
     bridgeActionId: string,
     arrived: number,
   ) {
@@ -243,8 +282,14 @@ export default function RewardsScreen() {
       requestedAmount: arrived,
       nextRequestStarted: 'deposit',
     });
+    setStatusText('Autorizando depósito no Rewards…');
+    const authorization = await authorizeRewardsAction(
+      accessToken,
+      'deposit',
+      { amountUsdc: arrived },
+    );
     setStatusText('Ativando seus Rewards…');
-    const deposit = await depositRewards(accessToken, privyJwt, arrived);
+    const deposit = await depositRewards(accessToken, arrived, authorization);
     const depositId = String(deposit?.action?.id || '').trim();
     if (!depositId) {
       throw new Error('O depósito foi solicitado, mas não recebemos o identificador da action. Não repita a operação.');
@@ -257,11 +302,20 @@ export default function RewardsScreen() {
 
   async function startDepositFromBase(
     accessToken: string,
-    privyJwt: string,
     amountUsdc: number,
   ) {
-    setStatusText('USDC já localizado na rede Rewards. Ativando seus Rewards…');
-    const deposit = await depositRewards(accessToken, privyJwt, amountUsdc);
+    setStatusText('USDC já localizado na rede Rewards. Autorizando depósito…');
+    const authorization = await authorizeRewardsAction(
+      accessToken,
+      'deposit',
+      { amountUsdc },
+    );
+    setStatusText('Ativando seus Rewards…');
+    const deposit = await depositRewards(
+      accessToken,
+      amountUsdc,
+      authorization,
+    );
     const depositId = String(deposit?.action?.id || '').trim();
     if (!depositId) {
       throw new Error('O depósito foi solicitado, mas não recebemos o identificador da action. Não repita a operação.');
@@ -275,7 +329,6 @@ export default function RewardsScreen() {
 
   async function continueBridge(
     accessToken: string,
-    privyJwt: string,
     bridgeAction: any,
     requestedAmount: number,
   ) {
@@ -290,12 +343,11 @@ export default function RewardsScreen() {
         'Seu USDC já foi movimentado para o Rewards, mas o valor final ainda não ficou disponível. Não repita a operação; atualize o status.',
       );
     }
-    await startDepositAfterBridge(accessToken, privyJwt, actionId, arrived);
+    await startDepositAfterBridge(accessToken, actionId, arrived);
   }
 
   async function startReturnToWallet(
     accessToken: string,
-    privyJwt: string,
     withdrawActionId: string,
     amountUsdc: number,
   ) {
@@ -311,8 +363,18 @@ export default function RewardsScreen() {
       requestedAmount: amountUsdc,
       nextRequestStarted: 'return',
     });
+    setStatusText('Autorizando retorno ao saldo Nexa…');
+    const authorization = await authorizeRewardsAction(
+      accessToken,
+      'return',
+      { amountUsdc },
+    );
     setStatusText('Devolvendo seu USDC ao saldo Nexa…');
-    const returned = await returnRewardsToWallet(accessToken, privyJwt, amountUsdc);
+    const returned = await returnRewardsToWallet(
+      accessToken,
+      amountUsdc,
+      authorization,
+    );
     const returnId = String(returned?.action?.id || '').trim();
     if (!returnId) {
       throw new Error('O retorno ao saldo Nexa foi solicitado, mas não recebemos o identificador da action. Não repita a operação.');
@@ -339,7 +401,7 @@ export default function RewardsScreen() {
     setWorking(true);
     try {
       const session = await sessionOrThrow();
-      const privyJwt = await privyJwtOrThrow();
+      await ensurePrivySession();
       if (!quote) {
         const result = await getRewardsBridgeQuote(session.accessToken, requested);
         setQuote(result);
@@ -351,7 +413,7 @@ export default function RewardsScreen() {
       const baseUsdc = Number(balances?.baseUsdc || 0);
 
       if (Number.isFinite(baseUsdc) && baseUsdc + 0.000001 >= requested) {
-        await startDepositFromBase(session.accessToken, privyJwt, requested);
+        await startDepositFromBase(session.accessToken, requested);
         return;
       }
 
@@ -361,9 +423,19 @@ export default function RewardsScreen() {
         );
       }
 
+      setStatusText('Autorizando sua carteira…');
+      const authorization = await authorizeRewardsAction(
+        session.accessToken,
+        'bridge',
+        { amountUsdc: requested },
+      );
       setStatusText('Preparando seu USDC para o Rewards…');
-      const bridge = await bridgeRewardsToBase(session.accessToken, privyJwt, requested);
-      await continueBridge(session.accessToken, privyJwt, bridge, requested);
+      const bridge = await bridgeRewardsToBase(
+        session.accessToken,
+        requested,
+        authorization,
+      );
+      await continueBridge(session.accessToken, bridge, requested);
       await refreshPosition(session.accessToken);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível concluir o Turbinar.');
@@ -401,8 +473,11 @@ export default function RewardsScreen() {
             'A transferência foi concluída, mas o valor final ainda não está disponível. Não repita; atualize novamente em instantes.',
           );
         }
-        const privyJwt = await privyJwtOrThrow();
-        await startDepositAfterBridge(session.accessToken, privyJwt, pending.actionId, arrived);
+        await startDepositAfterBridge(
+          session.accessToken,
+          pending.actionId,
+          arrived,
+        );
         await refreshPosition(session.accessToken);
         return;
       }
@@ -421,10 +496,8 @@ export default function RewardsScreen() {
           );
         }
         const returnAmount = safeReturnAmount(result, pending.requestedAmount);
-        const privyJwt = await privyJwtOrThrow();
         await startReturnToWallet(
           session.accessToken,
-          privyJwt,
           pending.actionId,
           returnAmount,
         );
@@ -457,9 +530,17 @@ export default function RewardsScreen() {
     setError('');
     try {
       const session = await sessionOrThrow();
-      const privyJwt = await privyJwtOrThrow();
+      setStatusText('Autorizando resgate na sua carteira…');
+      const authorization = await authorizeRewardsAction(
+        session.accessToken,
+        'withdraw',
+        { full: true },
+      );
       setStatusText('Resgatando seus Rewards…');
-      const result = await withdrawRewardsFull(session.accessToken, privyJwt);
+      const result = await withdrawRewardsFull(
+        session.accessToken,
+        authorization,
+      );
       const actionId = String(result?.action?.id || '').trim();
       if (!actionId) throw new Error('O Rewards não retornou o identificador do resgate.');
 
@@ -472,7 +553,6 @@ export default function RewardsScreen() {
       const returnAmount = safeReturnAmount(finalWithdraw, assetsInVault);
       await startReturnToWallet(
         session.accessToken,
-        privyJwt,
         actionId,
         returnAmount,
       );
