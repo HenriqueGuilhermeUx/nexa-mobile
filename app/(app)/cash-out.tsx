@@ -25,6 +25,8 @@ import {
   createWalletFirstExitPix,
   getWalletFirstExitQuote,
   prepareWalletFirstExitTransfer,
+  prepareWalletFirstExitUsdtSwap,
+  confirmWalletFirstExitUsdtSwap,
   reconcileWalletFirstExitPix,
   reconcileWalletFirstExitProvider,
   reconcileWalletFirstExitSell,
@@ -37,6 +39,8 @@ import { colors, radius, spacing } from '@/theme';
 type ExitPhase =
   | 'idle'
   | 'quoted'
+  | 'swap_ready_to_sign'
+  | 'swap_confirming'
   | 'ready_to_sign'
   | 'onchain'
   | 'provider'
@@ -108,6 +112,8 @@ export default function CashOutScreen() {
   const [amountUsdc, setAmountUsdc] = useState('');
   const [quote, setQuote] = useState<WalletFirstExitQuote | null>(null);
   const [intent, setIntent] = useState<any>(null);
+  const [swapPrepared, setSwapPrepared] = useState<any>(null);
+  const [swapTxHash, setSwapTxHash] = useState('');
   const [prepared, setPrepared] = useState<any>(null);
   const [txHash, setTxHash] = useState('');
   const [phase, setPhase] = useState<ExitPhase>('idle');
@@ -118,6 +124,8 @@ export default function CashOutScreen() {
 
   function resetExecution() {
     setIntent(null);
+    setSwapPrepared(null);
+    setSwapTxHash('');
     setPrepared(null);
     setTxHash('');
     setFinalResult(null);
@@ -203,17 +211,25 @@ export default function CashOutScreen() {
         setIntent(currentIntent);
       }
 
-      setStatusText('Validando saída completa e destino Pix…');
-      const nextPrepared = await prepareWalletFirstExitTransfer(
+      setStatusText('Preparando conversão USDC → USDT na Polygon…');
+      const nextSwap = await prepareWalletFirstExitUsdtSwap(
         accessToken,
         currentIntent.order.id,
       );
-      if (!nextPrepared?.transaction?.from || !nextPrepared?.transaction?.data) {
-        throw new Error('A Nexa não retornou uma transação de saída válida.');
+      if (
+        !nextSwap?.intentToken ||
+        !nextSwap?.swapTransaction?.from ||
+        !nextSwap?.swapTransaction?.data
+      ) {
+        throw new Error(
+          'A Nexa não retornou uma conversão USDC → USDT válida.',
+        );
       }
-      setPrepared(nextPrepared);
-      setPhase('ready_to_sign');
-      setStatusText('Tudo pronto. Falta apenas sua assinatura na carteira.');
+      setSwapPrepared(nextSwap);
+      setPhase('swap_ready_to_sign');
+      setStatusText(
+        'Primeiro, autorize a conversão USDC → USDT na sua carteira. Depois o USDT será enviado à Foxbit para liquidação.',
+      );
     } catch (caught) {
       setStatusText('');
       setError(
@@ -226,11 +242,134 @@ export default function CashOutScreen() {
     }
   }
 
+  async function waitForReceipt(provider: any, hash: string) {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const receipt = await provider
+        .request({
+          method: 'eth_getTransactionReceipt',
+          params: [hash],
+        })
+        .catch(() => null);
+      if (receipt?.status === '0x1' || receipt?.status === 1) return receipt;
+      if (receipt?.status === '0x0' || receipt?.status === 0) {
+        throw new Error('A transação foi revertida na Polygon.');
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    throw new Error(
+      'A Polygon ainda está confirmando a transação. Não repita a operação.',
+    );
+  }
+
+  async function finalizeSwapAndPrepareTransfer(
+    accessToken: string,
+    orderId: string,
+    currentSwap: any,
+    hash: string,
+  ) {
+    const confirmed = await confirmWalletFirstExitUsdtSwap(
+      accessToken,
+      orderId,
+      currentSwap.intentToken,
+      hash,
+    );
+    if (confirmed?.completed !== true) {
+      setPhase('swap_confirming');
+      setStatusText(
+        'Conversão USDC → USDT enviada. Aguardando confirmações da Polygon.',
+      );
+      return;
+    }
+
+    setStatusText('Conversão confirmada. Validando destino Foxbit e Pix…');
+    const nextPrepared = await prepareWalletFirstExitTransfer(
+      accessToken,
+      orderId,
+    );
+    if (!nextPrepared?.transaction?.from || !nextPrepared?.transaction?.data) {
+      throw new Error(
+        'A Nexa não retornou uma transferência USDT de saída válida.',
+      );
+    }
+    setPrepared(nextPrepared);
+    setPhase('ready_to_sign');
+    setStatusText(
+      'USDT pronto para liquidação. Falta sua assinatura para enviar à Foxbit.',
+    );
+  }
+
+  async function signSwap() {
+    if (!swapPrepared || !intent?.order?.id) return;
+    setError('');
+    setLoading(true);
+    try {
+      const accessToken = await sessionToken();
+      const provider = await providerFor(swapPrepared.swapTransaction.from);
+
+      if (
+        swapPrepared.approvalRequired === true &&
+        swapPrepared.approvalTransaction
+      ) {
+        setStatusText('Autorizando somente o valor necessário de USDC…');
+        const approvalHash = await sendPreparedWalletTransaction(
+          provider,
+          swapPrepared.approvalTransaction,
+        );
+        await waitForReceipt(provider, approvalHash);
+      }
+
+      setStatusText('Convertendo USDC → USDT na sua carteira…');
+      const hash = await sendPreparedWalletTransaction(
+        provider,
+        swapPrepared.swapTransaction,
+      );
+      setSwapTxHash(hash);
+      setPhase('swap_confirming');
+      await finalizeSwapAndPrepareTransfer(
+        accessToken,
+        intent.order.id,
+        swapPrepared,
+        hash,
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível concluir a conversão USDC → USDT.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function continueSwap() {
+    if (!swapPrepared || !swapTxHash || !intent?.order?.id) return;
+    setError('');
+    setLoading(true);
+    try {
+      const accessToken = await sessionToken();
+      await finalizeSwapAndPrepareTransfer(
+        accessToken,
+        intent.order.id,
+        swapPrepared,
+        swapTxHash,
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível atualizar a conversão USDC → USDT.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function advanceExit(orderId: string, hash: string) {
     const accessToken = await sessionToken();
 
     setPhase('onchain');
-    setStatusText('Confirmando sua transferência na Polygon…');
+    setStatusText('Confirmando sua transferência USDT na Polygon…');
     const onchain = await verifyWalletFirstExitTransfer(
       accessToken,
       orderId,
@@ -247,7 +386,7 @@ export default function CashOutScreen() {
     }
 
     setPhase('provider');
-    setStatusText('Confirmando o crédito de USDC para liquidação…');
+    setStatusText('Confirmando o crédito de USDT para liquidação…');
     const provider = await reconcileWalletFirstExitProvider(
       accessToken,
       orderId,
@@ -259,13 +398,13 @@ export default function CashOutScreen() {
       provider?.providerDepositCredited === true || provider?.credited === true;
     if (!providerCredited) {
       setStatusText(
-        'USDC confirmado na rede. Aguardando o provedor reconhecer o crédito.',
+        'USDT confirmado na rede. Aguardando o provedor reconhecer o crédito.',
       );
       return;
     }
 
     setPhase('sell');
-    setStatusText('Convertendo USDC para reais…');
+    setStatusText('Convertendo USDT para reais…');
     let sell = await submitWalletFirstExitSell(accessToken, orderId);
     if (requiresManualReview(sell)) {
       throw new Error('A conversão USDC/BRL requer revisão manual da Nexa.');
@@ -424,12 +563,47 @@ export default function CashOutScreen() {
         </Card>
       ) : null}
 
+      {swapPrepared && phase === 'swap_ready_to_sign' ? (
+        <Card>
+          <Badge tone="warning">CONVERSÃO NA SUA CARTEIRA</Badge>
+          <Text style={styles.stepTitle}>USDC → USDT na Polygon</Text>
+          <Text style={styles.stepText}>
+            A Foxbit recebe USDT na Polygon. A conversão acontece primeiro na sua própria carteira.
+          </Text>
+          <Text style={styles.stepText}>
+            Estimado: {Number(swapPrepared.estimatedAmountUsdt || 0).toLocaleString('pt-BR', { maximumFractionDigits: 6 })} USDT
+          </Text>
+          <Text style={styles.stepText}>
+            A Nexa não possui sua chave privada. Se houver aprovação 0x, ela é limitada ao valor deste saque.
+          </Text>
+          <ActionButton
+            label="Autorizar conversão USDC → USDT"
+            onPress={signSwap}
+            loading={loading}
+          />
+        </Card>
+      ) : null}
+
+      {swapPrepared && swapTxHash && phase === 'swap_confirming' ? (
+        <Card>
+          <Badge tone="info">CONVERSÃO EM ANDAMENTO</Badge>
+          <Text style={styles.stepTitle}>{statusText || 'Confirmando na Polygon…'}</Text>
+          <Text selectable style={styles.hash}>{swapTxHash}</Text>
+          <ActionButton
+            label="Continuar confirmação"
+            variant="secondary"
+            onPress={continueSwap}
+            loading={loading}
+          />
+        </Card>
+      ) : null}
+
       {prepared && phase === 'ready_to_sign' ? (
         <Card>
           <Badge tone="warning">SUA ASSINATURA É NECESSÁRIA</Badge>
           <Text style={styles.stepTitle}>Revise antes de enviar</Text>
           <Text style={styles.stepText}>
-            Saída: {formatUsdc(prepared.amountUsdc)}
+            Liquidação: {Number(prepared.amountUsdt || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT
           </Text>
           <Text style={styles.stepText}>Rede: Polygon</Text>
           <Text style={styles.stepText}>
@@ -439,7 +613,7 @@ export default function CashOutScreen() {
             A Nexa não possui sua chave privada e não consegue assinar esta saída por você.
           </Text>
           <ActionButton
-            label="Confirmar e assinar saque"
+            label="Enviar USDT para liquidação"
             onPress={signAndWithdraw}
             loading={loading}
           />
