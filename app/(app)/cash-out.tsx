@@ -405,10 +405,30 @@ export default function CashOutScreen() {
           'A Nexa não retornou uma conversão USDC → USDT válida.',
         );
       }
+
+      const sponsorship =
+        await getWalletFirstExitSwapSponsorshipCredentials(
+          accessToken,
+          currentIntent.order.id,
+          nextSwap.intentToken,
+        );
+      if (
+        sponsorship?.chainId !== 137 ||
+        !sponsorship?.jwt ||
+        !sponsorship?.policyId ||
+        normalizeWalletAddress(sponsorship.wallet) !==
+          normalizeWalletAddress(nextSwap.swapTransaction.from)
+      ) {
+        throw new Error(
+          'O patrocínio de gas não corresponde à carteira deste saque.',
+        );
+      }
+
       setSwapPrepared(nextSwap);
+      setSwapSponsorship(sponsorship);
       setPhase('swap_ready_to_sign');
       setStatusText(
-        'Primeiro, autorize a conversão USDC → USDT na sua carteira. Depois o USDT seguirá para liquidação.',
+        'Primeiro, autorize a conversão USDC → USDT na sua carteira. A Nexa patrocina o gas desta etapa.',
       );
     } catch (caught) {
       setStatusText('');
@@ -422,25 +442,6 @@ export default function CashOutScreen() {
     }
   }
 
-  async function waitForReceipt(provider: any, hash: string) {
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-      const receipt = await provider
-        .request({
-          method: 'eth_getTransactionReceipt',
-          params: [hash],
-        })
-        .catch(() => null);
-      if (receipt?.status === '0x1' || receipt?.status === 1) return receipt;
-      if (receipt?.status === '0x0' || receipt?.status === 0) {
-        throw new Error('A transação foi revertida na Polygon.');
-      }
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-    throw new Error(
-      'A Polygon ainda está confirmando a transação. Não repita a operação.',
-    );
-  }
-
   async function finalizeSwapAndPrepareTransfer(
     accessToken: string,
     orderId: string,
@@ -452,6 +453,7 @@ export default function CashOutScreen() {
       orderId,
       currentSwap.intentToken,
       hash,
+      'client_sponsored_eip7702',
     );
     if (confirmed?.completed !== true) {
       setPhase('swap_confirming');
@@ -471,40 +473,78 @@ export default function CashOutScreen() {
         'A Nexa não retornou uma transferência USDT de saída válida.',
       );
     }
+
+    const sponsorship =
+      await getWalletFirstExitTransferSponsorshipCredentials(
+        accessToken,
+        orderId,
+      );
+    if (
+      sponsorship?.chainId !== 137 ||
+      !sponsorship?.jwt ||
+      !sponsorship?.policyId ||
+      normalizeWalletAddress(sponsorship.wallet) !==
+        normalizeWalletAddress(nextPrepared.transaction.from)
+    ) {
+      throw new Error(
+        'O patrocínio de gas da transferência não corresponde à carteira deste saque.',
+      );
+    }
+
     setPrepared(nextPrepared);
+    setTransferSponsorship(sponsorship);
     setPhase('ready_to_sign');
     setStatusText(
-      'USDT pronto para liquidação. Falta sua assinatura para continuar.',
+      'USDT pronto para liquidação. Falta sua assinatura para continuar; o gas também será patrocinado pela Nexa.',
     );
   }
 
   async function signSwap() {
-    if (!swapPrepared || !intent?.order?.id) return;
+    if (
+      !swapPrepared ||
+      !swapSponsorship ||
+      !intent?.order?.id
+    ) {
+      return;
+    }
     setError('');
     setLoading(true);
     try {
       const accessToken = await sessionToken();
-      const provider = await providerFor(swapPrepared.swapTransaction.from);
+      const wallet = await walletFor(swapSponsorship.wallet);
+      const client = await sponsoredClient(wallet, swapSponsorship);
+      const calls: SponsoredCall[] = [];
 
       if (
         swapPrepared.approvalRequired === true &&
         swapPrepared.approvalTransaction
       ) {
-        setStatusText('Autorizando somente o valor necessário de USDC…');
-        const approvalHash = await sendPreparedWalletTransaction(
-          provider,
-          swapPrepared.approvalTransaction,
-        );
-        await waitForReceipt(provider, approvalHash);
+        calls.push(toSponsoredCall(swapPrepared.approvalTransaction));
       }
+      calls.push(toSponsoredCall(swapPrepared.swapTransaction));
 
-      setStatusText('Convertendo USDC → USDT na sua carteira…');
-      const hash = await sendPreparedWalletTransaction(
-        provider,
-        swapPrepared.swapTransaction,
+      setStatusText(
+        'Autorizando e convertendo USDC → USDT com gas patrocinado pela Nexa…',
+      );
+      const result = await client.sendCalls({ calls });
+      const callId = String(result?.id || '').trim();
+      if (!callId) {
+        throw new Error(
+          'A carteira não retornou o identificador da operação patrocinada.',
+        );
+      }
+      setSwapCallId(callId);
+      setPhase('swap_confirming');
+      setStatusText(
+        'Operação patrocinada enviada. Aguardando confirmação da Polygon; não repita.',
+      );
+
+      const hash = await waitSponsoredCall(
+        wallet,
+        swapSponsorship,
+        callId,
       );
       setSwapTxHash(hash);
-      setPhase('swap_confirming');
       await finalizeSwapAndPrepareTransfer(
         accessToken,
         intent.order.id,
@@ -523,16 +563,33 @@ export default function CashOutScreen() {
   }
 
   async function continueSwap() {
-    if (!swapPrepared || !swapTxHash || !intent?.order?.id) return;
+    if (
+      !swapPrepared ||
+      !swapSponsorship ||
+      !intent?.order?.id ||
+      (!swapCallId && !swapTxHash)
+    ) {
+      return;
+    }
     setError('');
     setLoading(true);
     try {
       const accessToken = await sessionToken();
+      let hash = swapTxHash;
+      if (!hash) {
+        const wallet = await walletFor(swapSponsorship.wallet);
+        hash = await waitSponsoredCall(
+          wallet,
+          swapSponsorship,
+          swapCallId,
+        );
+        setSwapTxHash(hash);
+      }
       await finalizeSwapAndPrepareTransfer(
         accessToken,
         intent.order.id,
         swapPrepared,
-        swapTxHash,
+        hash,
       );
     } catch (caught) {
       setError(
