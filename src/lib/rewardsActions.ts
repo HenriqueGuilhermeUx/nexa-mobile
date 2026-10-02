@@ -8,7 +8,6 @@ async function rewardsRequest<T>(
   options: {
     method?: 'GET' | 'POST';
     body?: Record<string, unknown>;
-    privyUserJwt?: string;
   } = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
@@ -19,9 +18,6 @@ async function rewardsRequest<T>(
     'X-Nexa-Platform': Platform.OS,
   };
   if (options.body) headers['Content-Type'] = 'application/json';
-  if (options.privyUserJwt) {
-    headers['x-privy-user-jwt'] = options.privyUserJwt;
-  }
 
   const response = await fetch(`${config.apiUrl}${path}`, {
     method: options.method || 'GET',
@@ -71,50 +67,94 @@ export function getRewardsBridgeQuote(accessToken: string, amountUsdc: number) {
   });
 }
 
+export type RewardsAuthorizationAction =
+  | 'bridge'
+  | 'deposit'
+  | 'withdraw'
+  | 'return';
+
+export type RewardsAuthorizationExecution = {
+  idempotencyKey: string;
+  nonce: string;
+  referenceId: string;
+  rawAmount?: string;
+};
+
+export type RewardsAuthorizationPrepared = {
+  success: boolean;
+  action: RewardsAuthorizationAction;
+  request: {
+    version: 1;
+    method: 'POST';
+    url: string;
+    body: Record<string, unknown>;
+    headers: {
+      'privy-app-id': string;
+      'privy-idempotency-key': string;
+    };
+  };
+  execution: RewardsAuthorizationExecution;
+};
+
+export type RewardsAuthorizationProof = RewardsAuthorizationExecution & {
+  signature: string;
+};
+
+export function prepareRewardsAuthorization(
+  accessToken: string,
+  action: RewardsAuthorizationAction,
+  input: { amountUsdc?: number; full?: boolean } = {},
+) {
+  return rewardsRequest<RewardsAuthorizationPrepared>(
+    accessToken,
+    '/rewards/v2/authorization-request',
+    {
+      method: 'POST',
+      body: { action, ...input },
+    },
+  );
+}
+
 export function bridgeRewardsToBase(
   accessToken: string,
-  privyUserJwt: string,
   amountUsdc: number,
+  authorization: RewardsAuthorizationProof,
 ) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/bridge-to-base', {
     method: 'POST',
-    privyUserJwt,
-    body: { amountUsdc },
+    body: { amountUsdc, authorization },
   });
 }
 
 export function depositRewards(
   accessToken: string,
-  privyUserJwt: string,
   amountUsdc: number,
+  authorization: RewardsAuthorizationProof,
 ) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/deposit', {
     method: 'POST',
-    privyUserJwt,
-    body: { amountUsdc },
+    body: { amountUsdc, authorization },
   });
 }
 
 export function withdrawRewardsFull(
   accessToken: string,
-  privyUserJwt: string,
+  authorization: RewardsAuthorizationProof,
 ) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/withdraw', {
     method: 'POST',
-    privyUserJwt,
-    body: { full: true },
+    body: { full: true, authorization },
   });
 }
 
 export function returnRewardsToWallet(
   accessToken: string,
-  privyUserJwt: string,
   amountUsdc: number,
+  authorization: RewardsAuthorizationProof,
 ) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/return-to-wallet', {
     method: 'POST',
-    privyUserJwt,
-    body: { amountUsdc },
+    body: { amountUsdc, authorization },
   });
 }
 
