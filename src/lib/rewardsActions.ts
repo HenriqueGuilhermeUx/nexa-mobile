@@ -149,10 +149,11 @@ export function bridgeRewardsToBase(
   accessToken: string,
   amountUsdc: number,
   authorization: RewardsAuthorizationProof,
+  clientOperationId?: string,
 ) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/bridge-to-base', {
     method: 'POST',
-    body: { amountUsdc, authorization },
+    body: { amountUsdc, authorization, clientOperationId },
   });
 }
 
@@ -160,20 +161,22 @@ export function depositRewards(
   accessToken: string,
   amountUsdc: number,
   authorization: RewardsAuthorizationProof,
+  clientOperationId?: string,
 ) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/deposit', {
     method: 'POST',
-    body: { amountUsdc, authorization },
+    body: { amountUsdc, authorization, clientOperationId },
   });
 }
 
 export function withdrawRewardsFull(
   accessToken: string,
   authorization: RewardsAuthorizationProof,
+  clientOperationId?: string,
 ) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/withdraw', {
     method: 'POST',
-    body: { full: true, authorization },
+    body: { full: true, authorization, clientOperationId },
   });
 }
 
@@ -181,10 +184,11 @@ export function returnRewardsToWallet(
   accessToken: string,
   amountUsdc: number,
   authorization: RewardsAuthorizationProof,
+  clientOperationId?: string,
 ) {
   return rewardsRequest<any>(accessToken, '/rewards/v2/return-to-wallet', {
     method: 'POST',
-    body: { amountUsdc, authorization },
+    body: { amountUsdc, authorization, clientOperationId },
   });
 }
 
@@ -192,5 +196,23 @@ export function getRewardsAction(accessToken: string, actionId: string) {
   return rewardsRequest<any>(
     accessToken,
     `/rewards/v2/action/${encodeURIComponent(actionId)}`,
+  );
+}
+
+
+export function getRewardsActivity(accessToken: string, limit = 20) {
+  return rewardsRequest<any>(
+    accessToken,
+    `/rewards/v2/activity?limit=${encodeURIComponent(String(limit))}`,
+  );
+}
+
+export function getRewardsActivityDetail(
+  accessToken: string,
+  operationId: string,
+) {
+  return rewardsRequest<any>(
+    accessToken,
+    `/rewards/v2/activity/${encodeURIComponent(operationId)}`,
   );
 }
