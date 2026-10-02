@@ -1,0 +1,5 @@
+Nexa v133 Rewards terminal-state recovery
+Version: 2.0.32
+Build: 133
+Scope: clear only terminal failed/rejected deposit actions from local pending state after provider confirmation, preserving no-blind-retry behavior for bridge/withdraw/return.
+Backend live actions remain server-gated until the signed v133 is installed.
