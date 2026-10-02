@@ -1,4 +1,4 @@
-import { useIdentityToken, useLoginWithEmail } from '@privy-io/expo';
+import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -32,7 +32,7 @@ function maskEmail(value: string) {
 export default function WalletSessionScreen() {
   const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const returnTo = firstParam(params.returnTo) || '';
-  const identity = useIdentityToken() as any;
+  const privy = usePrivy() as any;
   const emailLogin = useLoginWithEmail() as any;
 
   const [email, setEmail] = useState('');
@@ -43,9 +43,9 @@ export default function WalletSessionScreen() {
   const [error, setError] = useState('');
 
   async function currentAuthorizationToken() {
-    if (typeof identity?.getIdentityToken !== 'function') return '';
+    if (typeof privy?.getAccessToken !== 'function') return '';
     try {
-      const token = String((await identity.getIdentityToken()) || '').trim();
+      const token = String((await privy.getAccessToken()) || '').trim();
       return token.length > 40 && token.split('.').length === 3 ? token : '';
     } catch {
       return '';
@@ -78,7 +78,7 @@ export default function WalletSessionScreen() {
     return () => {
       active = false;
     };
-  }, [identity?.getIdentityToken]);
+  }, [privy?.getAccessToken]);
 
   async function sendCode() {
     setError('');
@@ -102,7 +102,7 @@ export default function WalletSessionScreen() {
     }
   }
 
-  async function waitForIdentityToken(timeoutMs = 12_000) {
+  async function waitForAccessToken(timeoutMs = 12_000) {
     const deadline = Date.now() + timeoutMs;
     let lastError: unknown = null;
     while (Date.now() < deadline) {
@@ -116,7 +116,7 @@ export default function WalletSessionScreen() {
     }
     throw new Error(
       lastError instanceof Error
-        ? `Sua identidade foi confirmada, mas a autorização da carteira ainda não ficou disponível: ${lastError.message}`
+        ? `Sua carteira foi confirmada, mas a autorização Privy ainda não ficou disponível: ${lastError.message}`
         : 'Sua identidade foi confirmada, mas a autorização da carteira ainda não ficou disponível. Tente novamente em alguns segundos.',
     );
   }
@@ -135,7 +135,7 @@ export default function WalletSessionScreen() {
         throw new Error('A validação Privy por código não está disponível nesta versão.');
       }
       await emailLogin.loginWithCode({ email, code: normalizedCode });
-      await waitForIdentityToken();
+      await waitForAccessToken();
       setCodeSent(false);
       setReady(true);
     } catch (caught) {
@@ -167,7 +167,7 @@ export default function WalletSessionScreen() {
       <Title>{ready ? 'Sua carteira está pronta.' : 'Confirme sua carteira.'}</Title>
       <Paragraph>
         {ready
-          ? 'A autorização Privy da sua carteira foi restaurada neste aparelho. Nenhuma nova carteira foi criada.'
+          ? 'A sessão Privy necessária para autorizar sua carteira foi restaurada neste aparelho. Nenhuma nova carteira foi criada.'
           : 'Use o mesmo e-mail da sua conta Nexa para restaurar a autorização Privy da carteira já vinculada. A Nexa não cria nem troca seu endereço neste fluxo.'}
       </Paragraph>
 
