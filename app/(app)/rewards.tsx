@@ -24,6 +24,7 @@ import {
   getRewardsWalletBalances,
   prepareRewardsAuthorization,
   returnRewardsToWallet,
+  runRewardsAuthorizationDiagnostic,
   type RewardsAuthorizationAction,
   type RewardsAuthorizationProof,
   withdrawRewardsFull,
@@ -411,6 +412,27 @@ export default function RewardsScreen() {
       const balances = await getRewardsWalletBalances(session.accessToken);
       const polygonUsdc = Number(balances?.polygonUsdc || 0);
       const baseUsdc = Number(balances?.baseUsdc || 0);
+
+      if (vault?.authorizationDiagnosticOnly === true) {
+        setStatusText('Validando a autorização segura da sua carteira…');
+        const authorization = await authorizeRewardsAction(
+          session.accessToken,
+          'diagnostic',
+        );
+        const diagnostic = await runRewardsAuthorizationDiagnostic(
+          session.accessToken,
+          authorization,
+        );
+        if (diagnostic?.authorizationVerified !== true) {
+          throw new Error(
+            'A autorização segura da carteira não pôde ser confirmada.',
+          );
+        }
+        setStatusText(
+          'Autorização da carteira validada. Nenhum USDC foi movimentado.',
+        );
+        return;
+      }
 
       if (Number.isFinite(baseUsdc) && baseUsdc + 0.000001 >= requested) {
         await startDepositFromBase(session.accessToken, requested);
