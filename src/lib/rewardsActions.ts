@@ -68,6 +68,7 @@ export function getRewardsBridgeQuote(accessToken: string, amountUsdc: number) {
 }
 
 export type RewardsAuthorizationAction =
+  | 'diagnostic'
   | 'bridge'
   | 'deposit'
   | 'withdraw'
@@ -111,6 +112,20 @@ export function prepareRewardsAuthorization(
     {
       method: 'POST',
       body: { action, ...input },
+    },
+  );
+}
+
+export function runRewardsAuthorizationDiagnostic(
+  accessToken: string,
+  authorization: RewardsAuthorizationProof,
+) {
+  return rewardsRequest<any>(
+    accessToken,
+    '/rewards/v2/authorization-diagnostic',
+    {
+      method: 'POST',
+      body: { authorization },
     },
   );
 }
