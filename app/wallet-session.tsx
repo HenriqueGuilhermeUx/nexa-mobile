@@ -117,7 +117,7 @@ export default function WalletSessionScreen() {
     throw new Error(
       lastError instanceof Error
         ? `Sua carteira foi confirmada, mas a autorização Privy ainda não ficou disponível: ${lastError.message}`
-        : 'Sua identidade foi confirmada, mas a autorização da carteira ainda não ficou disponível. Tente novamente em alguns segundos.',
+        : 'Sua carteira foi confirmada, mas a autorização Privy ainda não ficou disponível. Tente novamente em alguns segundos.',
     );
   }
 
