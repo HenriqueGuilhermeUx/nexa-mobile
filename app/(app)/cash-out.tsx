@@ -1,7 +1,21 @@
+import {
+  alchemyWalletTransport,
+  createSmartWalletClient,
+} from '@alchemy/wallet-apis';
 import { useState } from 'react';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
+import {
+  createWalletClient,
+  custom,
+  parseSignature,
+  type AuthorizationRequest,
+  type Hex,
+} from 'viem';
+import { toAccount } from 'viem/accounts';
+import { polygon } from 'viem/chains';
+import { hashAuthorization } from 'viem/utils';
 
 import {
   ActionButton,
@@ -17,13 +31,15 @@ import {
 import { loadNexaSession } from '@/lib/session';
 import {
   normalizeWalletAddress,
-  sendPreparedWalletTransaction,
+  type PreparedWalletTransaction,
 } from '@/lib/walletFirstActions';
 import {
   approveWalletFirstExitPix,
   createWalletFirstExitIntent,
   createWalletFirstExitPix,
   getWalletFirstExitQuote,
+  getWalletFirstExitSwapSponsorshipCredentials,
+  getWalletFirstExitTransferSponsorshipCredentials,
   prepareWalletFirstExitTransfer,
   prepareWalletFirstExitUsdtSwap,
   confirmWalletFirstExitUsdtSwap,
@@ -33,6 +49,7 @@ import {
   submitWalletFirstExitSell,
   verifyWalletFirstExitTransfer,
   type WalletFirstExitQuote,
+  type WalletFirstExitSponsorshipCredentials,
 } from '@/lib/walletFirstExit';
 import { colors, radius, spacing } from '@/theme';
 
@@ -106,6 +123,138 @@ function requiresManualReview(result: any) {
   );
 }
 
+type SponsoredCall = {
+  to: `0x${string}`;
+  data: `0x${string}`;
+  value: bigint;
+};
+
+function toSponsoredCall(
+  transaction: PreparedWalletTransaction,
+): SponsoredCall {
+  return {
+    to: transaction.to as `0x${string}`,
+    data: transaction.data as `0x${string}`,
+    value: BigInt(String(transaction.value || '0x0')),
+  };
+}
+
+function isPolygonChainId(value: unknown) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return (
+    normalized === '0x89' ||
+    normalized === '137' ||
+    normalized === 'eip155:137'
+  );
+}
+
+async function buildPrivySigner(wallet: any) {
+  const provider =
+    (typeof wallet?.getProvider === 'function'
+      ? await wallet.getProvider()
+      : typeof wallet?.getEthereumProvider === 'function'
+        ? await wallet.getEthereumProvider()
+        : null);
+  if (!provider) {
+    throw new Error('A carteira Privy não disponibilizou o assinador Ethereum.');
+  }
+
+  let currentChainId = await provider.request({
+    method: 'eth_chainId',
+    params: [],
+  });
+  if (!isPolygonChainId(currentChainId)) {
+    await provider.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0x89' }],
+    });
+    currentChainId = await provider.request({
+      method: 'eth_chainId',
+      params: [],
+    });
+  }
+  if (!isPolygonChainId(currentChainId)) {
+    throw new Error('Não foi possível preparar sua carteira na Polygon.');
+  }
+
+  const address = String(wallet.address || '') as `0x${string}`;
+  const rpcWallet = createWalletClient({
+    account: address,
+    chain: polygon,
+    transport: custom(provider),
+  });
+
+  return toAccount({
+    address,
+    signAuthorization: async (request: AuthorizationRequest) => {
+      const implementationAddress =
+        'address' in request ? request.address : request.contractAddress;
+      if (!implementationAddress) {
+        throw new Error(
+          'A autorização EIP-7702 não informou o contrato de delegação.',
+        );
+      }
+      const authorization = {
+        chainId: Number(request.chainId),
+        address: implementationAddress,
+        nonce: Number(request.nonce),
+      };
+      const signature = (await provider.request({
+        method: 'secp256k1_sign',
+        params: [hashAuthorization(authorization)],
+      })) as Hex;
+      return {
+        ...authorization,
+        ...parseSignature(signature),
+      };
+    },
+    signMessage: async ({ message }) =>
+      (await rpcWallet.signMessage({ message })) as Hex,
+    signTypedData: async (parameters) =>
+      (await rpcWallet.signTypedData(parameters as any)) as Hex,
+    signTransaction: async (transaction) =>
+      (await rpcWallet.signTransaction(transaction as any)) as Hex,
+  });
+}
+
+async function sponsoredClient(
+  wallet: any,
+  credentials: WalletFirstExitSponsorshipCredentials,
+) {
+  const signer = await buildPrivySigner(wallet);
+  return createSmartWalletClient({
+    signer,
+    chain: polygon,
+    transport: alchemyWalletTransport({ jwt: credentials.jwt }),
+    paymaster: { policyId: credentials.policyId },
+  });
+}
+
+async function waitSponsoredCall(
+  wallet: any,
+  credentials: WalletFirstExitSponsorshipCredentials,
+  callId: string,
+) {
+  const client = await sponsoredClient(wallet, credentials);
+  const status = await client.waitForCallsStatus({
+    id: callId as any,
+    timeout: 120_000,
+  });
+  if (status.status !== 'success') {
+    throw new Error(
+      'A operação patrocinada ainda não foi confirmada. Não repita a operação.',
+    );
+  }
+  const receipt = status.receipts?.[status.receipts.length - 1];
+  const hash = String(receipt?.transactionHash || '').trim();
+  if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {
+    throw new Error(
+      'A operação patrocinada foi enviada, mas o hash ainda não ficou disponível. Não repita.',
+    );
+  }
+  return hash;
+}
+
 export default function CashOutScreen() {
   const privy = usePrivy() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
@@ -114,8 +263,14 @@ export default function CashOutScreen() {
   const [quote, setQuote] = useState<WalletFirstExitQuote | null>(null);
   const [intent, setIntent] = useState<any>(null);
   const [swapPrepared, setSwapPrepared] = useState<any>(null);
+  const [swapSponsorship, setSwapSponsorship] =
+    useState<WalletFirstExitSponsorshipCredentials | null>(null);
+  const [swapCallId, setSwapCallId] = useState('');
   const [swapTxHash, setSwapTxHash] = useState('');
   const [prepared, setPrepared] = useState<any>(null);
+  const [transferSponsorship, setTransferSponsorship] =
+    useState<WalletFirstExitSponsorshipCredentials | null>(null);
+  const [transferCallId, setTransferCallId] = useState('');
   const [txHash, setTxHash] = useState('');
   const [phase, setPhase] = useState<ExitPhase>('idle');
   const [statusText, setStatusText] = useState('');
@@ -126,8 +281,12 @@ export default function CashOutScreen() {
   function resetExecution() {
     setIntent(null);
     setSwapPrepared(null);
+    setSwapSponsorship(null);
+    setSwapCallId('');
     setSwapTxHash('');
     setPrepared(null);
+    setTransferSponsorship(null);
+    setTransferCallId('');
     setTxHash('');
     setFinalResult(null);
     setStatusText('');
@@ -155,7 +314,7 @@ export default function CashOutScreen() {
     );
   }
 
-  async function providerFor(address: string) {
+  async function walletFor(address: string) {
     await ensurePrivyWalletSession();
     const expected = normalizeWalletAddress(address);
     const wallet = wallets.find(
@@ -170,13 +329,7 @@ export default function CashOutScreen() {
         'A sessão da carteira precisa ser restaurada neste aparelho. Nenhum valor foi movimentado.',
       );
     }
-    if (typeof wallet.getProvider === 'function') return wallet.getProvider();
-    if (typeof wallet.getEthereumProvider === 'function') {
-      return wallet.getEthereumProvider();
-    }
-    throw new Error(
-      'A carteira deste dispositivo não expôs o provedor de assinatura.',
-    );
+    return wallet;
   }
 
   async function sessionToken() {
@@ -252,10 +405,30 @@ export default function CashOutScreen() {
           'A Nexa não retornou uma conversão USDC → USDT válida.',
         );
       }
+
+      const sponsorship =
+        await getWalletFirstExitSwapSponsorshipCredentials(
+          accessToken,
+          currentIntent.order.id,
+          nextSwap.intentToken,
+        );
+      if (
+        sponsorship?.chainId !== 137 ||
+        !sponsorship?.jwt ||
+        !sponsorship?.policyId ||
+        normalizeWalletAddress(sponsorship.wallet) !==
+          normalizeWalletAddress(nextSwap.swapTransaction.from)
+      ) {
+        throw new Error(
+          'O patrocínio de gas não corresponde à carteira deste saque.',
+        );
+      }
+
       setSwapPrepared(nextSwap);
+      setSwapSponsorship(sponsorship);
       setPhase('swap_ready_to_sign');
       setStatusText(
-        'Primeiro, autorize a conversão USDC → USDT na sua carteira. Depois o USDT seguirá para liquidação.',
+        'Primeiro, autorize a conversão USDC → USDT na sua carteira. A Nexa patrocina o gas desta etapa.',
       );
     } catch (caught) {
       setStatusText('');
@@ -269,25 +442,6 @@ export default function CashOutScreen() {
     }
   }
 
-  async function waitForReceipt(provider: any, hash: string) {
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-      const receipt = await provider
-        .request({
-          method: 'eth_getTransactionReceipt',
-          params: [hash],
-        })
-        .catch(() => null);
-      if (receipt?.status === '0x1' || receipt?.status === 1) return receipt;
-      if (receipt?.status === '0x0' || receipt?.status === 0) {
-        throw new Error('A transação foi revertida na Polygon.');
-      }
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-    throw new Error(
-      'A Polygon ainda está confirmando a transação. Não repita a operação.',
-    );
-  }
-
   async function finalizeSwapAndPrepareTransfer(
     accessToken: string,
     orderId: string,
@@ -299,6 +453,7 @@ export default function CashOutScreen() {
       orderId,
       currentSwap.intentToken,
       hash,
+      'client_sponsored_eip7702',
     );
     if (confirmed?.completed !== true) {
       setPhase('swap_confirming');
@@ -318,40 +473,78 @@ export default function CashOutScreen() {
         'A Nexa não retornou uma transferência USDT de saída válida.',
       );
     }
+
+    const sponsorship =
+      await getWalletFirstExitTransferSponsorshipCredentials(
+        accessToken,
+        orderId,
+      );
+    if (
+      sponsorship?.chainId !== 137 ||
+      !sponsorship?.jwt ||
+      !sponsorship?.policyId ||
+      normalizeWalletAddress(sponsorship.wallet) !==
+        normalizeWalletAddress(nextPrepared.transaction.from)
+    ) {
+      throw new Error(
+        'O patrocínio de gas da transferência não corresponde à carteira deste saque.',
+      );
+    }
+
     setPrepared(nextPrepared);
+    setTransferSponsorship(sponsorship);
     setPhase('ready_to_sign');
     setStatusText(
-      'USDT pronto para liquidação. Falta sua assinatura para continuar.',
+      'USDT pronto para liquidação. Falta sua assinatura para continuar; o gas também será patrocinado pela Nexa.',
     );
   }
 
   async function signSwap() {
-    if (!swapPrepared || !intent?.order?.id) return;
+    if (
+      !swapPrepared ||
+      !swapSponsorship ||
+      !intent?.order?.id
+    ) {
+      return;
+    }
     setError('');
     setLoading(true);
     try {
       const accessToken = await sessionToken();
-      const provider = await providerFor(swapPrepared.swapTransaction.from);
+      const wallet = await walletFor(swapSponsorship.wallet);
+      const client = await sponsoredClient(wallet, swapSponsorship);
+      const calls: SponsoredCall[] = [];
 
       if (
         swapPrepared.approvalRequired === true &&
         swapPrepared.approvalTransaction
       ) {
-        setStatusText('Autorizando somente o valor necessário de USDC…');
-        const approvalHash = await sendPreparedWalletTransaction(
-          provider,
-          swapPrepared.approvalTransaction,
-        );
-        await waitForReceipt(provider, approvalHash);
+        calls.push(toSponsoredCall(swapPrepared.approvalTransaction));
       }
+      calls.push(toSponsoredCall(swapPrepared.swapTransaction));
 
-      setStatusText('Convertendo USDC → USDT na sua carteira…');
-      const hash = await sendPreparedWalletTransaction(
-        provider,
-        swapPrepared.swapTransaction,
+      setStatusText(
+        'Autorizando e convertendo USDC → USDT com gas patrocinado pela Nexa…',
+      );
+      const result = await client.sendCalls({ calls });
+      const callId = String(result?.id || '').trim();
+      if (!callId) {
+        throw new Error(
+          'A carteira não retornou o identificador da operação patrocinada.',
+        );
+      }
+      setSwapCallId(callId);
+      setPhase('swap_confirming');
+      setStatusText(
+        'Operação patrocinada enviada. Aguardando confirmação da Polygon; não repita.',
+      );
+
+      const hash = await waitSponsoredCall(
+        wallet,
+        swapSponsorship,
+        callId,
       );
       setSwapTxHash(hash);
-      setPhase('swap_confirming');
       await finalizeSwapAndPrepareTransfer(
         accessToken,
         intent.order.id,
@@ -370,16 +563,33 @@ export default function CashOutScreen() {
   }
 
   async function continueSwap() {
-    if (!swapPrepared || !swapTxHash || !intent?.order?.id) return;
+    if (
+      !swapPrepared ||
+      !swapSponsorship ||
+      !intent?.order?.id ||
+      (!swapCallId && !swapTxHash)
+    ) {
+      return;
+    }
     setError('');
     setLoading(true);
     try {
       const accessToken = await sessionToken();
+      let hash = swapTxHash;
+      if (!hash) {
+        const wallet = await walletFor(swapSponsorship.wallet);
+        hash = await waitSponsoredCall(
+          wallet,
+          swapSponsorship,
+          swapCallId,
+        );
+        setSwapTxHash(hash);
+      }
       await finalizeSwapAndPrepareTransfer(
         accessToken,
         intent.order.id,
         swapPrepared,
-        swapTxHash,
+        hash,
       );
     } catch (caught) {
       setError(
@@ -419,7 +629,7 @@ export default function CashOutScreen() {
       orderId,
     );
     if (requiresManualReview(provider)) {
-      throw new Error('O crédito de USDC requer revisão manual da Nexa.');
+      throw new Error('O crédito de USDT requer revisão manual da Nexa.');
     }
     const providerCredited =
       provider?.providerDepositCredited === true || provider?.credited === true;
@@ -488,14 +698,39 @@ export default function CashOutScreen() {
   }
 
   async function signAndWithdraw() {
-    if (!prepared?.transaction || !intent?.order?.id) return;
+    if (
+      !prepared?.transaction ||
+      !transferSponsorship ||
+      !intent?.order?.id
+    ) {
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      const provider = await providerFor(prepared.transaction.from);
-      const hash = await sendPreparedWalletTransaction(
-        provider,
-        prepared.transaction,
+      const wallet = await walletFor(transferSponsorship.wallet);
+      const client = await sponsoredClient(wallet, transferSponsorship);
+      setStatusText(
+        'Enviando USDT para liquidação com gas patrocinado pela Nexa…',
+      );
+      const result = await client.sendCalls({
+        calls: [toSponsoredCall(prepared.transaction)],
+      });
+      const callId = String(result?.id || '').trim();
+      if (!callId) {
+        throw new Error(
+          'A carteira não retornou o identificador da transferência patrocinada.',
+        );
+      }
+      setTransferCallId(callId);
+      setPhase('onchain');
+      setStatusText(
+        'Transferência patrocinada enviada. Aguardando confirmação; não repita.',
+      );
+      const hash = await waitSponsoredCall(
+        wallet,
+        transferSponsorship,
+        callId,
       );
       setTxHash(hash);
       await advanceExit(intent.order.id, hash);
@@ -511,11 +746,26 @@ export default function CashOutScreen() {
   }
 
   async function continueProcessing() {
-    if (!intent?.order?.id || !txHash) return;
+    if (
+      !intent?.order?.id ||
+      (!txHash && (!transferCallId || !transferSponsorship))
+    ) {
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await advanceExit(intent.order.id, txHash);
+      let hash = txHash;
+      if (!hash) {
+        const wallet = await walletFor(transferSponsorship!.wallet);
+        hash = await waitSponsoredCall(
+          wallet,
+          transferSponsorship!,
+          transferCallId,
+        );
+        setTxHash(hash);
+      }
+      await advanceExit(intent.order.id, hash);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -540,7 +790,7 @@ export default function CashOutScreen() {
       <Title>Sacar para Pix.</Title>
       <Paragraph>
         Você autoriza a saída na sua própria carteira. A Nexa confirma a Polygon,
-        liquida USDC em reais e só conclui quando o Pix real estiver confirmado.
+        converte para USDT, liquida em reais e só conclui quando o Pix real estiver confirmado.
       </Paragraph>
 
       <Card>
@@ -601,7 +851,7 @@ export default function CashOutScreen() {
             Estimado: {Number(swapPrepared.estimatedAmountUsdt || 0).toLocaleString('pt-BR', { maximumFractionDigits: 6 })} USDT
           </Text>
           <Text style={styles.stepText}>
-            A Nexa não possui sua chave privada. Se houver aprovação 0x, ela é limitada ao valor deste saque.
+            A Nexa não possui sua chave privada. Se houver aprovação 0x, ela é limitada ao valor deste saque e o gas da Polygon é patrocinado pela Nexa.
           </Text>
           <ActionButton
             label="Autorizar conversão USDC → USDT"
@@ -611,11 +861,13 @@ export default function CashOutScreen() {
         </Card>
       ) : null}
 
-      {swapPrepared && swapTxHash && phase === 'swap_confirming' ? (
+      {swapPrepared && (swapTxHash || swapCallId) && phase === 'swap_confirming' ? (
         <Card>
           <Badge tone="info">CONVERSÃO EM ANDAMENTO</Badge>
           <Text style={styles.stepTitle}>{statusText || 'Confirmando na Polygon…'}</Text>
-          <Text selectable style={styles.hash}>{swapTxHash}</Text>
+          <Text selectable style={styles.hash}>
+            {swapTxHash || `Operação patrocinada: ${swapCallId}`}
+          </Text>
           <ActionButton
             label="Continuar confirmação"
             variant="secondary"
@@ -637,7 +889,7 @@ export default function CashOutScreen() {
             Pix próprio verificado: {prepared?.beneficiary?.pixKeyType || 'sim'}
           </Text>
           <Text style={styles.stepText}>
-            A Nexa não possui sua chave privada e não consegue assinar esta saída por você.
+            A Nexa não possui sua chave privada e não consegue assinar esta saída por você. O gas da Polygon é patrocinado pela Nexa.
           </Text>
           <ActionButton
             label="Enviar USDT para liquidação"
@@ -647,11 +899,13 @@ export default function CashOutScreen() {
         </Card>
       ) : null}
 
-      {txHash && phase !== 'completed' ? (
+      {(txHash || transferCallId) && phase !== 'completed' ? (
         <Card>
           <Badge tone="info">SAQUE EM ANDAMENTO</Badge>
           <Text style={styles.stepTitle}>{statusText || 'Processando…'}</Text>
-          <Text selectable style={styles.hash}>{txHash}</Text>
+          <Text selectable style={styles.hash}>
+            {txHash || `Operação patrocinada: ${transferCallId}`}
+          </Text>
           <ActionButton
             label="Continuar processamento"
             variant="secondary"
