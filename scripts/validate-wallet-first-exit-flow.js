@@ -34,6 +34,10 @@ for (const token of libRequired) {
 
 const screenRequired = [
   'useEmbeddedEthereumWallet',
+  'usePrivy',
+  'ensurePrivyWalletSession',
+  "pathname: '/wallet-session'",
+  "returnTo: 'cash-out'",
   'sendPreparedWalletTransaction',
   'USDC permite no máximo 6 casas decimais',
   'prepareWalletFirstExitTransfer',
