@@ -1,0 +1,5 @@
+Nexa v134 Rewards operator-reconciled recovery
+Version: 2.0.32
+Build: 134
+Scope: clear only an exact bridge→deposit pending that the backend explicitly marks depositRetryAllowed after operator reconciliation; preserve fail-closed behavior for all other ambiguous actions. Also render structured Rewards failure reasons safely.
+Backend live actions remain server-gated and disabled until v134 is installed and the reconciled pending is cleared.
