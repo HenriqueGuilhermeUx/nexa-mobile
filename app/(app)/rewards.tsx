@@ -476,6 +476,13 @@ export default function RewardsScreen() {
       const status = normalizedStatus(result?.action);
 
       if (isFailed(status)) {
+        if (pending.type === 'deposit') {
+          await savePending(null);
+          await refreshPosition(session.accessToken);
+          setStatusText(
+            'A tentativa anterior de depósito foi encerrada sem concluir. Você pode tentar novamente com segurança.',
+          );
+        }
         throw new Error(failureMessage(result));
       }
       if (!isCompleted(status)) {
