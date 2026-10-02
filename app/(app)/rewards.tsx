@@ -843,6 +843,166 @@ export default function RewardsScreen() {
         </Card>
       ) : null}
 
+      <Card>
+        <Text style={styles.sectionTitle}>Planos Rewards</Text>
+        <Text style={styles.muted}>
+          O Flexível já está operacional. Os planos por prazo estão preparados na v135, mas os bônus financeiros continuam desligados até fecharmos a economia do produto.
+        </Text>
+        <View style={styles.planItem}>
+          <Text style={styles.planTitle}>Flexível</Text>
+          <Badge tone="success">DISPONÍVEL</Badge>
+          <Text style={styles.muted}>Resgate quando quiser, sujeito à liquidez da estratégia.</Text>
+        </View>
+        <View style={styles.planItem}>
+          <Text style={styles.planTitle}>Turbo 30</Text>
+          <Badge tone="warning">EM PREPARAÇÃO</Badge>
+          <Text style={styles.muted}>Compromisso de 30 dias. Bônus Nexa ainda não ativado.</Text>
+        </View>
+        <View style={styles.planItem}>
+          <Text style={styles.planTitle}>Turbo 180</Text>
+          <Badge tone="warning">EM PREPARAÇÃO</Badge>
+          <Text style={styles.muted}>Compromisso de 180 dias. Bônus Nexa ainda não ativado.</Text>
+        </View>
+        <View style={styles.planItem}>
+          <Text style={styles.planTitle}>Turbo 365</Text>
+          <Badge tone="warning">EM PREPARAÇÃO</Badge>
+          <Text style={styles.muted}>Compromisso de 365 dias. Bônus Nexa ainda não ativado.</Text>
+        </View>
+      </Card>
+
+      {Array.isArray(activity?.items) && activity.items.length > 0 ? (
+        <Card>
+          <Text style={styles.sectionTitle}>Extrato Rewards</Text>
+          <Text style={styles.muted}>
+            Cada operação reúne as etapas do Rewards, IDs do provedor e hashes on-chain disponíveis.
+          </Text>
+          {activity.items.slice(0, 8).map((item: any) => (
+            <View key={String(item.id)} style={styles.activityItem}>
+              <View style={styles.activityHeader}>
+                <Text style={styles.activityTitle}>
+                  {operationKindLabel(item.kind)}
+                </Text>
+                <Text style={styles.activityStatus}>
+                  {operationStatusLabel(item.status)}
+                </Text>
+              </View>
+              <Text style={styles.muted}>
+                {formatUsdc(item.amountFinalUsdc || item.amountRequestedUsdc)}
+                {' · '}
+                {String(item.planCode || 'FLEX')}
+              </Text>
+              <Text style={styles.activityDate}>
+                {formatDateTime(item.completedAt || item.createdAt)}
+              </Text>
+              <ActionButton
+                label="Ver detalhes"
+                variant="secondary"
+                onPress={() => openActivityDetail(String(item.id))}
+                loading={activityLoading && selectedActivity?.id === item.id}
+              />
+            </View>
+          ))}
+        </Card>
+      ) : null}
+
+      {selectedActivity ? (
+        <Card>
+          <Text style={styles.sectionTitle}>Detalhes da operação</Text>
+          <Text style={styles.detailLabel}>Operação Nexa</Text>
+          <Text style={styles.detailValue}>{selectedActivity.id}</Text>
+          <Text style={styles.detailLabel}>Tipo</Text>
+          <Text style={styles.detailValue}>
+            {operationKindLabel(selectedActivity.kind)}
+          </Text>
+          <Text style={styles.detailLabel}>Status</Text>
+          <Text style={styles.detailValue}>
+            {operationStatusLabel(selectedActivity.status)}
+          </Text>
+          <Text style={styles.detailLabel}>Valor</Text>
+          <Text style={styles.detailValue}>
+            {formatUsdc(
+              selectedActivity.amountFinalUsdc ||
+                selectedActivity.amountRequestedUsdc,
+            )}
+          </Text>
+          <Text style={styles.detailLabel}>Plano</Text>
+          <Text style={styles.detailValue}>
+            {String(selectedActivity.planCode || 'FLEX')}
+          </Text>
+          <Text style={styles.detailLabel}>Vault</Text>
+          <Text style={styles.detailValue}>
+            {String(selectedActivity.vaultId || vault?.vaultId || '—')}
+          </Text>
+          <Text style={styles.detailLabel}>Rede</Text>
+          <Text style={styles.detailValue}>
+            {String(selectedActivity.sourceChain || '—')} →{' '}
+            {String(selectedActivity.destinationChain || '—')}
+          </Text>
+          <Text style={styles.detailLabel}>Início</Text>
+          <Text style={styles.detailValue}>
+            {formatDateTime(selectedActivity.createdAt)}
+          </Text>
+          <Text style={styles.detailLabel}>Conclusão</Text>
+          <Text style={styles.detailValue}>
+            {formatDateTime(selectedActivity.completedAt)}
+          </Text>
+          {selectedActivity.gasTxHash ? (
+            <>
+              <Text style={styles.detailLabel}>Gas patrocinado pela Nexa</Text>
+              <Text selectable style={styles.hashValue}>
+                {String(selectedActivity.gasTxHash)}
+              </Text>
+            </>
+          ) : null}
+          {selectedActivity.bridgeActionId ? (
+            <>
+              <Text style={styles.detailLabel}>Action bridge</Text>
+              <Text selectable style={styles.hashValue}>
+                {String(selectedActivity.bridgeActionId)}
+              </Text>
+            </>
+          ) : null}
+          {selectedActivity.depositActionId ? (
+            <>
+              <Text style={styles.detailLabel}>Action depósito</Text>
+              <Text selectable style={styles.hashValue}>
+                {String(selectedActivity.depositActionId)}
+              </Text>
+            </>
+          ) : null}
+          {selectedActivity.withdrawActionId ? (
+            <>
+              <Text style={styles.detailLabel}>Action resgate</Text>
+              <Text selectable style={styles.hashValue}>
+                {String(selectedActivity.withdrawActionId)}
+              </Text>
+            </>
+          ) : null}
+          {selectedActivity.returnActionId ? (
+            <>
+              <Text style={styles.detailLabel}>Action retorno</Text>
+              <Text selectable style={styles.hashValue}>
+                {String(selectedActivity.returnActionId)}
+              </Text>
+            </>
+          ) : null}
+          {Array.isArray(selectedActivity.transactionHashes) &&
+          selectedActivity.transactionHashes.length > 0 ? (
+            <>
+              <Text style={styles.detailLabel}>Hashes on-chain</Text>
+              {selectedActivity.transactionHashes.map((hash: string) => (
+                <Text key={hash} selectable style={styles.hashValue}>
+                  {hash}
+                </Text>
+              ))}
+            </>
+          ) : null}
+          <Text style={styles.muted}>
+            Rendimento variável e não garantido. Bônus de prazo ainda não está financeiramente habilitado.
+          </Text>
+        </Card>
+      ) : null}
+
       {statusText ? <Text style={styles.status}>{statusText}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {loading ? <Text style={styles.loading}>Atualizando Rewards…</Text> : null}
@@ -885,6 +1045,60 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   quoteTitle: { color: colors.text, fontWeight: '900' },
+  planItem: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  planTitle: {
+    color: colors.text,
+    fontWeight: '900',
+    fontSize: 16,
+  },
+  activityItem: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  activityTitle: {
+    color: colors.text,
+    fontWeight: '900',
+    flex: 1,
+  },
+  activityStatus: {
+    color: colors.cyan,
+    fontWeight: '800',
+  },
+  activityDate: {
+    color: colors.muted,
+    fontSize: 12,
+  },
+  detailLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: spacing.sm,
+    textTransform: 'uppercase',
+  },
+  detailValue: {
+    color: colors.text,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  hashValue: {
+    color: colors.cyan,
+    fontSize: 11,
+    lineHeight: 17,
+  },
   sectionTitle: {
     color: colors.text,
     fontWeight: '900',
