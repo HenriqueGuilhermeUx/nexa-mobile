@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIdentityToken } from '@privy-io/expo';
+import { usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -111,7 +111,7 @@ function safeReturnAmount(result: any, fallback?: number) {
 }
 
 export default function RewardsScreen() {
-  const identity = useIdentityToken() as any;
+  const privy = usePrivy() as any;
   const [vault, setVault] = useState<any>(null);
   const [position, setPosition] = useState<any>(null);
   const [amount, setAmount] = useState('1,00');
@@ -137,8 +137,8 @@ export default function RewardsScreen() {
   async function privyJwtOrThrow() {
     let token = '';
     try {
-      if (typeof identity?.getIdentityToken === 'function') {
-        token = String((await identity.getIdentityToken()) || '').trim();
+      if (typeof privy?.getAccessToken === 'function') {
+        token = String((await privy.getAccessToken()) || '').trim();
       }
     } catch {
       token = '';
