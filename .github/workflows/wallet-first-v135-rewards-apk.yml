@@ -179,7 +179,7 @@ jobs:
           grep -q 'Turbo 180' "$REWARDS"
           grep -q 'Turbo 365' "$REWARDS"
           grep -q 'Bônus Nexa ainda não ativado' "$REWARDS"
-          grep -q "'/rewards/v2/activity" "$ACTIONS"
+          grep -q '/rewards/v2/activity' "$ACTIONS"
           grep -q 'clientOperationId' "$ACTIONS"
           echo 'Rewards v135 activity, detail and non-financial plan scaffolding validated.'
 
