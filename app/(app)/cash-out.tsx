@@ -1,7 +1,21 @@
+import {
+  alchemyWalletTransport,
+  createSmartWalletClient,
+} from '@alchemy/wallet-apis';
 import { useState } from 'react';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
+import {
+  createWalletClient,
+  custom,
+  parseSignature,
+  type AuthorizationRequest,
+  type Hex,
+} from 'viem';
+import { toAccount } from 'viem/accounts';
+import { polygon } from 'viem/chains';
+import { hashAuthorization } from 'viem/utils';
 
 import {
   ActionButton,
@@ -17,13 +31,15 @@ import {
 import { loadNexaSession } from '@/lib/session';
 import {
   normalizeWalletAddress,
-  sendPreparedWalletTransaction,
+  type PreparedWalletTransaction,
 } from '@/lib/walletFirstActions';
 import {
   approveWalletFirstExitPix,
   createWalletFirstExitIntent,
   createWalletFirstExitPix,
   getWalletFirstExitQuote,
+  getWalletFirstExitSwapSponsorshipCredentials,
+  getWalletFirstExitTransferSponsorshipCredentials,
   prepareWalletFirstExitTransfer,
   prepareWalletFirstExitUsdtSwap,
   confirmWalletFirstExitUsdtSwap,
@@ -33,6 +49,7 @@ import {
   submitWalletFirstExitSell,
   verifyWalletFirstExitTransfer,
   type WalletFirstExitQuote,
+  type WalletFirstExitSponsorshipCredentials,
 } from '@/lib/walletFirstExit';
 import { colors, radius, spacing } from '@/theme';
 
@@ -104,6 +121,138 @@ function requiresManualReview(result: any) {
       result?.providerSubmissionUncertain === true ||
       result?.providerCreationUncertain === true,
   );
+}
+
+type SponsoredCall = {
+  to: `0x${string}`;
+  data: `0x${string}`;
+  value: bigint;
+};
+
+function toSponsoredCall(
+  transaction: PreparedWalletTransaction,
+): SponsoredCall {
+  return {
+    to: transaction.to as `0x${string}`,
+    data: transaction.data as `0x${string}`,
+    value: BigInt(String(transaction.value || '0x0')),
+  };
+}
+
+function isPolygonChainId(value: unknown) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return (
+    normalized === '0x89' ||
+    normalized === '137' ||
+    normalized === 'eip155:137'
+  );
+}
+
+async function buildPrivySigner(wallet: any) {
+  const provider =
+    (typeof wallet?.getProvider === 'function'
+      ? await wallet.getProvider()
+      : typeof wallet?.getEthereumProvider === 'function'
+        ? await wallet.getEthereumProvider()
+        : null);
+  if (!provider) {
+    throw new Error('A carteira Privy não disponibilizou o assinador Ethereum.');
+  }
+
+  let currentChainId = await provider.request({
+    method: 'eth_chainId',
+    params: [],
+  });
+  if (!isPolygonChainId(currentChainId)) {
+    await provider.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0x89' }],
+    });
+    currentChainId = await provider.request({
+      method: 'eth_chainId',
+      params: [],
+    });
+  }
+  if (!isPolygonChainId(currentChainId)) {
+    throw new Error('Não foi possível preparar sua carteira na Polygon.');
+  }
+
+  const address = String(wallet.address || '') as `0x${string}`;
+  const rpcWallet = createWalletClient({
+    account: address,
+    chain: polygon,
+    transport: custom(provider),
+  });
+
+  return toAccount({
+    address,
+    signAuthorization: async (request: AuthorizationRequest) => {
+      const implementationAddress =
+        'address' in request ? request.address : request.contractAddress;
+      if (!implementationAddress) {
+        throw new Error(
+          'A autorização EIP-7702 não informou o contrato de delegação.',
+        );
+      }
+      const authorization = {
+        chainId: Number(request.chainId),
+        address: implementationAddress,
+        nonce: Number(request.nonce),
+      };
+      const signature = (await provider.request({
+        method: 'secp256k1_sign',
+        params: [hashAuthorization(authorization)],
+      })) as Hex;
+      return {
+        ...authorization,
+        ...parseSignature(signature),
+      };
+    },
+    signMessage: async ({ message }) =>
+      (await rpcWallet.signMessage({ message })) as Hex,
+    signTypedData: async (parameters) =>
+      (await rpcWallet.signTypedData(parameters as any)) as Hex,
+    signTransaction: async (transaction) =>
+      (await rpcWallet.signTransaction(transaction as any)) as Hex,
+  });
+}
+
+async function sponsoredClient(
+  wallet: any,
+  credentials: WalletFirstExitSponsorshipCredentials,
+) {
+  const signer = await buildPrivySigner(wallet);
+  return createSmartWalletClient({
+    signer,
+    chain: polygon,
+    transport: alchemyWalletTransport({ jwt: credentials.jwt }),
+    paymaster: { policyId: credentials.policyId },
+  });
+}
+
+async function waitSponsoredCall(
+  wallet: any,
+  credentials: WalletFirstExitSponsorshipCredentials,
+  callId: string,
+) {
+  const client = await sponsoredClient(wallet, credentials);
+  const status = await client.waitForCallsStatus({
+    id: callId as any,
+    timeout: 120_000,
+  });
+  if (status.status !== 'success') {
+    throw new Error(
+      'A operação patrocinada ainda não foi confirmada. Não repita a operação.',
+    );
+  }
+  const receipt = status.receipts?.[status.receipts.length - 1];
+  const hash = String(receipt?.transactionHash || '').trim();
+  if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {
+    throw new Error(
+      'A operação patrocinada foi enviada, mas o hash ainda não ficou disponível. Não repita.',
+    );
+  }
+  return hash;
 }
 
 export default function CashOutScreen() {
