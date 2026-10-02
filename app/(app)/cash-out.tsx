@@ -228,7 +228,7 @@ export default function CashOutScreen() {
       setSwapPrepared(nextSwap);
       setPhase('swap_ready_to_sign');
       setStatusText(
-        'Primeiro, autorize a conversão USDC → USDT na sua carteira. Depois o USDT será enviado à Foxbit para liquidação.',
+        'Primeiro, autorize a conversão USDC → USDT na sua carteira. Depois o USDT seguirá para liquidação.',
       );
     } catch (caught) {
       setStatusText('');
@@ -281,7 +281,7 @@ export default function CashOutScreen() {
       return;
     }
 
-    setStatusText('Conversão confirmada. Validando destino Foxbit e Pix…');
+    setStatusText('Conversão confirmada. Validando destino de liquidação e Pix…');
     const nextPrepared = await prepareWalletFirstExitTransfer(
       accessToken,
       orderId,
@@ -294,7 +294,7 @@ export default function CashOutScreen() {
     setPrepared(nextPrepared);
     setPhase('ready_to_sign');
     setStatusText(
-      'USDT pronto para liquidação. Falta sua assinatura para enviar à Foxbit.',
+      'USDT pronto para liquidação. Falta sua assinatura para continuar.',
     );
   }
 
@@ -407,12 +407,12 @@ export default function CashOutScreen() {
     setStatusText('Convertendo USDT para reais…');
     let sell = await submitWalletFirstExitSell(accessToken, orderId);
     if (requiresManualReview(sell)) {
-      throw new Error('A conversão USDC/BRL requer revisão manual da Nexa.');
+      throw new Error('A conversão para reais requer revisão manual da Nexa.');
     }
     if (sellStatus(sell) !== 'sell_filled') {
       sell = await reconcileWalletFirstExitSell(accessToken, orderId);
       if (requiresManualReview(sell)) {
-        throw new Error('A conversão USDC/BRL requer revisão manual da Nexa.');
+        throw new Error('A conversão para reais requer revisão manual da Nexa.');
       }
     }
     if (sellStatus(sell) !== 'sell_filled') {
@@ -568,7 +568,7 @@ export default function CashOutScreen() {
           <Badge tone="warning">CONVERSÃO NA SUA CARTEIRA</Badge>
           <Text style={styles.stepTitle}>USDC → USDT na Polygon</Text>
           <Text style={styles.stepText}>
-            A Foxbit recebe USDT na Polygon. A conversão acontece primeiro na sua própria carteira.
+            A liquidação usa USDT na Polygon. A conversão acontece primeiro na sua própria carteira.
           </Text>
           <Text style={styles.stepText}>
             Estimado: {Number(swapPrepared.estimatedAmountUsdt || 0).toLocaleString('pt-BR', { maximumFractionDigits: 6 })} USDT
