@@ -1,0 +1,5 @@
+Nexa v131 Rewards authorization correction
+Version: 2.0.30
+Build: 131
+Scope: Privy access-token user-owner authorization + safe Polygon/Base reconciliation before Rewards actions.
+Financial execution remains server-gated; backend diagnostic-only mode stays enabled until controlled validation.
