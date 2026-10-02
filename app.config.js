@@ -1,18 +1,18 @@
-// Nexa v131 Rewards access-token authorization correction.
+// Nexa v132 Rewards client-signed wallet authorization.
 // Financial execution remains server-gated until controlled homologation is complete.
 module.exports = ({ config }) => ({
   ...config,
-  version: '2.0.30',
+  version: '2.0.31',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '131',
+    buildNumber: '132',
   },
   android: {
     ...(config.android || {}),
-    versionCode: 131,
+    versionCode: 132,
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.30-v131-rewards-access-token-auth',
+    releaseBuild: 'android16-api36-2.0.31-v132-rewards-client-signature',
   },
 });
