@@ -137,7 +137,7 @@ async function buildPrivySigner(wallet: any) {
         ? await wallet.getEthereumProvider()
         : null);
   if (!provider) {
-    throw new Error('A carteira Privy não disponibilizou o assinador Ethereum.');
+    throw new Error('Sua carteira não está pronta para autorizar esta operação.');
   }
 
   let currentChainId = await provider.request({
