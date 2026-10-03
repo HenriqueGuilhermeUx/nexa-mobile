@@ -179,9 +179,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     borderRadius: 24,
-    backgroundColor: '#0d3b66',
+    backgroundColor: '#0D131B',
     borderWidth: 1,
-    borderColor: '#2563eb',
+    borderColor: '#5F5133',
     shadowColor: '#000000',
     shadowOpacity: 0.24,
     shadowRadius: 10,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
   openFinanceLabel: {
-    color: '#ffffff',
+    color: '#E8D49A',
     fontWeight: '800',
   },
   assistantButton: {
@@ -205,9 +205,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     borderRadius: 24,
-    backgroundColor: '#6d28d9',
+    backgroundColor: '#11151C',
     borderWidth: 1,
-    borderColor: '#8b5cf6',
+    borderColor: '#6B5A36',
     shadowColor: '#000000',
     shadowOpacity: 0.24,
     shadowRadius: 10,
@@ -215,12 +215,12 @@ const styles = StyleSheet.create({
     elevation: 7,
   },
   assistantIcon: {
-    color: '#ffffff',
+    color: '#E6C985',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   assistantLabel: {
-    color: '#ffffff',
+    color: '#E8D49A',
     fontWeight: '800',
   },
 });
