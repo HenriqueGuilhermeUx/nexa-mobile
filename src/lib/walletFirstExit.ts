@@ -95,6 +95,12 @@ export async function getWalletFirstExitQuote(
   return payload.quote as WalletFirstExitQuote;
 }
 
+export function getWalletFirstActiveExit(accessToken: string) {
+  return requestJson<any>(accessToken, `${EXIT_BASE}/active`, {
+    method: 'GET',
+  });
+}
+
 export function createWalletFirstExitIntent(
   accessToken: string,
   amountUsdc: number,
