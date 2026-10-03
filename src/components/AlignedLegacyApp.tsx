@@ -119,7 +119,7 @@ function BottomNav({ page, onNavigate }: any) {
     ['home', '⌂', 'Início'],
     ['wallet', '◫', 'Carteira'],
     ['assets', '◇', 'Ativos'],
-    ['assistant', '✦', 'Assistente'],
+    ['send', '↑', 'Enviar'],
     ['menu', '☰', 'Menu'],
   ];
   return (
@@ -1431,6 +1431,14 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <MenuTile icon="★" title="Premium" subtitle={isPremium ? 'Ativo' : 'Benefícios'} onPress={() => setPage('premium')} />
           <MenuTile icon="↻" title="Aportes" subtitle="USDC recorrente" onPress={() => setPage('recurring')} />
           <MenuTile icon="✦" title="Rewards" subtitle="Posições e benefícios" onPress={() => setPage('rewards')} />
+          {config.efiOpenFinanceEnabled ? (
+            <MenuTile
+              icon="↙"
+              title="Trazer dinheiro"
+              subtitle="Open Finance"
+              onPress={() => router.push('/open-finance')}
+            />
+          ) : null}
           <MenuTile icon="⌁" title="Segurança" subtitle="Biometria e proteção" onPress={() => router.push('/security')} />
         </View>
 
@@ -1726,12 +1734,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         ) : null}
         {loading && !body ? <ActivityIndicator color="#60a5fa" /> : body}
       </ScrollView>
-      <BottomNav
-        page={page}
-        onNavigate={(target: string) =>
-          target === 'assistant' ? router.push('/assistant') : setPage(target)
-        }
-      />
+      <BottomNav page={page} onNavigate={setPage} />
     </View>
   );
 }
