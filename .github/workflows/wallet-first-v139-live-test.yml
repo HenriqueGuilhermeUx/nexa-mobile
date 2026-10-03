@@ -1,0 +1,195 @@
+name: Nexa v139 Live Test APK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/build-triggers/v139-live-test.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v139-live-test-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and build v139 live-test APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout v139
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validate v139 identity and live-test boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const dynamic = require('./app.config.js')({ config: app });
+          const pkg = require('./package.json');
+          const eas = require('./eas.json');
+          const p = eas?.build?.['production-safe-preview'];
+
+          if (app.version !== '2.0.36') throw new Error('Unexpected app version');
+          if (pkg.version !== '2.0.36') throw new Error('Unexpected package version');
+          if (Number(app.android?.versionCode) !== 139) throw new Error('Unexpected Android build');
+          if (String(app.ios?.buildNumber) !== '139') throw new Error('Unexpected iOS build');
+          if (dynamic.version !== '2.0.36' || Number(dynamic.android?.versionCode) !== 139) {
+            throw new Error('Dynamic config identity mismatch');
+          }
+          if (app.android?.package !== 'br.com.trynexa.app') throw new Error('Unexpected package');
+          if (Number(app.extra?.androidTargetApi) !== 36) throw new Error('Android target API must be 36');
+          if (app.extra?.balanceSource !== 'wallet-first') throw new Error('Wallet-First must be primary');
+          if (p?.android?.buildType !== 'apk') throw new Error('Live test must build APK');
+          if (p?.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-backend-p2u0.onrender.com/api/v1') {
+            throw new Error('Live test must use production backend');
+          }
+          if (p?.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'true') {
+            throw new Error('Live test financial execution must be enabled');
+          }
+
+          const releaseProfiles = [
+            'production',
+            'open-finance-pilot-aab',
+            'production-assistant-aab',
+            'production-open-finance-aab',
+          ];
+          for (const name of releaseProfiles) {
+            if (eas?.build?.[name]?.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') {
+              throw new Error(`Release profile ${name} must remain financially gated`);
+            }
+          }
+
+          const buildProps = (app.plugins || []).find(p => Array.isArray(p) && p[0] === 'expo-build-properties');
+          if (!buildProps) throw new Error('expo-build-properties missing');
+          if (Number(buildProps[1]?.android?.targetSdkVersion) !== 36) throw new Error('targetSdkVersion must be 36');
+          if (buildProps[1]?.android?.enableMinifyInReleaseBuilds !== true) throw new Error('R8 minification must be enabled');
+          if (buildProps[1]?.android?.enableShrinkResourcesInReleaseBuilds !== true) throw new Error('resource shrinking must be enabled');
+
+          console.log('v139 live-test identity, Wallet-First boundary and release gating validated');
+          NODE
+
+      - name: Validate Wallet-First contracts
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-quote.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-wallet-cross-device-recovery.js
+          node scripts/validate-biometric-app-lock.js
+          node scripts/validate-release-assets.js
+          npm run typecheck
+          npx expo-doctor
+          npx expo config --type public > v139-expo-public-config.json
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20             'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1); console.log('Backend production OK')"
+
+      - name: Add build swap
+        run: |
+          set -euo pipefail
+          if ! swapon --show | grep -q .; then
+            sudo fallocate -l 4G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
+          free -h
+
+      - name: Build signed v139 live-test APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-v139-live-apk
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v139-apk
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+          KOTLIN_DAEMON_JVM_OPTIONS: '-Xmx1536m,-XX:MaxMetaspaceSize=1024m'
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN"
+          eas whoami
+          APK="Nexa-2.0.36-v139-LIVE-TEST.apk"
+          rm -f "$APK"
+          eas build --platform android --profile production-safe-preview --local --non-interactive --output "$GITHUB_WORKSPACE/$APK"
+          test -s "$APK"
+          echo "APK_FILE=$APK" >> "$GITHUB_ENV"
+
+      - name: Verify signed APK, API 36 and 16 KB alignment
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)
+          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)
+
+          "$APKSIGNER" verify --verbose --print-certs "$APK_FILE" > apk-signature.txt
+          "$AAPT2" dump badging "$APK_FILE" > apk-badging.txt
+
+          PACKAGE=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          VERSION_NAME=$(sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          VERSION_CODE=$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          TARGET_SDK=$(sed -n "s/^targetSdkVersion:'\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+
+          test "$PACKAGE" = 'br.com.trynexa.app'
+          test "$VERSION_NAME" = '2.0.36'
+          test "$VERSION_CODE" = '139'
+          test "$TARGET_SDK" = '36'
+
+          "$ZIPALIGN" -c -P 16 -v 4 "$APK_FILE" > apk-zipalign-16k.txt
+          grep -q 'Verification successful' apk-zipalign-16k.txt
+          sha256sum "$APK_FILE" > apk-SHA256SUMS.txt
+
+      - name: Upload verified v139 live-test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-v139-LIVE-TEST-APK
+          path: |
+            ${{ env.APK_FILE }}
+            apk-signature.txt
+            apk-badging.txt
+            apk-zipalign-16k.txt
+            apk-SHA256SUMS.txt
+            v139-expo-public-config.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Test boundary
+        run: |
+          echo "Internal APK only."
+          echo "Production backend with explicit live-test execution."
+          echo "Release/AAB profiles remain financially gated."
+          echo "No Google Play submission."
