@@ -94,7 +94,7 @@ function PrimaryButton({ title, onPress, disabled, secondary }: any) {
         disabled ? styles.buttonDisabled : null,
       ]}
     >
-      <Text style={styles.buttonText}>{title}</Text>
+      <Text style={[styles.buttonText, secondary ? styles.buttonTextSecondary : null]}>{title}</Text>
     </TouchableOpacity>
   );
 }
@@ -119,7 +119,7 @@ function BottomNav({ page, onNavigate }: any) {
     ['home', '⌂', 'Início'],
     ['wallet', '◫', 'Carteira'],
     ['assets', '◇', 'Ativos'],
-    ['send', '↑', 'Enviar'],
+    ['staff', '✦', 'Staff'],
     ['menu', '☰', 'Menu'],
   ];
   return (
@@ -852,6 +852,31 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     }));
   }, [portfolio, balances]);
 
+  const portfolioTotalUsd = useMemo(
+    () =>
+      portfolioPositions.reduce(
+        (total, item) => total + Math.max(0, Number(item.valueUsd || 0)),
+        0,
+      ),
+    [portfolioPositions],
+  );
+
+  function openWalletFirstDeposit() {
+    router.push('/(app)/new-order' as any);
+  }
+
+  function openWalletFirstWithdraw() {
+    router.push('/(app)/cash-out' as any);
+  }
+
+  function openWalletFirstSend() {
+    router.push('/(app)/send-nexa' as any);
+  }
+
+  function openWalletFirstAssets() {
+    router.push('/(app)/buy-crypto' as any);
+  }
+
   const contentBottom = 92 + Math.max(insets.bottom, 10);
 
   function Home() {
@@ -859,32 +884,62 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       <>
         <View style={styles.homeTop}>
           <View>
+            <Text style={styles.welcomeLabel}>PRIVATE DIGITAL BANKING</Text>
             <Text style={styles.hello}>Olá, {firstName}</Text>
-            <Text style={styles.handle}>{handle}</Text>
+            <Text style={styles.handle}>{handle || 'Conta Nexa'}</Text>
           </View>
-          <TouchableOpacity onPress={() => setPage('menu')} style={styles.avatar}>
+          <TouchableOpacity onPress={() => setPage('profile')} style={styles.avatar}>
             <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
           </TouchableOpacity>
         </View>
 
         <Card style={styles.heroCard}>
-          <Text style={styles.eyebrow}>SALDO NEXA</Text>
-          <Text style={styles.heroAmount}>{amount(balances.USDC, 6)}</Text>
-          <Text style={styles.heroUnit}>USDC</Text>
-          <Text style={styles.heroHint}>Disponível para Pix, transferências Nexa e uso dentro da plataforma.</Text>
+          <View style={styles.rowBetween}>
+            <View>
+              <Text style={styles.eyebrow}>PATRIMÔNIO DIGITAL</Text>
+              <Text style={styles.heroAmount}>{amount(balances.USDC, 6)}</Text>
+              <Text style={styles.heroUnit}>USDC disponível</Text>
+            </View>
+            <View style={styles.heroMark}>
+              <Text style={styles.heroMarkText}>N</Text>
+            </View>
+          </View>
+          {portfolioTotalUsd > 0 ? (
+            <Text style={styles.portfolioValue}>
+              Carteira estimada: US$ {amount(portfolioTotalUsd, 2)}
+            </Text>
+          ) : null}
+          <Text style={styles.heroHint}>
+            Liquidez, ativos e serviços financeiros organizados em uma única experiência.
+          </Text>
         </Card>
 
         <View style={styles.quickRow}>
-          <MenuTile icon="＋" title="Pix" subtitle="Adicionar" onPress={() => setPage('deposit')} />
-          <MenuTile icon="↑" title="Enviar" subtitle="USDC" onPress={() => setPage('send')} />
-          <MenuTile icon="◇" title="Ativos" subtitle="BTC · ETH · Ouro" onPress={() => setPage('assets')} accent />
-          <MenuTile icon="☰" title="Mais" subtitle="Serviços" onPress={() => setPage('menu')} />
+          <MenuTile icon="＋" title="Adicionar" subtitle="Pix" onPress={openWalletFirstDeposit} />
+          <MenuTile icon="↓" title="Sacar" subtitle="Pix" onPress={openWalletFirstWithdraw} />
+          <MenuTile icon="↑" title="Enviar" subtitle="Nexa" onPress={openWalletFirstSend} />
+          <MenuTile icon="◇" title="Investir" subtitle="Ativos" onPress={openWalletFirstAssets} accent />
         </View>
 
-        <Text style={styles.sectionTitle}>Ativos disponíveis</Text>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionKicker}>CARTEIRA</Text>
+            <Text style={styles.sectionTitle}>Seus ativos</Text>
+          </View>
+          <TouchableOpacity onPress={() => setPage('assets')}>
+            <Text style={styles.inlineAction}>Ver todos</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.assetGrid}>
           {portfolioPositions.map((item) => (
-            <TouchableOpacity key={item.symbol} style={styles.assetMini} onPress={() => { setAsset(item.symbol === 'USDC' ? 'BTC' : item.symbol); setPage(item.symbol === 'USDC' ? 'wallet' : 'assets'); }}>
+            <TouchableOpacity
+              key={item.symbol}
+              style={styles.assetMini}
+              onPress={() => {
+                setAsset(item.symbol === 'USDC' ? 'BTC' : item.symbol);
+                setPage(item.symbol === 'USDC' ? 'wallet' : 'assets');
+              }}
+            >
               <Text style={styles.assetIcon}>{item.icon}</Text>
               <Text style={styles.assetSymbol}>{item.symbol}</Text>
               <Text style={styles.assetBalance}>{amount(item.amount, 6)}</Text>
@@ -892,30 +947,52 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           ))}
         </View>
 
-        <Card style={styles.highlightPremium}>
-          <Text style={styles.premiumEyebrow}>{isPremium ? 'PREMIUM ATIVO' : 'NEXA PREMIUM'}</Text>
-          <Text style={styles.highlightTitle}>{isPremium ? 'Sua experiência ampliada.' : 'Mais autonomia dentro e fora da Nexa.'}</Text>
+        {config.assistantEnabled ? (
+          <Card style={styles.staffCard}>
+            <View style={styles.rowBetween}>
+              <View style={{ flex: 1, paddingRight: 16 }}>
+                <Text style={styles.staffEyebrow}>NEXA STAFF · IA</Text>
+                <Text style={styles.highlightTitle}>Seu staff pessoal e financeiro.</Text>
+                <Text style={styles.highlightText}>
+                  Organize o dia, acompanhe prioridades e use seu contexto financeiro quando precisar.
+                </Text>
+              </View>
+              <View style={styles.staffOrb}>
+                <Text style={styles.staffOrbText}>✦</Text>
+              </View>
+            </View>
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.staffPrimaryAction} onPress={() => router.push('/assistant')}>
+                <Text style={styles.staffPrimaryActionText}>Abrir Staff</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.staffSecondaryAction} onPress={openNexaSupport}>
+                <Text style={styles.staffSecondaryActionText}>WhatsApp</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        ) : null}
+
+        <Card style={styles.investmentCard}>
+          <Text style={styles.sectionKicker}>OPORTUNIDADES</Text>
+          <Text style={styles.highlightTitle}>Invista sem lidar com a complexidade técnica.</Text>
           <Text style={styles.highlightText}>
-            {isPremium
-              ? 'Taxas menores, carteira individual e recursos adicionais de movimentação.'
-              : 'Taxas menores, carteira individual, recebimento externo e recursos on-chain.'}
+            Bitcoin, Ethereum, Ouro Digital e Rewards, com a Nexa cuidando da experiência.
           </Text>
-          <PrimaryButton title={isPremium ? 'Ver meus recursos Premium' : 'Conhecer Nexa Premium'} onPress={() => setPage('premium')} secondary />
+          <PrimaryButton title="Explorar ativos" onPress={() => setPage('assets')} secondary />
         </Card>
 
-        <Card style={styles.highlightRecurring}>
-          <Text style={styles.eyebrow}>USDC POR ASSINATURA</Text>
-          <Text style={styles.highlightTitle}>{recurring ? 'Sua recorrência está configurada.' : 'USDC todo mês, do seu jeito.'}</Text>
-          <Text style={styles.highlightText}>Escolha valor e dia do mês. A Nexa organiza a recorrência via Pix.</Text>
-          <PrimaryButton title={recurring ? 'Gerenciar recorrência' : 'Configurar recorrência'} onPress={() => setPage('recurring')} secondary />
-        </Card>
-
-        <Card>
-          <Text style={styles.eyebrow}>NEXA REWARDS</Text>
-          <Text style={styles.highlightTitle}>Benefícios por usar a Nexa.</Text>
-          <Text style={styles.highlightText}>Campanhas, vantagens e posições Rewards em uma área própria.</Text>
-          <PrimaryButton title="Abrir Rewards" onPress={() => setPage('rewards')} secondary />
-        </Card>
+        <View style={styles.homeSecondaryRow}>
+          <TouchableOpacity style={styles.homeSecondaryCard} onPress={() => setPage('rewards')}>
+            <Text style={styles.homeSecondaryKicker}>REWARDS</Text>
+            <Text style={styles.homeSecondaryTitle}>Turbinar USDC</Text>
+            <Text style={styles.homeSecondaryText}>Acompanhe suas posições e benefícios.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.homeSecondaryCard} onPress={() => setPage('recurring')}>
+            <Text style={styles.homeSecondaryKicker}>RECORRÊNCIA</Text>
+            <Text style={styles.homeSecondaryTitle}>Aportes mensais</Text>
+            <Text style={styles.homeSecondaryText}>Organize compras recorrentes de USDC.</Text>
+          </TouchableOpacity>
+        </View>
       </>
     );
   }
@@ -1329,46 +1406,54 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Menu() {
     return (
       <>
+        <Text style={styles.pageKicker}>CONTA & SERVIÇOS</Text>
         <Text style={styles.pageTitle}>Menu</Text>
-        <Text style={styles.pageSubtitle}>Acesse sua conta e os serviços Nexa.</Text>
+        <Text style={styles.pageSubtitle}>Sua conta, investimentos, atendimento e segurança.</Text>
+
+        <Text style={styles.menuSectionLabel}>CONTA</Text>
         <View style={styles.menuGrid}>
-          <MenuTile icon="👤" title="Perfil" onPress={() => setPage('profile')} />
-          <MenuTile icon="↕" title="Movimentações" onPress={() => setPage('history')} />
-          <MenuTile icon="🆔" title="Nexa ID" subtitle={nexaId || handle} onPress={() => setPage('nexaId')} />
-          <MenuTile icon="💳" title="Depositar Pix" subtitle="Adicionar saldo" onPress={() => setPage('deposit')} />
-          <MenuTile icon="🏦" title="Sacar Pix" subtitle="USDC → BRL" onPress={() => setPage('withdraw')} />
-          <MenuTile icon="⭐" title="Premium" subtitle={isPremium ? 'Ativo' : 'Conhecer'} onPress={() => setPage('premium')} accent />
-          <MenuTile icon="🔁" title="USDC assinatura" onPress={() => setPage('recurring')} />
-          <MenuTile icon="✦" title="Rewards" onPress={() => setPage('rewards')} />
-          <MenuTile
-            icon="🛡️"
-            title="Segurança"
-            subtitle="Biometria e proteção"
-            onPress={() => router.push('/security')}
-          />
-          <MenuTile
-            icon="🔐"
-            title="Minha Carteira"
-            subtitle={canAccessCustody ? (isPremium ? 'Premium' : 'Carteira existente') : 'Recurso Premium'}
-            onPress={() => setPage(canAccessCustody ? 'custody' : 'premium')}
-          />
+          <MenuTile icon="◎" title="Perfil" subtitle={handle || 'Dados pessoais'} onPress={() => setPage('profile')} />
+          <MenuTile icon="↕" title="Movimentações" subtitle="Histórico" onPress={() => setPage('history')} />
+          <MenuTile icon="ID" title="Nexa ID" subtitle={nexaId || handle} onPress={() => setPage('nexaId')} />
+          <MenuTile icon="◈" title="Carteira" subtitle="Ativos e custódia" onPress={() => setPage('wallet')} />
+        </View>
+
+        <Text style={styles.menuSectionLabel}>MOVIMENTAR</Text>
+        <View style={styles.menuGrid}>
+          <MenuTile icon="＋" title="Adicionar" subtitle="Via Pix" onPress={openWalletFirstDeposit} />
+          <MenuTile icon="↓" title="Sacar" subtitle="Para seu Pix" onPress={openWalletFirstWithdraw} />
+          <MenuTile icon="↑" title="Enviar" subtitle="Nexa para Nexa" onPress={openWalletFirstSend} />
+          <MenuTile icon="◇" title="Investir" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
+        </View>
+
+        <Text style={styles.menuSectionLabel}>SERVIÇOS</Text>
+        <View style={styles.menuGrid}>
+          <MenuTile icon="★" title="Premium" subtitle={isPremium ? 'Ativo' : 'Benefícios'} onPress={() => setPage('premium')} />
+          <MenuTile icon="↻" title="Aportes" subtitle="USDC recorrente" onPress={() => setPage('recurring')} />
+          <MenuTile icon="✦" title="Rewards" subtitle="Posições e benefícios" onPress={() => setPage('rewards')} />
+          <MenuTile icon="⌁" title="Segurança" subtitle="Biometria e proteção" onPress={() => router.push('/security')} />
+        </View>
+
+        <Text style={styles.menuSectionLabel}>ATENDIMENTO</Text>
+        <View style={styles.menuGrid}>
           {config.assistantEnabled ? (
             <MenuTile
               icon="✦"
-              title="Assistente"
-              subtitle="Vida, rotina e dinheiro"
+              title="Nexa Staff"
+              subtitle="IA para vida e dinheiro"
               onPress={() => router.push('/assistant')}
               accent
             />
           ) : null}
           <MenuTile
-            icon="💬"
+            icon="◉"
             title="Fale com a Nexa"
-            subtitle="Suporte pelo WhatsApp"
+            subtitle="Atendimento no WhatsApp"
             onPress={openNexaSupport}
             accent
           />
         </View>
+
         <PrimaryButton title="Sair da Nexa" onPress={onLogout} secondary />
       </>
     );
@@ -1512,14 +1597,48 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Profile() {
     return (
       <>
+        <Text style={styles.pageKicker}>CLIENTE NEXA</Text>
         <Text style={styles.pageTitle}>Perfil</Text>
-        <Card>
-          <Text style={styles.profileName}>{user?.fullName}</Text>
-          <Text style={styles.profileLine}>{handle}</Text>
-          <Text style={styles.profileLine}>{user?.email}</Text>
-          <Text style={styles.profileLine}>KYC: {String(user?.kycStatus || 'pending')}</Text>
-          <Text style={styles.profileLine}>Plano: {isPremium ? 'Nexa Premium' : 'Nexa'}</Text>
-          {walletAddress ? <Text style={styles.profileLine}>Carteira: {walletAddress.slice(0, 10)}…{walletAddress.slice(-8)}</Text> : null}
+        <Card style={styles.profileCard}>
+          <View style={styles.profileHeader}>
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileAvatarText}>{firstName.charAt(0).toUpperCase()}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileName}>{user?.fullName}</Text>
+              <Text style={styles.profileHandle}>{handle || 'Conta Nexa'}</Text>
+            </View>
+          </View>
+          <View style={styles.profileDivider} />
+          <Text style={styles.profileLabel}>E-mail</Text>
+          <Text style={styles.profileValue}>{user?.email || '-'}</Text>
+          <Text style={styles.profileLabel}>Identidade</Text>
+          <Text style={styles.profileValue}>
+            {String(user?.kycStatus || 'pending').toLowerCase() === 'approved' ? 'Verificada' : 'Em análise'}
+          </Text>
+          <Text style={styles.profileLabel}>Relacionamento</Text>
+          <Text style={styles.profileValue}>{isPremium ? 'Nexa Premium' : 'Nexa'}</Text>
+          {walletAddress ? (
+            <>
+              <Text style={styles.profileLabel}>Carteira vinculada</Text>
+              <Text style={styles.profileValue}>{walletAddress.slice(0, 10)}…{walletAddress.slice(-8)}</Text>
+            </>
+          ) : null}
+        </Card>
+        <Card style={styles.profileSupportCard}>
+          <Text style={styles.staffEyebrow}>ATENDIMENTO</Text>
+          <Text style={styles.highlightTitle}>Precisa de ajuda?</Text>
+          <Text style={styles.highlightText}>Fale com a Nexa pelo WhatsApp ou peça ajuda ao seu Staff.</Text>
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.staffPrimaryAction} onPress={openNexaSupport}>
+              <Text style={styles.staffPrimaryActionText}>WhatsApp</Text>
+            </TouchableOpacity>
+            {config.assistantEnabled ? (
+              <TouchableOpacity style={styles.staffSecondaryAction} onPress={() => router.push('/assistant')}>
+                <Text style={styles.staffSecondaryActionText}>Nexa Staff</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </Card>
       </>
     );
@@ -1594,8 +1713,11 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandRow}>
-          <Text style={styles.brand}>NEXA</Text>
-          <Text style={styles.brandTag}>Cripto sem complicação.</Text>
+          <View>
+            <Text style={styles.brand}>NEXA</Text>
+            <Text style={styles.brandTag}>Cripto sem complicação.</Text>
+          </View>
+          <Text style={styles.brandEdition}>PRIVATE</Text>
         </View>
         {message ? (
           <TouchableOpacity onPress={() => setMessage('')} style={styles.messageBox}>
@@ -1604,83 +1726,168 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         ) : null}
         {loading && !body ? <ActivityIndicator color="#60a5fa" /> : body}
       </ScrollView>
-      <BottomNav page={page} onNavigate={setPage} />
+      <BottomNav
+        page={page}
+        onNavigate={(target: string) =>
+          target === 'staff' ? router.push('/assistant') : setPage(target)
+        }
+      />
     </View>
   );
 }
 
 const styles: any = {
-  root: { flex: 1, backgroundColor: '#020617' },
+  root: { flex: 1, backgroundColor: '#070A0F' },
   scroll: { flex: 1, paddingHorizontal: 18 },
-  brandRow: { alignItems: 'center', marginBottom: 20 },
-  brand: { color: '#fff', fontSize: 30, fontWeight: '900', letterSpacing: 2.5 },
-  brandTag: { color: '#7c9cc7', fontSize: 12, marginTop: 3 },
+  brandRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 26,
+    paddingHorizontal: 2,
+  },
+  brand: { color: '#F7F8FA', fontSize: 27, fontWeight: '900', letterSpacing: 3.2 },
+  brandTag: { color: '#7F8A9B', fontSize: 11, marginTop: 3 },
+  brandEdition: { color: '#C8A968', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
   homeTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  hello: { color: '#fff', fontSize: 26, fontWeight: '900' },
-  handle: { color: '#60a5fa', fontSize: 13, fontWeight: '800', marginTop: 4 },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#172033', borderWidth: 1, borderColor: '#29364d', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontSize: 18, fontWeight: '900' },
-  card: { backgroundColor: '#0b1220', borderWidth: 1, borderColor: '#1e293b', borderRadius: 22, padding: 18, marginBottom: 14 },
-  heroCard: { backgroundColor: '#0d1b32', borderColor: '#244980' },
-  eyebrow: { color: '#7dd3fc', fontSize: 10, fontWeight: '900', letterSpacing: 1.3 },
-  premiumEyebrow: { color: '#c4b5fd', fontSize: 10, fontWeight: '900', letterSpacing: 1.3 },
-  heroAmount: { color: '#fff', fontSize: 38, fontWeight: '900', marginTop: 8 },
-  heroUnit: { color: '#94a3b8', fontSize: 15, fontWeight: '800', marginTop: 2 },
-  heroHint: { color: '#7c8da3', lineHeight: 18, marginTop: 12, fontSize: 12 },
-  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-  menuTile: { width: '48%', minHeight: 104, backgroundColor: '#0b1220', borderWidth: 1, borderColor: '#1e293b', borderRadius: 20, padding: 15 },
-  menuTileAccent: { backgroundColor: '#12213e', borderColor: '#244980' },
-  menuTileIcon: { color: '#fff', fontSize: 20, marginBottom: 10 },
-  menuTileTitle: { color: '#fff', fontSize: 14, fontWeight: '900' },
-  menuTileSubtitle: { color: '#64748b', fontSize: 10, marginTop: 5 },
-  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 16 },
-  sectionTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 12, marginTop: 2 },
+  welcomeLabel: { color: '#C8A968', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 5 },
+  hello: { color: '#F7F8FA', fontSize: 28, fontWeight: '800' },
+  handle: { color: '#8F9AAC', fontSize: 12, fontWeight: '700', marginTop: 4 },
+  avatar: {
+    width: 46, height: 46, borderRadius: 23, backgroundColor: '#111722',
+    borderWidth: 1, borderColor: '#2B3442', alignItems: 'center', justifyContent: 'center'
+  },
+  avatarText: { color: '#E9D7A8', fontSize: 18, fontWeight: '900' },
+  card: {
+    backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
+    borderRadius: 20, padding: 18, marginBottom: 14
+  },
+  heroCard: { backgroundColor: '#0D1522', borderColor: '#5F5133', padding: 20 },
+  heroMark: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: '#171D27',
+    borderWidth: 1, borderColor: '#6B5A36', alignItems: 'center', justifyContent: 'center'
+  },
+  heroMarkText: { color: '#D8BC7A', fontSize: 20, fontWeight: '900' },
+  eyebrow: { color: '#C8A968', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  premiumEyebrow: { color: '#D8BC7A', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  heroAmount: { color: '#F7F8FA', fontSize: 40, fontWeight: '800', marginTop: 8 },
+  heroUnit: { color: '#A3ADBA', fontSize: 13, fontWeight: '700', marginTop: 1 },
+  portfolioValue: { color: '#D8BC7A', fontSize: 12, fontWeight: '800', marginTop: 16 },
+  heroHint: { color: '#7F8A9B', lineHeight: 18, marginTop: 9, fontSize: 12 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  menuTile: {
+    width: '48%', minHeight: 100, backgroundColor: '#0C1119', borderWidth: 1,
+    borderColor: '#1B2432', borderRadius: 18, padding: 15
+  },
+  menuTileAccent: { backgroundColor: '#111720', borderColor: '#655735' },
+  menuTileIcon: { color: '#D8BC7A', fontSize: 18, marginBottom: 12, fontWeight: '900' },
+  menuTileTitle: { color: '#F3F5F7', fontSize: 14, fontWeight: '800' },
+  menuTileSubtitle: { color: '#788393', fontSize: 10, marginTop: 5 },
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 20 },
+  menuSectionLabel: { color: '#778292', fontSize: 9, fontWeight: '900', letterSpacing: 1.4, marginBottom: 9, marginTop: 4 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 },
+  sectionKicker: { color: '#7D8795', fontSize: 9, fontWeight: '900', letterSpacing: 1.4, marginBottom: 4 },
+  sectionTitle: { color: '#F7F8FA', fontSize: 21, fontWeight: '800', marginBottom: 12, marginTop: 2 },
+  inlineAction: { color: '#C8A968', fontSize: 11, fontWeight: '800', marginBottom: 12 },
   assetGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 18 },
-  assetMini: { width: '48%', backgroundColor: '#0b1220', borderWidth: 1, borderColor: '#1e293b', borderRadius: 20, padding: 15, minHeight: 115 },
-  assetSelected: { borderColor: '#3b82f6', backgroundColor: '#12213e' },
-  assetIcon: { color: '#fff', fontSize: 22, marginBottom: 8 },
-  assetSymbol: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  assetBalance: { color: '#94a3b8', fontSize: 12, marginTop: 6 },
-  assetNameSmall: { color: '#64748b', fontSize: 10, marginTop: 5 },
-  highlightPremium: { backgroundColor: '#171225', borderColor: '#5b3f88' },
-  highlightRecurring: { backgroundColor: '#0d1b32', borderColor: '#244980' },
-  highlightTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 7 },
-  highlightText: { color: '#94a3b8', lineHeight: 19, fontSize: 13, marginTop: 7 },
-  button: { backgroundColor: '#2563eb', borderWidth: 1, borderColor: '#3b82f6', borderRadius: 15, paddingVertical: 14, paddingHorizontal: 16, marginTop: 14 },
-  buttonSecondary: { backgroundColor: '#111c2f', borderColor: '#263650' },
+  assetMini: {
+    width: '48%', backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
+    borderRadius: 18, padding: 15, minHeight: 112
+  },
+  assetSelected: { borderColor: '#7A6740', backgroundColor: '#121821' },
+  assetIcon: { color: '#D8BC7A', fontSize: 21, marginBottom: 8 },
+  assetSymbol: { color: '#F7F8FA', fontSize: 15, fontWeight: '900' },
+  assetBalance: { color: '#9AA4B2', fontSize: 12, marginTop: 6 },
+  assetNameSmall: { color: '#6E7887', fontSize: 10, marginTop: 5 },
+  staffCard: { backgroundColor: '#11151C', borderColor: '#655735' },
+  staffEyebrow: { color: '#D8BC7A', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
+  staffOrb: {
+    width: 48, height: 48, borderRadius: 24, backgroundColor: '#1B1A17',
+    borderWidth: 1, borderColor: '#7A6740', alignItems: 'center', justifyContent: 'center'
+  },
+  staffOrbText: { color: '#E6C985', fontSize: 22, fontWeight: '900' },
+  staffPrimaryAction: {
+    flex: 1, backgroundColor: '#C8A968', borderRadius: 13, paddingVertical: 12,
+    paddingHorizontal: 12, alignItems: 'center'
+  },
+  staffPrimaryActionText: { color: '#0B0F15', fontSize: 12, fontWeight: '900' },
+  staffSecondaryAction: {
+    flex: 1, backgroundColor: '#121821', borderWidth: 1, borderColor: '#2B3442',
+    borderRadius: 13, paddingVertical: 12, paddingHorizontal: 12, alignItems: 'center'
+  },
+  staffSecondaryActionText: { color: '#E5E9EF', fontSize: 12, fontWeight: '800' },
+  investmentCard: { backgroundColor: '#0D131D', borderColor: '#273243' },
+  homeSecondaryRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
+  homeSecondaryCard: {
+    flex: 1, minHeight: 126, backgroundColor: '#0C1119', borderWidth: 1,
+    borderColor: '#1B2432', borderRadius: 18, padding: 15
+  },
+  homeSecondaryKicker: { color: '#C8A968', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  homeSecondaryTitle: { color: '#F3F5F7', fontSize: 15, fontWeight: '800', marginTop: 8 },
+  homeSecondaryText: { color: '#788393', fontSize: 11, lineHeight: 16, marginTop: 6 },
+  highlightPremium: { backgroundColor: '#11151C', borderColor: '#655735' },
+  highlightRecurring: { backgroundColor: '#0D1522', borderColor: '#273A54' },
+  highlightTitle: { color: '#F7F8FA', fontSize: 20, fontWeight: '800', marginTop: 7 },
+  highlightText: { color: '#929CAA', lineHeight: 19, fontSize: 13, marginTop: 7 },
+  button: {
+    backgroundColor: '#C8A968', borderWidth: 1, borderColor: '#D8BC7A',
+    borderRadius: 13, paddingVertical: 14, paddingHorizontal: 16, marginTop: 14
+  },
+  buttonSecondary: { backgroundColor: '#111720', borderColor: '#293548' },
   buttonDisabled: { opacity: 0.45 },
-  buttonText: { color: '#fff', fontSize: 14, fontWeight: '900', textAlign: 'center' },
-  pageTitle: { color: '#fff', fontSize: 28, fontWeight: '900', marginBottom: 5 },
-  pageSubtitle: { color: '#94a3b8', fontSize: 13, lineHeight: 19, marginBottom: 18 },
+  buttonText: { color: '#0A0E14', fontSize: 14, fontWeight: '900', textAlign: 'center' },
+  buttonTextSecondary: { color: '#F2F4F7' },
+  pageKicker: { color: '#C8A968', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 6 },
+  pageTitle: { color: '#F7F8FA', fontSize: 29, fontWeight: '800', marginBottom: 5 },
+  pageSubtitle: { color: '#8F99A8', fontSize: 13, lineHeight: 19, marginBottom: 18 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   alignRight: { alignItems: 'flex-end' },
-  assetRowTitle: { color: '#fff', fontSize: 16, fontWeight: '900' },
-  assetRowSymbol: { color: '#64748b', fontSize: 11, marginTop: 4 },
-  assetRowAmount: { color: '#fff', fontSize: 16, fontWeight: '900' },
-  assetRowValue: { color: '#94a3b8', fontSize: 11, marginTop: 4 },
-  formLabel: { color: '#cbd5e1', fontWeight: '800', fontSize: 12, marginTop: 14, marginBottom: 7 },
-  input: { backgroundColor: '#07101e', borderWidth: 1, borderColor: '#263650', color: '#fff', borderRadius: 14, padding: 14, fontSize: 15 },
-  quoteBox: { backgroundColor: '#07101e', borderWidth: 1, borderColor: '#263650', borderRadius: 16, padding: 14, marginTop: 12 },
-  quoteTitle: { color: '#fff', fontWeight: '900', fontSize: 14 },
-  quoteText: { color: '#94a3b8', fontSize: 12, marginTop: 6 },
-  divider: { height: 1, backgroundColor: '#1e293b', marginVertical: 18 },
+  assetRowTitle: { color: '#F4F6F8', fontSize: 16, fontWeight: '800' },
+  assetRowSymbol: { color: '#717B89', fontSize: 11, marginTop: 4 },
+  assetRowAmount: { color: '#F7F8FA', fontSize: 16, fontWeight: '800' },
+  assetRowValue: { color: '#939DAC', fontSize: 11, marginTop: 4 },
+  formLabel: { color: '#C5CBD4', fontWeight: '800', fontSize: 12, marginTop: 14, marginBottom: 7 },
+  input: {
+    backgroundColor: '#080D14', borderWidth: 1, borderColor: '#273141',
+    color: '#F7F8FA', borderRadius: 13, padding: 14, fontSize: 15
+  },
+  quoteBox: { backgroundColor: '#080D14', borderWidth: 1, borderColor: '#273141', borderRadius: 16, padding: 14, marginTop: 12 },
+  quoteTitle: { color: '#F7F8FA', fontWeight: '900', fontSize: 14 },
+  quoteText: { color: '#929CAA', fontSize: 12, marginTop: 6 },
+  divider: { height: 1, backgroundColor: '#1B2432', marginVertical: 18 },
   qrWrap: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 18, padding: 16, marginTop: 16, marginBottom: 10 },
-  codeText: { color: '#94a3b8', fontSize: 10, lineHeight: 15, marginTop: 6 },
-  previewNotice: { color: '#fbbf24', fontSize: 11, lineHeight: 17, marginTop: 12 },
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  smallAction: { flex: 1, backgroundColor: '#111c2f', borderWidth: 1, borderColor: '#263650', borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
-  smallActionText: { color: '#e2e8f0', fontSize: 12, fontWeight: '900' },
-  successText: { color: '#34d399', fontWeight: '800', marginTop: 10, fontSize: 12 },
-  benefit: { color: '#e2e8f0', lineHeight: 24, fontSize: 13, marginBottom: 5 },
-  profileName: { color: '#fff', fontSize: 22, fontWeight: '900', marginBottom: 8 },
-  profileLine: { color: '#94a3b8', fontSize: 13, marginBottom: 8 },
-  credit: { color: '#34d399', fontWeight: '900', fontSize: 12 },
-  debit: { color: '#fb7185', fontWeight: '900', fontSize: 12 },
-  messageBox: { backgroundColor: '#111827', borderWidth: 1, borderColor: '#263650', borderRadius: 14, padding: 12, marginBottom: 14 },
-  messageText: { color: '#e2e8f0', fontSize: 12, lineHeight: 17 },
-  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: 68, backgroundColor: '#020617', borderTopWidth: 1, borderTopColor: '#1e293b', flexDirection: 'row', paddingTop: 8, paddingHorizontal: 4 },
+  codeText: { color: '#929CAA', fontSize: 10, lineHeight: 15, marginTop: 6 },
+  previewNotice: { color: '#D8BC7A', fontSize: 11, lineHeight: 17, marginTop: 12 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  smallAction: { flex: 1, backgroundColor: '#111720', borderWidth: 1, borderColor: '#293548', borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
+  smallActionText: { color: '#E2E6EC', fontSize: 12, fontWeight: '900' },
+  successText: { color: '#6FD0A3', fontWeight: '800', marginTop: 10, fontSize: 12 },
+  benefit: { color: '#DEE3E9', lineHeight: 24, fontSize: 13, marginBottom: 5 },
+  profileCard: { backgroundColor: '#0E141D', borderColor: '#273243' },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 13 },
+  profileAvatar: {
+    width: 52, height: 52, borderRadius: 26, backgroundColor: '#161B23',
+    borderWidth: 1, borderColor: '#655735', alignItems: 'center', justifyContent: 'center'
+  },
+  profileAvatarText: { color: '#E5C57E', fontSize: 19, fontWeight: '900' },
+  profileName: { color: '#F7F8FA', fontSize: 21, fontWeight: '800' },
+  profileHandle: { color: '#9AA4B2', fontSize: 12, marginTop: 3 },
+  profileDivider: { height: 1, backgroundColor: '#202A38', marginVertical: 16 },
+  profileLabel: { color: '#737E8D', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 10 },
+  profileValue: { color: '#E7EBF0', fontSize: 13, fontWeight: '700', marginTop: 4 },
+  profileLine: { color: '#929CAA', fontSize: 13, marginBottom: 8 },
+  profileSupportCard: { backgroundColor: '#10141B', borderColor: '#4E452E' },
+  credit: { color: '#6FD0A3', fontWeight: '900', fontSize: 12 },
+  debit: { color: '#E58992', fontWeight: '900', fontSize: 12 },
+  messageBox: { backgroundColor: '#111720', borderWidth: 1, borderColor: '#293548', borderRadius: 13, padding: 12, marginBottom: 14 },
+  messageText: { color: '#E2E6EC', fontSize: 12, lineHeight: 17 },
+  bottomNav: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: 70,
+    backgroundColor: '#080C12', borderTopWidth: 1, borderTopColor: '#1D2633',
+    flexDirection: 'row', paddingTop: 8, paddingHorizontal: 4
+  },
   bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', minHeight: 52, paddingVertical: 4 },
-  bottomIcon: { color: '#64748b', fontSize: 19, fontWeight: '900' },
-  bottomLabel: { color: '#64748b', fontSize: 10, fontWeight: '800', marginTop: 4 },
-  bottomActive: { color: '#60a5fa' },
+  bottomIcon: { color: '#616C7A', fontSize: 18, fontWeight: '900' },
+  bottomLabel: { color: '#616C7A', fontSize: 10, fontWeight: '800', marginTop: 4 },
+  bottomActive: { color: '#D8BC7A' },
 };
