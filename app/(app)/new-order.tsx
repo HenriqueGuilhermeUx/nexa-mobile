@@ -338,9 +338,14 @@ export default function NewOrderScreen() {
         loading={loading}
         onPress={submit}
       />
+      <ActionButton
+        label="Cartão · Apple Pay · Google Pay"
+        variant="secondary"
+        onPress={() => router.push('/(app)/fund-card' as any)}
+      />
 
       <Text style={styles.microcopy}>
-        Pix mínimo de R$ 10,00 · o valor final em USDC é confirmado no processamento.
+        Toda entrada é convertida para USDC · Pix mínimo de R$ 10,00.
       </Text>
     </Screen>
   );

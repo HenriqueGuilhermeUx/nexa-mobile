@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 
 import AlignedLegacyApp from '../src/components/AlignedLegacyApp';
-import { config } from '../src/config';
 import { nexaApi } from '../src/lib/api';
 import {
   clearNexaSession,
@@ -124,35 +123,6 @@ export default function LegacyExperience() {
         token={token}
         onLogout={logout}
       />
-
-      {config.efiOpenFinanceEnabled ? (
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Trazer dinheiro de outro banco"
-          activeOpacity={0.86}
-          style={[
-            styles.openFinanceButton,
-            { bottom: config.assistantEnabled ? 154 : 96 },
-          ]}
-          onPress={() => router.push('/open-finance')}
-        >
-          <Text style={styles.openFinanceIcon}>🏦</Text>
-          <Text style={styles.openFinanceLabel}>Trazer dinheiro</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      {config.assistantEnabled ? (
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Abrir Assistente Nexa"
-          activeOpacity={0.86}
-          style={styles.assistantButton}
-          onPress={() => router.push('/assistant')}
-        >
-          <Text style={styles.assistantIcon}>✦</Text>
-          <Text style={styles.assistantLabel}>Assistente</Text>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }
@@ -170,57 +140,4 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   text: { color: colors.muted, textAlign: 'center' },
-  openFinanceButton: {
-    position: 'absolute',
-    right: 16,
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    backgroundColor: '#0D131B',
-    borderWidth: 1,
-    borderColor: '#5F5133',
-    shadowColor: '#000000',
-    shadowOpacity: 0.24,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 7,
-  },
-  openFinanceIcon: {
-    fontSize: 17,
-  },
-  openFinanceLabel: {
-    color: '#E8D49A',
-    fontWeight: '800',
-  },
-  assistantButton: {
-    position: 'absolute',
-    right: 16,
-    bottom: 96,
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    backgroundColor: '#11151C',
-    borderWidth: 1,
-    borderColor: '#6B5A36',
-    shadowColor: '#000000',
-    shadowOpacity: 0.24,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 7,
-  },
-  assistantIcon: {
-    color: '#E6C985',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  assistantLabel: {
-    color: '#E8D49A',
-    fontWeight: '800',
-  },
 });

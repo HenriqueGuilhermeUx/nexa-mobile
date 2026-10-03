@@ -52,6 +52,8 @@ export default function RootLayout() {
             <Stack.Screen name="sign-up" options={{ title: 'Criar conta' }} />
             <Stack.Screen name="legacy" options={{ headerShown: false }} />
             <Stack.Screen name="assistant" options={{ title: 'Assistente Nexa' }} />
+            <Stack.Screen name="rewards-info" options={{ title: 'Sobre o Rewards' }} />
+            <Stack.Screen name="premium-info" options={{ title: 'Sobre o Premium' }} />
             <Stack.Screen name="security" options={{ headerShown: false }} />
             <Stack.Screen
               name="onboarding-wallet"

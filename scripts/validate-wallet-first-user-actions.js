@@ -65,17 +65,18 @@ for (const token of forbidden) {
 
 const sendRequired = [
   'NEXA → NEXA',
-  'Revisar transferência',
-  'Confirmar e assinar',
+  'Revisar envio',
+  'Confirmar envio',
   "response?.route !== 'ONCHAIN_DIRECT'",
-  'Não passa pelo saldo interno da Nexa.',
+  'sua própria carteira',
+  'RECEIVER_WALLET_REQUIRED',
 ];
 for (const token of sendRequired) {
   if (!send.includes(token)) throw new Error(`Nexa-to-Nexa customer safety copy missing: ${token}`);
 }
 
 const buyRequired = [
-  "type Asset = 'BTC' | 'ETH'",
+  "type Asset = 'BTC' | 'ETH' | 'PAXG'",
   'Cotação Nexa',
   'getClientSwapSponsorshipCredentials',
   'confirmClientSponsoredWalletFirstSwap',
@@ -139,15 +140,15 @@ if (!home.includes("Redirect") || !home.includes("'/legacy'")) {
 }
 if (
   !premiumShell.includes('title="Enviar"') ||
-  !premiumShell.includes('title="Investir"') ||
+  !premiumShell.includes('title="Comprar"') ||
   !premiumShell.includes('title="Sacar"') ||
   !premiumShell.includes('Assistente Nexa')
 ) {
   throw new Error(
-    'Unified premium shell must surface Enviar, Investir, Sacar and Assistente Nexa.',
+    'Unified Nexa shell must surface Enviar, Comprar, Sacar and Assistente Nexa.',
   );
 }
 
 console.log(
-  'Wallet-First mobile user actions validated: direct Nexa-to-Nexa, client-signed Alchemy-sponsored BTC/ETH swaps, Woovi Pix separation and Privy/Meld card routing.',
+  'Wallet-First mobile user actions validated: @username Nexa-to-Nexa, user-authorized crypto purchases, USDC-first funding, Woovi Pix separation and Privy/Meld card routing.',
 );

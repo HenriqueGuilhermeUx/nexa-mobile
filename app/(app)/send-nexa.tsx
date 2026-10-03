@@ -35,11 +35,21 @@ function formatUsdc(value: unknown) {
   })} USDC`;
 }
 
-function shortAddress(value: unknown) {
-  const address = String(value || '');
-  return address.length > 14
-    ? `${address.slice(0, 8)}…${address.slice(-6)}`
-    : address || '—';
+function friendlyTransferError(error: unknown, username?: string) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  if (message.includes('RECEIVER_WALLET_REQUIRED')) {
+    return `@${String(username || '').replace(/^@/, '')} ainda precisa ativar a Cripto Wallet da Nexa para receber USDC.`;
+  }
+  if (message.includes('RECEIVER_KYC_REQUIRED')) {
+    return 'A conta destinatária ainda precisa concluir a verificação de identidade.';
+  }
+  if (message.includes('SENDER_WALLET_REQUIRED')) {
+    return 'Sua Cripto Wallet ainda não está pronta para enviar.';
+  }
+  if (message.includes('INSUFFICIENT_ONCHAIN_USDC')) {
+    return 'Seu saldo USDC disponível não é suficiente para este envio.';
+  }
+  return message || 'Não foi possível preparar a transferência.';
 }
 
 export default function SendNexaScreen() {
@@ -98,7 +108,7 @@ export default function SendNexaScreen() {
       }
       setPrepared(response);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Não foi possível preparar a transferência.');
+      setError(friendlyTransferError(caught, receiverUsername));
     } finally {
       setWorking(false);
     }
@@ -130,7 +140,7 @@ export default function SendNexaScreen() {
       setTxHash(hash);
       await verify(hash);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Não foi possível enviar a transferência.');
+      setError(friendlyTransferError(caught, prepared?.receiver?.username || username));
     } finally {
       setWorking(false);
     }
@@ -143,7 +153,7 @@ export default function SendNexaScreen() {
     try {
       await verify(txHash);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Não foi possível verificar a transferência.');
+      setError(friendlyTransferError(caught, prepared?.receiver?.username || username));
     } finally {
       setWorking(false);
     }
@@ -157,13 +167,10 @@ export default function SendNexaScreen() {
       <Eyebrow>NEXA → NEXA</Eyebrow>
       <Title>Enviar USDC.</Title>
       <Paragraph>
-        Envie direto da sua carteira para a carteira de outro usuário Nexa. A
-        Nexa prepara a operação; somente você pode assiná-la.
+        Informe o @username. A Nexa localiza a Cripto Wallet do destinatário e você confirma o envio.
       </Paragraph>
 
       <Card>
-        <Badge tone="success">WALLET-FIRST · POLYGON</Badge>
-        <View style={styles.spacer} />
         <Field
           label="Para quem?"
           value={username}
@@ -184,10 +191,10 @@ export default function SendNexaScreen() {
             setConfirmation(null);
           }}
           keyboardType="decimal-pad"
-          placeholder="Ex.: 0,10"
+          placeholder="Ex.: 1,00"
         />
         <ActionButton
-          label="Revisar transferência"
+          label="Revisar envio"
           onPress={review}
           loading={working && !prepared}
         />
@@ -199,16 +206,12 @@ export default function SendNexaScreen() {
           <Text style={styles.amount}>{formatUsdc(prepared.amountUsdc)}</Text>
           <Text style={styles.label}>Destinatário</Text>
           <Text style={styles.value}>@{prepared.receiver?.username}</Text>
-          <Text style={styles.label}>Carteira de destino</Text>
-          <Text selectable style={styles.address}>
-            {shortAddress(prepared.receiver?.walletAddress)}
-          </Text>
           <Text style={styles.note}>
-            O USDC sai diretamente da sua carteira. Não passa pelo saldo interno da Nexa.
+            A Nexa já confirmou que a conta destinatária está apta a receber. O envio sai da sua própria carteira após sua autorização.
           </Text>
           {!txHash ? (
             <ActionButton
-              label="Confirmar e assinar"
+              label="Confirmar envio"
               onPress={signAndSend}
               loading={working}
             />
@@ -219,24 +222,33 @@ export default function SendNexaScreen() {
       {txHash ? (
         <Card>
           <Badge tone={completed ? 'success' : 'warning'}>
-            {completed ? 'TRANSFERÊNCIA CONFIRMADA' : 'AGUARDANDO CONFIRMAÇÃO'}
+            {completed ? 'ENVIO CONCLUÍDO' : 'CONFIRMANDO ENVIO'}
           </Badge>
-          <Text style={styles.label}>Transação</Text>
-          <Text selectable style={styles.hash}>{txHash}</Text>
           {completed ? (
             <Text style={styles.success}>
-              {formatUsdc(confirmation.amountUsdc)} entregue para @{confirmation.receiver?.username}.
+              {formatUsdc(confirmation.amountUsdc)} enviado para @{confirmation.receiver?.username}.
             </Text>
           ) : (
-            <ActionButton
-              label="Verificar novamente"
-              variant="secondary"
-              onPress={checkAgain}
-              loading={working}
-            />
+            <>
+              <Text style={styles.note}>
+                A operação já foi enviada. Não repita enquanto a Nexa confirma o resultado.
+              </Text>
+              <ActionButton
+                label="Atualizar status"
+                variant="secondary"
+                onPress={checkAgain}
+                loading={working}
+              />
+            </>
           )}
         </Card>
       ) : null}
+
+      <Card>
+        <Text style={styles.note}>
+          Contas antigas da Nexa precisam ativar a Cripto Wallet antes de receber transferências Wallet‑First.
+        </Text>
+      </Card>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <ActionButton label="Voltar" variant="secondary" onPress={() => router.back()} />
@@ -245,15 +257,12 @@ export default function SendNexaScreen() {
 }
 
 const styles = StyleSheet.create({
-  spacer: { height: spacing.md },
   reviewCard: { backgroundColor: '#11143C' },
-  kicker: { color: colors.cyan, fontSize: 12, fontWeight: '900', letterSpacing: 1.2 },
+  kicker: { color: colors.primary, fontSize: 12, fontWeight: '900', letterSpacing: 1.2 },
   amount: { color: colors.text, fontSize: 32, fontWeight: '900', marginTop: spacing.md },
   label: { color: colors.muted, fontSize: 12, marginTop: spacing.md },
   value: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 4 },
-  address: { color: colors.cyan, fontSize: 13, marginTop: 4 },
-  note: { color: colors.muted, lineHeight: 20, marginVertical: spacing.lg },
-  hash: { color: colors.cyan, fontSize: 11, lineHeight: 17, marginTop: spacing.sm },
+  note: { color: colors.muted, lineHeight: 20, marginVertical: spacing.md },
   success: { color: colors.success, fontWeight: '800', marginTop: spacing.md },
   error: { color: colors.danger, fontWeight: '700', marginBottom: spacing.md },
 });

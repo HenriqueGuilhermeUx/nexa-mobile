@@ -333,13 +333,13 @@ function SponsoredConfirmation(props: {
         timeout: 120_000,
       });
       if (status.status !== 'success') {
-        throw new Error('A operação patrocinada não foi confirmada pela rede.');
+        throw new Error('A compra não foi confirmada. Atualize o status antes de tentar novamente.');
       }
 
       const receipt = status.receipts?.[status.receipts.length - 1];
       submittedHash = String(receipt?.transactionHash || '').trim();
       if (!/^0x[a-fA-F0-9]{64}$/.test(submittedHash)) {
-        throw new Error('A carteira não retornou um hash de transação válido.');
+        throw new Error('Não foi possível confirmar o identificador da compra.');
       }
       props.onTxHash(submittedHash);
 
@@ -372,11 +372,11 @@ function SponsoredConfirmation(props: {
   if (!wallet) {
     return (
       <Card>
-        <Badge tone="warning">RECONECTAR CARTEIRA PRIVY</Badge>
+        <Badge tone="warning">RECONECTAR CARTEIRA</Badge>
         <Text style={styles.explain}>
           Sua conta Nexa está ativa, mas a sessão da carteira usada nesta compra
           não está carregada neste aparelho. Confirme o mesmo e-mail para recuperar
-          a carteira já existente. A Nexa não criará nem trocará seu endereço.
+          a carteira já existente. A Nexa não criará outra carteira nem trocará seu vínculo.
         </Text>
         {reconnectStatus ? <Text style={styles.reconnectStatus}>{reconnectStatus}</Text> : null}
         {!codeSent ? (
@@ -418,7 +418,7 @@ function SponsoredConfirmation(props: {
         <Badge tone="success">CARTEIRA RECONECTADA</Badge>
         <Text style={styles.explain}>
           A carteira correta voltou a ficar disponível neste aparelho. Atualize a
-          autorização da compra para gerar um novo intent e um novo patrocínio de gas.
+          autorização para continuar a compra com segurança.
         </Text>
         <ActionButton
           label="Atualizar autorização da compra"
@@ -432,12 +432,12 @@ function SponsoredConfirmation(props: {
     <Card>
       <Badge tone="warning">AUTORIZAÇÃO NA SUA CARTEIRA</Badge>
       <Text style={styles.explain}>
-        Ao confirmar, sua carteira Privy assina a operação no dispositivo. A Nexa
-        não recebe sua chave privada e patrocina o gas da transação.
+        Ao confirmar, sua própria carteira autoriza a operação. A Nexa não recebe
+        sua chave privada e cuida da infraestrutura necessária.
       </Text>
       {props.prepared.approvalRequired ? (
         <Text style={styles.explain}>
-          A aprovação de USDC e a compra serão executadas juntas no fluxo patrocinado.
+          A autorização do USDC e a compra serão concluídas no mesmo fluxo.
         </Text>
       ) : null}
       <ActionButton label="Confirmar compra" onPress={execute} loading={isLoading} />
@@ -607,11 +607,11 @@ export default function BuyCryptoScreen() {
   return (
     <Screen>
       <Brand />
-      <Eyebrow>{asset === 'PAXG' ? 'NEXA PREMIUM · OURO' : 'ATIVOS DIGITAIS'}</Eyebrow>
+      <Eyebrow>ATIVOS CRIPTO</Eyebrow>
       <Title>Comprar com USDC.</Title>
       <Paragraph>
-        Escolha BTC, ETH ou Ouro e veja a Cotação Nexa. A transação é autorizada
-        pela sua carteira Privy no dispositivo e a Nexa patrocina a taxa da rede.
+        Escolha Bitcoin, Ethereum ou Ouro Digital e veja a Cotação Nexa. Você autoriza
+        a compra na sua própria carteira e a Nexa cuida da parte técnica.
       </Paragraph>
 
       <Card>
@@ -635,7 +635,7 @@ export default function BuyCryptoScreen() {
         </View>
         {asset === 'PAXG' ? (
           <Text style={styles.goldNote}>
-            Ouro é um recurso Nexa Premium. A compra recebe PAXG diretamente na sua carteira após a liquidação on-chain.
+            Ouro Digital é comprado com seu USDC e aparece na sua carteira após a confirmação.
           </Text>
         ) : null}
         <Field
@@ -665,7 +665,7 @@ export default function BuyCryptoScreen() {
             {formatAsset(quote.to?.estimatedAmount, asset)}
           </Text>
           <Text style={styles.network}>
-            {asset === 'PAXG' ? 'Ouro Premium · PAXG' : `Valor estimado da compra de ${assetName(asset)}`}
+            {asset === 'PAXG' ? 'Valor estimado de Ouro Digital' : `Valor estimado da compra de ${assetName(asset)}`}
           </Text>
           {quote.validForSeconds ? (
             <Text style={styles.validity}>
@@ -709,7 +709,6 @@ export default function BuyCryptoScreen() {
                 ? 'LIQUIDANDO OURO'
                 : 'CONFIRMANDO COMPRA'}
           </Badge>
-          <Text selectable style={styles.hash}>{txHash}</Text>
           {completed ? (
             <Text style={styles.success}>
               {formatAsset(confirmation.receivedAmount, asset)} confirmado na sua carteira.
@@ -718,8 +717,8 @@ export default function BuyCryptoScreen() {
             <>
               <Text style={styles.explain}>
                 {asset === 'PAXG'
-                  ? 'A transação de origem já foi enviada. A Nexa só concluirá quando o PAXG for confirmado na sua carteira na rede de destino.'
-                  : 'A operação já foi enviada. A Nexa está validando as confirmações e os movimentos on-chain.'}
+                  ? 'A compra já foi enviada. A Nexa está aguardando a confirmação final do Ouro Digital na sua carteira.'
+                  : 'A compra já foi enviada. A Nexa está confirmando o resultado com segurança.'}
               </Text>
               <ActionButton
                 label="Atualizar confirmação"
