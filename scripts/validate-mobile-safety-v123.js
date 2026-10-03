@@ -33,6 +33,15 @@ assert.equal(pkg.dependencies?.viem, '2.55.5');
 assert.match(config, /appVersion/);
 assert.match(config, /appBuild/);
 assert.match(config, /androidTargetApi/);
+assert.equal(app.expo.extra?.androidTargetApi, 36);
+const buildProperties = (app.expo.plugins || []).find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-build-properties',
+);
+assert.ok(buildProperties, 'expo-build-properties plugin is required');
+assert.equal(buildProperties[1]?.android?.compileSdkVersion, 36);
+assert.equal(buildProperties[1]?.android?.targetSdkVersion, 36);
+assert.equal(buildProperties[1]?.android?.enableMinifyInReleaseBuilds, true);
+assert.equal(buildProperties[1]?.android?.enableShrinkResourcesInReleaseBuilds, true);
 
 // Wallet-First: user-owned Privy wallet signs on-device and Alchemy sponsors gas.
 assert.match(buy, /createSmartWalletClient/);
