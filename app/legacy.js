@@ -19,24 +19,6 @@ import {
 } from '../src/lib/session';
 import { colors, spacing } from '../src/theme';
 
-function isWalletFirstProfile(profile) {
-  const status = String(profile?.status || '').trim().toLowerCase();
-  const settlementProfile = String(profile?.settlementProfile || '')
-    .trim()
-    .toLowerCase();
-
-  if (profile?.isLegacyBeta === true || settlementProfile.includes('legacy')) {
-    return false;
-  }
-
-  return (
-    status === 'pilot' ||
-    settlementProfile.includes('wallet_first') ||
-    settlementProfile.includes('wallet-first') ||
-    settlementProfile.includes('wallet first')
-  );
-}
-
 export default function LegacyExperience() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
@@ -90,21 +72,7 @@ export default function LegacyExperience() {
           throw new Error('Não foi possível restaurar sua conta Nexa.');
         }
 
-        // Fail-safe routing barrier: a Wallet-First pilot must never remain in
-        // the legacy ledger/Open Finance shell. If profile lookup fails, the
-        // app stays in legacy instead of guessing and enabling a new flow.
-        try {
-          const directResponse = await nexaApi.directProfile(
-            activeSession.accessToken,
-          );
-          const directProfile = directResponse?.profile || directResponse || null;
-          if (isWalletFirstProfile(directProfile)) {
-            router.replace('/(app)');
-            return;
-          }
-        } catch {
-          // Conservative fallback: keep the existing legacy experience.
-        }
+
 
         await AsyncStorage.multiSet([
           ['nexa_user', JSON.stringify(currentUser)],
