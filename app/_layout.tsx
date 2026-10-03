@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppLockGate } from '@/components/AppLockGate';
+import { ForceUpdateGate } from '@/components/ForceUpdateGate';
 import { assertPublicConfiguration, config } from '@/config';
 import { initializeNexaNotifications } from '@/lib/nexaNotifications';
 import '@/lib/walletFirstProfilePatch';
@@ -22,6 +23,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      <ForceUpdateGate>
       <PrivyProvider
         appId={config.privyAppId}
         clientId={config.privyClientId}
@@ -75,6 +77,7 @@ export default function RootLayout() {
           </Stack>
         </AppLockGate>
       </PrivyProvider>
+      </ForceUpdateGate>
     </SafeAreaProvider>
   );
 }
