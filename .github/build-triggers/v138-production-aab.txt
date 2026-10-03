@@ -1,0 +1,6 @@
+Nexa v138 production AAB
+version: 2.0.35
+versionCode: 138
+requested: 2026-10-03
+purpose: production Play bundle for canonical Premium identity + Open Finance funding hub
+financial execution: gated in production profile
