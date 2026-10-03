@@ -2,7 +2,7 @@ import {
   alchemyWalletTransport,
   createSmartWalletClient,
 } from '@alchemy/wallet-apis';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
@@ -37,6 +37,7 @@ import {
   approveWalletFirstExitPix,
   createWalletFirstExitIntent,
   createWalletFirstExitPix,
+  getWalletFirstActiveExit,
   getWalletFirstExitQuote,
   getWalletFirstExitSwapSponsorshipCredentials,
   getWalletFirstExitTransferSponsorshipCredentials,
@@ -277,6 +278,7 @@ export default function CashOutScreen() {
   const [finalResult, setFinalResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resumedActive, setResumedActive] = useState(false);
 
   function resetExecution() {
     setIntent(null);
@@ -291,6 +293,7 @@ export default function CashOutScreen() {
     setFinalResult(null);
     setStatusText('');
     setPhase('idle');
+    setResumedActive(false);
   }
 
   async function ensurePrivyWalletSession() {
@@ -338,7 +341,69 @@ export default function CashOutScreen() {
     return session.accessToken;
   }
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const accessToken = await sessionToken();
+        const active = await getWalletFirstActiveExit(accessToken);
+        const order = active?.order || null;
+        const hash = String(order?.transactionHash || '').trim();
+        if (
+          cancelled ||
+          active?.active !== true ||
+          !order?.id ||
+          !/^0x[a-fA-F0-9]{64}$/.test(hash)
+        ) {
+          return;
+        }
+
+        setResumedActive(true);
+        setIntent({ order });
+        setAmountUsdc(
+          Number(order?.amountUsdc || 0)
+            .toFixed(6)
+            .replace(/0+$/, '')
+            .replace(/\.$/, ''),
+        );
+        setTxHash(hash);
+
+        const payout = String(
+          order?.metadata?.walletFirstPixPayout?.status || '',
+        ).toLowerCase();
+        const sell = String(
+          order?.metadata?.walletFirstExitSell?.status || '',
+        ).toLowerCase();
+
+        if (payout === 'completed' || String(order?.status) === 'COMPLETED') {
+          setFinalResult({ order, payout: order?.metadata?.walletFirstPixPayout });
+          setPhase('completed');
+          setStatusText('Pix concluído.');
+          return;
+        }
+
+        setPhase(sell ? 'sell' : 'onchain');
+        setStatusText(
+          'Saque anterior encontrado. Retome daqui; a Nexa não criará outra saída nem repetirá a transferência.',
+        );
+      } catch {
+        // No active exit is a normal state; keep the fresh quote flow available.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function requestQuote() {
+    if (resumedActive) {
+      setError(
+        'Já existe um saque em andamento. Use Continuar processamento para retomar exatamente do ponto salvo.',
+      );
+      return;
+    }
     setError('');
     setQuote(null);
     resetExecution();
@@ -800,11 +865,13 @@ export default function CashOutScreen() {
           label="Quanto USDC?"
           value={amountUsdc}
           onChangeText={(value) => {
+            if (resumedActive) return;
             setAmountUsdc(value);
             setQuote(null);
             setError('');
             resetExecution();
           }}
+          editable={!resumedActive}
           keyboardType="decimal-pad"
           placeholder="Ex.: 1,00"
         />
@@ -812,7 +879,9 @@ export default function CashOutScreen() {
           label={quote ? 'Atualizar cotação' : 'Ver cotação'}
           onPress={requestQuote}
           loading={loading && phase === 'idle'}
-          disabled={phase !== 'idle' && phase !== 'quoted'}
+          disabled={
+            resumedActive || (phase !== 'idle' && phase !== 'quoted')
+          }
         />
       </Card>
 
