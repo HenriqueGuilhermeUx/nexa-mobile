@@ -69,7 +69,7 @@ const requiredInlinePurchaseTokens = [
   'CARTEIRA RECONECTADA',
   'Atualizar autorização da compra',
   'onWalletReconnected',
-  'Reconecte sua carteira Privy antes de confirmar a compra.',
+  'Reconecte sua carteira antes de confirmar a compra.',
 ];
 for (const token of requiredInlinePurchaseTokens) {
   if (!buy.includes(token)) {

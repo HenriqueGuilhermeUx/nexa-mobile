@@ -34,29 +34,54 @@ for (const token of libRequired) {
 
 const screenRequired = [
   'useEmbeddedEthereumWallet',
-  'sendPreparedWalletTransaction',
-  'USDC permite no máximo 6 casas decimais',
+  'usePrivy',
+  'ensurePrivyWalletSession',
+  "pathname: '/wallet-session'",
+  "returnTo: 'cash-out'",
+  'createSmartWalletClient',
+  'alchemyWalletTransport',
+  'sendCalls',
+  'waitForCallsStatus',
+  'client_sponsored_eip7702',
+  'getWalletFirstExitSwapSponsorshipCredentials',
+  'getWalletFirstExitTransferSponsorshipCredentials',
   'prepareWalletFirstExitTransfer',
   'verifyWalletFirstExitTransfer',
-  'reconcileWalletFirstExitProvider',
-  'submitWalletFirstExitSell',
-  'reconcileWalletFirstExitSell',
-  'createWalletFirstExitPix',
-  'approveWalletFirstExitPix',
   'reconcileWalletFirstExitPix',
+  "setPhase('requested')",
   "setPhase('completed')",
-  "currentPayoutStatus === 'completed'",
-  'A Nexa não possui sua chave privada',
-  'PIX CONCLUÍDO',
+  'Resgate solicitado',
+  'Pagamento em até 1 dia útil',
+  'Você pode fechar o app',
+  'PIX ENVIADO',
 ];
 for (const token of screenRequired) {
   if (!screen.includes(token)) throw new Error(`Wallet-First exit screen contract missing: ${token}`);
 }
 
-const completionCheck = screen.indexOf("currentPayoutStatus === 'completed'");
-const completionState = screen.indexOf("setPhase('completed')");
-if (completionCheck < 0 || completionState < 0 || completionCheck > completionState) {
-  throw new Error('The app may only mark the exit completed after provider payout status is completed.');
+const clientMustNotProgressFinancialPipeline = [
+  'reconcileWalletFirstExitProvider',
+  'submitWalletFirstExitSell',
+  'reconcileWalletFirstExitSell',
+  'createWalletFirstExitPix',
+  'approveWalletFirstExitPix',
+];
+for (const token of clientMustNotProgressFinancialPipeline) {
+  if (screen.includes(token)) {
+    throw new Error(
+      `Post-signature financial progression must stay server-side, but mobile still uses: ${token}`,
+    );
+  }
+}
+
+const completionCalls = [...screen.matchAll(/setPhase\('completed'\)/g)].map(
+  (match) => match.index ?? -1,
+);
+const paidCheck = screen.indexOf("String(state?.batch?.status || '').toLowerCase() === 'paid'");
+if (completionCalls.length < 1 || paidCheck < 0) {
+  throw new Error(
+    'The app may only mark the D+1 exit completed after paid/confirmed payout evidence.',
+  );
 }
 
 const forbidden = [

@@ -1,17 +1,18 @@
-// Nexa Rewards v128 pilot build trigger. Financial execution remains server-gated.
+// Nexa v136 Wallet-First private banking candidate.
+// Financial execution remains server-gated until controlled homologation is complete.
 module.exports = ({ config }) => ({
   ...config,
-  version: '2.0.27',
+  version: '2.0.33',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '128',
+    buildNumber: '136',
   },
   android: {
     ...(config.android || {}),
-    versionCode: 128,
+    versionCode: 136,
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.27-v128-rewards-turbinar-pilot',
+    releaseBuild: 'android16-api36-2.0.33-v136-wallet-first-private',
   },
 });

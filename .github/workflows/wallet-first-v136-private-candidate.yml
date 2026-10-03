@@ -1,0 +1,216 @@
+name: Nexa v136 Private Candidate
+
+on:
+  push:
+    branches:
+      - feat/premium-investment-shell-v136
+    paths:
+      - '.github/build-triggers/v136-private-candidate.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v136-private-candidate
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and build v136 APK + AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout v136 candidate
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validate v136 identity and Android release policy
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const dynamic = require('./app.config.js')({ config: app });
+          const pkg = require('./package.json');
+          const expectedRelease = 'android16-api36-2.0.33-v136-wallet-first-private';
+          if (app.version !== '2.0.33') throw new Error('Unexpected app version');
+          if (pkg.version !== '2.0.33') throw new Error('Unexpected package version');
+          if (Number(app.android?.versionCode) !== 136) throw new Error('Unexpected Android build');
+          if (String(app.ios?.buildNumber) !== '136') throw new Error('Unexpected iOS build');
+          if (dynamic.version !== '2.0.33' || Number(dynamic.android?.versionCode) !== 136) {
+            throw new Error('Dynamic config identity mismatch');
+          }
+          if (dynamic.extra?.releaseBuild !== expectedRelease) throw new Error('Unexpected releaseBuild');
+          if (app.android?.package !== 'br.com.trynexa.app') throw new Error('Unexpected Android package');
+          if (Number(app.extra?.androidTargetApi) !== 36) throw new Error('Android target API must be 36');
+          if (app.extra?.balanceSource !== 'wallet-first') throw new Error('Wallet-First must be primary');
+          const buildProps = (app.plugins || []).find(p => Array.isArray(p) && p[0] === 'expo-build-properties');
+          if (!buildProps) throw new Error('expo-build-properties missing');
+          if (Number(buildProps[1]?.android?.targetSdkVersion) !== 36) throw new Error('targetSdkVersion must be 36');
+          if (buildProps[1]?.android?.enableMinifyInReleaseBuilds !== true) throw new Error('R8 minification must be enabled');
+          if (buildProps[1]?.android?.enableShrinkResourcesInReleaseBuilds !== true) throw new Error('resource shrinking must be enabled');
+          console.log('v136 identity, API 36 and R8 policy validated');
+          NODE
+
+      - name: Validate Wallet-First and premium shell contracts
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-quote.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-wallet-cross-device-recovery.js
+          node scripts/validate-biometric-app-lock.js
+          node scripts/validate-release-assets.js
+          npm run typecheck
+          npx expo-doctor
+          npx expo config --type public > v136-expo-public-config.json
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
+            'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1); console.log('Backend production OK')"
+
+      - name: Add build swap
+        run: |
+          set -euo pipefail
+          if ! swapon --show | grep -q .; then
+            sudo fallocate -l 4G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
+          free -h
+
+      - name: Build signed v136 preview APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-v136-apk
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v136-apk
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+          KOTLIN_DAEMON_JVM_OPTIONS: '-Xmx1536m,-XX:MaxMetaspaceSize=1024m'
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN"
+          eas whoami
+          APK="Nexa-2.0.33-v136-private.apk"
+          rm -f "$APK"
+          eas build --platform android --profile production-safe-preview --local --non-interactive --output "$GITHUB_WORKSPACE/$APK"
+          test -s "$APK"
+          echo "APK_FILE=$APK" >> "$GITHUB_ENV"
+
+      - name: Verify signed APK and target API 36
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)
+          "$APKSIGNER" verify --verbose --print-certs "$APK_FILE" > apk-signature.txt
+          "$AAPT2" dump badging "$APK_FILE" > apk-badging.txt
+          PACKAGE=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          VERSION_NAME=$(sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          VERSION_CODE=$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          TARGET_SDK=$(sed -n "s/^targetSdkVersion:'\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
+          test "$PACKAGE" = 'br.com.trynexa.app'
+          test "$VERSION_NAME" = '2.0.33'
+          test "$VERSION_CODE" = '136'
+          test "$TARGET_SDK" = '36'
+          sha256sum "$APK_FILE" > apk-SHA256SUMS.txt
+
+      - name: Build signed v136 production AAB
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-v136-aab
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v136-aab
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+          KOTLIN_DAEMON_JVM_OPTIONS: '-Xmx1536m,-XX:MaxMetaspaceSize=1024m'
+        run: |
+          set -euo pipefail
+          AAB="Nexa-2.0.33-v136-production.aab"
+          rm -f "$AAB"
+          eas build --platform android --profile production --local --non-interactive --output "$GITHUB_WORKSPACE/$AAB"
+          test -s "$AAB"
+          echo "AAB_FILE=$AAB" >> "$GITHUB_ENV"
+
+      - name: Verify AAB structure and capture DEX evidence
+        run: |
+          set -euo pipefail
+          jarsigner -verify -verbose -certs "$AAB_FILE" > aab-signature.txt 2>&1 || {
+            cat aab-signature.txt
+            exit 1
+          }
+          unzip -l "$AAB_FILE" > aab-contents.txt
+          grep -q 'base/dex/classes.dex' aab-contents.txt
+          unzip -l "$AAB_FILE" | grep 'base/dex/' > aab-dex-contents.txt
+          sha256sum "$AAB_FILE" > aab-SHA256SUMS.txt
+
+      - name: Upload verified v136 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-v136-PREVIEW-APK
+          path: |
+            ${{ env.APK_FILE }}
+            apk-signature.txt
+            apk-badging.txt
+            apk-SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload verified v136 production AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-v136-PRODUCTION-AAB
+          path: |
+            ${{ env.AAB_FILE }}
+            aab-signature.txt
+            aab-contents.txt
+            aab-dex-contents.txt
+            aab-SHA256SUMS.txt
+            v136-expo-public-config.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-v136-build-diagnostics
+          path: |
+            ${{ runner.temp }}/nexa-v136-apk/logs
+            ${{ runner.temp }}/nexa-v136-aab/logs
+            local-build-artifacts-v136-apk
+            local-build-artifacts-v136-aab
+          if-no-files-found: warn
+          retention-days: 14

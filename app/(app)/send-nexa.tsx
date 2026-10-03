@@ -94,7 +94,7 @@ export default function SendNexaScreen() {
         amountUsdc,
       );
       if (response?.route !== 'ONCHAIN_DIRECT' || !response?.transactionRequest) {
-        throw new Error('A transferência direta Wallet-First não está disponível para este destinatário.');
+        throw new Error('A transferência direta não está disponível para este destinatário.');
       }
       setPrepared(response);
     } catch (caught) {
@@ -219,7 +219,7 @@ export default function SendNexaScreen() {
       {txHash ? (
         <Card>
           <Badge tone={completed ? 'success' : 'warning'}>
-            {completed ? 'TRANSFERÊNCIA CONFIRMADA' : 'AGUARDANDO POLYGON'}
+            {completed ? 'TRANSFERÊNCIA CONFIRMADA' : 'AGUARDANDO CONFIRMAÇÃO'}
           </Badge>
           <Text style={styles.label}>Transação</Text>
           <Text selectable style={styles.hash}>{txHash}</Text>

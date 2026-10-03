@@ -1,0 +1,8 @@
+Nexa Rewards v135 release trigger
+
+Scope:
+- persistent Rewards operation correlation and activity history
+- transaction detail surface with provider action IDs and on-chain hashes
+- FLEX / 30D / 180D / 365D plan scaffolding
+- financial loyalty bonuses remain disabled
+- Android build 135 / target API 36

@@ -1,0 +1,90 @@
+name: Nexa v135 Cash-out OTA
+
+on:
+  push:
+    branches:
+      - fix/rewards-identity-token-v130
+    paths:
+      - 'app/(app)/cash-out.tsx'
+      - 'src/lib/walletFirstExit.ts'
+      - 'scripts/validate-wallet-first-exit-flow.js'
+      - '.github/workflows/wallet-first-v135-cashout-ota.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v135-cashout-ota
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Validate and publish v135 cash-out OTA
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: open-finance-pilot
+
+    steps:
+      - name: Checkout hotfix
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install project dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Verify v135 OTA compatibility boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          if (app.version !== '2.0.32') throw new Error(`Unexpected app version ${app.version}`);
+          if (Number(app.android?.versionCode) !== 135) throw new Error(`Unexpected Android versionCode ${app.android?.versionCode}`);
+          if (app.runtimeVersion?.policy !== 'appVersion') throw new Error('runtimeVersion appVersion policy missing');
+          if (app.updates?.url !== 'https://u.expo.dev/b3faabec-283a-4ba2-88b5-f096304e68aa') {
+            throw new Error('Unexpected EAS Update URL');
+          }
+          console.log('OTA boundary OK: runtime 2.0.32 / Android v135.');
+          NODE
+
+      - name: Validate TypeScript and cash-out safety
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish Android OTA to v135 pilot
+        run: |
+          set -euo pipefail
+          eas whoami
+          eas update \
+            --channel open-finance-pilot \
+            --platform android \
+            --message "v135 cash-out: sponsored Polygon gas" \
+            --clear-cache \
+            --non-interactive
+
+      - name: Confirm publish completed
+        run: echo 'Nexa v135 cash-out OTA published to open-finance-pilot.'

@@ -14,6 +14,17 @@ export interface WalletFirstExitQuote {
   indicative: boolean;
 }
 
+export type WalletFirstExitSponsorshipCredentials = {
+  success: true;
+  chainId: 137;
+  wallet: string;
+  mode: 'client_sponsored_eip7702';
+  gasSponsoredByNexa: true;
+  jwt: string;
+  policyId: string;
+  expiresAt: string;
+};
+
 function headers(accessToken: string) {
   return {
     'Content-Type': 'application/json',
@@ -84,6 +95,12 @@ export async function getWalletFirstExitQuote(
   return payload.quote as WalletFirstExitQuote;
 }
 
+export function getWalletFirstActiveExit(accessToken: string) {
+  return requestJson<any>(accessToken, `${EXIT_BASE}/active`, {
+    method: 'GET',
+  });
+}
+
 export function createWalletFirstExitIntent(
   accessToken: string,
   amountUsdc: number,
@@ -94,6 +111,43 @@ export function createWalletFirstExitIntent(
   });
 }
 
+export function prepareWalletFirstExitUsdtSwap(
+  accessToken: string,
+  orderId: string,
+) {
+  return requestJson<any>(
+    accessToken,
+    `${EXIT_BASE}/intents/${encodeURIComponent(orderId)}/swap/prepare`,
+    { body: {} },
+  );
+}
+
+export function getWalletFirstExitSwapSponsorshipCredentials(
+  accessToken: string,
+  orderId: string,
+  intentToken: string,
+) {
+  return requestJson<WalletFirstExitSponsorshipCredentials>(
+    accessToken,
+    `${EXIT_BASE}/intents/${encodeURIComponent(orderId)}/swap/sponsorship-credentials`,
+    { body: { intentToken } },
+  );
+}
+
+export function confirmWalletFirstExitUsdtSwap(
+  accessToken: string,
+  orderId: string,
+  intentToken: string,
+  txHash: string,
+  executionMode: 'direct_eoa' | 'client_sponsored_eip7702' = 'direct_eoa',
+) {
+  return requestJson<any>(
+    accessToken,
+    `${EXIT_BASE}/intents/${encodeURIComponent(orderId)}/swap/confirm`,
+    { body: { intentToken, txHash, executionMode } },
+  );
+}
+
 export function prepareWalletFirstExitTransfer(
   accessToken: string,
   orderId: string,
@@ -101,6 +155,17 @@ export function prepareWalletFirstExitTransfer(
   return requestJson<any>(
     accessToken,
     `${EXIT_BASE}/intents/${encodeURIComponent(orderId)}/onchain/prepare`,
+    { body: {} },
+  );
+}
+
+export function getWalletFirstExitTransferSponsorshipCredentials(
+  accessToken: string,
+  orderId: string,
+) {
+  return requestJson<WalletFirstExitSponsorshipCredentials>(
+    accessToken,
+    `${EXIT_BASE}/intents/${encodeURIComponent(orderId)}/onchain/sponsorship-credentials`,
     { body: {} },
   );
 }
