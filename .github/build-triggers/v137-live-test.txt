@@ -1,0 +1,7 @@
+Nexa v137 controlled live-test
+version: 2.0.34
+versionCode: 137
+requested: 2026-10-03
+backend: production
+financial execution: enabled only in production-safe-preview APK
+purpose: real-device validation of Pix In, Wallet-First transfers, crypto purchases and Rewards
