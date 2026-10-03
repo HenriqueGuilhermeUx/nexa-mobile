@@ -70,8 +70,8 @@ jobs:
           set -euo pipefail
           test -f app/open-finance.tsx
           test -f src/lib/efiOpenFinance.ts
-          grep -q 'efiOpenFinanceEnabled' app/legacy.js
-          grep -q "router.push('/open-finance')" app/legacy.js
+          grep -q 'efiOpenFinanceEnabled' src/components/AlignedLegacyApp.tsx
+          grep -q "router.push('/open-finance')" src/components/AlignedLegacyApp.tsx
           grep -q 'latestDeposit' app/open-finance.tsx
           grep -q 'loadNexaSession' app/open-finance.tsx
           ! grep -R -q 'EFI_OPEN_FINANCE_CLIENT_SECRET\|EFI_OPEN_FINANCE_CERTIFICATE_BASE64\|EFI_OPEN_FINANCE_WEBHOOK_HMAC' app src
