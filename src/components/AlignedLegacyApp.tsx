@@ -1634,7 +1634,6 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           )}
           <Text style={styles.profileLine}>Nome: {user?.fullName || '-'}</Text>
           <Text style={styles.profileLine}>KYC: {String(user?.kycStatus || 'pending')}</Text>
-          <Text style={styles.profileLine}>Rede da carteira: {walletNetwork}</Text>
           {walletAddress ? (
             <Text style={styles.profileLine}>Carteira: {walletAddress.slice(0, 10)}…{walletAddress.slice(-8)}</Text>
           ) : null}
