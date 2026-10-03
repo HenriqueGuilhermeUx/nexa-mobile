@@ -1,2 +1,3 @@
 Nexa v136 private candidate
 Triggered after Wallet-First core + v115 adjacent functions + premium shell validation.
+Final validation trigger after main merge and backend auto-progress go-live.
