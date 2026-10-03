@@ -7,6 +7,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const screen = read('app/(app)/cash-out.tsx');
 const client = read('src/lib/walletFirstExit.ts');
 const home = read('app/(app)/index.tsx');
+const premiumShell = read('src/components/AlignedLegacyApp.tsx');
 
 const customerSurface = `${screen}\n${client}`.toLowerCase();
 const forbiddenCustomerTerms = [
@@ -30,7 +31,7 @@ const checks = [
   [
     'cash-out customer surface uses only Nexa quote language',
     screen.includes('Cotação Nexa') &&
-      screen.includes('Você recebe aproximadamente') &&
+      screen.includes('Valor estimado no seu Pix') &&
       screen.includes('nexaRateBrl') &&
       screen.includes('estimatedPayoutBrl'),
   ],
@@ -53,10 +54,11 @@ const checks = [
       !quoteFunction.includes('/intents'),
   ],
   [
-    'Wallet-First home exposes Sacar separately from Add money and Activity',
-    home.includes('label={legacy ? \'Atividade\' : \'Sacar\'}') &&
-      home.includes("'/(app)/cash-out'") &&
-      home.includes('label="Atividade"'),
+    'unified premium shell exposes Wallet-First cash-out without a second home',
+    premiumShell.includes('title="Sacar"') &&
+      premiumShell.includes("router.push('/(app)/cash-out'") &&
+      premiumShell.includes('Movimentações') &&
+      premiumShell.includes('Assistente Nexa'),
   ],
 ];
 
