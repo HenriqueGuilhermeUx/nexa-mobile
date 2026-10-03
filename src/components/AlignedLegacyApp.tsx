@@ -796,14 +796,14 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       throw new Error('Envio externo está bloqueado neste build de preview.');
     }
     if (!embeddedWallet?.address) {
-      throw new Error('Carteira Privy não está disponível neste dispositivo.');
+      throw new Error('Sua carteira não está disponível neste dispositivo.');
     }
 
     const linkedAddress = String(walletAddress || '').toLowerCase();
     const deviceAddress = String(embeddedWallet.address || '').toLowerCase();
     if (linkedAddress && linkedAddress !== deviceAddress) {
       throw new Error(
-        'A carteira Privy deste dispositivo não corresponde à carteira vinculada à sua conta Nexa.',
+        'A carteira deste dispositivo não corresponde à carteira vinculada à sua conta Nexa.',
       );
     }
 
@@ -879,7 +879,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         return;
       }
       const privyToken = await privy.getAccessToken?.();
-      if (!privyToken) throw new Error('Sessão Privy expirada. Entre novamente.');
+      if (!privyToken) throw new Error('Sua sessão de carteira expirou. Entre novamente.');
       await nexaApi.linkWallet(token, privyToken, {
         privyWalletId: String(embeddedWallet.id || embeddedWallet.walletId || embeddedWallet.address),
         walletAddress: embeddedWallet.address,
@@ -1057,7 +1057,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
     return (
       <>
-        <Text style={styles.pageKicker}>WALLET-FIRST</Text>
+        <Text style={styles.pageKicker}>PATRIMÔNIO DIGITAL</Text>
         <Text style={styles.pageTitle}>Carteira</Text>
         <Text style={styles.pageSubtitle}>
           Seus ativos ficam vinculados à sua própria carteira. A Nexa organiza a experiência sem custodiar sua chave.
@@ -1153,7 +1153,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         </View>
 
         <Card style={styles.investmentCard}>
-          <Text style={styles.sectionKicker}>WALLET-FIRST</Text>
+          <Text style={styles.sectionKicker}>SUA CARTEIRA</Text>
           <Text style={styles.highlightTitle}>Invista direto da sua carteira.</Text>
           <Text style={styles.highlightText}>
             As compras de Bitcoin, Ethereum e Ouro Digital usam o saldo da sua própria carteira. A parte técnica fica nos bastidores.
@@ -1182,7 +1182,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           Envie USDC diretamente da sua carteira. A Nexa prepara a operação e você confirma.
         </Text>
         <Card style={styles.heroCard}>
-          <Text style={styles.eyebrow}>WALLET-FIRST</Text>
+          <Text style={styles.eyebrow}>TRANSFERÊNCIA SEGURA</Text>
           <Text style={styles.highlightTitle}>Envio direto, sem saldo interno.</Text>
           <Text style={styles.highlightText}>
             O valor sai da sua própria carteira e não de um saldo contábil mantido pela Nexa.
@@ -1213,7 +1213,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <Text style={styles.premiumEyebrow}>{isPremium ? 'PREMIUM ATIVO' : 'NEXA PREMIUM'}</Text>
           <Text style={styles.highlightTitle}>Mais benefícios, mesma autonomia.</Text>
           <Text style={styles.highlightText}>
-            A carteira Wallet‑First é o padrão da Nexa. O Premium adiciona condições e serviços, não custódia.
+            Sua carteira própria é o padrão da Nexa. O Premium adiciona condições e serviços, sem mudar sua autonomia.
           </Text>
         </Card>
         <Card>
