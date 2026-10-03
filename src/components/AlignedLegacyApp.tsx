@@ -119,7 +119,7 @@ function BottomNav({ page, onNavigate }: any) {
     ['home', '⌂', 'Início'],
     ['wallet', '◫', 'Carteira'],
     ['assets', '◇', 'Ativos'],
-    ['staff', '✦', 'Staff'],
+    ['assistant', '✦', 'Assistente'],
     ['menu', '☰', 'Menu'],
   ];
   return (
@@ -951,8 +951,8 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <Card style={styles.staffCard}>
             <View style={styles.rowBetween}>
               <View style={{ flex: 1, paddingRight: 16 }}>
-                <Text style={styles.staffEyebrow}>NEXA STAFF · IA</Text>
-                <Text style={styles.highlightTitle}>Seu staff pessoal e financeiro.</Text>
+                <Text style={styles.staffEyebrow}>ASSISTENTE NEXA</Text>
+                <Text style={styles.highlightTitle}>Seu assistente pessoal e financeiro.</Text>
                 <Text style={styles.highlightText}>
                   Organize o dia, acompanhe prioridades e use seu contexto financeiro quando precisar.
                 </Text>
@@ -963,7 +963,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             </View>
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.staffPrimaryAction} onPress={() => router.push('/assistant')}>
-                <Text style={styles.staffPrimaryActionText}>Abrir Staff</Text>
+                <Text style={styles.staffPrimaryActionText}>Abrir Assistente</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.staffSecondaryAction} onPress={openNexaSupport}>
                 <Text style={styles.staffSecondaryActionText}>WhatsApp</Text>
@@ -1439,7 +1439,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           {config.assistantEnabled ? (
             <MenuTile
               icon="✦"
-              title="Nexa Staff"
+              title="Assistente Nexa"
               subtitle="IA para vida e dinheiro"
               onPress={() => router.push('/assistant')}
               accent
@@ -1628,14 +1628,14 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Card style={styles.profileSupportCard}>
           <Text style={styles.staffEyebrow}>ATENDIMENTO</Text>
           <Text style={styles.highlightTitle}>Precisa de ajuda?</Text>
-          <Text style={styles.highlightText}>Fale com a Nexa pelo WhatsApp ou peça ajuda ao seu Staff.</Text>
+          <Text style={styles.highlightText}>Fale com a Nexa pelo WhatsApp ou peça ajuda ao seu Assistente.</Text>
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.staffPrimaryAction} onPress={openNexaSupport}>
               <Text style={styles.staffPrimaryActionText}>WhatsApp</Text>
             </TouchableOpacity>
             {config.assistantEnabled ? (
               <TouchableOpacity style={styles.staffSecondaryAction} onPress={() => router.push('/assistant')}>
-                <Text style={styles.staffSecondaryActionText}>Nexa Staff</Text>
+                <Text style={styles.staffSecondaryActionText}>Assistente Nexa</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -1729,7 +1729,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       <BottomNav
         page={page}
         onNavigate={(target: string) =>
-          target === 'staff' ? router.push('/assistant') : setPage(target)
+          target === 'assistant' ? router.push('/assistant') : setPage(target)
         }
       />
     </View>
