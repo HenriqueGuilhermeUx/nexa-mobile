@@ -1,0 +1,2 @@
+Nexa v136 private candidate
+Triggered after Wallet-First core + v115 adjacent functions + premium shell validation.
