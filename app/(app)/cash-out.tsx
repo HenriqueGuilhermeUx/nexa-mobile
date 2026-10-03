@@ -376,7 +376,7 @@ export default function CashOutScreen() {
           order?.metadata?.walletFirstExitSell?.status || '',
         ).toLowerCase();
 
-        if (payout === 'completed' || String(order?.status) === 'COMPLETED') {
+        if (payout === 'completed') {
           setFinalResult({ order, payout: order?.metadata?.walletFirstPixPayout });
           setPhase('completed');
           setStatusText('Pix concluído.');
