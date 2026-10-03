@@ -711,11 +711,16 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     try {
       setLoading(true);
       setDepositResult(null);
+      const requestId =
+        depositRequestId ||
+        newClientRequestId('mobile_pix_in', user.id);
+      if (!depositRequestId) setDepositRequestId(requestId);
       const data = await json(`${API}/fiat-deposit/woovi/create-charge`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
           amountBrl: value,
+          clientRequestId: requestId,
         }),
       });
       setDepositResult({
@@ -725,7 +730,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         customerMessage:
           'Pague usando o QR Code ou copia e cola. Assim que o Pix for confirmado, a Nexa acompanha a conversão e o envio do USDC para sua carteira.',
       });
-      setDepositRequestId(String(data?.correlationID || ''));
+      setDepositRequestId(requestId);
       setMessage(
         'Pix criado. Após o pagamento, a confirmação pode levar alguns instantes. Você será avisado quando o USDC estiver disponível.',
       );
