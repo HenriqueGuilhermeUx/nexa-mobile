@@ -12,6 +12,6 @@ module.exports = ({ config }) => ({
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.37-v139-wallet-first-pix',
+    releaseBuild: 'android16-api36-2.0.37-v140-wallet-first-pix-idempotent',
   },
 });
