@@ -42,7 +42,7 @@ const ASSETS = [
   { symbol: 'USDC', name: 'USD Coin', icon: '💵', description: 'Dólar digital para saldo, Pix, assinatura e transferências Nexa.' },
   { symbol: 'BTC', name: 'Bitcoin', icon: '₿', description: 'Bitcoin disponível dentro da Nexa.' },
   { symbol: 'ETH', name: 'Ethereum', icon: '◆', description: 'Ethereum disponível dentro da Nexa.' },
-  { symbol: 'PAXG', name: 'Ouro Digital', icon: '◈', description: 'Exposição digital ao ouro disponível pela Nexa.' },
+  { symbol: 'PAXG', name: 'Ouro Digital', icon: '◈', description: 'Ouro Digital disponível na sua carteira Nexa.' },
 ];
 
 function premiumActive(user: any) {
@@ -99,14 +99,18 @@ function PrimaryButton({ title, onPress, disabled, secondary }: any) {
   );
 }
 
-function MenuTile({ icon, title, subtitle, onPress, accent }: any) {
+function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
   return (
     <TouchableOpacity
       activeOpacity={0.84}
       onPress={onPress}
-      style={[styles.menuTile, accent ? styles.menuTileAccent : null]}
+      style={[
+        styles.menuTile,
+        accent ? styles.menuTileAccent : null,
+        premium ? styles.menuTilePremium : null,
+      ]}
     >
-      <Text style={styles.menuTileIcon}>{icon}</Text>
+      <Text style={[styles.menuTileIcon, premium ? styles.menuTileIconPremium : null]}>{icon}</Text>
       <Text style={styles.menuTileTitle}>{title}</Text>
       {subtitle ? <Text style={styles.menuTileSubtitle}>{subtitle}</Text> : null}
     </TouchableOpacity>
@@ -938,7 +942,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       <>
         <View style={styles.homeTop}>
           <View>
-            <Text style={styles.welcomeLabel}>PRIVATE DIGITAL BANKING</Text>
+            <Text style={styles.welcomeLabel}>CRIPTO WALLET</Text>
             <Text style={styles.hello}>Olá, {firstName}</Text>
             <Text style={styles.handle}>{handle || 'Conta Nexa'}</Text>
           </View>
@@ -950,7 +954,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Card style={styles.heroCard}>
           <View style={styles.rowBetween}>
             <View>
-              <Text style={styles.eyebrow}>PATRIMÔNIO DIGITAL</Text>
+              <Text style={styles.eyebrow}>CARTEIRA CRIPTO</Text>
               <Text style={styles.heroAmount}>{amount(balances.USDC, 6)}</Text>
               <Text style={styles.heroUnit}>USDC disponível</Text>
             </View>
@@ -964,15 +968,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             </Text>
           ) : null}
           <Text style={styles.heroHint}>
-            Liquidez, ativos e serviços financeiros organizados em uma única experiência.
+            Seu USDC e seus ativos em uma experiência simples, com a parte técnica nos bastidores.
           </Text>
         </Card>
 
         <View style={styles.quickRow}>
-          <MenuTile icon="＋" title="Adicionar" subtitle="Pix" onPress={openWalletFirstDeposit} />
-          <MenuTile icon="↓" title="Sacar" subtitle="Pix" onPress={openWalletFirstWithdraw} />
-          <MenuTile icon="↑" title="Enviar" subtitle="Nexa" onPress={openWalletFirstSend} />
-          <MenuTile icon="◇" title="Investir" subtitle="Ativos" onPress={openWalletFirstAssets} accent />
+          <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
+          <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
+          <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
+          <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
         </View>
 
         <View style={styles.sectionHeader}>
@@ -1006,9 +1010,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             <View style={styles.rowBetween}>
               <View style={{ flex: 1, paddingRight: 16 }}>
                 <Text style={styles.staffEyebrow}>ASSISTENTE NEXA</Text>
-                <Text style={styles.highlightTitle}>Seu assistente pessoal e financeiro.</Text>
+                <Text style={styles.highlightTitle}>Seu assistente pessoal.</Text>
                 <Text style={styles.highlightText}>
-                  Organize o dia, acompanhe prioridades e use seu contexto financeiro quando precisar.
+                  Organize o dia, acompanhe prioridades e use seu contexto da Nexa quando precisar.
                 </Text>
               </View>
               <View style={styles.staffOrb}>
@@ -1026,27 +1030,56 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           </Card>
         ) : null}
 
-        <Card style={styles.investmentCard}>
-          <Text style={styles.sectionKicker}>OPORTUNIDADES</Text>
-          <Text style={styles.highlightTitle}>Invista sem lidar com a complexidade técnica.</Text>
+        <Card style={styles.cryptoCard}>
+          <Text style={styles.sectionKicker}>ATIVOS CRIPTO</Text>
+          <Text style={styles.highlightTitle}>Compre os principais ativos cripto sem complicação.</Text>
           <Text style={styles.highlightText}>
-            Bitcoin, Ethereum, Ouro Digital e Rewards, com a Nexa cuidando da experiência.
+            Bitcoin, Ethereum e Ouro Digital usando seu saldo em USDC.
           </Text>
-          <PrimaryButton title="Explorar ativos" onPress={() => setPage('assets')} secondary />
+          <PrimaryButton title="Ver ativos" onPress={() => setPage('assets')} secondary />
         </Card>
 
         <View style={styles.homeSecondaryRow}>
-          <TouchableOpacity style={styles.homeSecondaryCard} onPress={() => setPage('rewards')}>
+          <TouchableOpacity
+            style={styles.homeSecondaryCard}
+            onPress={() => router.push('/(app)/rewards' as any)}
+          >
             <Text style={styles.homeSecondaryKicker}>REWARDS</Text>
             <Text style={styles.homeSecondaryTitle}>Turbinar USDC</Text>
-            <Text style={styles.homeSecondaryText}>Acompanhe suas posições e benefícios.</Text>
+            <Text style={styles.homeSecondaryText}>
+              Separe USDC para participar do Rewards.
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.homeSecondaryCard} onPress={() => setPage('recurring')}>
-            <Text style={styles.homeSecondaryKicker}>RECORRÊNCIA</Text>
-            <Text style={styles.homeSecondaryTitle}>Aportes mensais</Text>
-            <Text style={styles.homeSecondaryText}>Organize compras recorrentes de USDC.</Text>
+
+          <TouchableOpacity
+            style={[
+              styles.homeSecondaryCard,
+              isPremium ? styles.homePremiumCardActive : null,
+            ]}
+            onPress={() => setPage('premium')}
+          >
+            <Text style={isPremium ? styles.homePremiumKicker : styles.homeSecondaryKicker}>
+              PREMIUM
+            </Text>
+            <Text style={styles.homeSecondaryTitle}>
+              {isPremium ? 'Premium ativo' : 'Conhecer Premium'}
+            </Text>
+            <Text style={styles.homeSecondaryText}>
+              Benefícios extras por R$ 19,90/mês em USDC.
+            </Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={styles.homeWideCard}
+          onPress={() => setPage('recurring')}
+        >
+          <Text style={styles.homeSecondaryKicker}>RECORRÊNCIA</Text>
+          <Text style={styles.homeSecondaryTitle}>Compra mensal de USDC</Text>
+          <Text style={styles.homeSecondaryText}>
+            Escolha valor e dia para organizar suas compras recorrentes.
+          </Text>
+        </TouchableOpacity>
       </>
     );
   }
@@ -1057,10 +1090,10 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
     return (
       <>
-        <Text style={styles.pageKicker}>PATRIMÔNIO DIGITAL</Text>
+        <Text style={styles.pageKicker}>CRIPTO WALLET</Text>
         <Text style={styles.pageTitle}>Carteira</Text>
         <Text style={styles.pageSubtitle}>
-          Seus ativos ficam vinculados à sua própria carteira. A Nexa organiza a experiência sem custodiar sua chave.
+          Seus ativos ficam vinculados à sua própria carteira. A Nexa simplifica a experiência sem custodiar sua chave.
         </Text>
 
         <Card style={styles.heroCard}>
@@ -1081,8 +1114,8 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <View style={styles.quickRow}>
           <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
           <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
-          <MenuTile icon="↑" title="Enviar" subtitle="Da sua carteira" onPress={openWalletFirstSend} />
-          <MenuTile icon="◇" title="Investir" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
+          <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
+          <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
         </View>
 
         <Text style={styles.sectionTitle}>Posições</Text>
@@ -1107,7 +1140,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <Text style={styles.sectionKicker}>AUTONOMIA</Text>
           <Text style={styles.highlightTitle}>A carteira é sua.</Text>
           <Text style={styles.highlightText}>
-            A Nexa prepara e patrocina a infraestrutura necessária, mas autorizações sensíveis continuam sob seu controle.
+            A Nexa prepara a infraestrutura necessária, mas autorizações sensíveis continuam sob seu controle.
           </Text>
           <PrimaryButton
             title="Segurança da carteira"
@@ -1122,10 +1155,10 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Assets() {
     return (
       <>
-        <Text style={styles.pageKicker}>INVESTIMENTOS</Text>
+        <Text style={styles.pageKicker}>ATIVOS CRIPTO</Text>
         <Text style={styles.pageTitle}>Ativos</Text>
         <Text style={styles.pageSubtitle}>
-          Acompanhe suas posições e compre ativos diretamente pela sua carteira.
+          Acompanhe suas posições e compre ativos usando o USDC da sua carteira.
         </Text>
 
         <View style={styles.assetGrid}>
@@ -1140,7 +1173,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
                 }
                 router.push({
                   pathname: '/(app)/buy-crypto',
-                  params: { asset: item.symbol === 'PAXG' ? 'PAXG' : item.symbol },
+                  params: { asset: item.symbol },
                 } as any);
               }}
             >
@@ -1152,20 +1185,20 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           ))}
         </View>
 
-        <Card style={styles.investmentCard}>
-          <Text style={styles.sectionKicker}>SUA CARTEIRA</Text>
-          <Text style={styles.highlightTitle}>Invista direto da sua carteira.</Text>
+        <Card style={styles.cryptoCard}>
+          <Text style={styles.sectionKicker}>COMPRAR</Text>
+          <Text style={styles.highlightTitle}>USDC primeiro. Outros ativos depois.</Text>
           <Text style={styles.highlightText}>
-            As compras de Bitcoin, Ethereum e Ouro Digital usam o saldo da sua própria carteira. A parte técnica fica nos bastidores.
+            O dinheiro novo entra em USDC. A partir dele, você pode comprar Bitcoin, Ethereum ou Ouro Digital.
           </Text>
           <PrimaryButton title="Comprar ativos" onPress={openWalletFirstAssets} />
         </Card>
 
         <Card>
-          <Text style={styles.sectionKicker}>LIQUIDEZ</Text>
-          <Text style={styles.highlightTitle}>Quer voltar para reais?</Text>
+          <Text style={styles.sectionKicker}>VOLTAR PARA REAIS</Text>
+          <Text style={styles.highlightTitle}>Resgate simples por Pix.</Text>
           <Text style={styles.highlightText}>
-            Converta primeiro sua posição para USDC quando disponível e use o resgate Pix da Nexa.
+            Quando quiser sair para reais, use seu saldo em USDC e solicite o resgate Pix.
           </Text>
           <PrimaryButton title="Sacar para Pix" onPress={openWalletFirstWithdraw} secondary />
         </Card>
@@ -1204,24 +1237,44 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Premium() {
     return (
       <>
-        <Text style={styles.pageKicker}>RELACIONAMENTO</Text>
-        <Text style={styles.pageTitle}>Nexa Premium</Text>
-        <Text style={styles.pageSubtitle}>
-          Benefícios adicionais sem mudar a sua autonomia sobre a carteira.
+        <Text style={isPremium ? styles.premiumKickerGold : styles.pageKicker}>
+          NEXA PREMIUM
         </Text>
-        <Card style={styles.highlightPremium}>
-          <Text style={styles.premiumEyebrow}>{isPremium ? 'PREMIUM ATIVO' : 'NEXA PREMIUM'}</Text>
-          <Text style={styles.highlightTitle}>Mais benefícios, mesma autonomia.</Text>
+        <Text style={styles.pageTitle}>Premium</Text>
+        <Text style={styles.pageSubtitle}>
+          Benefícios adicionais para sua experiência Nexa.
+        </Text>
+
+        <Card style={isPremium ? styles.premiumCardActive : styles.highlightPremium}>
+          <Text style={isPremium ? styles.premiumEyebrowGold : styles.premiumEyebrow}>
+            {isPremium ? 'PREMIUM ATIVO' : 'ASSINATURA PREMIUM'}
+          </Text>
+          <Text style={styles.highlightTitle}>R$ 19,90 por mês.</Text>
           <Text style={styles.highlightText}>
-            Sua carteira própria é o padrão da Nexa. O Premium adiciona condições e serviços, sem mudar sua autonomia.
+            Cobrança equivalente em USDC, com vencimento no dia 10 de cada mês.
           </Text>
         </Card>
+
         <Card>
-          <Text style={styles.benefit}>✓ Condições diferenciadas em operações elegíveis</Text>
+          <Text style={styles.benefit}>✓ Condições diferenciadas em recursos elegíveis</Text>
+          <Text style={styles.benefit}>✓ Condições diferenciadas no Rewards</Text>
           <Text style={styles.benefit}>✓ Atendimento prioritário</Text>
-          <Text style={styles.benefit}>✓ Benefícios e experiências Nexa</Text>
-          <Text style={styles.benefit}>✓ Recursos adicionais conforme disponibilidade</Text>
+          <Text style={styles.benefit}>✓ Benefícios Premium exibidos diretamente no app</Text>
+          <PrimaryButton
+            title="Entender o Premium"
+            onPress={() => router.push('/premium-info' as any)}
+            secondary
+          />
         </Card>
+
+        {!isPremium ? (
+          <Card>
+            <Text style={styles.sectionKicker}>ASSINATURA</Text>
+            <Text style={styles.highlightText}>
+              A ativação da cobrança recorrente exige autorização da sua carteira. A Nexa não assina por você.
+            </Text>
+          </Card>
+        ) : null}
       </>
     );
   }
@@ -1354,113 +1407,28 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   }
 
   function Rewards() {
-    const activePositions = rewardPositions.filter(
-      (position: any) => String(position?.status || '').toLowerCase() === 'active',
-    );
-
     return (
       <>
+        <Text style={styles.pageKicker}>REWARDS</Text>
         <Text style={styles.pageTitle}>Nexa Rewards</Text>
         <Text style={styles.pageSubtitle}>
-          Separe uma parte do seu USDC para participar do programa Rewards.
+          O Rewards agora usa sua própria carteira. Nenhum saldo interno legado é necessário.
         </Text>
-
         <Card>
-          <Text style={styles.eyebrow}>COMO FUNCIONA</Text>
-          <Text style={styles.highlightTitle}>
-            Benefícios sobre recompensas efetivamente geradas.
-          </Text>
+          <Text style={styles.highlightTitle}>Rewards Wallet‑First</Text>
           <Text style={styles.highlightText}>
-            O saldo escolhido fica reservado enquanto participa. Quando houver
-            recompensa efetivamente realizada, 80% fica com o cliente e 20% com
-            a Nexa. O principal continua identificado separadamente.
+            Separe uma parte do seu USDC. O valor fica bloqueado enquanto participa e a Nexa cuida das etapas técnicas.
           </Text>
+          <PrimaryButton
+            title="Abrir Rewards"
+            onPress={() => router.push('/(app)/rewards' as any)}
+          />
+          <PrimaryButton
+            title="Como funciona"
+            onPress={() => router.push('/rewards-info' as any)}
+            secondary
+          />
         </Card>
-
-        <Text style={styles.sectionTitle}>Programa disponível</Text>
-        {rewardPlans.length ? (
-          rewardPlans.map((plan: any, index: number) => (
-            <Card key={plan.id || plan.code || plan.plan || index}>
-              <Text style={styles.assetRowTitle}>
-                {plan.name || plan.title || plan.plan || 'Nexa Rewards'}
-              </Text>
-              <Text style={styles.highlightText}>
-                {plan.label ||
-                  plan.description ||
-                  plan.subtitle ||
-                  'Programa Rewards para clientes Premium.'}
-              </Text>
-
-              {isPremium ? (
-                <>
-                  <Text style={styles.formLabel}>USDC para participar</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Valor em USDC"
-                    placeholderTextColor="#64748b"
-                    value={rewardAmountUsdc}
-                    onChangeText={(value) => {
-                      setRewardAmountUsdc(value);
-                      setRewardJoinRequestId('');
-                    }}
-                    keyboardType="decimal-pad"
-                  />
-                  <PrimaryButton
-                    title={
-                      config.financialExecutionEnabled
-                        ? 'Participar do Rewards'
-                        : 'Rewards bloqueado no preview'
-                    }
-                    onPress={joinRewards}
-                    disabled={!config.financialExecutionEnabled || loading}
-                  />
-                </>
-              ) : (
-                <PrimaryButton
-                  title="Conhecer Nexa Premium"
-                  onPress={() => setPage('premium')}
-                  secondary
-                />
-              )}
-            </Card>
-          ))
-        ) : (
-          <Card>
-            <Text style={styles.highlightText}>
-              Não foi possível carregar o programa Rewards agora. Atualize a
-              conta; se persistir, a operação permanece bloqueada por segurança.
-            </Text>
-          </Card>
-        )}
-
-        <Text style={styles.sectionTitle}>Minhas posições</Text>
-        {activePositions.length ? (
-          activePositions.map((position: any) => (
-            <Card key={position.id}>
-              <Text style={styles.eyebrow}>SALDO RESERVADO</Text>
-              <Text style={styles.highlightTitle}>
-                {amount(position.principalUsdc, 8)} USDC
-              </Text>
-              <Text style={styles.highlightText}>
-                Status: {String(position.status || 'active')}
-              </Text>
-              <PrimaryButton
-                title={
-                  config.financialExecutionEnabled
-                    ? 'Resgatar Rewards'
-                    : 'Resgate bloqueado no preview'
-                }
-                onPress={() => withdrawReward(position.id)}
-                disabled={!config.financialExecutionEnabled || loading}
-                secondary
-              />
-            </Card>
-          ))
-        ) : (
-          <Card>
-            <Text style={styles.highlightText}>Nenhuma posição ativa.</Text>
-          </Card>
-        )}
       </>
     );
   }
@@ -1470,7 +1438,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       <>
         <Text style={styles.pageKicker}>CONTA & SERVIÇOS</Text>
         <Text style={styles.pageTitle}>Menu</Text>
-        <Text style={styles.pageSubtitle}>Sua conta, investimentos, atendimento e segurança.</Text>
+        <Text style={styles.pageSubtitle}>Sua conta, ativos, atendimento e segurança.</Text>
 
         <Text style={styles.menuSectionLabel}>CONTA</Text>
         <View style={styles.menuGrid}>
@@ -1482,17 +1450,28 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
         <Text style={styles.menuSectionLabel}>MOVIMENTAR</Text>
         <View style={styles.menuGrid}>
-          <MenuTile icon="＋" title="Adicionar" subtitle="Via Pix" onPress={openWalletFirstDeposit} />
-          <MenuTile icon="↓" title="Sacar" subtitle="Para seu Pix" onPress={openWalletFirstWithdraw} />
-          <MenuTile icon="↑" title="Enviar" subtitle="Nexa para Nexa" onPress={openWalletFirstSend} />
-          <MenuTile icon="◇" title="Investir" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
+          <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
+          <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
+          <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
+          <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
         </View>
 
         <Text style={styles.menuSectionLabel}>SERVIÇOS</Text>
         <View style={styles.menuGrid}>
-          <MenuTile icon="★" title="Premium" subtitle={isPremium ? 'Ativo' : 'Benefícios'} onPress={() => setPage('premium')} />
-          <MenuTile icon="↻" title="Aportes" subtitle="USDC recorrente" onPress={() => setPage('recurring')} />
-          <MenuTile icon="✦" title="Rewards" subtitle="Posições e benefícios" onPress={() => setPage('rewards')} />
+          <MenuTile
+            icon="★"
+            title="Premium"
+            subtitle={isPremium ? 'Ativo' : 'R$ 19,90/mês'}
+            onPress={() => setPage('premium')}
+            premium={isPremium}
+          />
+          <MenuTile icon="↻" title="Recorrência" subtitle="Compra mensal de USDC" onPress={() => setPage('recurring')} />
+          <MenuTile
+            icon="✦"
+            title="Rewards"
+            subtitle="Turbinar USDC"
+            onPress={() => router.push('/(app)/rewards' as any)}
+          />
           {config.efiOpenFinanceEnabled ? (
             <MenuTile
               icon="↙"
@@ -1510,7 +1489,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             <MenuTile
               icon="✦"
               title="Assistente Nexa"
-              subtitle="IA para vida e dinheiro"
+              subtitle="IA para o dia a dia"
               onPress={() => router.push('/assistant')}
               accent
             />
@@ -1787,7 +1766,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             <Text style={styles.brand}>NEXA</Text>
             <Text style={styles.brandTag}>Cripto sem complicação.</Text>
           </View>
-          <Text style={styles.brandEdition}>PRIVATE</Text>
+          {isPremium ? <Text style={styles.brandEditionPremium}>PREMIUM</Text> : null}
         </View>
         {message ? (
           <TouchableOpacity onPress={() => setMessage('')} style={styles.messageBox}>
@@ -1813,39 +1792,41 @@ const styles: any = {
   },
   brand: { color: '#F7F8FA', fontSize: 27, fontWeight: '900', letterSpacing: 3.2 },
   brandTag: { color: '#7F8A9B', fontSize: 11, marginTop: 3 },
-  brandEdition: { color: '#C8A968', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
+  brandEditionPremium: { color: '#D8BC7A', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
   homeTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  welcomeLabel: { color: '#C8A968', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 5 },
+  welcomeLabel: { color: '#8B5CF6', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 5 },
   hello: { color: '#F7F8FA', fontSize: 28, fontWeight: '800' },
   handle: { color: '#8F9AAC', fontSize: 12, fontWeight: '700', marginTop: 4 },
   avatar: {
     width: 46, height: 46, borderRadius: 23, backgroundColor: '#111722',
     borderWidth: 1, borderColor: '#2B3442', alignItems: 'center', justifyContent: 'center'
   },
-  avatarText: { color: '#E9D7A8', fontSize: 18, fontWeight: '900' },
+  avatarText: { color: '#C4B5FD', fontSize: 18, fontWeight: '900' },
   card: {
     backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
     borderRadius: 20, padding: 18, marginBottom: 14
   },
-  heroCard: { backgroundColor: '#0D1522', borderColor: '#5F5133', padding: 20 },
+  heroCard: { backgroundColor: '#0D1522', borderColor: '#4C1D95', padding: 20 },
   heroMark: {
     width: 44, height: 44, borderRadius: 22, backgroundColor: '#171D27',
-    borderWidth: 1, borderColor: '#6B5A36', alignItems: 'center', justifyContent: 'center'
+    borderWidth: 1, borderColor: '#5B21B6', alignItems: 'center', justifyContent: 'center'
   },
-  heroMarkText: { color: '#D8BC7A', fontSize: 20, fontWeight: '900' },
-  eyebrow: { color: '#C8A968', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
-  premiumEyebrow: { color: '#D8BC7A', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  heroMarkText: { color: '#A78BFA', fontSize: 20, fontWeight: '900' },
+  eyebrow: { color: '#8B5CF6', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  premiumEyebrow: { color: '#A78BFA', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
   heroAmount: { color: '#F7F8FA', fontSize: 40, fontWeight: '800', marginTop: 8 },
   heroUnit: { color: '#A3ADBA', fontSize: 13, fontWeight: '700', marginTop: 1 },
-  portfolioValue: { color: '#D8BC7A', fontSize: 12, fontWeight: '800', marginTop: 16 },
+  portfolioValue: { color: '#A78BFA', fontSize: 12, fontWeight: '800', marginTop: 16 },
   heroHint: { color: '#7F8A9B', lineHeight: 18, marginTop: 9, fontSize: 12 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   menuTile: {
     width: '48%', minHeight: 100, backgroundColor: '#0C1119', borderWidth: 1,
     borderColor: '#1B2432', borderRadius: 18, padding: 15
   },
-  menuTileAccent: { backgroundColor: '#111720', borderColor: '#655735' },
-  menuTileIcon: { color: '#D8BC7A', fontSize: 18, marginBottom: 12, fontWeight: '900' },
+  menuTileAccent: { backgroundColor: '#111720', borderColor: '#5B21B6' },
+  menuTilePremium: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
+  menuTileIconPremium: { color: '#D8BC7A' },
+  menuTileIcon: { color: '#A78BFA', fontSize: 18, marginBottom: 12, fontWeight: '900' },
   menuTileTitle: { color: '#F3F5F7', fontSize: 14, fontWeight: '800' },
   menuTileSubtitle: { color: '#788393', fontSize: 10, marginTop: 5 },
   menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 20 },
@@ -1853,56 +1834,65 @@ const styles: any = {
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 },
   sectionKicker: { color: '#7D8795', fontSize: 9, fontWeight: '900', letterSpacing: 1.4, marginBottom: 4 },
   sectionTitle: { color: '#F7F8FA', fontSize: 21, fontWeight: '800', marginBottom: 12, marginTop: 2 },
-  inlineAction: { color: '#C8A968', fontSize: 11, fontWeight: '800', marginBottom: 12 },
+  inlineAction: { color: '#8B5CF6', fontSize: 11, fontWeight: '800', marginBottom: 12 },
   assetGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 18 },
   assetMini: {
     width: '48%', backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
     borderRadius: 18, padding: 15, minHeight: 112
   },
-  assetSelected: { borderColor: '#7A6740', backgroundColor: '#121821' },
-  assetIcon: { color: '#D8BC7A', fontSize: 21, marginBottom: 8 },
+  assetSelected: { borderColor: '#6D28D9', backgroundColor: '#121821' },
+  assetIcon: { color: '#A78BFA', fontSize: 21, marginBottom: 8 },
   assetSymbol: { color: '#F7F8FA', fontSize: 15, fontWeight: '900' },
   assetBalance: { color: '#9AA4B2', fontSize: 12, marginTop: 6 },
   assetNameSmall: { color: '#6E7887', fontSize: 10, marginTop: 5 },
-  staffCard: { backgroundColor: '#11151C', borderColor: '#655735' },
-  staffEyebrow: { color: '#D8BC7A', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
+  staffCard: { backgroundColor: '#11151C', borderColor: '#5B21B6' },
+  staffEyebrow: { color: '#A78BFA', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
   staffOrb: {
     width: 48, height: 48, borderRadius: 24, backgroundColor: '#1B1A17',
-    borderWidth: 1, borderColor: '#7A6740', alignItems: 'center', justifyContent: 'center'
+    borderWidth: 1, borderColor: '#6D28D9', alignItems: 'center', justifyContent: 'center'
   },
-  staffOrbText: { color: '#E6C985', fontSize: 22, fontWeight: '900' },
+  staffOrbText: { color: '#C4B5FD', fontSize: 22, fontWeight: '900' },
   staffPrimaryAction: {
-    flex: 1, backgroundColor: '#C8A968', borderRadius: 13, paddingVertical: 12,
+    flex: 1, backgroundColor: '#8B5CF6', borderRadius: 13, paddingVertical: 12,
     paddingHorizontal: 12, alignItems: 'center'
   },
-  staffPrimaryActionText: { color: '#0B0F15', fontSize: 12, fontWeight: '900' },
+  staffPrimaryActionText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   staffSecondaryAction: {
     flex: 1, backgroundColor: '#121821', borderWidth: 1, borderColor: '#2B3442',
     borderRadius: 13, paddingVertical: 12, paddingHorizontal: 12, alignItems: 'center'
   },
   staffSecondaryActionText: { color: '#E5E9EF', fontSize: 12, fontWeight: '800' },
-  investmentCard: { backgroundColor: '#0D131D', borderColor: '#273243' },
+  cryptoCard: { backgroundColor: '#0D131D', borderColor: '#3B2A66' },
   homeSecondaryRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
   homeSecondaryCard: {
     flex: 1, minHeight: 126, backgroundColor: '#0C1119', borderWidth: 1,
     borderColor: '#1B2432', borderRadius: 18, padding: 15
   },
-  homeSecondaryKicker: { color: '#C8A968', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  homeSecondaryKicker: { color: '#8B5CF6', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
   homeSecondaryTitle: { color: '#F3F5F7', fontSize: 15, fontWeight: '800', marginTop: 8 },
   homeSecondaryText: { color: '#788393', fontSize: 11, lineHeight: 16, marginTop: 6 },
-  highlightPremium: { backgroundColor: '#11151C', borderColor: '#655735' },
+  homeWideCard: {
+    backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
+    borderRadius: 18, padding: 15, minHeight: 94, marginBottom: 6
+  },
+  homePremiumCardActive: { borderColor: '#8A6B2D', backgroundColor: '#15130E' },
+  homePremiumKicker: { color: '#D8BC7A', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  highlightPremium: { backgroundColor: '#11151C', borderColor: '#5B21B6' },
+  premiumCardActive: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
+  premiumKickerGold: { color: '#D8BC7A', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 6 },
+  premiumEyebrowGold: { color: '#D8BC7A', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
   highlightRecurring: { backgroundColor: '#0D1522', borderColor: '#273A54' },
   highlightTitle: { color: '#F7F8FA', fontSize: 20, fontWeight: '800', marginTop: 7 },
   highlightText: { color: '#929CAA', lineHeight: 19, fontSize: 13, marginTop: 7 },
   button: {
-    backgroundColor: '#C8A968', borderWidth: 1, borderColor: '#D8BC7A',
+    backgroundColor: '#8B5CF6', borderWidth: 1, borderColor: '#A78BFA',
     borderRadius: 13, paddingVertical: 14, paddingHorizontal: 16, marginTop: 14
   },
   buttonSecondary: { backgroundColor: '#111720', borderColor: '#293548' },
   buttonDisabled: { opacity: 0.45 },
-  buttonText: { color: '#0A0E14', fontSize: 14, fontWeight: '900', textAlign: 'center' },
+  buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', textAlign: 'center' },
   buttonTextSecondary: { color: '#F2F4F7' },
-  pageKicker: { color: '#C8A968', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 6 },
+  pageKicker: { color: '#8B5CF6', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 6 },
   pageTitle: { color: '#F7F8FA', fontSize: 29, fontWeight: '800', marginBottom: 5 },
   pageSubtitle: { color: '#8F99A8', fontSize: 13, lineHeight: 19, marginBottom: 18 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1911,7 +1901,7 @@ const styles: any = {
   assetRowSymbol: { color: '#717B89', fontSize: 11, marginTop: 4 },
   assetRowAmount: { color: '#F7F8FA', fontSize: 16, fontWeight: '800' },
   assetRowValue: { color: '#939DAC', fontSize: 11, marginTop: 4 },
-  walletAddress: { color: '#C8A968', fontSize: 11, marginTop: 12, fontWeight: '700' },
+  walletAddress: { color: '#8B5CF6', fontSize: 11, marginTop: 12, fontWeight: '700' },
   formLabel: { color: '#C5CBD4', fontWeight: '800', fontSize: 12, marginTop: 14, marginBottom: 7 },
   input: {
     backgroundColor: '#080D14', borderWidth: 1, borderColor: '#273141',
@@ -1923,7 +1913,7 @@ const styles: any = {
   divider: { height: 1, backgroundColor: '#1B2432', marginVertical: 18 },
   qrWrap: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 18, padding: 16, marginTop: 16, marginBottom: 10 },
   codeText: { color: '#929CAA', fontSize: 10, lineHeight: 15, marginTop: 6 },
-  previewNotice: { color: '#D8BC7A', fontSize: 11, lineHeight: 17, marginTop: 12 },
+  previewNotice: { color: '#A78BFA', fontSize: 11, lineHeight: 17, marginTop: 12 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   smallAction: { flex: 1, backgroundColor: '#111720', borderWidth: 1, borderColor: '#293548', borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
   smallActionText: { color: '#E2E6EC', fontSize: 12, fontWeight: '900' },
@@ -1933,16 +1923,16 @@ const styles: any = {
   profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 13 },
   profileAvatar: {
     width: 52, height: 52, borderRadius: 26, backgroundColor: '#161B23',
-    borderWidth: 1, borderColor: '#655735', alignItems: 'center', justifyContent: 'center'
+    borderWidth: 1, borderColor: '#5B21B6', alignItems: 'center', justifyContent: 'center'
   },
-  profileAvatarText: { color: '#E5C57E', fontSize: 19, fontWeight: '900' },
+  profileAvatarText: { color: '#C4B5FD', fontSize: 19, fontWeight: '900' },
   profileName: { color: '#F7F8FA', fontSize: 21, fontWeight: '800' },
   profileHandle: { color: '#9AA4B2', fontSize: 12, marginTop: 3 },
   profileDivider: { height: 1, backgroundColor: '#202A38', marginVertical: 16 },
   profileLabel: { color: '#737E8D', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 10 },
   profileValue: { color: '#E7EBF0', fontSize: 13, fontWeight: '700', marginTop: 4 },
   profileLine: { color: '#929CAA', fontSize: 13, marginBottom: 8 },
-  profileSupportCard: { backgroundColor: '#10141B', borderColor: '#4E452E' },
+  profileSupportCard: { backgroundColor: '#10141B', borderColor: '#4C1D95' },
   credit: { color: '#6FD0A3', fontWeight: '900', fontSize: 12 },
   debit: { color: '#E58992', fontWeight: '900', fontSize: 12 },
   messageBox: { backgroundColor: '#111720', borderWidth: 1, borderColor: '#293548', borderRadius: 13, padding: 12, marginBottom: 14 },
@@ -1955,5 +1945,5 @@ const styles: any = {
   bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', minHeight: 52, paddingVertical: 4 },
   bottomIcon: { color: '#616C7A', fontSize: 18, fontWeight: '900' },
   bottomLabel: { color: '#616C7A', fontSize: 10, fontWeight: '800', marginTop: 4 },
-  bottomActive: { color: '#D8BC7A' },
+  bottomActive: { color: '#A78BFA' },
 };
