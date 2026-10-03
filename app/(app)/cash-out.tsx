@@ -34,9 +34,7 @@ import {
   type PreparedWalletTransaction,
 } from '@/lib/walletFirstActions';
 import {
-  approveWalletFirstExitPix,
   createWalletFirstExitIntent,
-  createWalletFirstExitPix,
   getWalletFirstActiveExit,
   getWalletFirstExitQuote,
   getWalletFirstExitSwapSponsorshipCredentials,
@@ -45,9 +43,6 @@ import {
   prepareWalletFirstExitUsdtSwap,
   confirmWalletFirstExitUsdtSwap,
   reconcileWalletFirstExitPix,
-  reconcileWalletFirstExitProvider,
-  reconcileWalletFirstExitSell,
-  submitWalletFirstExitSell,
   verifyWalletFirstExitTransfer,
   type WalletFirstExitQuote,
   type WalletFirstExitSponsorshipCredentials,
@@ -64,6 +59,7 @@ type ExitPhase =
   | 'provider'
   | 'sell'
   | 'pix'
+  | 'requested'
   | 'completed';
 
 function parseUsdc(value: string) {
@@ -97,22 +93,6 @@ function formatUsdc(value: unknown) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 6,
   })} USDC`;
-}
-
-function sellStatus(result: any) {
-  return String(
-    result?.execution?.status ||
-      result?.order?.metadata?.walletFirstExitSell?.status ||
-      '',
-  ).toLowerCase();
-}
-
-function payoutStatus(result: any) {
-  return String(
-    result?.payout?.status ||
-      result?.order?.metadata?.walletFirstPixPayout?.status ||
-      '',
-  ).toLowerCase();
 }
 
 function requiresManualReview(result: any) {
@@ -157,7 +137,7 @@ async function buildPrivySigner(wallet: any) {
         ? await wallet.getEthereumProvider()
         : null);
   if (!provider) {
-    throw new Error('A carteira Privy não disponibilizou o assinador Ethereum.');
+    throw new Error('Sua carteira não está pronta para autorizar esta operação.');
   }
 
   let currentChainId = await provider.request({
@@ -175,7 +155,7 @@ async function buildPrivySigner(wallet: any) {
     });
   }
   if (!isPolygonChainId(currentChainId)) {
-    throw new Error('Não foi possível preparar sua carteira na Polygon.');
+    throw new Error('Não foi possível preparar sua carteira para esta operação.');
   }
 
   const address = String(wallet.address || '') as `0x${string}`;
@@ -369,23 +349,26 @@ export default function CashOutScreen() {
         );
         setTxHash(hash);
 
-        const payout = String(
-          order?.metadata?.walletFirstPixPayout?.status || '',
-        ).toLowerCase();
-        const sell = String(
-          order?.metadata?.walletFirstExitSell?.status || '',
-        ).toLowerCase();
+        const payoutState = await reconcileWalletFirstExitPix(
+          accessToken,
+          order.id,
+        ).catch(() => null);
+        const paid =
+          payoutState?.confirmed === true ||
+          String(payoutState?.batch?.status || '').toLowerCase() === 'paid';
 
-        if (payout === 'completed') {
-          setFinalResult({ order, payout: order?.metadata?.walletFirstPixPayout });
+        if (paid) {
+          setFinalResult(payoutState);
           setPhase('completed');
-          setStatusText('Pix concluído.');
+          setStatusText('Pix enviado.');
           return;
         }
 
-        setPhase(sell ? 'sell' : 'onchain');
+        setFinalResult(payoutState);
+        setPhase('requested');
         setStatusText(
-          'Saque anterior encontrado. Retome daqui; a Nexa não criará outra saída nem repetirá a transferência.',
+          payoutState?.customerStatus ||
+            'Resgate solicitado. Pagamento em até 1 dia útil.',
         );
       } catch {
         // No active exit is a normal state; keep the fresh quote flow available.
@@ -451,12 +434,12 @@ export default function CashOutScreen() {
           clientRequestId,
         );
         if (!currentIntent?.order?.id) {
-          throw new Error('A Nexa não criou um intent de saque válido.');
+          throw new Error('A Nexa não criou uma solicitação de resgate válida.');
         }
         setIntent(currentIntent);
       }
 
-      setStatusText('Preparando conversão USDC → USDT na Polygon…');
+      setStatusText('Preparando a primeira autorização do resgate…');
       const nextSwap = await prepareWalletFirstExitUsdtSwap(
         accessToken,
         currentIntent.order.id,
@@ -467,7 +450,7 @@ export default function CashOutScreen() {
         !nextSwap?.swapTransaction?.data
       ) {
         throw new Error(
-          'A Nexa não retornou uma conversão USDC → USDT válida.',
+          'A Nexa não conseguiu preparar a primeira autorização do resgate.',
         );
       }
 
@@ -485,7 +468,7 @@ export default function CashOutScreen() {
           normalizeWalletAddress(nextSwap.swapTransaction.from)
       ) {
         throw new Error(
-          'O patrocínio de gas não corresponde à carteira deste saque.',
+          'Não foi possível preparar as taxas desta operação para sua carteira.',
         );
       }
 
@@ -493,7 +476,7 @@ export default function CashOutScreen() {
       setSwapSponsorship(sponsorship);
       setPhase('swap_ready_to_sign');
       setStatusText(
-        'Primeiro, autorize a conversão USDC → USDT na sua carteira. A Nexa patrocina o gas desta etapa.',
+        'Primeiro, autorize a preparação do resgate na sua carteira. A Nexa cuida das taxas desta etapa.',
       );
     } catch (caught) {
       setStatusText('');
@@ -523,19 +506,19 @@ export default function CashOutScreen() {
     if (confirmed?.completed !== true) {
       setPhase('swap_confirming');
       setStatusText(
-        'Conversão USDC → USDT enviada. Aguardando confirmações da Polygon.',
+        'Autorização enviada. Aguardando confirmação da rede.',
       );
       return;
     }
 
-    setStatusText('Conversão confirmada. Validando destino de liquidação e Pix…');
+    setStatusText('Autorização confirmada. Preparando a confirmação final…');
     const nextPrepared = await prepareWalletFirstExitTransfer(
       accessToken,
       orderId,
     );
     if (!nextPrepared?.transaction?.from || !nextPrepared?.transaction?.data) {
       throw new Error(
-        'A Nexa não retornou uma transferência USDT de saída válida.',
+        'A Nexa não conseguiu preparar a confirmação final do resgate.',
       );
     }
 
@@ -552,7 +535,7 @@ export default function CashOutScreen() {
         normalizeWalletAddress(nextPrepared.transaction.from)
     ) {
       throw new Error(
-        'O patrocínio de gas da transferência não corresponde à carteira deste saque.',
+        'Não foi possível preparar as taxas da confirmação final para sua carteira.',
       );
     }
 
@@ -560,7 +543,7 @@ export default function CashOutScreen() {
     setTransferSponsorship(sponsorship);
     setPhase('ready_to_sign');
     setStatusText(
-      'USDT pronto para liquidação. Falta sua assinatura para continuar; o gas também será patrocinado pela Nexa.',
+      'Tudo pronto. Falta sua confirmação final; a Nexa cuida das taxas da operação.',
     );
   }
 
@@ -588,9 +571,7 @@ export default function CashOutScreen() {
       }
       calls.push(toSponsoredCall(swapPrepared.swapTransaction));
 
-      setStatusText(
-        'Autorizando e convertendo USDC → USDT com gas patrocinado pela Nexa…',
-      );
+      setStatusText('Confirmando sua primeira autorização…');
       const result = await client.sendCalls({ calls });
       const callId = String(result?.id || '').trim();
       if (!callId) {
@@ -601,7 +582,7 @@ export default function CashOutScreen() {
       setSwapCallId(callId);
       setPhase('swap_confirming');
       setStatusText(
-        'Operação patrocinada enviada. Aguardando confirmação da Polygon; não repita.',
+        'Autorização enviada. Aguarde a confirmação e não repita a operação.',
       );
 
       const hash = await waitSponsoredCall(
@@ -620,7 +601,7 @@ export default function CashOutScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível concluir a conversão USDC → USDT.',
+          : 'Não foi possível concluir a primeira autorização do resgate.',
       );
     } finally {
       setLoading(false);
@@ -660,7 +641,7 @@ export default function CashOutScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível atualizar a conversão USDC → USDT.',
+          : 'Não foi possível atualizar a primeira autorização do resgate.',
       );
     } finally {
       setLoading(false);
@@ -670,95 +651,22 @@ export default function CashOutScreen() {
   async function advanceExit(orderId: string, hash: string) {
     const accessToken = await sessionToken();
 
-    setPhase('onchain');
-    setStatusText('Confirmando sua transferência USDT na Polygon…');
+    setStatusText('Registrando sua confirmação…');
     const onchain = await verifyWalletFirstExitTransfer(
       accessToken,
       orderId,
       hash,
     );
     if (requiresManualReview(onchain)) {
-      throw new Error('A confirmação on-chain requer revisão manual da Nexa.');
-    }
-    if (onchain?.verified !== true) {
-      setStatusText(
-        'A Polygon ainda está confirmando a transferência. Toque em continuar para verificar novamente.',
+      throw new Error(
+        'Sua solicitação precisa de uma conferência da Nexa antes de continuar.',
       );
-      return;
     }
 
-    setPhase('provider');
-    setStatusText('Confirmando o crédito de USDT para liquidação…');
-    const provider = await reconcileWalletFirstExitProvider(
-      accessToken,
-      orderId,
-    );
-    if (requiresManualReview(provider)) {
-      throw new Error('O crédito de USDT requer revisão manual da Nexa.');
-    }
-    const providerCredited =
-      provider?.providerDepositCredited === true || provider?.credited === true;
-    if (!providerCredited) {
-      setStatusText(
-        'USDT confirmado na rede. Aguardando o provedor reconhecer o crédito.',
-      );
-      return;
-    }
-
-    setPhase('sell');
-    setStatusText('Convertendo USDT para reais…');
-    let sell = await submitWalletFirstExitSell(accessToken, orderId);
-    if (requiresManualReview(sell)) {
-      throw new Error('A conversão para reais requer revisão manual da Nexa.');
-    }
-    if (sellStatus(sell) !== 'sell_filled') {
-      sell = await reconcileWalletFirstExitSell(accessToken, orderId);
-      if (requiresManualReview(sell)) {
-        throw new Error('A conversão para reais requer revisão manual da Nexa.');
-      }
-    }
-    if (sellStatus(sell) !== 'sell_filled') {
-      setStatusText(
-        'Conversão enviada. Aguardando confirmação do provedor de liquidação.',
-      );
-      return;
-    }
-
-    setPhase('pix');
-    setStatusText('Preparando seu Pix…');
-    let pix = await createWalletFirstExitPix(accessToken, orderId);
-    if (requiresManualReview(pix)) {
-      throw new Error('A criação do Pix requer revisão manual da Nexa.');
-    }
-
-    let currentPayoutStatus = payoutStatus(pix);
-    if (currentPayoutStatus === 'request_created') {
-      setStatusText('Enviando Pix para sua chave verificada…');
-      pix = await approveWalletFirstExitPix(accessToken, orderId);
-      if (requiresManualReview(pix)) {
-        throw new Error('O envio do Pix requer revisão manual da Nexa.');
-      }
-      currentPayoutStatus = payoutStatus(pix);
-    }
-
-    if (currentPayoutStatus !== 'completed') {
-      setStatusText('Confirmando o Pix…');
-      pix = await reconcileWalletFirstExitPix(accessToken, orderId);
-      if (requiresManualReview(pix)) {
-        throw new Error('A confirmação do Pix requer revisão manual da Nexa.');
-      }
-      currentPayoutStatus = payoutStatus(pix);
-    }
-
-    if (currentPayoutStatus === 'completed') {
-      setFinalResult(pix);
-      setPhase('completed');
-      setStatusText('Pix concluído.');
-      return;
-    }
-
+    setFinalResult(onchain);
+    setPhase('requested');
     setStatusText(
-      'Pix enviado ao provedor. Toque em continuar para confirmar a conclusão.',
+      'Resgate solicitado. Você pode fechar a Nexa; o processamento continuará automaticamente. Pagamento em até 1 dia útil.',
     );
   }
 
@@ -775,9 +683,7 @@ export default function CashOutScreen() {
     try {
       const wallet = await walletFor(transferSponsorship.wallet);
       const client = await sponsoredClient(wallet, transferSponsorship);
-      setStatusText(
-        'Enviando USDT para liquidação com gas patrocinado pela Nexa…',
-      );
+      setStatusText('Confirmando seu resgate com segurança…');
       const result = await client.sendCalls({
         calls: [toSponsoredCall(prepared.transaction)],
       });
@@ -790,7 +696,7 @@ export default function CashOutScreen() {
       setTransferCallId(callId);
       setPhase('onchain');
       setStatusText(
-        'Transferência patrocinada enviada. Aguardando confirmação; não repita.',
+        'Confirmação enviada. Aguarde alguns instantes e não repita a operação.',
       );
       const hash = await waitSponsoredCall(
         wallet,
@@ -811,31 +717,33 @@ export default function CashOutScreen() {
   }
 
   async function continueProcessing() {
-    if (
-      !intent?.order?.id ||
-      (!txHash && (!transferCallId || !transferSponsorship))
-    ) {
-      return;
-    }
+    if (!intent?.order?.id) return;
     setError('');
     setLoading(true);
     try {
-      let hash = txHash;
-      if (!hash) {
-        const wallet = await walletFor(transferSponsorship!.wallet);
-        hash = await waitSponsoredCall(
-          wallet,
-          transferSponsorship!,
-          transferCallId,
-        );
-        setTxHash(hash);
+      const accessToken = await sessionToken();
+      const state = await reconcileWalletFirstExitPix(
+        accessToken,
+        intent.order.id,
+      );
+      setFinalResult(state);
+      const paid =
+        state?.confirmed === true ||
+        String(state?.batch?.status || '').toLowerCase() === 'paid';
+      if (paid) {
+        setPhase('completed');
+        setStatusText('Pix enviado.');
+        return;
       }
-      await advanceExit(intent.order.id, hash);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Não foi possível atualizar o saque.',
+      setPhase('requested');
+      setStatusText(
+        state?.customerStatus ||
+          'Resgate solicitado. Pagamento em até 1 dia útil.',
+      );
+    } catch {
+      setPhase('requested');
+      setStatusText(
+        'Resgate solicitado. O processamento continua automaticamente.',
       );
     } finally {
       setLoading(false);
@@ -843,6 +751,7 @@ export default function CashOutScreen() {
   }
 
   const completedAmountBrl =
+    finalResult?.batch?.totalAmountBrl ||
     finalResult?.payout?.amountBrl ||
     finalResult?.order?.netBrl ||
     quote?.estimatedPayoutBrl ||
@@ -851,18 +760,17 @@ export default function CashOutScreen() {
   return (
     <Screen>
       <Brand />
-      <Eyebrow>USDC → PIX</Eyebrow>
+      <Eyebrow>RESGATE</Eyebrow>
       <Title>Sacar para Pix.</Title>
       <Paragraph>
-        Você autoriza a saída na sua própria carteira. A Nexa confirma a Polygon,
-        converte para USDT, liquida em reais e só conclui quando o Pix real estiver confirmado.
+        Veja quanto você recebe, autorize o resgate na sua carteira e deixe o restante com a Nexa.
       </Paragraph>
 
       <Card>
-        <Badge>USDC · POLYGON</Badge>
+        <Badge>SALDO DIGITAL</Badge>
         <View style={styles.spacer} />
         <Field
-          label="Quanto USDC?"
+          label="Valor do resgate"
           value={amountUsdc}
           onChangeText={(value) => {
             if (resumedActive) return;
@@ -873,10 +781,10 @@ export default function CashOutScreen() {
           }}
           editable={!resumedActive}
           keyboardType="decimal-pad"
-          placeholder="Ex.: 1,00"
+          placeholder="Ex.: 10,00 USDC"
         />
         <ActionButton
-          label={quote ? 'Atualizar cotação' : 'Ver cotação'}
+          label={quote ? 'Atualizar cotação' : 'Ver quanto vou receber'}
           onPress={requestQuote}
           loading={loading && phase === 'idle'}
           disabled={
@@ -887,21 +795,20 @@ export default function CashOutScreen() {
 
       {quote ? (
         <Card style={styles.quoteCard}>
-          <Text style={styles.quoteLabel}>{quote.label || 'Cotação Nexa'}</Text>
-          <Text style={styles.rate}>
-            1 USDC = R$ {formatRate(quote.nexaRateBrl)}
-          </Text>
-          <Text style={styles.receiveLabel}>Você recebe aproximadamente</Text>
+          <Text style={styles.quoteLabel}>COTAÇÃO NEXA</Text>
+          <Text style={styles.receiveLabel}>Valor estimado no seu Pix</Text>
           <Text style={styles.receiveValue}>
             {formatBrl(quote.estimatedPayoutBrl)}
           </Text>
+          <Text style={styles.rate}>
+            {formatUsdc(quote.amountUsdc)} · referência R$ {formatRate(quote.nexaRateBrl)}
+          </Text>
           <Text style={styles.validity}>
-            Cotação indicativa válida por {quote.validForSeconds || 30}s. A
-            liquidação final usa a execução real e as proteções do fluxo.
+            A estimativa já considera as condições da operação. O valor final é confirmado durante o processamento.
           </Text>
           {phase === 'quoted' ? (
             <ActionButton
-              label="Continuar saque"
+              label="Continuar"
               onPress={prepareExit}
               loading={loading}
             />
@@ -911,19 +818,13 @@ export default function CashOutScreen() {
 
       {swapPrepared && phase === 'swap_ready_to_sign' ? (
         <Card>
-          <Badge tone="warning">CONVERSÃO NA SUA CARTEIRA</Badge>
-          <Text style={styles.stepTitle}>USDC → USDT na Polygon</Text>
+          <Badge tone="warning">1 DE 2 · AUTORIZAÇÃO</Badge>
+          <Text style={styles.stepTitle}>Autorize a preparação do resgate</Text>
           <Text style={styles.stepText}>
-            A liquidação usa USDT na Polygon. A conversão acontece primeiro na sua própria carteira.
-          </Text>
-          <Text style={styles.stepText}>
-            Estimado: {Number(swapPrepared.estimatedAmountUsdt || 0).toLocaleString('pt-BR', { maximumFractionDigits: 6 })} USDT
-          </Text>
-          <Text style={styles.stepText}>
-            A Nexa não possui sua chave privada. Se houver aprovação 0x, ela é limitada ao valor deste saque e o gas da Polygon é patrocinado pela Nexa.
+            Como sua carteira é sua, esta etapa precisa da sua autorização. A Nexa cuida da infraestrutura e das taxas de rede.
           </Text>
           <ActionButton
-            label="Autorizar conversão USDC → USDT"
+            label="Autorizar"
             onPress={signSwap}
             loading={loading}
           />
@@ -932,13 +833,15 @@ export default function CashOutScreen() {
 
       {swapPrepared && (swapTxHash || swapCallId) && phase === 'swap_confirming' ? (
         <Card>
-          <Badge tone="info">CONVERSÃO EM ANDAMENTO</Badge>
-          <Text style={styles.stepTitle}>{statusText || 'Confirmando na Polygon…'}</Text>
-          <Text selectable style={styles.hash}>
-            {swapTxHash || `Operação patrocinada: ${swapCallId}`}
+          <Badge tone="info">CONFIRMANDO AUTORIZAÇÃO</Badge>
+          <Text style={styles.stepTitle}>
+            {statusText || 'Confirmando sua autorização…'}
+          </Text>
+          <Text style={styles.stepText}>
+            Não repita a operação. Se a confirmação demorar, você pode atualizar o status.
           </Text>
           <ActionButton
-            label="Continuar confirmação"
+            label="Atualizar"
             variant="secondary"
             onPress={continueSwap}
             loading={loading}
@@ -948,35 +851,39 @@ export default function CashOutScreen() {
 
       {prepared && phase === 'ready_to_sign' ? (
         <Card>
-          <Badge tone="warning">SUA ASSINATURA É NECESSÁRIA</Badge>
-          <Text style={styles.stepTitle}>Revise antes de enviar</Text>
+          <Badge tone="warning">2 DE 2 · CONFIRMAÇÃO</Badge>
+          <Text style={styles.stepTitle}>Confirme o resgate</Text>
           <Text style={styles.stepText}>
-            Liquidação: {Number(prepared.amountUsdt || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT
-          </Text>
-          <Text style={styles.stepText}>Rede: Polygon</Text>
-          <Text style={styles.stepText}>
-            Pix próprio verificado: {prepared?.beneficiary?.pixKeyType || 'sim'}
+            Valor solicitado: {formatUsdc(amountUsdc)}
           </Text>
           <Text style={styles.stepText}>
-            A Nexa não possui sua chave privada e não consegue assinar esta saída por você. O gas da Polygon é patrocinado pela Nexa.
+            Destino: sua chave Pix {prepared?.beneficiary?.pixKeyType || 'verificada'}.
+          </Text>
+          <Text style={styles.stepText}>
+            Depois desta confirmação, a Nexa continua o processamento automaticamente.
           </Text>
           <ActionButton
-            label="Enviar USDT para liquidação"
+            label="Confirmar resgate"
             onPress={signAndWithdraw}
             loading={loading}
           />
         </Card>
       ) : null}
 
-      {(txHash || transferCallId) && phase !== 'completed' ? (
-        <Card>
-          <Badge tone="info">SAQUE EM ANDAMENTO</Badge>
-          <Text style={styles.stepTitle}>{statusText || 'Processando…'}</Text>
-          <Text selectable style={styles.hash}>
-            {txHash || `Operação patrocinada: ${transferCallId}`}
+      {phase === 'requested' ? (
+        <Card style={styles.requestedCard}>
+          <Badge tone="success">RESGATE SOLICITADO</Badge>
+          <Text style={styles.completedAmount}>
+            {formatBrl(completedAmountBrl)}
+          </Text>
+          <Text style={styles.successText}>
+            {statusText || 'Pagamento em até 1 dia útil.'}
+          </Text>
+          <Text style={styles.stepText}>
+            Você pode fechar o app. A Nexa continuará o processamento e enviará o Pix para sua chave verificada.
           </Text>
           <ActionButton
-            label="Continuar processamento"
+            label="Atualizar status"
             variant="secondary"
             onPress={continueProcessing}
             loading={loading}
@@ -986,16 +893,20 @@ export default function CashOutScreen() {
 
       {phase === 'completed' ? (
         <Card style={styles.completedCard}>
-          <Badge tone="success">PIX CONCLUÍDO</Badge>
+          <Badge tone="success">PIX ENVIADO</Badge>
           <Text style={styles.completedAmount}>{formatBrl(completedAmountBrl)}</Text>
           <Text style={styles.successText}>
-            A saída foi confirmada na Polygon, liquidada e o Pix foi concluído pelo provedor.
+            Resgate concluído e Pix enviado para sua chave verificada.
           </Text>
-          {txHash ? <Text selectable style={styles.hash}>{txHash}</Text> : null}
+          {finalResult?.endToEndId || finalResult?.batch?.endToEndId ? (
+            <Text selectable style={styles.receipt}>
+              Comprovante: {finalResult?.endToEndId || finalResult?.batch?.endToEndId}
+            </Text>
+          ) : null}
         </Card>
       ) : null}
 
-      {!txHash && statusText ? (
+      {phase !== 'requested' && phase !== 'completed' && statusText ? (
         <Text style={styles.status}>{statusText}</Text>
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -1011,19 +922,20 @@ export default function CashOutScreen() {
 
 const styles = StyleSheet.create({
   spacer: { height: spacing.md },
-  quoteCard: { backgroundColor: '#11143C' },
-  completedCard: { backgroundColor: '#0E2930' },
+  quoteCard: { backgroundColor: '#10151D', borderColor: '#5F5133' },
+  requestedCard: { backgroundColor: '#101A18', borderColor: '#315E50' },
+  completedCard: { backgroundColor: '#0E1D19', borderColor: '#2F6B58' },
   quoteLabel: {
-    color: colors.cyan,
-    fontSize: 13,
+    color: '#C8A968',
+    fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
   },
   rate: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '800',
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: '700',
     marginTop: spacing.md,
   },
   receiveLabel: {
@@ -1033,7 +945,7 @@ const styles = StyleSheet.create({
   },
   receiveValue: {
     color: colors.text,
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: '900',
     marginTop: 4,
   },
@@ -1046,7 +958,7 @@ const styles = StyleSheet.create({
   stepTitle: {
     color: colors.text,
     fontWeight: '900',
-    fontSize: 17,
+    fontSize: 18,
     marginTop: spacing.md,
   },
   stepText: {
@@ -1054,11 +966,11 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: spacing.sm,
   },
-  hash: {
-    color: colors.cyan,
+  receipt: {
+    color: '#B6C1CE',
     fontSize: 11,
     lineHeight: 17,
-    marginVertical: spacing.md,
+    marginTop: spacing.md,
   },
   status: {
     color: colors.muted,

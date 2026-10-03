@@ -43,7 +43,11 @@ assert.equal(app.android?.package, 'br.com.trynexa.app');
 assert.equal(app.ios?.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(app.extra?.financialExecutionEnabled, false);
 assert.equal(app.extra?.ledgerOperationsEnabled, true);
-assert.equal(app.extra?.balanceSource, 'ledger');
+assert.equal(
+  app.extra?.balanceSource,
+  'wallet-first',
+  'Wallet-First deve ser a fonte principal da release v136.',
+);
 assert.equal(app.extra?.privyOptional, true);
 assert.equal(app.extra?.releaseChannel, 'production');
 assert.ok(

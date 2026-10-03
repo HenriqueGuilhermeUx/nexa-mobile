@@ -22,6 +22,10 @@ const funding = fs.readFileSync(files.funding, 'utf8');
 const addMoney = fs.readFileSync(files.addMoney, 'utf8');
 const rootLayout = fs.readFileSync(files.rootLayout, 'utf8');
 const home = fs.readFileSync(files.home, 'utf8');
+const premiumShell = fs.readFileSync(
+  path.join(process.cwd(), 'src/components/AlignedLegacyApp.tsx'),
+  'utf8',
+);
 const combined = `${api}\n${send}\n${buy}`;
 
 const required = [
@@ -130,8 +134,18 @@ if (!addMoney.includes('Adicionar por Pix') || !addMoney.includes('Cartão · Ap
   throw new Error('Adicionar dinheiro must surface Woovi Pix separately from card/digital-wallet funding.');
 }
 
-if (!home.includes('label="Enviar"') || !home.includes('label="Comprar"')) {
-  throw new Error('Wallet-First Home must surface Enviar and Comprar actions.');
+if (!home.includes("Redirect") || !home.includes("'/legacy'")) {
+  throw new Error('The old Wallet-First home must redirect to the unified premium shell.');
+}
+if (
+  !premiumShell.includes('title="Enviar"') ||
+  !premiumShell.includes('title="Investir"') ||
+  !premiumShell.includes('title="Sacar"') ||
+  !premiumShell.includes('Assistente Nexa')
+) {
+  throw new Error(
+    'Unified premium shell must surface Enviar, Investir, Sacar and Assistente Nexa.',
+  );
 }
 
 console.log(

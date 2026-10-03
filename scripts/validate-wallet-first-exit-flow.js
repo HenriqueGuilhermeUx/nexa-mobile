@@ -45,41 +45,42 @@ const screenRequired = [
   'client_sponsored_eip7702',
   'getWalletFirstExitSwapSponsorshipCredentials',
   'getWalletFirstExitTransferSponsorshipCredentials',
-  'gas da Polygon é patrocinado pela Nexa',
-  'USDC permite no máximo 6 casas decimais',
   'prepareWalletFirstExitTransfer',
   'verifyWalletFirstExitTransfer',
-  'reconcileWalletFirstExitProvider',
-  'submitWalletFirstExitSell',
-  'reconcileWalletFirstExitSell',
-  'createWalletFirstExitPix',
-  'approveWalletFirstExitPix',
   'reconcileWalletFirstExitPix',
+  "setPhase('requested')",
   "setPhase('completed')",
-  "currentPayoutStatus === 'completed'",
-  'A Nexa não possui sua chave privada',
-  'PIX CONCLUÍDO',
+  'Resgate solicitado',
+  'Pagamento em até 1 dia útil',
+  'Você pode fechar o app',
+  'PIX ENVIADO',
 ];
 for (const token of screenRequired) {
   if (!screen.includes(token)) throw new Error(`Wallet-First exit screen contract missing: ${token}`);
 }
 
+const clientMustNotProgressFinancialPipeline = [
+  'reconcileWalletFirstExitProvider',
+  'submitWalletFirstExitSell',
+  'reconcileWalletFirstExitSell',
+  'createWalletFirstExitPix',
+  'approveWalletFirstExitPix',
+];
+for (const token of clientMustNotProgressFinancialPipeline) {
+  if (screen.includes(token)) {
+    throw new Error(
+      `Post-signature financial progression must stay server-side, but mobile still uses: ${token}`,
+    );
+  }
+}
+
 const completionCalls = [...screen.matchAll(/setPhase\('completed'\)/g)].map(
   (match) => match.index ?? -1,
 );
-const restoredCompletionCheck = screen.indexOf("payout === 'completed'");
-const runtimeCompletionCheck = screen.indexOf(
-  "currentPayoutStatus === 'completed'",
-);
-if (
-  completionCalls.length !== 2 ||
-  restoredCompletionCheck < 0 ||
-  runtimeCompletionCheck < 0 ||
-  restoredCompletionCheck > completionCalls[0] ||
-  runtimeCompletionCheck > completionCalls[1]
-) {
+const paidCheck = screen.indexOf("String(state?.batch?.status || '').toLowerCase() === 'paid'");
+if (completionCalls.length < 1 || paidCheck < 0) {
   throw new Error(
-    'The app may only mark the exit completed after provider payout status is completed.',
+    'The app may only mark the D+1 exit completed after paid/confirmed payout evidence.',
   );
 }
 

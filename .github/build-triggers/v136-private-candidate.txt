@@ -1,0 +1,5 @@
+Nexa v136 private candidate trigger
+build: 2.0.33
+versionCode: 136
+requested: 2026-10-03
+purpose: final candidate after Android 16 safe-area hardening and 16 KB alignment validation

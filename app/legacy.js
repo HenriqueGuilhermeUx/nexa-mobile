@@ -19,24 +19,6 @@ import {
 } from '../src/lib/session';
 import { colors, spacing } from '../src/theme';
 
-function isWalletFirstProfile(profile) {
-  const status = String(profile?.status || '').trim().toLowerCase();
-  const settlementProfile = String(profile?.settlementProfile || '')
-    .trim()
-    .toLowerCase();
-
-  if (profile?.isLegacyBeta === true || settlementProfile.includes('legacy')) {
-    return false;
-  }
-
-  return (
-    status === 'pilot' ||
-    settlementProfile.includes('wallet_first') ||
-    settlementProfile.includes('wallet-first') ||
-    settlementProfile.includes('wallet first')
-  );
-}
-
 export default function LegacyExperience() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
@@ -90,21 +72,7 @@ export default function LegacyExperience() {
           throw new Error('Não foi possível restaurar sua conta Nexa.');
         }
 
-        // Fail-safe routing barrier: a Wallet-First pilot must never remain in
-        // the legacy ledger/Open Finance shell. If profile lookup fails, the
-        // app stays in legacy instead of guessing and enabling a new flow.
-        try {
-          const directResponse = await nexaApi.directProfile(
-            activeSession.accessToken,
-          );
-          const directProfile = directResponse?.profile || directResponse || null;
-          if (isWalletFirstProfile(directProfile)) {
-            router.replace('/(app)');
-            return;
-          }
-        } catch {
-          // Conservative fallback: keep the existing legacy experience.
-        }
+
 
         await AsyncStorage.multiSet([
           ['nexa_user', JSON.stringify(currentUser)],
@@ -211,9 +179,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     borderRadius: 24,
-    backgroundColor: '#0d3b66',
+    backgroundColor: '#0D131B',
     borderWidth: 1,
-    borderColor: '#2563eb',
+    borderColor: '#5F5133',
     shadowColor: '#000000',
     shadowOpacity: 0.24,
     shadowRadius: 10,
@@ -224,7 +192,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
   openFinanceLabel: {
-    color: '#ffffff',
+    color: '#E8D49A',
     fontWeight: '800',
   },
   assistantButton: {
@@ -237,9 +205,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     borderRadius: 24,
-    backgroundColor: '#6d28d9',
+    backgroundColor: '#11151C',
     borderWidth: 1,
-    borderColor: '#8b5cf6',
+    borderColor: '#6B5A36',
     shadowColor: '#000000',
     shadowOpacity: 0.24,
     shadowRadius: 10,
@@ -247,12 +215,12 @@ const styles = StyleSheet.create({
     elevation: 7,
   },
   assistantIcon: {
-    color: '#ffffff',
+    color: '#E6C985',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   assistantLabel: {
-    color: '#ffffff',
+    color: '#E8D49A',
     fontWeight: '800',
   },
 });
