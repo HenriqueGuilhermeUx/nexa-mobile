@@ -1,17 +1,17 @@
-// Nexa v138 Premium source-of-truth test candidate.
+// Nexa v139 Wallet-First Pix test candidate.
 module.exports = ({ config }) => ({
   ...config,
-  version: '2.0.35',
+  version: '2.0.36',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '138',
+    buildNumber: '139',
   },
   android: {
     ...(config.android || {}),
-    versionCode: 138,
+    versionCode: 139,
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.35-v138-premium-source-of-truth',
+    releaseBuild: 'android16-api36-2.0.36-v139-wallet-first-pix',
   },
 });
