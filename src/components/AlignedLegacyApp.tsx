@@ -42,7 +42,7 @@ const ASSETS = [
   { symbol: 'USDC', name: 'USD Coin', icon: '💵', description: 'Dólar digital para saldo, Pix, assinatura e transferências Nexa.' },
   { symbol: 'BTC', name: 'Bitcoin', icon: '₿', description: 'Bitcoin disponível dentro da Nexa.' },
   { symbol: 'ETH', name: 'Ethereum', icon: '◆', description: 'Ethereum disponível dentro da Nexa.' },
-  { symbol: 'XAUT', name: 'Ouro Digital', icon: '◈', description: 'Exposição digital ao ouro por Tether Gold (XAUT).' },
+  { symbol: 'PAXG', name: 'Ouro Digital', icon: '◈', description: 'Exposição digital ao ouro disponível pela Nexa.' },
 ];
 
 function premiumActive(user: any) {
@@ -154,7 +154,8 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
   const [page, setPage] = useState('home');
   const [user, setUser] = useState<any>(initialUser || {});
-  const [balances, setBalances] = useState<any>({ BRL: 0, USDC: 0, BTC: 0, ETH: 0, XAUT: 0 });
+  const [balances, setBalances] = useState<any>({ BRL: 0, USDC: 0, BTC: 0, ETH: 0, PAXG: 0 });
+  const [walletFirst, setWalletFirst] = useState<any>(null);
   const [portfolio, setPortfolio] = useState<any>(null);
   const [statement, setStatement] = useState<any[]>([]);
   const [recurring, setRecurring] = useState<any>(null);
@@ -196,7 +197,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   });
 
   const isPremium = premiumActive(user);
-  const walletAddress = user?.wallet?.address || user?.walletAddress || embeddedWallet?.address || '';
+  const walletAddress =
+    walletFirst?.portfolio?.address ||
+    user?.wallet?.address ||
+    user?.walletAddress ||
+    embeddedWallet?.address ||
+    '';
   const hasExistingWallet = Boolean(walletAddress);
   const canAccessCustody = isPremium || hasExistingWallet;
   const firstName = String(user?.fullName || 'Cliente').split(' ')[0];
@@ -257,23 +263,65 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     setMessage('');
     try {
       const cache = Date.now();
-      const [me, balanceData, portfolioData, statementData] = await Promise.all([
-        json(`${API}/user/me`, { headers: authHeaders }),
-        json(`${API}/ledger/balance?userId=${encodeURIComponent(user.id)}&mode=portfolio&_=${cache}`, { headers: authHeaders }),
-        json(`${API}/swap/portfolio?_=${cache}`, { headers: authHeaders }),
-        json(`${API}/ledger/statement?userId=${encodeURIComponent(user.id)}&limit=40&mode=portfolio&_=${cache}`, { headers: authHeaders }),
-      ]);
+      const [meResult, walletFirstResult, legacyBalanceResult, legacyPortfolioResult, statementResult] =
+        await Promise.allSettled([
+          json(`${API}/user/me`, { headers: authHeaders }),
+          json(`${API}/wallet-v15/me?_${cache}`, { headers: authHeaders }),
+          json(`${API}/ledger/balance?userId=${encodeURIComponent(user.id)}&mode=portfolio&_=${cache}`, { headers: authHeaders }),
+          json(`${API}/swap/portfolio?_=${cache}`, { headers: authHeaders }),
+          json(`${API}/ledger/statement?userId=${encodeURIComponent(user.id)}&limit=40&mode=portfolio&_=${cache}`, { headers: authHeaders }),
+        ]);
+
+      const me =
+        meResult.status === 'fulfilled' ? meResult.value : null;
       const currentUser = me?.user || me || user;
       setUser(currentUser);
+
+      const wf =
+        walletFirstResult.status === 'fulfilled' &&
+        walletFirstResult.value?.success === true
+          ? walletFirstResult.value
+          : null;
+      setWalletFirst(wf);
+
+      const legacyBalance =
+        legacyBalanceResult.status === 'fulfilled'
+          ? legacyBalanceResult.value
+          : null;
+      const legacyPortfolio =
+        legacyPortfolioResult.status === 'fulfilled' &&
+        legacyPortfolioResult.value?.success === true
+          ? legacyPortfolioResult.value
+          : null;
+
+      const wfBalances = wf?.portfolio?.balances || {};
+      const walletReady = wf?.portfolio?.walletReady === true;
       setBalances({
-        BRL: Number(balanceData?.balances?.BRL || 0),
-        USDC: Number(balanceData?.balances?.USDC || 0),
-        BTC: Number(balanceData?.balances?.BTC || 0),
-        ETH: Number(balanceData?.balances?.ETH || 0),
-        XAUT: Number(balanceData?.balances?.XAUT || 0),
+        BRL: Number(legacyBalance?.balances?.BRL || 0),
+        USDC: walletReady
+          ? Number(wfBalances.USDC || 0)
+          : Number(legacyBalance?.balances?.USDC || 0),
+        BTC: walletReady
+          ? Number(wfBalances.WBTC || 0)
+          : Number(legacyBalance?.balances?.BTC || 0),
+        ETH: walletReady
+          ? Number(wfBalances.WETH || 0)
+          : Number(legacyBalance?.balances?.ETH || 0),
+        PAXG: walletReady
+          ? Number(wfBalances.PAXG || 0)
+          : Number(
+              legacyBalance?.balances?.PAXG ||
+                legacyBalance?.balances?.XAUT ||
+                0,
+            ),
       });
-      setPortfolio(portfolioData?.success ? portfolioData : null);
-      setStatement(statementData?.statement || []);
+
+      setPortfolio(walletReady ? null : legacyPortfolio);
+      setStatement(
+        statementResult.status === 'fulfilled'
+          ? statementResult.value?.statement || []
+          : [],
+      );
 
       const [recurringData, plansData, positionsData] = await Promise.allSettled([
         json(`${API}/recurring-pix/me`, { headers: authHeaders }),
@@ -284,8 +332,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         const d: any = recurringData.value;
         setRecurring(d?.recurringPix || d?.plan || d?.recurring || d?.data || null);
       }
-      if (plansData.status === 'fulfilled') setRewardPlans((plansData.value as any)?.plans || []);
-      if (positionsData.status === 'fulfilled') setRewardPositions((positionsData.value as any)?.positions || []);
+      if (plansData.status === 'fulfilled') {
+        setRewardPlans((plansData.value as any)?.plans || []);
+      }
+      if (positionsData.status === 'fulfilled') {
+        setRewardPositions((positionsData.value as any)?.positions || []);
+      }
     } catch (error: any) {
       setMessage(error?.message || 'Não foi possível atualizar sua conta.');
     } finally {
@@ -843,7 +895,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
   const portfolioPositions = useMemo(() => {
     const byAsset: Record<string, any> = {};
-    for (const item of portfolio?.positions || []) byAsset[String(item.asset || '').toUpperCase()] = item;
+    for (const item of portfolio?.positions || []) {
+      byAsset[String(item.asset || '').toUpperCase()] = item;
+    }
     return ASSETS.map((item) => ({
       ...item,
       amount: Number(byAsset[item.symbol]?.amount ?? balances[item.symbol] ?? 0),
@@ -998,16 +1052,40 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   }
 
   function Wallet() {
+    const walletReady =
+      walletFirst?.portfolio?.walletReady === true || Boolean(walletAddress);
+
     return (
       <>
-        <Text style={styles.pageTitle}>Carteira Nexa</Text>
-        <Text style={styles.pageSubtitle}>Seu saldo operacional e seus ativos em um só lugar.</Text>
-        <Card>
+        <Text style={styles.pageKicker}>WALLET-FIRST</Text>
+        <Text style={styles.pageTitle}>Carteira</Text>
+        <Text style={styles.pageSubtitle}>
+          Seus ativos ficam vinculados à sua própria carteira. A Nexa organiza a experiência sem custodiar sua chave.
+        </Text>
+
+        <Card style={styles.heroCard}>
           <Text style={styles.eyebrow}>SALDO DISPONÍVEL</Text>
           <Text style={styles.heroAmount}>{amount(balances.USDC, 6)} USDC</Text>
-          <Text style={styles.highlightText}>Transferências Nexa entre usuários são feitas somente em USDC.</Text>
+          <Text style={styles.highlightText}>
+            {walletReady
+              ? 'Carteira conectada e pronta para movimentações.'
+              : 'Sua carteira está sendo preparada.'}
+          </Text>
+          {walletAddress ? (
+            <Text style={styles.walletAddress}>
+              {walletAddress.slice(0, 10)}…{walletAddress.slice(-8)}
+            </Text>
+          ) : null}
         </Card>
-        <Text style={styles.sectionTitle}>Meus ativos</Text>
+
+        <View style={styles.quickRow}>
+          <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
+          <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
+          <MenuTile icon="↑" title="Enviar" subtitle="Da sua carteira" onPress={openWalletFirstSend} />
+          <MenuTile icon="◇" title="Investir" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
+        </View>
+
+        <Text style={styles.sectionTitle}>Posições</Text>
         {portfolioPositions.map((item) => (
           <Card key={item.symbol}>
             <View style={styles.rowBetween}>
@@ -1017,28 +1095,24 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
               </View>
               <View style={styles.alignRight}>
                 <Text style={styles.assetRowAmount}>{amount(item.amount, 8)}</Text>
-                {item.valueUsd > 0 ? <Text style={styles.assetRowValue}>US$ {amount(item.valueUsd, 2)}</Text> : null}
+                {item.valueUsd > 0 ? (
+                  <Text style={styles.assetRowValue}>US$ {amount(item.valueUsd, 2)}</Text>
+                ) : null}
               </View>
             </View>
           </Card>
         ))}
-        <Card style={canAccessCustody ? styles.highlightPremium : undefined}>
-          <Text style={styles.eyebrow}>CARTEIRA INDIVIDUAL</Text>
-          <Text style={styles.highlightTitle}>
-            {hasExistingWallet
-              ? isPremium
-                ? 'Seu recurso Premium on-chain.'
-                : 'Sua carteira existente continua acessível.'
-              : 'Disponível no Nexa Premium.'}
-          </Text>
+
+        <Card>
+          <Text style={styles.sectionKicker}>AUTONOMIA</Text>
+          <Text style={styles.highlightTitle}>A carteira é sua.</Text>
           <Text style={styles.highlightText}>
-            {walletAddress
-              ? `Carteira vinculada: ${walletAddress.slice(0, 8)}…${walletAddress.slice(-6)}`
-              : 'Crie e vincule uma carteira individual para recursos externos.'}
+            A Nexa prepara e patrocina a infraestrutura necessária, mas autorizações sensíveis continuam sob seu controle.
           </Text>
           <PrimaryButton
-            title={canAccessCustody ? 'Abrir Minha Carteira' : 'Conhecer Premium'}
-            onPress={() => setPage(canAccessCustody ? 'custody' : 'premium')}
+            title="Segurança da carteira"
+            onPress={() => router.push('/security')}
+            secondary
           />
         </Card>
       </>
@@ -1048,56 +1122,53 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Assets() {
     return (
       <>
+        <Text style={styles.pageKicker}>INVESTIMENTOS</Text>
         <Text style={styles.pageTitle}>Ativos</Text>
-        <Text style={styles.pageSubtitle}>USDC, Bitcoin, Ethereum e Ouro Digital. Disponíveis para todos os clientes Nexa.</Text>
+        <Text style={styles.pageSubtitle}>
+          Acompanhe suas posições e compre ativos diretamente pela sua carteira.
+        </Text>
+
         <View style={styles.assetGrid}>
-          {ASSETS.map((item) => (
+          {portfolioPositions.map((item) => (
             <TouchableOpacity
               key={item.symbol}
-              style={[styles.assetMini, asset === item.symbol ? styles.assetSelected : null]}
+              style={styles.assetMini}
               onPress={() => {
-                if (item.symbol === 'USDC') return setPage('wallet');
-                setAsset(item.symbol);
-                setAssetQuote(null);
-                setSellQuote(null);
-                setAssetBuyRequestId('');
-                setAssetSellRequestId('');
+                if (item.symbol === 'USDC') {
+                  setPage('wallet');
+                  return;
+                }
+                router.push({
+                  pathname: '/(app)/buy-crypto',
+                  params: { asset: item.symbol === 'PAXG' ? 'PAXG' : item.symbol },
+                } as any);
               }}
             >
               <Text style={styles.assetIcon}>{item.icon}</Text>
               <Text style={styles.assetSymbol}>{item.symbol}</Text>
+              <Text style={styles.assetBalance}>{amount(item.amount, 8)}</Text>
               <Text style={styles.assetNameSmall}>{item.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        {asset !== 'USDC' ? (
-          <Card>
-            <Text style={styles.assetRowTitle}>{ASSETS.find((item) => item.symbol === asset)?.name}</Text>
-            <Text style={styles.highlightText}>{ASSETS.find((item) => item.symbol === asset)?.description}</Text>
-            <Text style={styles.formLabel}>Comprar usando USDC</Text>
-            <TextInput style={styles.input} placeholder="Valor em USDC" placeholderTextColor="#64748b" value={assetAmountUsdc} onChangeText={(v) => { setAssetAmountUsdc(v); setAssetQuote(null); setAssetBuyRequestId(''); }} keyboardType="decimal-pad" />
-            <PrimaryButton title="Ver cotação" onPress={quoteAsset} disabled={loading} />
-            {assetQuote?.allowed ? (
-              <View style={styles.quoteBox}>
-                <Text style={styles.quoteTitle}>Cotação Nexa</Text>
-                <Text style={styles.quoteText}>Estimativa: {amount(assetQuote.estimatedToAmount || assetQuote.netToAmount, 8)} {asset}</Text>
-                <Text style={styles.quoteText}>Condição Nexa: {Number(assetQuote?.fees?.nexaConversionFeePercent || 0).toFixed(2)}%</Text>
-                <PrimaryButton title={config.financialExecutionEnabled ? `Confirmar ${asset}` : 'Execução desativada neste build'} onPress={executeAssetBuy} disabled={!config.financialExecutionEnabled || loading} />
-              </View>
-            ) : null}
-            <View style={styles.divider} />
-            <Text style={styles.formLabel}>Converter {asset} para USDC</Text>
-            <TextInput style={styles.input} placeholder={`Quantidade de ${asset}`} placeholderTextColor="#64748b" value={sellAmount} onChangeText={(v) => { setSellAmount(v); setSellQuote(null); setAssetSellRequestId(''); }} keyboardType="decimal-pad" />
-            <PrimaryButton title="Ver cotação de saída" onPress={quoteSell} disabled={loading} secondary />
-            {sellQuote?.allowed ? (
-              <View style={styles.quoteBox}>
-                <Text style={styles.quoteTitle}>Cotação de saída</Text>
-                <Text style={styles.quoteText}>Estimativa: {amount(sellQuote.estimatedUsdc || sellQuote.netUsdc, 8)} USDC</Text>
-                <PrimaryButton title={config.financialExecutionEnabled ? 'Confirmar conversão' : 'Execução desativada neste build'} onPress={executeSell} disabled={!config.financialExecutionEnabled || loading} />
-              </View>
-            ) : null}
-          </Card>
-        ) : null}
+
+        <Card style={styles.investmentCard}>
+          <Text style={styles.sectionKicker}>WALLET-FIRST</Text>
+          <Text style={styles.highlightTitle}>Invista direto da sua carteira.</Text>
+          <Text style={styles.highlightText}>
+            As compras de Bitcoin, Ethereum e Ouro Digital usam o saldo da sua própria carteira. A parte técnica fica nos bastidores.
+          </Text>
+          <PrimaryButton title="Comprar ativos" onPress={openWalletFirstAssets} />
+        </Card>
+
+        <Card>
+          <Text style={styles.sectionKicker}>LIQUIDEZ</Text>
+          <Text style={styles.highlightTitle}>Quer voltar para reais?</Text>
+          <Text style={styles.highlightText}>
+            Converta primeiro sua posição para USDC quando disponível e use o resgate Pix da Nexa.
+          </Text>
+          <PrimaryButton title="Sacar para Pix" onPress={openWalletFirstWithdraw} secondary />
+        </Card>
       </>
     );
   }
@@ -1105,31 +1176,26 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Send() {
     return (
       <>
-        <Text style={styles.pageTitle}>Enviar USDC</Text>
-        <Text style={styles.pageSubtitle}>Entre clientes Nexa, as transferências são instantâneas no saldo interno e somente em USDC.</Text>
-        <Card>
-          <Text style={styles.formLabel}>Destinatário Nexa</Text>
-          <TextInput style={styles.input} placeholder="@username" placeholderTextColor="#64748b" value={username} onChangeText={(v) => { setUsername(v); setRecipient(null); setInternalTransferRequestId(''); }} autoCapitalize="none" />
-          <PrimaryButton title="Verificar usuário" onPress={findRecipient} secondary />
-          {recipient ? <Text style={styles.successText}>✓ {recipient.fullName} · {recipient.handle || `@${recipient.username}`}</Text> : null}
-          <Text style={styles.formLabel}>Valor</Text>
-          <TextInput style={styles.input} placeholder="USDC" placeholderTextColor="#64748b" value={sendAmount} onChangeText={(v) => { setSendAmount(v); setInternalTransferRequestId(''); }} keyboardType="decimal-pad" />
-          <PrimaryButton title="Enviar USDC" onPress={sendInternal} disabled={!recipient || loading} />
-        </Card>
-        <Card style={canAccessCustody ? styles.highlightPremium : undefined}>
-          <Text style={styles.eyebrow}>MOVIMENTAÇÃO EXTERNA</Text>
-          <Text style={styles.highlightTitle}>
-            {canAccessCustody ? 'Use sua carteira individual.' : 'Recurso Nexa Premium.'}
-          </Text>
+        <Text style={styles.pageKicker}>TRANSFERÊNCIAS</Text>
+        <Text style={styles.pageTitle}>Enviar</Text>
+        <Text style={styles.pageSubtitle}>
+          Envie USDC diretamente da sua carteira. A Nexa prepara a operação e você confirma.
+        </Text>
+        <Card style={styles.heroCard}>
+          <Text style={styles.eyebrow}>WALLET-FIRST</Text>
+          <Text style={styles.highlightTitle}>Envio direto, sem saldo interno.</Text>
           <Text style={styles.highlightText}>
-            Recebimento externo e movimentação entre Saldo Nexa e sua carteira individual ficam organizados em Minha Carteira.
-            {hasExistingWallet && !isPremium ? ' Sua carteira já criada permanece acessível.' : ''}
+            O valor sai da sua própria carteira e não de um saldo contábil mantido pela Nexa.
           </Text>
-          <PrimaryButton
-            title={canAccessCustody ? 'Abrir Minha Carteira' : 'Conhecer Premium'}
-            onPress={() => setPage(canAccessCustody ? 'custody' : 'premium')}
-            secondary
-          />
+          <PrimaryButton title="Fazer uma transferência" onPress={openWalletFirstSend} />
+        </Card>
+        <Card>
+          <Text style={styles.sectionKicker}>NEXA ID</Text>
+          <Text style={styles.highlightTitle}>Identidade continua simples.</Text>
+          <Text style={styles.highlightText}>
+            Seu @username e Nexa ID continuam disponíveis para identificação e relacionamento dentro do ecossistema.
+          </Text>
+          <PrimaryButton title="Ver meu Nexa ID" onPress={() => setPage('nexaId')} secondary />
         </Card>
       </>
     );
@@ -1138,28 +1204,24 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Premium() {
     return (
       <>
+        <Text style={styles.pageKicker}>RELACIONAMENTO</Text>
         <Text style={styles.pageTitle}>Nexa Premium</Text>
-        <Text style={styles.pageSubtitle}>Mais autonomia, taxas menores e recursos adicionais dentro e fora da Nexa.</Text>
+        <Text style={styles.pageSubtitle}>
+          Benefícios adicionais sem mudar a sua autonomia sobre a carteira.
+        </Text>
         <Card style={styles.highlightPremium}>
-          <Text style={styles.premiumEyebrow}>{isPremium ? 'PREMIUM ATIVO' : 'CONDIÇÕES PREMIUM'}</Text>
-          <Text style={styles.highlightTitle}>Condições melhores para usar a Nexa</Text>
-          <Text style={styles.highlightText}>Taxas menores em operações elegíveis, carteira individual e recursos adicionais de movimentação.</Text>
+          <Text style={styles.premiumEyebrow}>{isPremium ? 'PREMIUM ATIVO' : 'NEXA PREMIUM'}</Text>
+          <Text style={styles.highlightTitle}>Mais benefícios, mesma autonomia.</Text>
+          <Text style={styles.highlightText}>
+            A carteira Wallet‑First é o padrão da Nexa. O Premium adiciona condições e serviços, não custódia.
+          </Text>
         </Card>
         <Card>
-          <Text style={styles.benefit}>✓ USDC, BTC, ETH e Ouro Digital disponíveis para todos</Text>
-          <Text style={styles.benefit}>✓ Carteira individual Privy no Premium</Text>
-          <Text style={styles.benefit}>✓ Recebimento externo na carteira individual</Text>
-          <Text style={styles.benefit}>✓ Movimentação Saldo Nexa ↔ carteira individual</Text>
-          <Text style={styles.benefit}>✓ Condições Premium em operações elegíveis</Text>
+          <Text style={styles.benefit}>✓ Condições diferenciadas em operações elegíveis</Text>
           <Text style={styles.benefit}>✓ Atendimento prioritário</Text>
+          <Text style={styles.benefit}>✓ Benefícios e experiências Nexa</Text>
+          <Text style={styles.benefit}>✓ Recursos adicionais conforme disponibilidade</Text>
         </Card>
-        {isPremium ? (
-          <Card>
-            <Text style={styles.highlightTitle}>Minha carteira Premium</Text>
-            <Text style={styles.highlightText}>{walletAddress ? 'Sua carteira já está vinculada.' : 'Crie sua carteira individual em poucos segundos.'}</Text>
-            <PrimaryButton title={walletAddress ? 'Abrir Minha Carteira' : walletWorking ? 'Preparando...' : 'Criar Minha Carteira'} onPress={walletAddress ? () => setPage('custody') : createPremiumWallet} disabled={walletWorking} />
-          </Card>
-        ) : null}
       </>
     );
   }
@@ -1415,7 +1477,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <MenuTile icon="◎" title="Perfil" subtitle={handle || 'Dados pessoais'} onPress={() => setPage('profile')} />
           <MenuTile icon="↕" title="Movimentações" subtitle="Histórico" onPress={() => setPage('history')} />
           <MenuTile icon="ID" title="Nexa ID" subtitle={nexaId || handle} onPress={() => setPage('nexaId')} />
-          <MenuTile icon="◈" title="Carteira" subtitle="Ativos e custódia" onPress={() => setPage('wallet')} />
+          <MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage('wallet')} />
         </View>
 
         <Text style={styles.menuSectionLabel}>MOVIMENTAR</Text>
@@ -1849,6 +1911,7 @@ const styles: any = {
   assetRowSymbol: { color: '#717B89', fontSize: 11, marginTop: 4 },
   assetRowAmount: { color: '#F7F8FA', fontSize: 16, fontWeight: '800' },
   assetRowValue: { color: '#939DAC', fontSize: 11, marginTop: 4 },
+  walletAddress: { color: '#C8A968', fontSize: 11, marginTop: 12, fontWeight: '700' },
   formLabel: { color: '#C5CBD4', fontWeight: '800', fontSize: 12, marginTop: 14, marginBottom: 7 },
   input: {
     backgroundColor: '#080D14', borderWidth: 1, borderColor: '#273141',
