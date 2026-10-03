@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "136",
+      "buildNumber": "137",
       "usesAppleSignIn": true
     },
     "android": {
@@ -90,7 +90,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.33-v136-wallet-first-private",
+      "releaseBuild": "android16-api36-2.0.34-v137-wallet-first-crypto-wallet",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       }
