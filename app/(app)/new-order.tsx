@@ -339,13 +339,18 @@ export default function NewOrderScreen() {
         onPress={submit}
       />
       <ActionButton
+        label="Trazer dinheiro via Open Finance"
+        variant="secondary"
+        onPress={() => router.push('/open-finance')}
+      />
+      <ActionButton
         label="Cartão · Apple Pay · Google Pay"
         variant="secondary"
         onPress={() => router.push('/(app)/fund-card' as any)}
       />
 
       <Text style={styles.microcopy}>
-        Toda entrada é convertida para USDC · Pix mínimo de R$ 10,00.
+        Pix, Open Finance e cartão entram primeiro em USDC.
       </Text>
     </Screen>
   );
