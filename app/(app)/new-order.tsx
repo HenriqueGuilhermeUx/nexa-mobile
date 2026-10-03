@@ -17,9 +17,7 @@ import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
-type Result =
-  | { kind: 'redemption'; payload: any }
-  | { kind: 'pix-charge'; payload: any };
+type Result = { kind: 'pix-charge'; payload: any };
 
 type PixStage =
   | 'awaiting_pix'
@@ -50,15 +48,6 @@ function parseAmount(value: string) {
   return Number.isFinite(number) ? number : 0;
 }
 
-function profileFrom(response: any) {
-  return response?.profile || response || {};
-}
-
-function isLegacyProfile(profile: any) {
-  const value = String(profile?.settlementProfile || '').toLowerCase();
-  return profile?.isLegacyBeta === true || value.includes('legacy');
-}
-
 function formatBrl(value: unknown) {
   return Number(value || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -73,17 +62,6 @@ function formatUsdc(value: unknown) {
   })} USDC`;
 }
 
-function AssetPill({ label, enabled }: { label: string; enabled?: boolean }) {
-  return (
-    <View style={[styles.assetPill, enabled && styles.assetPillEnabled]}>
-      <Text style={[styles.assetPillText, enabled && styles.assetPillTextEnabled]}>
-        {label}
-      </Text>
-      <Text style={styles.assetPillState}>{enabled ? 'AGORA' : 'EM BREVE'}</Text>
-    </View>
-  );
-}
-
 function stageRank(stage: PixStage) {
   if (stage === 'available') return 3;
   if (stage === 'sending') return 2;
@@ -93,31 +71,12 @@ function stageRank(stage: PixStage) {
 
 export default function NewOrderScreen() {
   const [amount, setAmount] = useState('');
-  const [pixKey, setPixKey] = useState('');
-  const [profile, setProfile] = useState<any>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [checkingPix, setCheckingPix] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<Result | null>(null);
   const [pixStatus, setPixStatus] = useState<any>(null);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const session = await loadNexaSession();
-        if (!session) throw new Error('Sua sessão Nexa expirou.');
-        const response = await nexaApi.directProfile(session.accessToken);
-        setProfile(profileFrom(response));
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Não foi possível preparar sua conta.');
-      } finally {
-        setProfileLoading(false);
-      }
-    })();
-  }, []);
-
-  const legacy = isLegacyProfile(profile);
   const correlationID =
     result?.kind === 'pix-charge' ? String(result.payload?.correlationID || '').trim() : '';
 
@@ -181,16 +140,7 @@ export default function NewOrderScreen() {
     setPixStatus(null);
     const parsed = parseAmount(amount);
 
-    if (legacy) {
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        setError('Informe uma quantidade de USDC maior que zero.');
-        return;
-      }
-      if (!pixKey.trim()) {
-        setError('Informe a chave Pix que receberá o valor final.');
-        return;
-      }
-    } else if (!Number.isFinite(parsed) || parsed < 10) {
+    if (!Number.isFinite(parsed) || parsed < 10) {
       setError('O valor mínimo para adicionar é R$ 10,00.');
       return;
     }
@@ -199,21 +149,17 @@ export default function NewOrderScreen() {
     try {
       const session = await loadNexaSession();
       if (!session) throw new Error('Sua sessão Nexa expirou.');
-      if (legacy) {
-        const response = await nexaApi.requestPixRedemption(session.accessToken, {
-          amountUsdc: parsed,
-          pixKey: pixKey.trim(),
-        });
-        setResult({ kind: 'redemption', payload: response });
-        return;
-      }
       const response = await nexaApi.createWalletFirstPixCharge(
         session.accessToken,
         parsed,
       );
       setResult({ kind: 'pix-charge', payload: response });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Não foi possível gerar seu Pix.');
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Não foi possível gerar seu Pix agora.',
+      );
     } finally {
       setLoading(false);
     }
@@ -349,87 +295,53 @@ export default function NewOrderScreen() {
     );
   }
 
-  if (result?.kind === 'redemption') {
-    const redemption = result.payload || {};
-    const fees = redemption.estimatedFees || {};
-    return (
-      <Screen>
-        <Badge tone="success">RESGATE SOLICITADO</Badge>
-        <View style={styles.topSpace} />
-        <Title>Seu USDC foi reservado.</Title>
-        <Paragraph>O valor final em reais será confirmado depois da venda e da conciliação.</Paragraph>
-        <Card>
-          <Text style={styles.resultLabel}>USDC reservado</Text>
-          <Text style={styles.resultValue}>{formatUsdc(redemption.reservedUsdc)}</Text>
-          <Text style={styles.resultLabel}>Estimativa líquida</Text>
-          <Text style={styles.resultValue}>{formatBrl(redemption.estimatedPayoutBrl)}</Text>
-          <Text style={styles.resultLabel}>Fee Nexa estimada</Text>
-          <Text style={styles.resultValue}>
-            {formatBrl(fees.nexaFeeBrl)} ({Number(fees.nexaFeePercent || 1.5)}%)
-          </Text>
-        </Card>
-        <ActionButton label="Acompanhar" onPress={() => router.replace('/(app)/activity')} />
-      </Screen>
-    );
-  }
-
-  if (profileLoading) {
-    return (
-      <Screen>
-        <Eyebrow>Nexa</Eyebrow>
-        <Title>Preparando sua conta…</Title>
-        <Paragraph>Só um instante.</Paragraph>
-      </Screen>
-    );
-  }
-
-  if (legacy) {
-    return (
-      <Screen>
-        <Eyebrow>Resgatar</Eyebrow>
-        <Title>Quanto USDC você quer sacar?</Title>
-        <Paragraph>Informe o valor e a chave Pix. A Nexa cuida do restante.</Paragraph>
-        <Field label="USDC" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Ex.: 45,60" />
-        <Field label="Chave Pix" value={pixKey} onChangeText={setPixKey} autoCapitalize="none" placeholder="CPF, e-mail, telefone ou chave aleatória" />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <ActionButton label="Continuar" loading={loading} onPress={submit} />
-      </Screen>
-    );
-  }
-
   return (
     <Screen>
-      <Eyebrow>Adicionar dinheiro</Eyebrow>
-      <Title>Como você quer adicionar?</Title>
-      <Paragraph>Pix continua sendo a forma principal. Agora você também pode usar cartão, Apple Pay ou Google Pay quando disponíveis.</Paragraph>
-      <Field label="Valor em R$ para Pix" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Ex.: 10,00" />
+      <Eyebrow>ADICIONAR USDC</Eyebrow>
+      <Title>Adicionar por Pix.</Title>
+      <Paragraph>
+        Você envia reais por Pix e recebe USDC na sua carteira Nexa. Depois, se quiser,
+        pode trocar seu USDC por outros ativos.
+      </Paragraph>
+
+      <Card>
+        <Text style={styles.ruleTitle}>Entrada padrão da Nexa</Text>
+        <Text style={styles.ruleText}>
+          Todo dinheiro novo entra primeiro em USDC. Isso deixa saldo, histórico,
+          reconciliação e movimentações mais simples.
+        </Text>
+      </Card>
+
+      <Field
+        label="Valor em R$"
+        value={amount}
+        onChangeText={setAmount}
+        keyboardType="decimal-pad"
+        placeholder="Ex.: 50,00"
+      />
       <View style={styles.quickRow}>
         {[10, 50, 100].map((value) => (
-          <Pressable key={value} onPress={() => setAmount(String(value))} style={styles.quickButton}>
+          <Pressable
+            key={value}
+            onPress={() => setAmount(String(value))}
+            style={styles.quickButton}
+          >
             <Text style={styles.quickButtonText}>R$ {value}</Text>
           </Pressable>
         ))}
       </View>
-      <Card>
-        <Text style={styles.ruleTitle}>Você recebe</Text>
-        <View style={styles.assetRow}>
-          <AssetPill label="USDC" enabled />
-          <AssetPill label="ETH" />
-          <AssetPill label="OURO" />
-          <AssetPill label="BTC" />
-        </View>
-        <Text style={styles.ruleText}>
-          Hoje o piloto entrega USDC. ETH, ouro digital e Bitcoin entrarão no mesmo fluxo simples depois da homologação completa.
-        </Text>
-      </Card>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <ActionButton label="Adicionar por Pix" loading={loading} onPress={submit} />
+
       <ActionButton
-        label="Cartão · Apple Pay · Google Pay"
-        variant="secondary"
-        onPress={() => router.push('/(app)/fund-card' as any)}
+        label="Gerar Pix"
+        loading={loading}
+        onPress={submit}
       />
-      <Text style={styles.microcopy}>Pix: mínimo R$ 10 · cartão: condições do provedor exibidas antes da confirmação</Text>
+
+      <Text style={styles.microcopy}>
+        Pix mínimo de R$ 10,00 · o valor final em USDC é confirmado no processamento.
+      </Text>
     </Screen>
   );
 }
@@ -442,12 +354,6 @@ const styles = StyleSheet.create({
   quickRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   quickButton: { flex: 1, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.panelSoft, alignItems: 'center' },
   quickButtonText: { color: colors.text, fontWeight: '900' },
-  assetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
-  assetPill: { borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.panelSoft, paddingHorizontal: 12, paddingVertical: 9 },
-  assetPillEnabled: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  assetPillText: { color: colors.muted, fontWeight: '900' },
-  assetPillTextEnabled: { color: colors.text },
-  assetPillState: { color: colors.muted, fontSize: 8, fontWeight: '900', marginTop: 2 },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   stepDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border, marginTop: 4 },
   stepDone: { backgroundColor: colors.primary },
