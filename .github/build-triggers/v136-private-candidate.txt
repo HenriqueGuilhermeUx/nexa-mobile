@@ -1,3 +1,5 @@
-Nexa v136 private candidate
-Triggered after Wallet-First core + v115 adjacent functions + premium shell validation.
-Final validation trigger after main merge and backend auto-progress go-live.
+Nexa v136 private candidate trigger
+build: 2.0.33
+versionCode: 136
+requested: 2026-10-03
+purpose: validate APK and production AAB after Wallet-First core + v115 adjunct consolidation
