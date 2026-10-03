@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nexa",
     "slug": "nexa",
-    "version": "2.0.35",
+    "version": "2.0.36",
     "orientation": "portrait",
     "scheme": "nexa",
     "icon": "./nexa-mobile/nexa-mobile/assets/icon.png",
@@ -16,12 +16,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "138",
+      "buildNumber": "139",
       "usesAppleSignIn": true
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 138,
+      "versionCode": 139,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
@@ -90,7 +90,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.35-v138-premium-source-of-truth",
+      "releaseBuild": "android16-api36-2.0.36-v139-wallet-first-pix",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       }
