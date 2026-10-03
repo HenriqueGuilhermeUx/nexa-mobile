@@ -155,7 +155,7 @@ async function buildPrivySigner(wallet: any) {
     });
   }
   if (!isPolygonChainId(currentChainId)) {
-    throw new Error('Não foi possível preparar sua carteira na Polygon.');
+    throw new Error('Não foi possível preparar sua carteira para esta operação.');
   }
 
   const address = String(wallet.address || '') as `0x${string}`;
@@ -434,7 +434,7 @@ export default function CashOutScreen() {
           clientRequestId,
         );
         if (!currentIntent?.order?.id) {
-          throw new Error('A Nexa não criou um intent de saque válido.');
+          throw new Error('A Nexa não criou uma solicitação de resgate válida.');
         }
         setIntent(currentIntent);
       }
@@ -450,7 +450,7 @@ export default function CashOutScreen() {
         !nextSwap?.swapTransaction?.data
       ) {
         throw new Error(
-          'A Nexa não retornou uma conversão USDC → USDT válida.',
+          'A Nexa não conseguiu preparar a primeira autorização do resgate.',
         );
       }
 
@@ -468,7 +468,7 @@ export default function CashOutScreen() {
           normalizeWalletAddress(nextSwap.swapTransaction.from)
       ) {
         throw new Error(
-          'O patrocínio de gas não corresponde à carteira deste saque.',
+          'Não foi possível preparar as taxas desta operação para sua carteira.',
         );
       }
 
@@ -476,7 +476,7 @@ export default function CashOutScreen() {
       setSwapSponsorship(sponsorship);
       setPhase('swap_ready_to_sign');
       setStatusText(
-        'Primeiro, autorize a conversão USDC → USDT na sua carteira. A Nexa patrocina o gas desta etapa.',
+        'Primeiro, autorize a preparação do resgate na sua carteira. A Nexa cuida das taxas desta etapa.',
       );
     } catch (caught) {
       setStatusText('');
@@ -506,19 +506,19 @@ export default function CashOutScreen() {
     if (confirmed?.completed !== true) {
       setPhase('swap_confirming');
       setStatusText(
-        'Conversão USDC → USDT enviada. Aguardando confirmações da Polygon.',
+        'Autorização enviada. Aguardando confirmação da rede.',
       );
       return;
     }
 
-    setStatusText('Conversão confirmada. Validando destino de liquidação e Pix…');
+    setStatusText('Autorização confirmada. Preparando a confirmação final…');
     const nextPrepared = await prepareWalletFirstExitTransfer(
       accessToken,
       orderId,
     );
     if (!nextPrepared?.transaction?.from || !nextPrepared?.transaction?.data) {
       throw new Error(
-        'A Nexa não retornou uma transferência USDT de saída válida.',
+        'A Nexa não conseguiu preparar a confirmação final do resgate.',
       );
     }
 
@@ -535,7 +535,7 @@ export default function CashOutScreen() {
         normalizeWalletAddress(nextPrepared.transaction.from)
     ) {
       throw new Error(
-        'O patrocínio de gas da transferência não corresponde à carteira deste saque.',
+        'Não foi possível preparar as taxas da confirmação final para sua carteira.',
       );
     }
 
@@ -543,7 +543,7 @@ export default function CashOutScreen() {
     setTransferSponsorship(sponsorship);
     setPhase('ready_to_sign');
     setStatusText(
-      'USDT pronto para liquidação. Falta sua assinatura para continuar; o gas também será patrocinado pela Nexa.',
+      'Tudo pronto. Falta sua confirmação final; a Nexa cuida das taxas da operação.',
     );
   }
 
@@ -601,7 +601,7 @@ export default function CashOutScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível concluir a conversão USDC → USDT.',
+          : 'Não foi possível concluir a primeira autorização do resgate.',
       );
     } finally {
       setLoading(false);
@@ -641,7 +641,7 @@ export default function CashOutScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível atualizar a conversão USDC → USDT.',
+          : 'Não foi possível atualizar a primeira autorização do resgate.',
       );
     } finally {
       setLoading(false);
