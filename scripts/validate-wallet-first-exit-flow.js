@@ -64,10 +64,23 @@ for (const token of screenRequired) {
   if (!screen.includes(token)) throw new Error(`Wallet-First exit screen contract missing: ${token}`);
 }
 
-const completionCheck = screen.indexOf("currentPayoutStatus === 'completed'");
-const completionState = screen.indexOf("setPhase('completed')");
-if (completionCheck < 0 || completionState < 0 || completionCheck > completionState) {
-  throw new Error('The app may only mark the exit completed after provider payout status is completed.');
+const completionCalls = [...screen.matchAll(/setPhase\('completed'\)/g)].map(
+  (match) => match.index ?? -1,
+);
+const restoredCompletionCheck = screen.indexOf("payout === 'completed'");
+const runtimeCompletionCheck = screen.indexOf(
+  "currentPayoutStatus === 'completed'",
+);
+if (
+  completionCalls.length !== 2 ||
+  restoredCompletionCheck < 0 ||
+  runtimeCompletionCheck < 0 ||
+  restoredCompletionCheck > completionCalls[0] ||
+  runtimeCompletionCheck > completionCalls[1]
+) {
+  throw new Error(
+    'The app may only mark the exit completed after provider payout status is completed.',
+  );
 }
 
 const forbidden = [
