@@ -1480,6 +1480,14 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
           <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
           <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
+          {config.efiOpenFinanceEnabled ? (
+            <MenuTile
+              icon="↙"
+              title="Trazer dinheiro"
+              subtitle="Open Finance → USDC"
+              onPress={() => router.push('/open-finance')}
+            />
+          ) : null}
         </View>
 
         <Text style={styles.menuSectionLabel}>SERVIÇOS</Text>
@@ -1498,14 +1506,6 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             subtitle="Turbinar USDC"
             onPress={() => router.push('/(app)/rewards' as any)}
           />
-          {config.efiOpenFinanceEnabled ? (
-            <MenuTile
-              icon="↙"
-              title="Trazer dinheiro"
-              subtitle="Open Finance"
-              onPress={() => router.push('/open-finance')}
-            />
-          ) : null}
           <MenuTile icon="⌁" title="Segurança" subtitle="Biometria e proteção" onPress={() => router.push('/security')} />
         </View>
 
