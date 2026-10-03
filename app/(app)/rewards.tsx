@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { useAuthorizationSignature, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -178,7 +178,6 @@ export default function RewardsScreen() {
   const [activityLoading, setActivityLoading] = useState(false);
 
   const premium = String(vault?.plan || position?.plan || '') === 'premium';
-  const apy = useMemo(() => currentApyPercent(vault), [vault]);
   const decimals = Number(position?.summary?.decimals || 6);
   const assetsInVault = rawUsdc(position?.summary?.assetsInVaultRaw, decimals);
   const earnedYield = rawUsdc(position?.summary?.earnedYieldRaw, decimals);
@@ -744,34 +743,37 @@ export default function RewardsScreen() {
 
   return (
     <Screen>
-      <Eyebrow>Nexa Rewards</Eyebrow>
-      <Title>Turbine seu USDC.</Title>
+      <Eyebrow>REWARDS</Eyebrow>
+      <Title>Turbinar seu USDC.</Title>
       <Paragraph>
-        Coloque seu USDC para trabalhar e acompanhe seus Rewards de um jeito simples.
+        Você escolhe quanto separar. O valor fica bloqueado enquanto participa.
+        A Nexa aloca esse saldo em produtos elegíveis e repassa rendimento com spread.
       </Paragraph>
 
       {premium ? (
         <Card style={styles.premiumCard}>
-          <Badge tone="success">SUPER TURBINADO</Badge>
-          <Text style={styles.premiumTitle}>+20% de Rewards</Text>
-          <Text style={styles.muted}>Benefício exclusivo Nexa Premium.</Text>
+          <Badge tone="success">PREMIUM ATIVO</Badge>
+          <Text style={styles.premiumTitle}>Condições Premium aplicadas.</Text>
+          <Text style={styles.muted}>
+            Seus benefícios Premium são considerados automaticamente no Rewards.
+          </Text>
         </Card>
       ) : null}
 
       <Card>
-        <Text style={styles.label}>Seu USDC turbinado</Text>
+        <Text style={styles.label}>USDC no Rewards</Text>
         <Text style={styles.balance}>{formatUsdc(assetsInVault)}</Text>
-        <Text style={styles.reward}>Rewards acumulados: {formatUsdc(earnedYield)}</Text>
+        <Text style={styles.reward}>
+          Rewards acumulados: {formatUsdc(earnedYield)}
+        </Text>
         <Text style={styles.muted}>
-          {apy !== null
-            ? `Rendimento atual estimado: ${apy.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% a.a.*`
-            : 'Rendimento variável, atualizado pela estratégia Rewards.*'}
+          O saldo permanece bloqueado enquanto participa do programa.
         </Text>
       </Card>
 
       <Card>
         <Field
-          label="Quanto deseja turbinar?"
+          label="Quanto USDC deseja separar?"
           value={amount}
           onChangeText={(value) => {
             setAmount(value);
@@ -780,34 +782,20 @@ export default function RewardsScreen() {
           keyboardType="decimal-pad"
           placeholder="1,00"
         />
-        {quote ? (
-          <View style={styles.quoteBox}>
-            <Text style={styles.quoteTitle}>Estimativa pronta</Text>
-            <Text style={styles.muted}>
-              Você envia {formatUsdc(quote.amountUsdc)} para ativar seus Rewards.
-            </Text>
-            {quote.estimatedOutputUsdc ? (
-              <Text style={styles.muted}>
-                Valor estimado disponível para Rewards: {formatUsdc(quote.estimatedOutputUsdc)}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
         <ActionButton
-          label="Ver estimativa"
-          variant="secondary"
-          onPress={seeQuote}
-          loading={working}
-        />
-        <ActionButton
-          label={premium ? 'Ativar Super Turbinado' : 'Turbinar USDC'}
+          label="Participar do Rewards"
           onPress={turbocharge}
           loading={working}
           disabled={Boolean(pending) || vault?.liveActionsEnabled !== true}
         />
+        <ActionButton
+          label="Como funciona"
+          variant="secondary"
+          onPress={() => router.push('/rewards-info' as any)}
+        />
         {vault?.liveActionsEnabled !== true ? (
           <Text style={styles.pilot}>
-            Homologação final em andamento. Nenhum valor será movimentado até a liberação do piloto.
+            Rewards ainda não está liberado para movimentação nesta conta.
           </Text>
         ) : null}
       </Card>
@@ -829,12 +817,12 @@ export default function RewardsScreen() {
 
       {assetsInVault > 0 ? (
         <Card>
-          <Text style={styles.sectionTitle}>Seu Rewards está ativo</Text>
+          <Text style={styles.sectionTitle}>Saldo bloqueado no Rewards</Text>
           <Text style={styles.muted}>
-            Você pode resgatar seu saldo quando quiser, sujeito à liquidez da estratégia.
+            Você pode solicitar o resgate. A liberação segue a liquidez e o processamento do produto.
           </Text>
           <ActionButton
-            label="Resgatar tudo"
+            label="Resgatar Rewards"
             variant="secondary"
             onPress={withdrawAll}
             loading={working}
@@ -843,39 +831,9 @@ export default function RewardsScreen() {
         </Card>
       ) : null}
 
-      <Card>
-        <Text style={styles.sectionTitle}>Planos Rewards</Text>
-        <Text style={styles.muted}>
-          O Flexível já está operacional. Os planos por prazo estão preparados na v135, mas os bônus financeiros continuam desligados até fecharmos a economia do produto.
-        </Text>
-        <View style={styles.planItem}>
-          <Text style={styles.planTitle}>Flexível</Text>
-          <Badge tone="success">DISPONÍVEL</Badge>
-          <Text style={styles.muted}>Resgate quando quiser, sujeito à liquidez da estratégia.</Text>
-        </View>
-        <View style={styles.planItem}>
-          <Text style={styles.planTitle}>Turbo 30</Text>
-          <Badge tone="warning">EM PREPARAÇÃO</Badge>
-          <Text style={styles.muted}>Compromisso de 30 dias. Bônus Nexa ainda não ativado.</Text>
-        </View>
-        <View style={styles.planItem}>
-          <Text style={styles.planTitle}>Turbo 180</Text>
-          <Badge tone="warning">EM PREPARAÇÃO</Badge>
-          <Text style={styles.muted}>Compromisso de 180 dias. Bônus Nexa ainda não ativado.</Text>
-        </View>
-        <View style={styles.planItem}>
-          <Text style={styles.planTitle}>Turbo 365</Text>
-          <Badge tone="warning">EM PREPARAÇÃO</Badge>
-          <Text style={styles.muted}>Compromisso de 365 dias. Bônus Nexa ainda não ativado.</Text>
-        </View>
-      </Card>
-
       {Array.isArray(activity?.items) && activity.items.length > 0 ? (
         <Card>
-          <Text style={styles.sectionTitle}>Extrato Rewards</Text>
-          <Text style={styles.muted}>
-            Cada operação reúne as etapas do Rewards, IDs do provedor e hashes on-chain disponíveis.
-          </Text>
+          <Text style={styles.sectionTitle}>Histórico Rewards</Text>
           {activity.items.slice(0, 8).map((item: any) => (
             <View key={String(item.id)} style={styles.activityItem}>
               <View style={styles.activityHeader}>
@@ -888,8 +846,6 @@ export default function RewardsScreen() {
               </View>
               <Text style={styles.muted}>
                 {formatUsdc(item.amountFinalUsdc || item.amountRequestedUsdc)}
-                {' · '}
-                {String(item.planCode || 'FLEX')}
               </Text>
               <Text style={styles.activityDate}>
                 {formatDateTime(item.completedAt || item.createdAt)}
@@ -907,9 +863,7 @@ export default function RewardsScreen() {
 
       {selectedActivity ? (
         <Card>
-          <Text style={styles.sectionTitle}>Detalhes da operação</Text>
-          <Text style={styles.detailLabel}>Operação Nexa</Text>
-          <Text style={styles.detailValue}>{selectedActivity.id}</Text>
+          <Text style={styles.sectionTitle}>Detalhes</Text>
           <Text style={styles.detailLabel}>Tipo</Text>
           <Text style={styles.detailValue}>
             {operationKindLabel(selectedActivity.kind)}
@@ -925,80 +879,9 @@ export default function RewardsScreen() {
                 selectedActivity.amountRequestedUsdc,
             )}
           </Text>
-          <Text style={styles.detailLabel}>Plano</Text>
+          <Text style={styles.detailLabel}>Data</Text>
           <Text style={styles.detailValue}>
-            {String(selectedActivity.planCode || 'FLEX')}
-          </Text>
-          <Text style={styles.detailLabel}>Vault</Text>
-          <Text style={styles.detailValue}>
-            {String(selectedActivity.vaultId || vault?.vaultId || '—')}
-          </Text>
-          <Text style={styles.detailLabel}>Rede</Text>
-          <Text style={styles.detailValue}>
-            {String(selectedActivity.sourceChain || '—')} →{' '}
-            {String(selectedActivity.destinationChain || '—')}
-          </Text>
-          <Text style={styles.detailLabel}>Início</Text>
-          <Text style={styles.detailValue}>
-            {formatDateTime(selectedActivity.createdAt)}
-          </Text>
-          <Text style={styles.detailLabel}>Conclusão</Text>
-          <Text style={styles.detailValue}>
-            {formatDateTime(selectedActivity.completedAt)}
-          </Text>
-          {selectedActivity.gasTxHash ? (
-            <>
-              <Text style={styles.detailLabel}>Gas patrocinado pela Nexa</Text>
-              <Text selectable style={styles.hashValue}>
-                {String(selectedActivity.gasTxHash)}
-              </Text>
-            </>
-          ) : null}
-          {selectedActivity.bridgeActionId ? (
-            <>
-              <Text style={styles.detailLabel}>Action bridge</Text>
-              <Text selectable style={styles.hashValue}>
-                {String(selectedActivity.bridgeActionId)}
-              </Text>
-            </>
-          ) : null}
-          {selectedActivity.depositActionId ? (
-            <>
-              <Text style={styles.detailLabel}>Action depósito</Text>
-              <Text selectable style={styles.hashValue}>
-                {String(selectedActivity.depositActionId)}
-              </Text>
-            </>
-          ) : null}
-          {selectedActivity.withdrawActionId ? (
-            <>
-              <Text style={styles.detailLabel}>Action resgate</Text>
-              <Text selectable style={styles.hashValue}>
-                {String(selectedActivity.withdrawActionId)}
-              </Text>
-            </>
-          ) : null}
-          {selectedActivity.returnActionId ? (
-            <>
-              <Text style={styles.detailLabel}>Action retorno</Text>
-              <Text selectable style={styles.hashValue}>
-                {String(selectedActivity.returnActionId)}
-              </Text>
-            </>
-          ) : null}
-          {Array.isArray(selectedActivity.transactionHashes) &&
-          selectedActivity.transactionHashes.length > 0 ? (
-            <>
-              <Text style={styles.detailLabel}>Hashes on-chain</Text>
-              {selectedActivity.transactionHashes.map((hash: string) => (
-                <Text key={hash} selectable style={styles.hashValue}>
-                  {hash}
-                </Text>
-              ))}
-            </>
-          ) : null}
-          <Text style={styles.muted}>
-            Rendimento variável e não garantido. Bônus de prazo ainda não está financeiramente habilitado.
+            {formatDateTime(selectedActivity.completedAt || selectedActivity.createdAt)}
           </Text>
         </Card>
       ) : null}
@@ -1008,17 +891,20 @@ export default function RewardsScreen() {
       {loading ? <Text style={styles.loading}>Atualizando Rewards…</Text> : null}
 
       <Text style={styles.disclaimer}>
-        *Rendimento variável e não garantido. O valor pode oscilar e existem riscos de mercado, protocolo e liquidez.
+        Rendimento variável e não garantido. O produto está sujeito a riscos e liquidez.
       </Text>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  premiumCard: { backgroundColor: '#11143C' },
+  premiumCard: {
+    backgroundColor: '#15130E',
+    borderColor: '#8A6B2D',
+  },
   premiumTitle: {
-    color: colors.text,
-    fontSize: 28,
+    color: '#D8BC7A',
+    fontSize: 20,
     fontWeight: '900',
     marginTop: spacing.md,
   },
@@ -1030,32 +916,17 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   reward: {
-    color: colors.cyan,
+    color: colors.primary,
     fontWeight: '900',
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
   muted: { color: colors.muted, lineHeight: 21 },
-  quoteBox: {
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    gap: 5,
-  },
-  quoteTitle: { color: colors.text, fontWeight: '900' },
-  planItem: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  planTitle: {
+  sectionTitle: {
     color: colors.text,
     fontWeight: '900',
-    fontSize: 16,
+    fontSize: 18,
+    marginBottom: spacing.sm,
   },
   activityItem: {
     borderTopWidth: 1,
@@ -1075,7 +946,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   activityStatus: {
-    color: colors.cyan,
+    color: colors.primary,
     fontWeight: '800',
   },
   activityDate: {
@@ -1094,17 +965,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 20,
   },
-  hashValue: {
-    color: colors.cyan,
-    fontSize: 11,
-    lineHeight: 17,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontWeight: '900',
-    fontSize: 18,
-    marginBottom: spacing.sm,
-  },
   pilot: {
     color: colors.warning,
     fontSize: 12,
@@ -1112,8 +972,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   status: {
-    color: colors.cyan,
-    backgroundColor: '#101B2F',
+    color: '#C4B5FD',
+    backgroundColor: '#211241',
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.md,
