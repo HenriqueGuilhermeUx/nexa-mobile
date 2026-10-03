@@ -95,8 +95,6 @@ function DepositCard({ deposit }: { deposit: any }) {
       {Number(live?.quotedUsdc || 0) > 0 && !completed ? (
         <KeyRow label="USDC em processamento" value={usdc(live.quotedUsdc)} />
       ) : null}
-      {live?.txHash ? <KeyRow label="Comprovante blockchain" value={live.txHash} selectable /> : null}
-      <KeyRow label="Referência" value={String(deposit.externalId || deposit.id)} selectable />
     </Card>
   );
 }
@@ -132,8 +130,12 @@ function RedemptionCard({ redemption }: { redemption: PixRedemption }) {
             : 'O valor final será confirmado depois da venda e da conciliação.'}
         </Text>
       </View>
-      <KeyRow label="Referência" value={String(redemption.endToEndId || redemption.externalId || redemption.pixReference || redemption.id)} selectable />
-      {redemption.failureReason ? <Text style={styles.failure}>{redemption.failureReason}</Text> : null}
+      {completed && redemption.endToEndId ? (
+        <KeyRow label="Comprovante Pix" value={String(redemption.endToEndId)} selectable />
+      ) : null}
+      {redemption.failureReason ? (
+        <Text style={styles.failure}>A operação precisa de atenção da Nexa antes de continuar.</Text>
+      ) : null}
     </Card>
   );
 }
@@ -148,14 +150,20 @@ function OrderCard({ order }: { order: any }) {
             {order.createdAt ? new Date(order.createdAt).toLocaleString('pt-BR') : '—'}
           </Text>
         </View>
-        <Badge tone={statusTone(order.status)}>{String(order.status || 'registrada').toUpperCase()}</Badge>
+        <Badge tone={statusTone(order.status)}>
+          {['completed','available','succeeded'].includes(String(order.status || '').toLowerCase())
+            ? 'CONCLUÍDO'
+            : ['failed','cancelled','expired'].includes(String(order.status || '').toLowerCase())
+              ? 'NÃO CONCLUÍDO'
+              : 'PROCESSANDO'}
+        </Badge>
       </View>
       <Text style={styles.amount}>
         {order.grossBrl !== undefined && order.grossBrl !== null
           ? brl(order.grossBrl)
           : usdc(order.amountUsdc)}
       </Text>
-      <KeyRow label="Referência" value={String(order.clientRequestId || order.id)} selectable />
+
     </Card>
   );
 }
@@ -245,7 +253,7 @@ export default function ActivityScreen() {
       <Eyebrow>Atividade</Eyebrow>
       <Title>Seu dinheiro, sem mistério.</Title>
       <Paragraph>
-        Acompanhe Pix, conversões e entregas na carteira com estados simples e comprovantes quando concluídos.
+        Acompanhe entradas, compras e resgates com estados simples e comprovantes quando disponíveis.
       </Paragraph>
 
       {activity.map((item) => {
