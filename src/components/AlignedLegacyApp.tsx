@@ -46,13 +46,21 @@ const ASSETS = [
 ];
 
 function premiumActive(user: any) {
+  // /user/me is the canonical subscription source.
+  // A Rewards plan, asset pilot or technical test entitlement must never turn
+  // the customer's Premium identity on.
+  if (typeof user?.premium?.isPremium === 'boolean') {
+    return user.premium.isPremium === true;
+  }
+
+  // Compatibility only for older cached sessions that predate the canonical
+  // premium object.
   const status = String(
-    user?.premiumStatus || user?.subscriptionStatus || user?.plan || user?.premium?.status || '',
+    user?.premiumStatus || user?.subscriptionStatus || user?.plan || '',
   ).toLowerCase();
   return Boolean(
     user?.isPremium === true ||
       user?.premiumActive === true ||
-      user?.premium?.active === true ||
       status === 'premium' ||
       status === 'active' ||
       status === 'ativo',
@@ -117,7 +125,7 @@ function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
   );
 }
 
-function BottomNav({ page, onNavigate }: any) {
+function BottomNav({ page, onNavigate, premium }: any) {
   const insets = useSafeAreaInsets();
   const items = [
     ['home', '⌂', 'Início'],
@@ -137,8 +145,24 @@ function BottomNav({ page, onNavigate }: any) {
             onPress={() => onNavigate(target)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.bottomIcon, active ? styles.bottomActive : null]}>{icon}</Text>
-            <Text style={[styles.bottomLabel, active ? styles.bottomActive : null]}>{label}</Text>
+            <Text
+              style={[
+                styles.bottomIcon,
+                active ? styles.bottomActive : null,
+                active && premium ? styles.bottomActivePremium : null,
+              ]}
+            >
+              {icon}
+            </Text>
+            <Text
+              style={[
+                styles.bottomLabel,
+                active ? styles.bottomActive : null,
+                active && premium ? styles.bottomActivePremium : null,
+              ]}
+            >
+              {label}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -942,7 +966,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       <>
         <View style={styles.homeTop}>
           <View>
-            <Text style={styles.welcomeLabel}>CRIPTO WALLET</Text>
+            <Text style={[styles.welcomeLabel, isPremium ? styles.premiumAccentText : null]}>
+              CRIPTO WALLET
+            </Text>
             <Text style={styles.hello}>Olá, {firstName}</Text>
             <Text style={styles.handle}>{handle || 'Conta Nexa'}</Text>
           </View>
@@ -951,15 +977,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           </TouchableOpacity>
         </View>
 
-        <Card style={styles.heroCard}>
+        <Card style={[styles.heroCard, isPremium ? styles.heroCardPremium : null]}>
           <View style={styles.rowBetween}>
             <View>
               <Text style={styles.eyebrow}>CARTEIRA CRIPTO</Text>
               <Text style={styles.heroAmount}>{amount(balances.USDC, 6)}</Text>
               <Text style={styles.heroUnit}>USDC disponível</Text>
             </View>
-            <View style={styles.heroMark}>
-              <Text style={styles.heroMarkText}>N</Text>
+            <View style={[styles.heroMark, isPremium ? styles.heroMarkPremium : null]}>
+              <Text style={[styles.heroMarkText, isPremium ? styles.premiumAccentText : null]}>N</Text>
             </View>
           </View>
           {portfolioTotalUsd > 0 ? (
@@ -1774,7 +1800,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         ) : null}
         {loading && !body ? <ActivityIndicator color="#60a5fa" /> : body}
       </ScrollView>
-      <BottomNav page={page} onNavigate={setPage} />
+      <BottomNav page={page} onNavigate={setPage} premium={isPremium} />
     </View>
   );
 }
