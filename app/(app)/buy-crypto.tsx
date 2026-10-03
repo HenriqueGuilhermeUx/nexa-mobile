@@ -140,7 +140,7 @@ async function confirmOnBackend(
 async function buildPrivySigner(wallet: any) {
   const provider = await wallet?.getProvider?.();
   if (!provider) {
-    throw new Error('A carteira Privy não disponibilizou o assinador Ethereum.');
+    throw new Error('Sua carteira não está pronta para autorizar esta operação.');
   }
 
   let currentChainId = await provider.request({
@@ -158,7 +158,7 @@ async function buildPrivySigner(wallet: any) {
     });
   }
   if (!isPolygonChainId(currentChainId)) {
-    throw new Error('Não foi possível preparar sua carteira na Polygon.');
+    throw new Error('Não foi possível preparar sua carteira para esta operação.');
   }
 
   const address = String(wallet.address || '') as `0x${string}`;
@@ -243,7 +243,7 @@ function SponsoredConfirmation(props: {
       }
 
       if (typeof emailLogin?.sendCode !== 'function') {
-        throw new Error('A reconexão da carteira Privy não está disponível nesta instalação.');
+        throw new Error('A reconexão da sua carteira não está disponível nesta instalação.');
       }
 
       await emailLogin.sendCode({ email, disableSignup: true });
@@ -283,7 +283,7 @@ function SponsoredConfirmation(props: {
       }
 
       if (typeof emailLogin?.loginWithCode !== 'function') {
-        throw new Error('A validação da carteira Privy não está disponível nesta instalação.');
+        throw new Error('A validação da sua carteira não está disponível nesta instalação.');
       }
 
       await emailLogin.loginWithCode({ email, code: normalizedCode });
@@ -292,7 +292,7 @@ function SponsoredConfirmation(props: {
       }
       setCodeSent(false);
       setReconnected(true);
-      setReconnectStatus('Sessão Privy confirmada. Carregando sua carteira existente...');
+      setReconnectStatus('Sessão confirmada. Carregando sua carteira existente...');
     } catch (caught) {
       props.onError(
         caught instanceof Error
@@ -310,7 +310,7 @@ function SponsoredConfirmation(props: {
     setIsLoading(true);
     try {
       if (!wallet) {
-        throw new Error('Reconecte sua carteira Privy antes de confirmar a compra.');
+        throw new Error('Reconecte sua carteira antes de confirmar a compra.');
       }
 
       const signer = await buildPrivySigner(wallet);
@@ -543,7 +543,7 @@ export default function BuyCryptoScreen() {
         String(sponsorship.wallet || '').toLowerCase() !==
           String(response.wallet || '').toLowerCase()
       ) {
-        throw new Error('A autorização de gas não corresponde à carteira preparada.');
+        throw new Error('Não foi possível preparar as taxas desta operação para sua carteira.');
       }
 
       setPrepared(response);
