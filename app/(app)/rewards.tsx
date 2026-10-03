@@ -32,6 +32,7 @@ import {
   type RewardsAuthorizationProof,
   withdrawRewardsFull,
 } from '@/lib/rewardsActions';
+import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -176,8 +177,9 @@ export default function RewardsScreen() {
   const [activity, setActivity] = useState<any>(null);
   const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [accountPremium, setAccountPremium] = useState(false);
 
-  const premium = String(vault?.plan || position?.plan || '') === 'premium';
+  const premium = accountPremium;
   const decimals = Number(position?.summary?.decimals || 6);
   const assetsInVault = rawUsdc(position?.summary?.assetsInVaultRaw, decimals);
   const earnedYield = rawUsdc(position?.summary?.earnedYieldRaw, decimals);
@@ -292,13 +294,16 @@ export default function RewardsScreen() {
     setError('');
     try {
       const session = await sessionOrThrow();
-      const [vaultResponse, positionResponse, stored] = await Promise.all([
-        getRewardsVault(session.accessToken),
-        getRewardsPosition(session.accessToken),
-        AsyncStorage.getItem(PENDING_KEY),
-      ]);
+      const [vaultResponse, positionResponse, meResponse, stored] =
+        await Promise.all([
+          getRewardsVault(session.accessToken),
+          getRewardsPosition(session.accessToken),
+          nexaApi.me(session.accessToken),
+          AsyncStorage.getItem(PENDING_KEY),
+        ]);
       setVault(vaultResponse);
       setPosition(positionResponse);
+      setAccountPremium(meResponse?.premium?.isPremium === true);
       void refreshActivity(session.accessToken);
       if (stored) {
         try {
