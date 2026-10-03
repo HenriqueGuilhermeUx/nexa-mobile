@@ -2,7 +2,6 @@ import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +11,8 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
+
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, spacing } from '@/theme';
 
