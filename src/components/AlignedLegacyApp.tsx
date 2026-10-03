@@ -711,21 +711,24 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     try {
       setLoading(true);
       setDepositResult(null);
-      const requestId =
-        depositRequestId ||
-        newClientRequestId('mobile_pix_in', user.id);
-      if (!depositRequestId) setDepositRequestId(requestId);
-
-      const data = await json(`${API}/deposit/woovi-pix`, {
+      const data = await json(`${API}/fiat-deposit/woovi/create-charge`, {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
           amountBrl: value,
-          clientRequestId: requestId,
         }),
       });
-      setDepositResult(data);
-      setMessage(data?.message || 'Pix criado. Pague usando o QR Code ou copia e cola.');
+      setDepositResult({
+        ...data,
+        customerStage: 'awaiting_pix',
+        customerLabel: 'Aguardando Pix',
+        customerMessage:
+          'Pague usando o QR Code ou copia e cola. Assim que o Pix for confirmado, a Nexa acompanha a conversão e o envio do USDC para sua carteira.',
+      });
+      setDepositRequestId(String(data?.correlationID || ''));
+      setMessage(
+        'Pix criado. Após o pagamento, a confirmação pode levar alguns instantes. Você será avisado quando o USDC estiver disponível.',
+      );
     } catch (error: any) {
       setMessage(error.message);
     } finally {
@@ -734,22 +737,36 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   }
 
   async function refreshPixDeposit() {
-    if (!depositResult?.depositId) return setMessage('Gere um Pix primeiro.');
+    const correlationID = String(
+      depositResult?.correlationID || depositRequestId || '',
+    ).trim();
+    if (!correlationID) return setMessage('Gere um Pix primeiro.');
     try {
       setLoading(true);
       const data = await json(
-        `${API}/deposit/${encodeURIComponent(depositResult.depositId)}/status`,
+        `${API}/fiat-deposit/wallet-first/status/${encodeURIComponent(correlationID)}`,
         { headers: authHeaders },
       );
-      setDepositResult((current: any) => ({ ...current, ...data }));
+      setDepositResult((current: any) => ({
+        ...current,
+        ...data,
+        correlationID,
+        customerStage: data?.stage || current?.customerStage,
+        customerLabel: data?.label || current?.customerLabel,
+        customerMessage: data?.message || current?.customerMessage,
+      }));
       setMessage(
-        String(data?.status || '').toLowerCase() === 'completed'
-          ? 'Pix confirmado e processado.'
-          : `Status do Pix: ${String(data?.status || 'pendente')}`,
+        data?.message ||
+          (data?.completed
+            ? 'Confirmação concluída. Seu USDC já está disponível.'
+            : 'Confirmação em andamento. Você pode fechar o app; avisaremos por e-mail quando concluir.'),
       );
-      if (String(data?.status || '').toLowerCase() === 'completed') await loadAll();
+      if (data?.completed === true) await loadAll();
     } catch (error: any) {
-      setMessage(error.message);
+      setMessage(
+        error?.message ||
+          'Não foi possível atualizar agora. Seu Pix não precisa ser pago novamente.',
+      );
     } finally {
       setLoading(false);
     }
@@ -1570,7 +1587,24 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <Card style={styles.highlightRecurring}>
             <Text style={styles.eyebrow}>PIX NEXA</Text>
             <Text style={styles.highlightTitle}>{money(depositResult.amountBrl || 0)}</Text>
-            <Text style={styles.highlightText}>Status: {String(depositResult.status || 'pendente')}</Text>
+            <Text style={styles.highlightText}>
+              {String(
+                depositResult.customerLabel ||
+                  depositResult.label ||
+                  depositResult.status ||
+                  'Aguardando Pix',
+              )}
+            </Text>
+            {depositResult.customerMessage || depositResult.message ? (
+              <Text style={styles.previewNotice}>
+                {String(depositResult.customerMessage || depositResult.message)}
+              </Text>
+            ) : null}
+            {Number(depositResult.quotedUsdc || 0) > 0 ? (
+              <Text style={styles.highlightText}>
+                USDC estimado: {amount(Number(depositResult.quotedUsdc || 0), 8)}
+              </Text>
+            ) : null}
             {depositResult.copyPasteCode ? (
               <>
                 <View style={styles.qrWrap}>
