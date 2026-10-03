@@ -132,6 +132,7 @@ jobs:
           set -euo pipefail
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
           AAPT2=$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)
+          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)
           "$APKSIGNER" verify --verbose --print-certs "$APK_FILE" > apk-signature.txt
           "$AAPT2" dump badging "$APK_FILE" > apk-badging.txt
           PACKAGE=$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" apk-badging.txt | head -1)
@@ -142,6 +143,8 @@ jobs:
           test "$VERSION_NAME" = '2.0.33'
           test "$VERSION_CODE" = '136'
           test "$TARGET_SDK" = '36'
+          "$ZIPALIGN" -c -P 16 -v 4 "$APK_FILE" > apk-zipalign-16k.txt
+          grep -q 'Verification successful' apk-zipalign-16k.txt
           sha256sum "$APK_FILE" > apk-SHA256SUMS.txt
 
       - name: Build signed v136 production AAB
@@ -184,6 +187,7 @@ jobs:
             ${{ env.APK_FILE }}
             apk-signature.txt
             apk-badging.txt
+            apk-zipalign-16k.txt
             apk-SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
