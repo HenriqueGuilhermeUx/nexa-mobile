@@ -134,7 +134,10 @@ jobs:
           if (kyc.includes('Entrar na Nexa e verificar depois')) {
             throw new Error('KYC bypass must not exist in definitive onboarding');
           }
-          if (!walletSession.includes("disableSignup: returnTo !== 'onboarding-wallet'")) {
+          if (
+            !walletSession.includes("const walletOnboarding = returnTo === 'onboarding-wallet'") ||
+            !walletSession.includes('disableSignup: !walletOnboarding')
+          ) {
             throw new Error('First-time Privy identity must be allowed only during onboarding');
           }
           if (!shell.includes('Pix para resgates')) {
