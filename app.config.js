@@ -12,6 +12,6 @@ module.exports = ({ config }) => ({
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.39-v141-open-finance-subscription',
+    releaseBuild: 'android16-api36-2.0.39-v142-definitive-onboarding',
   },
 });
