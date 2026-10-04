@@ -95,7 +95,7 @@ export default function SignUpCountryScreen() {
 const styles = StyleSheet.create({
   message: {
     color: colors.muted,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.panel,
     borderRadius: radius.md,
     padding: spacing.md,
     marginTop: spacing.md,
