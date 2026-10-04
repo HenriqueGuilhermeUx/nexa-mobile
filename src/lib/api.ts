@@ -76,7 +76,8 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
 export interface NexaUserSummary {
   id?: string;
   email?: string;
-  cpf?: string;
+  cpf?: string | null;
+  residenceCountry?: string;
   fullName?: string;
   phone?: string | null;
   username?: string | null;
@@ -110,9 +111,31 @@ export interface LoginResponse {
 export interface RegistrationData {
   fullName: string;
   email: string;
-  cpf: string;
+  cpf?: string;
+  countryCode?: string;
   phone?: string;
   password: string;
+}
+
+export interface CountryCapabilities {
+  countryCode: string;
+  market?: string;
+  onboarding?: {
+    status?: 'active' | 'preview' | 'unavailable' | string;
+    registrationEnabled?: boolean;
+    kycProvider?: string;
+    documentModel?: string;
+  };
+  wallet?: {
+    status?: 'active' | 'preview' | 'unavailable' | string;
+    provider?: string;
+    sourceOfTruth?: string;
+  };
+  funding?: Record<string, string>;
+  payout?: Record<string, string>;
+  globalAccount?: string;
+  cards?: string;
+  stablecoins?: Record<string, string>;
 }
 
 export interface BrazilKycStatus {
@@ -230,6 +253,12 @@ function normalizeDirectProfile(response: any) {
 }
 
 export const nexaApi = {
+  countryCapabilities(countryCode: string) {
+    return request<CountryCapabilities>(
+      `/nexa-rails/v1/capabilities/${encodeURIComponent(countryCode)}`,
+    );
+  },
+
   register(data: RegistrationData) {
     return request<LoginResponse>('/auth/register', {
       method: 'POST',
@@ -314,8 +343,20 @@ export const nexaApi = {
     });
   },
 
+  startGlobalKyc(accessToken: string, consent = true) {
+    return request<BrazilKycStatus>('/kyc/didit/global/start', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ consent }),
+    });
+  },
+
   getMyKycStatus(accessToken: string) {
     return request<BrazilKycStatus>('/kyc/didit/me', { accessToken });
+  },
+
+  getMyGlobalKycStatus(accessToken: string) {
+    return request<BrazilKycStatus>('/kyc/didit/global/me', { accessToken });
   },
 
   configurePayoutOnboarding(
