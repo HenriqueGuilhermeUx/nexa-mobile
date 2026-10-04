@@ -10,6 +10,7 @@ import {
   Title,
 } from '@/components/ui';
 import { ApiError, nexaApi } from '@/lib/api';
+import { resolveAuthenticatedRoute } from '@/lib/onboarding';
 import {
   clearNexaTokens,
   loadNexaSession,
@@ -33,11 +34,11 @@ export default function WelcomeScreen() {
         try {
           const profile = await nexaApi.me(session.accessToken);
           if (!mounted) return;
-          router.replace(
-            profile?.kycStatus === 'approved'
-              ? ('/legacy' as any)
-              : ('/kyc' as any),
+          const target = await resolveAuthenticatedRoute(
+            profile,
+            session.accessToken,
           );
+          router.replace(target as any);
           return;
         } catch (caught) {
           if (
@@ -75,11 +76,11 @@ export default function WelcomeScreen() {
 
               const profile = await nexaApi.me(tokens.accessToken);
               if (!mounted) return;
-              router.replace(
-                profile?.kycStatus === 'approved'
-                  ? ('/legacy' as any)
-                  : ('/kyc' as any),
+              const target = await resolveAuthenticatedRoute(
+                profile,
+                tokens.accessToken,
               );
+              router.replace(target as any);
               return;
             } catch {
               await clearNexaTokens();
