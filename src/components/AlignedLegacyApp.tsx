@@ -981,6 +981,10 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     router.push('/(app)/buy-crypto' as any);
   }
 
+  function openUsdcSubscription() {
+    router.push('/open-finance-recurring' as any);
+  }
+
   const contentBottom = 92 + Math.max(insets.bottom, 10);
 
   function Home() {
@@ -994,15 +998,22 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             <Text style={styles.hello}>Olá, {firstName}</Text>
             <Text style={styles.handle}>{handle || 'Conta Nexa'}</Text>
           </View>
-          <TouchableOpacity onPress={() => setPage('profile')} style={styles.avatar}>
-            <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
+          <TouchableOpacity
+            onPress={() => setPage('profile')}
+            style={[styles.avatar, isPremium ? styles.avatarPremium : null]}
+          >
+            <Text style={[styles.avatarText, isPremium ? styles.avatarTextPremium : null]}>
+              {firstName.charAt(0).toUpperCase()}
+            </Text>
           </TouchableOpacity>
         </View>
 
         <Card style={[styles.heroCard, isPremium ? styles.heroCardPremium : null]}>
           <View style={styles.rowBetween}>
             <View>
-              <Text style={styles.eyebrow}>CARTEIRA CRIPTO</Text>
+              <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>
+                CARTEIRA CRIPTO
+              </Text>
               <Text style={styles.heroAmount}>{amount(balances.USDC, 6)}</Text>
               <Text style={styles.heroUnit}>USDC disponível</Text>
             </View>
@@ -1011,7 +1022,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             </View>
           </View>
           {portfolioTotalUsd > 0 ? (
-            <Text style={styles.portfolioValue}>
+            <Text style={[styles.portfolioValue, isPremium ? styles.portfolioValuePremium : null]}>
               Carteira estimada: US$ {amount(portfolioTotalUsd, 2)}
             </Text>
           ) : null}
@@ -1120,12 +1131,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
         <TouchableOpacity
           style={styles.homeWideCard}
-          onPress={() => setPage('recurring')}
+          onPress={openUsdcSubscription}
         >
-          <Text style={styles.homeSecondaryKicker}>RECORRÊNCIA</Text>
-          <Text style={styles.homeSecondaryTitle}>Compra mensal de USDC</Text>
+          <Text style={styles.homeSecondaryKicker}>OPEN FINANCE</Text>
+          <Text style={styles.homeSecondaryTitle}>USDC por assinatura</Text>
           <Text style={styles.homeSecondaryText}>
-            Escolha valor e dia para organizar suas compras recorrentes.
+            Autorize no seu banco e receba USDC automaticamente todo mês.
           </Text>
         </TouchableOpacity>
       </>
@@ -1330,125 +1341,22 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Recurring() {
     return (
       <>
+        <Text style={styles.pageKicker}>OPEN FINANCE</Text>
         <Text style={styles.pageTitle}>USDC por assinatura</Text>
-        <Text style={styles.pageSubtitle}>Escolha valor e dia do mês. A recorrência é somente em USDC.</Text>
-        {recurring ? (
-          <Card>
-            <Text style={styles.eyebrow}>RECORRÊNCIA ATUAL</Text>
-            <Text style={styles.highlightTitle}>{money(recurring.monthlyAmountBrl || recurring.amountBrl || recurring.amount || 0)}</Text>
-            <Text style={styles.highlightText}>
-              Dia {Number(recurring.preferredDay || recurring.dayOfMonth || recurring.day || 5)} · status {String(recurring.status || 'ativo')}
-            </Text>
-            {recurring.wooviSubscriptionId ? (
-              <>
-                <Text style={styles.successText}>✓ Pix Automático vinculado</Text>
-                <Text style={styles.highlightText}>Status Woovi: {String(recurring.wooviSubscriptionStatus || 'ativo')}</Text>
-                {recurring.wooviBrCode ? (
-                  <View style={styles.qrWrap}>
-                    <QRCode value={String(recurring.wooviBrCode)} size={172} />
-                  </View>
-                ) : null}
-              </>
-            ) : (
-              <Text style={styles.highlightText}>Pix Automático ainda não vinculado.</Text>
-            )}
-            {!recurring.wooviSubscriptionId ? (
-              <View style={{ marginTop: 12 }}>
-                <Text style={styles.formLabel}>
-                  Endereço exigido para autorização do Pix Automático
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="CEP"
-                  placeholderTextColor="#64748b"
-                  value={recurringAddress.zipcode}
-                  onChangeText={(value) =>
-                    setRecurringAddress((current) => ({ ...current, zipcode: value }))
-                  }
-                  keyboardType="number-pad"
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Rua"
-                  placeholderTextColor="#64748b"
-                  value={recurringAddress.street}
-                  onChangeText={(value) =>
-                    setRecurringAddress((current) => ({ ...current, street: value }))
-                  }
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Número"
-                  placeholderTextColor="#64748b"
-                  value={recurringAddress.number}
-                  onChangeText={(value) =>
-                    setRecurringAddress((current) => ({ ...current, number: value }))
-                  }
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Bairro"
-                  placeholderTextColor="#64748b"
-                  value={recurringAddress.neighborhood}
-                  onChangeText={(value) =>
-                    setRecurringAddress((current) => ({ ...current, neighborhood: value }))
-                  }
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Cidade"
-                  placeholderTextColor="#64748b"
-                  value={recurringAddress.city}
-                  onChangeText={(value) =>
-                    setRecurringAddress((current) => ({ ...current, city: value }))
-                  }
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="UF"
-                  placeholderTextColor="#64748b"
-                  value={recurringAddress.state}
-                  onChangeText={(value) =>
-                    setRecurringAddress((current) => ({
-                      ...current,
-                      state: value.toUpperCase().slice(0, 2),
-                    }))
-                  }
-                  autoCapitalize="characters"
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Complemento (opcional)"
-                  placeholderTextColor="#64748b"
-                  value={recurringAddress.complement}
-                  onChangeText={(value) =>
-                    setRecurringAddress((current) => ({ ...current, complement: value }))
-                  }
-                />
-              </View>
-            ) : null}
-            <PrimaryButton
-              title={config.financialExecutionEnabled ? 'Ativar Pix Automático' : 'Pix Automático bloqueado no preview'}
-              onPress={linkRecurringWoovi}
-              disabled={!config.financialExecutionEnabled || loading}
-              secondary
-            />
-            <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.smallAction} onPress={pauseRecurring} disabled={loading}>
-                <Text style={styles.smallActionText}>Pausar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.smallAction} onPress={cancelRecurring} disabled={loading}>
-                <Text style={styles.smallActionText}>Cancelar</Text>
-              </TouchableOpacity>
-            </View>
-          </Card>
-        ) : null}
-        <Card>
-          <Text style={styles.formLabel}>Valor mensal</Text>
-          <TextInput style={styles.input} placeholder="R$ 100,00" placeholderTextColor="#64748b" value={recurringAmount} onChangeText={setRecurringAmount} keyboardType="decimal-pad" />
-          <Text style={styles.formLabel}>Dia do mês (1 a 28)</Text>
-          <TextInput style={styles.input} placeholder="5" placeholderTextColor="#64748b" value={recurringDay} onChangeText={setRecurringDay} keyboardType="number-pad" />
-          <PrimaryButton title="Salvar recorrência" onPress={saveRecurring} disabled={loading} />
+        <Text style={styles.pageSubtitle}>
+          Escolha valor, banco e dia do mês. Você autoriza uma vez no seu banco e a Nexa envia o USDC para sua própria carteira a cada parcela confirmada.
+        </Text>
+        <Card style={styles.highlightRecurring}>
+          <Text style={styles.eyebrow}>AUTORIZAÇÃO BANCÁRIA</Text>
+          <Text style={styles.highlightTitle}>Configure uma vez.</Text>
+          <Text style={styles.highlightText}>
+            A Nexa nunca pede sua senha bancária. A recorrência só é criada depois da sua confirmação e autorização no banco via Open Finance.
+          </Text>
+          <PrimaryButton
+            title="Configurar USDC por assinatura"
+            onPress={openUsdcSubscription}
+            disabled={loading}
+          />
         </Card>
       </>
     );
@@ -1521,7 +1429,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             onPress={() => setPage('premium')}
             premium={isPremium}
           />
-          <MenuTile icon="↻" title="Recorrência" subtitle="Compra mensal de USDC" onPress={() => setPage('recurring')} />
+          <MenuTile
+            icon="↻"
+            title="USDC por assinatura"
+            subtitle="Open Finance • mensal"
+            onPress={openUsdcSubscription}
+          />
           <MenuTile
             icon="✦"
             title="Rewards"
@@ -1866,21 +1779,27 @@ const styles: any = {
     borderWidth: 1, borderColor: '#2B3442', alignItems: 'center', justifyContent: 'center'
   },
   avatarText: { color: '#C4B5FD', fontSize: 18, fontWeight: '900' },
+  avatarPremium: { backgroundColor: '#17140D', borderColor: '#8A6B2D' },
+  avatarTextPremium: { color: '#D8BC7A' },
+  premiumAccentText: { color: '#D8BC7A' },
   card: {
     backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
     borderRadius: 20, padding: 18, marginBottom: 14
   },
   heroCard: { backgroundColor: '#0D1522', borderColor: '#4C1D95', padding: 20 },
+  heroCardPremium: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
   heroMark: {
     width: 44, height: 44, borderRadius: 22, backgroundColor: '#171D27',
     borderWidth: 1, borderColor: '#5B21B6', alignItems: 'center', justifyContent: 'center'
   },
   heroMarkText: { color: '#A78BFA', fontSize: 20, fontWeight: '900' },
+  heroMarkPremium: { backgroundColor: '#1B1810', borderColor: '#A88432' },
   eyebrow: { color: '#8B5CF6', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
   premiumEyebrow: { color: '#A78BFA', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
   heroAmount: { color: '#F7F8FA', fontSize: 40, fontWeight: '800', marginTop: 8 },
   heroUnit: { color: '#A3ADBA', fontSize: 13, fontWeight: '700', marginTop: 1 },
   portfolioValue: { color: '#A78BFA', fontSize: 12, fontWeight: '800', marginTop: 16 },
+  portfolioValuePremium: { color: '#D8BC7A' },
   heroHint: { color: '#7F8A9B', lineHeight: 18, marginTop: 9, fontSize: 12 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   menuTile: {
