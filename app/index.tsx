@@ -21,11 +21,14 @@ import { colors, spacing } from '@/theme';
 
 export default function WelcomeScreen() {
   const [checking, setChecking] = useState(true);
+  const [startupError, setStartupError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let mounted = true;
 
     async function resolveSession() {
+      setStartupError('');
       await migrateLegacySession();
       let session = await loadNexaSession();
       if (!mounted) return;
@@ -95,9 +98,15 @@ export default function WelcomeScreen() {
             return;
           }
 
-          // Uma indisponibilidade momentânea do backend não bloqueia um cliente
-          // já autenticado de abrir a experiência existente.
-          router.replace('/legacy' as any);
+          // O onboarding definitivo não decide KYC/Pix/wallet sem o perfil
+          // canônico do servidor. A sessão é preservada e o cliente pode tentar
+          // novamente; nenhuma etapa é pulada silenciosamente.
+          if (mounted) {
+            setStartupError(
+              'Não foi possível confirmar sua conta Nexa agora. Sua sessão foi preservada.',
+            );
+            setChecking(false);
+          }
           return;
         }
       }
@@ -108,7 +117,7 @@ export default function WelcomeScreen() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [retryKey]);
 
   if (checking) {
     return (
@@ -129,6 +138,19 @@ export default function WelcomeScreen() {
             Pix e USDC em uma experiência simples, segura e transparente.
           </Paragraph>
         </View>
+
+        {startupError ? (
+          <>
+            <Text style={styles.startupError}>{startupError}</Text>
+            <ActionButton
+              label="Tentar novamente"
+              onPress={() => {
+                setChecking(true);
+                setRetryKey((value) => value + 1);
+              }}
+            />
+          </>
+        ) : null}
 
         <ActionButton label="Entrar" onPress={() => router.push('/sign-in')} />
         <ActionButton
@@ -153,4 +175,10 @@ const styles = StyleSheet.create({
   loaderText: { color: colors.muted, textAlign: 'center' },
   content: { flex: 1, justifyContent: 'center' },
   hero: { marginVertical: spacing.xl },
+  startupError: {
+    color: colors.muted,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    lineHeight: 20,
+  },
 });
