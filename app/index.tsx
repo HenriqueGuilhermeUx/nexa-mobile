@@ -156,7 +156,7 @@ export default function WelcomeScreen() {
         <ActionButton
           label="Criar conta"
           variant="secondary"
-          onPress={() => router.push('/sign-up')}
+          onPress={() => router.push('/sign-up-country' as any)}
         />
       </View>
     </Screen>
