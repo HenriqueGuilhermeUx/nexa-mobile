@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nexa",
     "slug": "nexa",
-    "version": "2.0.39",
+    "version": "2.0.40",
     "orientation": "portrait",
     "scheme": "nexa",
     "icon": "./nexa-mobile/nexa-mobile/assets/icon.png",
@@ -16,12 +16,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "142",
+      "buildNumber": "143",
       "usesAppleSignIn": true
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 142,
+      "versionCode": 143,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
@@ -90,7 +90,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.39-v142-definitive-onboarding",
+      "releaseBuild": "android16-api36-2.0.40-v143-definitive-onboarding",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       },
