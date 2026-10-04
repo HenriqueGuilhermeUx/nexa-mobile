@@ -84,6 +84,14 @@ export interface NexaUserSummary {
   nexaId?: string | null;
   kycStatus?: 'pending' | 'in_review' | 'approved' | 'rejected' | string;
   kycVerifiedAt?: string | null;
+  pixKey?: string | null;
+  pixKeyType?: string | null;
+  pixWithdrawEnabled?: boolean;
+  wallet?: {
+    address?: string | null;
+    provider?: string | null;
+    network?: string | null;
+  };
 }
 
 export interface LoginResponse {
@@ -308,6 +316,21 @@ export const nexaApi = {
 
   getMyKycStatus(accessToken: string) {
     return request<BrazilKycStatus>('/kyc/didit/me', { accessToken });
+  },
+
+  configurePayoutOnboarding(
+    accessToken: string,
+    pixKeyType: 'CPF' | 'EMAIL' | 'PHONE',
+  ) {
+    return request<any>('/d1-payout/onboarding', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ pixKeyType }),
+    });
+  },
+
+  payoutSubaccountStatus(accessToken: string) {
+    return request<any>('/d1-payout/subaccount/me', { accessToken });
   },
 
   async directProfile(accessToken: string) {
