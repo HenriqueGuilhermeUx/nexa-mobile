@@ -22,6 +22,7 @@ import CustodyScreen from '../../nexa-mobile/nexa-mobile/CustodyScreen';
 const API = config.apiUrl.replace(/\/$/, '');
 const POLYGON_CHAIN_ID = 137;
 const POLYGON_USDC_CONTRACT = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
+const PremiumThemeContext = React.createContext(false);
 
 function encodeUsdcTransfer(toAddress: string, amountUsdc: number) {
   const cleanAddress = String(toAddress || '').trim();
@@ -86,11 +87,50 @@ function money(value: any) {
   });
 }
 
+function maskPixKey(value: unknown, type?: unknown) {
+  const key = String(value || '').trim();
+  const normalizedType = String(type || '').trim().toUpperCase();
+  if (!key) return '—';
+
+  if (normalizedType === 'CPF') {
+    const digits = key.replace(/\D/g, '');
+    return digits.length === 11
+      ? `${digits.slice(0, 3)}.***.***-${digits.slice(-2)}`
+      : 'CPF confirmado';
+  }
+
+  if (normalizedType === 'EMAIL') {
+    const [name, domain] = key.toLowerCase().split('@');
+    return name && domain
+      ? `${name.slice(0, Math.min(2, name.length))}***@${domain}`
+      : 'E-mail confirmado';
+  }
+
+  if (normalizedType === 'PHONE') {
+    const digits = key.replace(/\D/g, '');
+    return digits.length >= 8 ? `(**) *****-${digits.slice(-4)}` : 'Telefone confirmado';
+  }
+
+  return 'Chave confirmada';
+}
+
 function Card({ children, style }: any) {
-  return <View style={[styles.card, style]}>{children}</View>;
+  const premiumTheme = React.useContext(PremiumThemeContext);
+  return (
+    <View
+      style={[
+        styles.card,
+        style,
+        premiumTheme ? styles.cardPremiumTheme : null,
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 function PrimaryButton({ title, onPress, disabled, secondary }: any) {
+  const premiumTheme = React.useContext(PremiumThemeContext);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -99,6 +139,11 @@ function PrimaryButton({ title, onPress, disabled, secondary }: any) {
       style={[
         styles.button,
         secondary ? styles.buttonSecondary : null,
+        premiumTheme
+          ? secondary
+            ? styles.buttonSecondaryPremium
+            : styles.buttonPremium
+          : null,
         disabled ? styles.buttonDisabled : null,
       ]}
     >
@@ -108,6 +153,8 @@ function PrimaryButton({ title, onPress, disabled, secondary }: any) {
 }
 
 function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
+  const globalPremium = React.useContext(PremiumThemeContext);
+  const premiumTheme = globalPremium || premium;
   return (
     <TouchableOpacity
       activeOpacity={0.84}
@@ -115,10 +162,17 @@ function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
       style={[
         styles.menuTile,
         accent ? styles.menuTileAccent : null,
-        premium ? styles.menuTilePremium : null,
+        premiumTheme ? styles.menuTilePremium : null,
       ]}
     >
-      <Text style={[styles.menuTileIcon, premium ? styles.menuTileIconPremium : null]}>{icon}</Text>
+      <Text
+        style={[
+          styles.menuTileIcon,
+          premiumTheme ? styles.menuTileIconPremium : null,
+        ]}
+      >
+        {icon}
+      </Text>
       <Text style={styles.menuTileTitle}>{title}</Text>
       {subtitle ? <Text style={styles.menuTileSubtitle}>{subtitle}</Text> : null}
     </TouchableOpacity>
@@ -127,6 +181,8 @@ function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
 
 function BottomNav({ page, onNavigate, premium }: any) {
   const insets = useSafeAreaInsets();
+  const globalPremium = React.useContext(PremiumThemeContext);
+  const premiumTheme = globalPremium || premium;
   const items = [
     ['home', '⌂', 'Início'],
     ['wallet', '◫', 'Carteira'],
@@ -135,7 +191,13 @@ function BottomNav({ page, onNavigate, premium }: any) {
     ['menu', '☰', 'Menu'],
   ];
   return (
-    <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}> 
+    <View
+      style={[
+        styles.bottomNav,
+        premiumTheme ? styles.bottomNavPremium : null,
+        { paddingBottom: Math.max(insets.bottom, 10) },
+      ]}
+    >
       {items.map(([target, icon, label]) => {
         const active = page === target;
         return (
@@ -149,7 +211,7 @@ function BottomNav({ page, onNavigate, premium }: any) {
               style={[
                 styles.bottomIcon,
                 active ? styles.bottomActive : null,
-                active && premium ? styles.bottomActivePremium : null,
+                active && premiumTheme ? styles.bottomActivePremium : null,
               ]}
             >
               {icon}
@@ -158,7 +220,7 @@ function BottomNav({ page, onNavigate, premium }: any) {
               style={[
                 styles.bottomLabel,
                 active ? styles.bottomActive : null,
-                active && premium ? styles.bottomActivePremium : null,
+                active && premiumTheme ? styles.bottomActivePremium : null,
               ]}
             >
               {label}
@@ -184,6 +246,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   const [user, setUser] = useState<any>(initialUser || {});
   const [balances, setBalances] = useState<any>({ BRL: 0, USDC: 0, BTC: 0, ETH: 0, PAXG: 0 });
   const [walletFirst, setWalletFirst] = useState<any>(null);
+  const [payoutSubaccount, setPayoutSubaccount] = useState<any>(null);
   const [portfolio, setPortfolio] = useState<any>(null);
   const [statement, setStatement] = useState<any[]>([]);
   const [recurring, setRecurring] = useState<any>(null);
@@ -201,7 +264,6 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   const [sellQuote, setSellQuote] = useState<any>(null);
   const [recurringAmount, setRecurringAmount] = useState('');
   const [recurringDay, setRecurringDay] = useState('5');
-  const [walletWorking, setWalletWorking] = useState(false);
   const [depositAmountBrl, setDepositAmountBrl] = useState('');
   const [depositResult, setDepositResult] = useState<any>(null);
   const [withdrawAmountUsdc, setWithdrawAmountUsdc] = useState('');
@@ -232,7 +294,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     embeddedWallet?.address ||
     '';
   const hasExistingWallet = Boolean(walletAddress);
-  const canAccessCustody = isPremium || hasExistingWallet;
+  const canAccessCustody = hasExistingWallet;
   const firstName = String(user?.fullName || 'Cliente').split(' ')[0];
   const handle = user?.handle || (user?.username ? `@${user.username}` : '');
   const nexaId = String(user?.nexaId || '').trim();
@@ -291,10 +353,17 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     setMessage('');
     try {
       const cache = Date.now();
-      const [meResult, walletFirstResult, legacyBalanceResult, legacyPortfolioResult, statementResult] =
-        await Promise.allSettled([
+      const [
+        meResult,
+        walletFirstResult,
+        payoutSubaccountResult,
+        legacyBalanceResult,
+        legacyPortfolioResult,
+        statementResult,
+      ] = await Promise.allSettled([
           json(`${API}/user/me`, { headers: authHeaders }),
           json(`${API}/wallet-v15/me?_${cache}`, { headers: authHeaders }),
+          json(`${API}/d1-payout/subaccount/me?_${cache}`, { headers: authHeaders }),
           json(`${API}/ledger/balance?userId=${encodeURIComponent(user.id)}&mode=portfolio&_=${cache}`, { headers: authHeaders }),
           json(`${API}/swap/portfolio?_=${cache}`, { headers: authHeaders }),
           json(`${API}/ledger/statement?userId=${encodeURIComponent(user.id)}&limit=40&mode=portfolio&_=${cache}`, { headers: authHeaders }),
@@ -311,6 +380,11 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           ? walletFirstResult.value
           : null;
       setWalletFirst(wf);
+      setPayoutSubaccount(
+        payoutSubaccountResult.status === 'fulfilled'
+          ? payoutSubaccountResult.value
+          : null,
+      );
 
       const legacyBalance =
         legacyBalanceResult.status === 'fulfilled'
@@ -915,33 +989,6 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     }
   }
 
-  async function createPremiumWallet() {
-    if (!isPremium) return setMessage('A carteira individual é um recurso Nexa Premium.');
-    if (walletAddress) return setMessage('Sua carteira individual já está vinculada.');
-    if (!privy?.isReady) return setMessage('A carteira ainda está sendo preparada.');
-    try {
-      setWalletWorking(true);
-      setMessage('Criando sua carteira individual...');
-      if (!embeddedWallet) {
-        if (!embedded?.create) throw new Error('Criação de carteira indisponível neste dispositivo.');
-        await embedded.create({ createAdditional: false });
-        setMessage('Carteira criada. Aguarde alguns segundos e toque novamente para concluir o vínculo.');
-        return;
-      }
-      const privyToken = await privy.getAccessToken?.();
-      if (!privyToken) throw new Error('Sua sessão de carteira expirou. Entre novamente.');
-      await nexaApi.linkWallet(token, privyToken, {
-        privyWalletId: String(embeddedWallet.id || embeddedWallet.walletId || embeddedWallet.address),
-        walletAddress: embeddedWallet.address,
-      });
-      setUser((current: any) => ({ ...current, walletAddress: embeddedWallet.address }));
-      setMessage('Carteira Premium vinculada com sucesso.');
-    } catch (error: any) {
-      setMessage(error.message);
-    } finally {
-      setWalletWorking(false);
-    }
-  }
 
   const portfolioPositions = useMemo(() => {
     const byAsset: Record<string, any> = {};
@@ -1044,20 +1091,27 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             <Text style={styles.sectionTitle}>Seus ativos</Text>
           </View>
           <TouchableOpacity onPress={() => setPage('assets')}>
-            <Text style={styles.inlineAction}>Ver todos</Text>
+            <Text style={[styles.inlineAction, isPremium ? styles.premiumAccentText : null]}>
+              Ver todos
+            </Text>
           </TouchableOpacity>
         </View>
         <View style={styles.assetGrid}>
           {portfolioPositions.map((item) => (
             <TouchableOpacity
               key={item.symbol}
-              style={styles.assetMini}
+              style={[
+                styles.assetMini,
+                isPremium ? styles.premiumSurface : null,
+              ]}
               onPress={() => {
                 setAsset(item.symbol === 'USDC' ? 'BTC' : item.symbol);
                 setPage(item.symbol === 'USDC' ? 'wallet' : 'assets');
               }}
             >
-              <Text style={styles.assetIcon}>{item.icon}</Text>
+              <Text style={[styles.assetIcon, isPremium ? styles.premiumAccentText : null]}>
+              {item.icon}
+            </Text>
               <Text style={styles.assetSymbol}>{item.symbol}</Text>
               <Text style={styles.assetBalance}>{amount(item.amount, 6)}</Text>
             </TouchableOpacity>
@@ -1130,10 +1184,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         </View>
 
         <TouchableOpacity
-          style={styles.homeWideCard}
+          style={[
+            styles.homeWideCard,
+            isPremium ? styles.premiumSurface : null,
+          ]}
           onPress={openUsdcSubscription}
         >
-          <Text style={styles.homeSecondaryKicker}>OPEN FINANCE</Text>
+          <Text style={[styles.homeSecondaryKicker, isPremium ? styles.premiumAccentText : null]}>
+            OPEN FINANCE
+          </Text>
           <Text style={styles.homeSecondaryTitle}>USDC por assinatura</Text>
           <Text style={styles.homeSecondaryText}>
             Autorize no seu banco e receba USDC automaticamente todo mês.
@@ -1479,7 +1538,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Card>
           <Text style={styles.formLabel}>Valor em reais</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, isPremium ? styles.premiumBorder : null]}
             placeholder="R$ 100,00"
             placeholderTextColor="#64748b"
             value={depositAmountBrl}
@@ -1548,7 +1607,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Card>
           <Text style={styles.formLabel}>Valor em USDC</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, isPremium ? styles.premiumBorder : null]}
             placeholder="USDC"
             placeholderTextColor="#64748b"
             value={withdrawAmountUsdc}
@@ -1561,7 +1620,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           />
           <PrimaryButton title="Ver cotação Pix" onPress={quotePixWithdrawal} disabled={loading} />
           {withdrawQuote ? (
-            <View style={styles.quoteBox}>
+            <View style={[styles.quoteBox, isPremium ? styles.premiumBorder : null]}>
               <Text style={styles.quoteTitle}>Cotação Nexa</Text>
               <Text style={styles.quoteText}>USDC: {amount(withdrawQuote.amountUsdc, 8)}</Text>
               <Text style={styles.quoteText}>Pix estimado: {money(withdrawQuote.netBrl || 0)}</Text>
@@ -1570,7 +1629,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
               </Text>
               <Text style={styles.formLabel}>Chave Pix</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isPremium ? styles.premiumBorder : null]}
                 placeholder="CPF, e-mail, telefone ou chave aleatória"
                 placeholderTextColor="#64748b"
                 value={withdrawPixKey}
@@ -1627,8 +1686,20 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Text style={styles.pageTitle}>Perfil</Text>
         <Card style={styles.profileCard}>
           <View style={styles.profileHeader}>
-            <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>{firstName.charAt(0).toUpperCase()}</Text>
+            <View
+              style={[
+                styles.profileAvatar,
+                isPremium ? styles.profileAvatarPremium : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.profileAvatarText,
+                  isPremium ? styles.premiumAccentText : null,
+                ]}
+              >
+                {firstName.charAt(0).toUpperCase()}
+              </Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.profileName}>{user?.fullName}</Text>
@@ -1644,6 +1715,23 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           </Text>
           <Text style={styles.profileLabel}>Relacionamento</Text>
           <Text style={styles.profileValue}>{isPremium ? 'Nexa Premium' : 'Nexa'}</Text>
+          <Text style={styles.profileLabel}>Pix para resgates</Text>
+          <Text style={styles.profileValue}>
+            {user?.pixWithdrawEnabled && user?.pixKey
+              ? `${String(user?.pixKeyType || 'PIX').toUpperCase()} • ${maskPixKey(
+                  user?.pixKey,
+                  user?.pixKeyType,
+                )}`
+              : 'Não configurado'}
+          </Text>
+          <Text style={styles.profileLabel}>Conta de resgate</Text>
+          <Text style={styles.profileValue}>
+            {payoutSubaccount?.active === true
+              ? 'Pronta'
+              : user?.pixWithdrawEnabled
+                ? 'Em preparação'
+                : 'Não configurada'}
+          </Text>
           {walletAddress ? (
             <>
               <Text style={styles.profileLabel}>Carteira vinculada</Text>
@@ -1730,11 +1818,18 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   }
 
   return (
+    <PremiumThemeContext.Provider value={isPremium}>
     <View style={styles.root}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{ paddingTop: Math.max(insets.top, 18) + 10, paddingBottom: contentBottom }}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadAll} tintColor="#60a5fa" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadAll}
+            tintColor={isPremium ? '#D8BC7A' : '#60a5fa'}
+          />
+        }
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -1746,7 +1841,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           {isPremium ? <Text style={styles.brandEditionPremium}>PREMIUM</Text> : null}
         </View>
         {message ? (
-          <TouchableOpacity onPress={() => setMessage('')} style={styles.messageBox}>
+          <TouchableOpacity onPress={() => setMessage('')} style={[styles.messageBox, isPremium ? styles.premiumBorder : null]}>
             <Text style={styles.messageText}>{message}</Text>
           </TouchableOpacity>
         ) : null}
@@ -1754,6 +1849,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       </ScrollView>
       <BottomNav page={page} onNavigate={setPage} premium={isPremium} />
     </View>
+    </PremiumThemeContext.Provider>
   );
 }
 
@@ -1786,6 +1882,15 @@ const styles: any = {
     backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
     borderRadius: 20, padding: 18, marginBottom: 14
   },
+  cardPremiumTheme: {
+    backgroundColor: '#0F100D',
+    borderColor: '#8A6B2D',
+  },
+  premiumSurface: {
+    backgroundColor: '#0F100D',
+    borderColor: '#8A6B2D',
+  },
+  premiumBorder: { borderColor: '#8A6B2D' },
   heroCard: { backgroundColor: '#0D1522', borderColor: '#4C1D95', padding: 20 },
   heroCardPremium: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
   heroMark: {
@@ -1872,6 +1977,8 @@ const styles: any = {
     borderRadius: 13, paddingVertical: 14, paddingHorizontal: 16, marginTop: 14
   },
   buttonSecondary: { backgroundColor: '#111720', borderColor: '#293548' },
+  buttonPremium: { backgroundColor: '#8A6B2D', borderColor: '#D8BC7A' },
+  buttonSecondaryPremium: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
   buttonDisabled: { opacity: 0.45 },
   buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', textAlign: 'center' },
   buttonTextSecondary: { color: '#F2F4F7' },
@@ -1909,6 +2016,7 @@ const styles: any = {
     borderWidth: 1, borderColor: '#5B21B6', alignItems: 'center', justifyContent: 'center'
   },
   profileAvatarText: { color: '#C4B5FD', fontSize: 19, fontWeight: '900' },
+  profileAvatarPremium: { backgroundColor: '#17140D', borderColor: '#8A6B2D' },
   profileName: { color: '#F7F8FA', fontSize: 21, fontWeight: '800' },
   profileHandle: { color: '#9AA4B2', fontSize: 12, marginTop: 3 },
   profileDivider: { height: 1, backgroundColor: '#202A38', marginVertical: 16 },
@@ -1929,4 +2037,9 @@ const styles: any = {
   bottomIcon: { color: '#616C7A', fontSize: 18, fontWeight: '900' },
   bottomLabel: { color: '#616C7A', fontSize: 10, fontWeight: '800', marginTop: 4 },
   bottomActive: { color: '#A78BFA' },
+  bottomNavPremium: {
+    borderTopColor: '#8A6B2D',
+    backgroundColor: '#0A0A08',
+  },
+  bottomActivePremium: { color: '#D8BC7A' },
 };
