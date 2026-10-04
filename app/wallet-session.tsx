@@ -185,6 +185,10 @@ export default function WalletSessionScreen() {
       router.replace('/(app)/cash-out' as any);
       return;
     }
+    if (returnTo === 'onboarding-wallet') {
+      router.replace('/onboarding-wallet' as any);
+      return;
+    }
     router.back();
   }
 

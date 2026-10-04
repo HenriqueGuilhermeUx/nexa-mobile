@@ -211,6 +211,7 @@ function BottomNav({ page, onNavigate, premium }: any) {
               style={[
                 styles.bottomIcon,
                 active ? styles.bottomActive : null,
+                premiumTheme ? styles.bottomPremiumIdle : null,
                 active && premiumTheme ? styles.bottomActivePremium : null,
               ]}
             >
@@ -1168,7 +1169,10 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
         <View style={styles.homeSecondaryRow}>
           <TouchableOpacity
-            style={styles.homeSecondaryCard}
+            style={[
+              styles.homeSecondaryCard,
+              isPremium ? styles.premiumSurface : null,
+            ]}
             onPress={() => router.push('/(app)/rewards' as any)}
           >
             <Text style={[styles.homeSecondaryKicker, isPremium ? styles.premiumAccentText : null]}>REWARDS</Text>
@@ -1758,11 +1762,23 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <Text style={styles.highlightTitle}>Precisa de ajuda?</Text>
           <Text style={styles.highlightText}>Fale com a Nexa pelo WhatsApp ou peça ajuda ao seu Assistente.</Text>
           <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.staffPrimaryAction} onPress={openNexaSupport}>
+            <TouchableOpacity
+              style={[
+                styles.staffPrimaryAction,
+                isPremium ? styles.staffPrimaryActionPremium : null,
+              ]}
+              onPress={openNexaSupport}
+            >
               <Text style={styles.staffPrimaryActionText}>WhatsApp</Text>
             </TouchableOpacity>
             {config.assistantEnabled ? (
-              <TouchableOpacity style={styles.staffSecondaryAction} onPress={() => router.push('/assistant')}>
+              <TouchableOpacity
+                style={[
+                  styles.staffSecondaryAction,
+                  isPremium ? styles.premiumBorder : null,
+                ]}
+                onPress={() => router.push('/assistant')}
+              >
                 <Text style={styles.staffSecondaryActionText}>Assistente Nexa</Text>
               </TouchableOpacity>
             ) : null}
@@ -2060,5 +2076,6 @@ const styles: any = {
     borderTopColor: '#8A6B2D',
     backgroundColor: '#0A0A08',
   },
-  bottomActivePremium: { color: '#D8BC7A' },
+  bottomPremiumIdle: { color: '#9F8754' },
+  bottomActivePremium: { color: '#E3C980' },
 };
