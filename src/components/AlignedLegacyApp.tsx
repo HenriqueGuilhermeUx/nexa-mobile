@@ -22,6 +22,7 @@ import CustodyScreen from '../../nexa-mobile/nexa-mobile/CustodyScreen';
 const API = config.apiUrl.replace(/\/$/, '');
 const POLYGON_CHAIN_ID = 137;
 const POLYGON_USDC_CONTRACT = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
+const PremiumThemeContext = React.createContext(false);
 
 function encodeUsdcTransfer(toAddress: string, amountUsdc: number) {
   const cleanAddress = String(toAddress || '').trim();
@@ -86,11 +87,50 @@ function money(value: any) {
   });
 }
 
+function maskPixKey(value: unknown, type?: unknown) {
+  const key = String(value || '').trim();
+  const normalizedType = String(type || '').trim().toUpperCase();
+  if (!key) return '—';
+
+  if (normalizedType === 'CPF') {
+    const digits = key.replace(/\D/g, '');
+    return digits.length === 11
+      ? `${digits.slice(0, 3)}.***.***-${digits.slice(-2)}`
+      : 'CPF confirmado';
+  }
+
+  if (normalizedType === 'EMAIL') {
+    const [name, domain] = key.toLowerCase().split('@');
+    return name && domain
+      ? `${name.slice(0, Math.min(2, name.length))}***@${domain}`
+      : 'E-mail confirmado';
+  }
+
+  if (normalizedType === 'PHONE') {
+    const digits = key.replace(/\D/g, '');
+    return digits.length >= 8 ? `(**) *****-${digits.slice(-4)}` : 'Telefone confirmado';
+  }
+
+  return 'Chave confirmada';
+}
+
 function Card({ children, style }: any) {
-  return <View style={[styles.card, style]}>{children}</View>;
+  const premiumTheme = React.useContext(PremiumThemeContext);
+  return (
+    <View
+      style={[
+        styles.card,
+        style,
+        premiumTheme ? styles.cardPremiumTheme : null,
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 function PrimaryButton({ title, onPress, disabled, secondary }: any) {
+  const premiumTheme = React.useContext(PremiumThemeContext);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -99,6 +139,11 @@ function PrimaryButton({ title, onPress, disabled, secondary }: any) {
       style={[
         styles.button,
         secondary ? styles.buttonSecondary : null,
+        premiumTheme
+          ? secondary
+            ? styles.buttonSecondaryPremium
+            : styles.buttonPremium
+          : null,
         disabled ? styles.buttonDisabled : null,
       ]}
     >
@@ -108,6 +153,8 @@ function PrimaryButton({ title, onPress, disabled, secondary }: any) {
 }
 
 function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
+  const globalPremium = React.useContext(PremiumThemeContext);
+  const premiumTheme = globalPremium || premium;
   return (
     <TouchableOpacity
       activeOpacity={0.84}
@@ -115,10 +162,17 @@ function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
       style={[
         styles.menuTile,
         accent ? styles.menuTileAccent : null,
-        premium ? styles.menuTilePremium : null,
+        premiumTheme ? styles.menuTilePremium : null,
       ]}
     >
-      <Text style={[styles.menuTileIcon, premium ? styles.menuTileIconPremium : null]}>{icon}</Text>
+      <Text
+        style={[
+          styles.menuTileIcon,
+          premiumTheme ? styles.menuTileIconPremium : null,
+        ]}
+      >
+        {icon}
+      </Text>
       <Text style={styles.menuTileTitle}>{title}</Text>
       {subtitle ? <Text style={styles.menuTileSubtitle}>{subtitle}</Text> : null}
     </TouchableOpacity>
@@ -127,6 +181,8 @@ function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
 
 function BottomNav({ page, onNavigate, premium }: any) {
   const insets = useSafeAreaInsets();
+  const globalPremium = React.useContext(PremiumThemeContext);
+  const premiumTheme = globalPremium || premium;
   const items = [
     ['home', '⌂', 'Início'],
     ['wallet', '◫', 'Carteira'],
@@ -135,7 +191,13 @@ function BottomNav({ page, onNavigate, premium }: any) {
     ['menu', '☰', 'Menu'],
   ];
   return (
-    <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}> 
+    <View
+      style={[
+        styles.bottomNav,
+        premiumTheme ? styles.bottomNavPremium : null,
+        { paddingBottom: Math.max(insets.bottom, 10) },
+      ]}
+    >
       {items.map(([target, icon, label]) => {
         const active = page === target;
         return (
@@ -149,7 +211,7 @@ function BottomNav({ page, onNavigate, premium }: any) {
               style={[
                 styles.bottomIcon,
                 active ? styles.bottomActive : null,
-                active && premium ? styles.bottomActivePremium : null,
+                active && premiumTheme ? styles.bottomActivePremium : null,
               ]}
             >
               {icon}
@@ -158,7 +220,7 @@ function BottomNav({ page, onNavigate, premium }: any) {
               style={[
                 styles.bottomLabel,
                 active ? styles.bottomActive : null,
-                active && premium ? styles.bottomActivePremium : null,
+                active && premiumTheme ? styles.bottomActivePremium : null,
               ]}
             >
               {label}
@@ -184,6 +246,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   const [user, setUser] = useState<any>(initialUser || {});
   const [balances, setBalances] = useState<any>({ BRL: 0, USDC: 0, BTC: 0, ETH: 0, PAXG: 0 });
   const [walletFirst, setWalletFirst] = useState<any>(null);
+  const [payoutSubaccount, setPayoutSubaccount] = useState<any>(null);
   const [portfolio, setPortfolio] = useState<any>(null);
   const [statement, setStatement] = useState<any[]>([]);
   const [recurring, setRecurring] = useState<any>(null);
@@ -201,7 +264,6 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   const [sellQuote, setSellQuote] = useState<any>(null);
   const [recurringAmount, setRecurringAmount] = useState('');
   const [recurringDay, setRecurringDay] = useState('5');
-  const [walletWorking, setWalletWorking] = useState(false);
   const [depositAmountBrl, setDepositAmountBrl] = useState('');
   const [depositResult, setDepositResult] = useState<any>(null);
   const [withdrawAmountUsdc, setWithdrawAmountUsdc] = useState('');
@@ -232,7 +294,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     embeddedWallet?.address ||
     '';
   const hasExistingWallet = Boolean(walletAddress);
-  const canAccessCustody = isPremium || hasExistingWallet;
+  const canAccessCustody = hasExistingWallet;
   const firstName = String(user?.fullName || 'Cliente').split(' ')[0];
   const handle = user?.handle || (user?.username ? `@${user.username}` : '');
   const nexaId = String(user?.nexaId || '').trim();
@@ -291,10 +353,17 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     setMessage('');
     try {
       const cache = Date.now();
-      const [meResult, walletFirstResult, legacyBalanceResult, legacyPortfolioResult, statementResult] =
-        await Promise.allSettled([
+      const [
+        meResult,
+        walletFirstResult,
+        payoutSubaccountResult,
+        legacyBalanceResult,
+        legacyPortfolioResult,
+        statementResult,
+      ] = await Promise.allSettled([
           json(`${API}/user/me`, { headers: authHeaders }),
           json(`${API}/wallet-v15/me?_${cache}`, { headers: authHeaders }),
+          json(`${API}/d1-payout/subaccount/me?_${cache}`, { headers: authHeaders }),
           json(`${API}/ledger/balance?userId=${encodeURIComponent(user.id)}&mode=portfolio&_=${cache}`, { headers: authHeaders }),
           json(`${API}/swap/portfolio?_=${cache}`, { headers: authHeaders }),
           json(`${API}/ledger/statement?userId=${encodeURIComponent(user.id)}&limit=40&mode=portfolio&_=${cache}`, { headers: authHeaders }),
@@ -311,6 +380,11 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           ? walletFirstResult.value
           : null;
       setWalletFirst(wf);
+      setPayoutSubaccount(
+        payoutSubaccountResult.status === 'fulfilled'
+          ? payoutSubaccountResult.value
+          : null,
+      );
 
       const legacyBalance =
         legacyBalanceResult.status === 'fulfilled'
@@ -915,33 +989,6 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     }
   }
 
-  async function createPremiumWallet() {
-    if (!isPremium) return setMessage('A carteira individual é um recurso Nexa Premium.');
-    if (walletAddress) return setMessage('Sua carteira individual já está vinculada.');
-    if (!privy?.isReady) return setMessage('A carteira ainda está sendo preparada.');
-    try {
-      setWalletWorking(true);
-      setMessage('Criando sua carteira individual...');
-      if (!embeddedWallet) {
-        if (!embedded?.create) throw new Error('Criação de carteira indisponível neste dispositivo.');
-        await embedded.create({ createAdditional: false });
-        setMessage('Carteira criada. Aguarde alguns segundos e toque novamente para concluir o vínculo.');
-        return;
-      }
-      const privyToken = await privy.getAccessToken?.();
-      if (!privyToken) throw new Error('Sua sessão de carteira expirou. Entre novamente.');
-      await nexaApi.linkWallet(token, privyToken, {
-        privyWalletId: String(embeddedWallet.id || embeddedWallet.walletId || embeddedWallet.address),
-        walletAddress: embeddedWallet.address,
-      });
-      setUser((current: any) => ({ ...current, walletAddress: embeddedWallet.address }));
-      setMessage('Carteira Premium vinculada com sucesso.');
-    } catch (error: any) {
-      setMessage(error.message);
-    } finally {
-      setWalletWorking(false);
-    }
-  }
 
   const portfolioPositions = useMemo(() => {
     const byAsset: Record<string, any> = {};
@@ -1040,24 +1087,31 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={styles.sectionKicker}>CARTEIRA</Text>
+            <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>CARTEIRA</Text>
             <Text style={styles.sectionTitle}>Seus ativos</Text>
           </View>
           <TouchableOpacity onPress={() => setPage('assets')}>
-            <Text style={styles.inlineAction}>Ver todos</Text>
+            <Text style={[styles.inlineAction, isPremium ? styles.premiumAccentText : null]}>
+              Ver todos
+            </Text>
           </TouchableOpacity>
         </View>
         <View style={styles.assetGrid}>
           {portfolioPositions.map((item) => (
             <TouchableOpacity
               key={item.symbol}
-              style={styles.assetMini}
+              style={[
+                styles.assetMini,
+                isPremium ? styles.premiumSurface : null,
+              ]}
               onPress={() => {
                 setAsset(item.symbol === 'USDC' ? 'BTC' : item.symbol);
                 setPage(item.symbol === 'USDC' ? 'wallet' : 'assets');
               }}
             >
-              <Text style={styles.assetIcon}>{item.icon}</Text>
+              <Text style={[styles.assetIcon, isPremium ? styles.premiumAccentText : null]}>
+              {item.icon}
+            </Text>
               <Text style={styles.assetSymbol}>{item.symbol}</Text>
               <Text style={styles.assetBalance}>{amount(item.amount, 6)}</Text>
             </TouchableOpacity>
@@ -1068,21 +1122,35 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <Card style={styles.staffCard}>
             <View style={styles.rowBetween}>
               <View style={{ flex: 1, paddingRight: 16 }}>
-                <Text style={styles.staffEyebrow}>ASSISTENTE NEXA</Text>
+                <Text style={[styles.staffEyebrow, isPremium ? styles.premiumAccentText : null]}>ASSISTENTE NEXA</Text>
                 <Text style={styles.highlightTitle}>Seu assistente pessoal.</Text>
                 <Text style={styles.highlightText}>
                   Organize o dia, acompanhe prioridades e use seu contexto da Nexa quando precisar.
                 </Text>
               </View>
-              <View style={styles.staffOrb}>
-                <Text style={styles.staffOrbText}>✦</Text>
+              <View style={[styles.staffOrb, isPremium ? styles.premiumBorder : null]}>
+                <Text style={[styles.staffOrbText, isPremium ? styles.premiumAccentText : null]}>
+                  ✦
+                </Text>
               </View>
             </View>
             <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.staffPrimaryAction} onPress={() => router.push('/assistant')}>
+              <TouchableOpacity
+                style={[
+                  styles.staffPrimaryAction,
+                  isPremium ? styles.staffPrimaryActionPremium : null,
+                ]}
+                onPress={() => router.push('/assistant')}
+              >
                 <Text style={styles.staffPrimaryActionText}>Abrir Assistente</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.staffSecondaryAction} onPress={openNexaSupport}>
+              <TouchableOpacity
+                style={[
+                  styles.staffSecondaryAction,
+                  isPremium ? styles.premiumBorder : null,
+                ]}
+                onPress={openNexaSupport}
+              >
                 <Text style={styles.staffSecondaryActionText}>WhatsApp</Text>
               </TouchableOpacity>
             </View>
@@ -1090,7 +1158,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         ) : null}
 
         <Card style={styles.cryptoCard}>
-          <Text style={styles.sectionKicker}>ATIVOS CRIPTO</Text>
+          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>ATIVOS CRIPTO</Text>
           <Text style={styles.highlightTitle}>Compre os principais ativos cripto sem complicação.</Text>
           <Text style={styles.highlightText}>
             Bitcoin, Ethereum e Ouro Digital usando seu saldo em USDC.
@@ -1103,7 +1171,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             style={styles.homeSecondaryCard}
             onPress={() => router.push('/(app)/rewards' as any)}
           >
-            <Text style={styles.homeSecondaryKicker}>REWARDS</Text>
+            <Text style={[styles.homeSecondaryKicker, isPremium ? styles.premiumAccentText : null]}>REWARDS</Text>
             <Text style={styles.homeSecondaryTitle}>Turbinar USDC</Text>
             <Text style={styles.homeSecondaryText}>
               Separe USDC para participar do Rewards.
@@ -1130,10 +1198,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         </View>
 
         <TouchableOpacity
-          style={styles.homeWideCard}
+          style={[
+            styles.homeWideCard,
+            isPremium ? styles.premiumSurface : null,
+          ]}
           onPress={openUsdcSubscription}
         >
-          <Text style={styles.homeSecondaryKicker}>OPEN FINANCE</Text>
+          <Text style={[styles.homeSecondaryKicker, isPremium ? styles.premiumAccentText : null]}>
+            OPEN FINANCE
+          </Text>
           <Text style={styles.homeSecondaryTitle}>USDC por assinatura</Text>
           <Text style={styles.homeSecondaryText}>
             Autorize no seu banco e receba USDC automaticamente todo mês.
@@ -1149,14 +1222,14 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
     return (
       <>
-        <Text style={styles.pageKicker}>CRIPTO WALLET</Text>
+        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>CRIPTO WALLET</Text>
         <Text style={styles.pageTitle}>Carteira</Text>
         <Text style={styles.pageSubtitle}>
           Seus ativos ficam vinculados à sua própria carteira. A Nexa simplifica a experiência sem custodiar sua chave.
         </Text>
 
         <Card style={styles.heroCard}>
-          <Text style={styles.eyebrow}>SALDO DISPONÍVEL</Text>
+          <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>SALDO DISPONÍVEL</Text>
           <Text style={styles.heroAmount}>{amount(balances.USDC, 6)} USDC</Text>
           <Text style={styles.highlightText}>
             {walletReady
@@ -1164,7 +1237,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
               : 'Sua carteira está sendo preparada.'}
           </Text>
           {walletAddress ? (
-            <Text style={styles.walletAddress}>
+            <Text style={[styles.walletAddress, isPremium ? styles.premiumAccentText : null]}>
               {walletAddress.slice(0, 10)}…{walletAddress.slice(-8)}
             </Text>
           ) : null}
@@ -1196,7 +1269,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         ))}
 
         <Card>
-          <Text style={styles.sectionKicker}>AUTONOMIA</Text>
+          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>AUTONOMIA</Text>
           <Text style={styles.highlightTitle}>A carteira é sua.</Text>
           <Text style={styles.highlightText}>
             A Nexa prepara a infraestrutura necessária, mas autorizações sensíveis continuam sob seu controle.
@@ -1214,7 +1287,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Assets() {
     return (
       <>
-        <Text style={styles.pageKicker}>ATIVOS CRIPTO</Text>
+        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>ATIVOS CRIPTO</Text>
         <Text style={styles.pageTitle}>Ativos</Text>
         <Text style={styles.pageSubtitle}>
           Acompanhe suas posições e compre ativos usando o USDC da sua carteira.
@@ -1236,7 +1309,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
                 } as any);
               }}
             >
-              <Text style={styles.assetIcon}>{item.icon}</Text>
+              <Text style={[styles.assetIcon, isPremium ? styles.premiumAccentText : null]}>{item.icon}</Text>
               <Text style={styles.assetSymbol}>{item.symbol}</Text>
               <Text style={styles.assetBalance}>{amount(item.amount, 8)}</Text>
               <Text style={styles.assetNameSmall}>{item.name}</Text>
@@ -1245,7 +1318,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         </View>
 
         <Card style={styles.cryptoCard}>
-          <Text style={styles.sectionKicker}>COMPRAR</Text>
+          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>COMPRAR</Text>
           <Text style={styles.highlightTitle}>USDC primeiro. Outros ativos depois.</Text>
           <Text style={styles.highlightText}>
             O dinheiro novo entra em USDC. A partir dele, você pode comprar Bitcoin, Ethereum ou Ouro Digital.
@@ -1254,7 +1327,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         </Card>
 
         <Card>
-          <Text style={styles.sectionKicker}>VOLTAR PARA REAIS</Text>
+          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>VOLTAR PARA REAIS</Text>
           <Text style={styles.highlightTitle}>Resgate simples por Pix.</Text>
           <Text style={styles.highlightText}>
             Quando quiser sair para reais, use seu saldo em USDC e solicite o resgate Pix.
@@ -1268,13 +1341,13 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Send() {
     return (
       <>
-        <Text style={styles.pageKicker}>TRANSFERÊNCIAS</Text>
+        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>TRANSFERÊNCIAS</Text>
         <Text style={styles.pageTitle}>Enviar</Text>
         <Text style={styles.pageSubtitle}>
           Envie USDC diretamente da sua carteira. A Nexa prepara a operação e você confirma.
         </Text>
         <Card style={styles.heroCard}>
-          <Text style={styles.eyebrow}>TRANSFERÊNCIA SEGURA</Text>
+          <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>TRANSFERÊNCIA SEGURA</Text>
           <Text style={styles.highlightTitle}>Envio direto, sem saldo interno.</Text>
           <Text style={styles.highlightText}>
             O valor sai da sua própria carteira e não de um saldo contábil mantido pela Nexa.
@@ -1282,7 +1355,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <PrimaryButton title="Fazer uma transferência" onPress={openWalletFirstSend} />
         </Card>
         <Card>
-          <Text style={styles.sectionKicker}>NEXA ID</Text>
+          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>NEXA ID</Text>
           <Text style={styles.highlightTitle}>Identidade continua simples.</Text>
           <Text style={styles.highlightText}>
             Seu @username e Nexa ID continuam disponíveis para identificação e relacionamento dentro do ecossistema.
@@ -1328,7 +1401,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
         {!isPremium ? (
           <Card>
-            <Text style={styles.sectionKicker}>ASSINATURA</Text>
+            <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>ASSINATURA</Text>
             <Text style={styles.highlightText}>
               A ativação da cobrança recorrente exige autorização da sua carteira. A Nexa não assina por você.
             </Text>
@@ -1341,13 +1414,13 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Recurring() {
     return (
       <>
-        <Text style={styles.pageKicker}>OPEN FINANCE</Text>
+        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>OPEN FINANCE</Text>
         <Text style={styles.pageTitle}>USDC por assinatura</Text>
         <Text style={styles.pageSubtitle}>
           Escolha valor, banco e dia do mês. Você autoriza uma vez no seu banco e a Nexa envia o USDC para sua própria carteira a cada parcela confirmada.
         </Text>
         <Card style={styles.highlightRecurring}>
-          <Text style={styles.eyebrow}>AUTORIZAÇÃO BANCÁRIA</Text>
+          <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>AUTORIZAÇÃO BANCÁRIA</Text>
           <Text style={styles.highlightTitle}>Configure uma vez.</Text>
           <Text style={styles.highlightText}>
             A Nexa nunca pede sua senha bancária. A recorrência só é criada depois da sua confirmação e autorização no banco via Open Finance.
@@ -1365,7 +1438,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Rewards() {
     return (
       <>
-        <Text style={styles.pageKicker}>REWARDS</Text>
+        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>REWARDS</Text>
         <Text style={styles.pageTitle}>Nexa Rewards</Text>
         <Text style={styles.pageSubtitle}>
           O Rewards agora usa sua própria carteira. Nenhum saldo interno legado é necessário.
@@ -1392,7 +1465,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Menu() {
     return (
       <>
-        <Text style={styles.pageKicker}>CONTA & SERVIÇOS</Text>
+        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>CONTA & SERVIÇOS</Text>
         <Text style={styles.pageTitle}>Menu</Text>
         <Text style={styles.pageSubtitle}>Sua conta, ativos, atendimento e segurança.</Text>
 
@@ -1479,7 +1552,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Card>
           <Text style={styles.formLabel}>Valor em reais</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, isPremium ? styles.premiumBorder : null]}
             placeholder="R$ 100,00"
             placeholderTextColor="#64748b"
             value={depositAmountBrl}
@@ -1496,14 +1569,14 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             disabled={!config.financialExecutionEnabled || loading}
           />
           {!config.financialExecutionEnabled ? (
-            <Text style={styles.previewNotice}>
+            <Text style={[styles.previewNotice, isPremium ? styles.premiumAccentText : null]}>
               Preview seguro: esta tela está conectada ao contrato real, mas não cria cobrança Woovi.
             </Text>
           ) : null}
         </Card>
         {depositResult ? (
           <Card style={styles.highlightRecurring}>
-            <Text style={styles.eyebrow}>PIX NEXA</Text>
+            <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>PIX NEXA</Text>
             <Text style={styles.highlightTitle}>{money(depositResult.amountBrl || 0)}</Text>
             <Text style={styles.highlightText}>
               {String(
@@ -1514,7 +1587,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
               )}
             </Text>
             {depositResult.customerMessage || depositResult.message ? (
-              <Text style={styles.previewNotice}>
+              <Text style={[styles.previewNotice, isPremium ? styles.premiumAccentText : null]}>
                 {String(depositResult.customerMessage || depositResult.message)}
               </Text>
             ) : null}
@@ -1548,7 +1621,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Card>
           <Text style={styles.formLabel}>Valor em USDC</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, isPremium ? styles.premiumBorder : null]}
             placeholder="USDC"
             placeholderTextColor="#64748b"
             value={withdrawAmountUsdc}
@@ -1561,7 +1634,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           />
           <PrimaryButton title="Ver cotação Pix" onPress={quotePixWithdrawal} disabled={loading} />
           {withdrawQuote ? (
-            <View style={styles.quoteBox}>
+            <View style={[styles.quoteBox, isPremium ? styles.premiumBorder : null]}>
               <Text style={styles.quoteTitle}>Cotação Nexa</Text>
               <Text style={styles.quoteText}>USDC: {amount(withdrawQuote.amountUsdc, 8)}</Text>
               <Text style={styles.quoteText}>Pix estimado: {money(withdrawQuote.netBrl || 0)}</Text>
@@ -1570,7 +1643,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
               </Text>
               <Text style={styles.formLabel}>Chave Pix</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isPremium ? styles.premiumBorder : null]}
                 placeholder="CPF, e-mail, telefone ou chave aleatória"
                 placeholderTextColor="#64748b"
                 value={withdrawPixKey}
@@ -1585,7 +1658,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             </View>
           ) : null}
           {!config.financialExecutionEnabled ? (
-            <Text style={styles.previewNotice}>
+            <Text style={[styles.previewNotice, isPremium ? styles.premiumAccentText : null]}>
               Preview seguro: consultar cotação está liberado; reservar USDC e solicitar Pix permanece bloqueado.
             </Text>
           ) : null}
@@ -1600,7 +1673,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <Text style={styles.pageTitle}>Meu Nexa ID</Text>
         <Text style={styles.pageSubtitle}>Sua identidade Nexa para identificação e experiências integradas do ecossistema.</Text>
         <Card style={styles.highlightPremium}>
-          <Text style={styles.eyebrow}>NEXA ID</Text>
+          <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>NEXA ID</Text>
           <Text style={styles.highlightTitle}>{nexaId || 'Nexa ID em criação'}</Text>
           <Text style={styles.highlightText}>{handle || 'Username ainda não definido'}</Text>
           {nexaPassportQrValue ? (
@@ -1608,7 +1681,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
               <QRCode value={nexaPassportQrValue} size={210} />
             </View>
           ) : (
-            <Text style={styles.previewNotice}>O QR Code aparecerá assim que seu Nexa ID estiver disponível.</Text>
+            <Text style={[styles.previewNotice, isPremium ? styles.premiumAccentText : null]}>O QR Code aparecerá assim que seu Nexa ID estiver disponível.</Text>
           )}
           <Text style={styles.profileLine}>Nome: {user?.fullName || '-'}</Text>
           <Text style={styles.profileLine}>KYC: {String(user?.kycStatus || 'pending')}</Text>
@@ -1623,12 +1696,24 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Profile() {
     return (
       <>
-        <Text style={styles.pageKicker}>CLIENTE NEXA</Text>
+        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>CLIENTE NEXA</Text>
         <Text style={styles.pageTitle}>Perfil</Text>
         <Card style={styles.profileCard}>
           <View style={styles.profileHeader}>
-            <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>{firstName.charAt(0).toUpperCase()}</Text>
+            <View
+              style={[
+                styles.profileAvatar,
+                isPremium ? styles.profileAvatarPremium : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.profileAvatarText,
+                  isPremium ? styles.premiumAccentText : null,
+                ]}
+              >
+                {firstName.charAt(0).toUpperCase()}
+              </Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.profileName}>{user?.fullName}</Text>
@@ -1644,6 +1729,23 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           </Text>
           <Text style={styles.profileLabel}>Relacionamento</Text>
           <Text style={styles.profileValue}>{isPremium ? 'Nexa Premium' : 'Nexa'}</Text>
+          <Text style={styles.profileLabel}>Pix para resgates</Text>
+          <Text style={styles.profileValue}>
+            {user?.pixWithdrawEnabled && user?.pixKey
+              ? `${String(user?.pixKeyType || 'PIX').toUpperCase()} • ${maskPixKey(
+                  user?.pixKey,
+                  user?.pixKeyType,
+                )}`
+              : 'Não configurado'}
+          </Text>
+          <Text style={styles.profileLabel}>Conta de resgate</Text>
+          <Text style={styles.profileValue}>
+            {payoutSubaccount?.active === true
+              ? 'Pronta'
+              : user?.pixWithdrawEnabled
+                ? 'Em preparação'
+                : 'Não configurada'}
+          </Text>
           {walletAddress ? (
             <>
               <Text style={styles.profileLabel}>Carteira vinculada</Text>
@@ -1652,7 +1754,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           ) : null}
         </Card>
         <Card style={styles.profileSupportCard}>
-          <Text style={styles.staffEyebrow}>ATENDIMENTO</Text>
+          <Text style={[styles.staffEyebrow, isPremium ? styles.premiumAccentText : null]}>ATENDIMENTO</Text>
           <Text style={styles.highlightTitle}>Precisa de ajuda?</Text>
           <Text style={styles.highlightText}>Fale com a Nexa pelo WhatsApp ou peça ajuda ao seu Assistente.</Text>
           <View style={styles.actionRow}>
@@ -1730,11 +1832,18 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   }
 
   return (
+    <PremiumThemeContext.Provider value={isPremium}>
     <View style={styles.root}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{ paddingTop: Math.max(insets.top, 18) + 10, paddingBottom: contentBottom }}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadAll} tintColor="#60a5fa" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={loadAll}
+            tintColor={isPremium ? '#D8BC7A' : '#60a5fa'}
+          />
+        }
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -1746,7 +1855,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           {isPremium ? <Text style={styles.brandEditionPremium}>PREMIUM</Text> : null}
         </View>
         {message ? (
-          <TouchableOpacity onPress={() => setMessage('')} style={styles.messageBox}>
+          <TouchableOpacity onPress={() => setMessage('')} style={[styles.messageBox, isPremium ? styles.premiumBorder : null]}>
             <Text style={styles.messageText}>{message}</Text>
           </TouchableOpacity>
         ) : null}
@@ -1754,6 +1863,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
       </ScrollView>
       <BottomNav page={page} onNavigate={setPage} premium={isPremium} />
     </View>
+    </PremiumThemeContext.Provider>
   );
 }
 
@@ -1786,6 +1896,15 @@ const styles: any = {
     backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
     borderRadius: 20, padding: 18, marginBottom: 14
   },
+  cardPremiumTheme: {
+    backgroundColor: '#0F100D',
+    borderColor: '#8A6B2D',
+  },
+  premiumSurface: {
+    backgroundColor: '#0F100D',
+    borderColor: '#8A6B2D',
+  },
+  premiumBorder: { borderColor: '#8A6B2D' },
   heroCard: { backgroundColor: '#0D1522', borderColor: '#4C1D95', padding: 20 },
   heroCardPremium: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
   heroMark: {
@@ -1840,6 +1959,11 @@ const styles: any = {
     paddingHorizontal: 12, alignItems: 'center'
   },
   staffPrimaryActionText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  staffPrimaryActionPremium: {
+    backgroundColor: '#8A6B2D',
+    borderWidth: 1,
+    borderColor: '#D8BC7A',
+  },
   staffSecondaryAction: {
     flex: 1, backgroundColor: '#121821', borderWidth: 1, borderColor: '#2B3442',
     borderRadius: 13, paddingVertical: 12, paddingHorizontal: 12, alignItems: 'center'
@@ -1872,6 +1996,8 @@ const styles: any = {
     borderRadius: 13, paddingVertical: 14, paddingHorizontal: 16, marginTop: 14
   },
   buttonSecondary: { backgroundColor: '#111720', borderColor: '#293548' },
+  buttonPremium: { backgroundColor: '#8A6B2D', borderColor: '#D8BC7A' },
+  buttonSecondaryPremium: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
   buttonDisabled: { opacity: 0.45 },
   buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', textAlign: 'center' },
   buttonTextSecondary: { color: '#F2F4F7' },
@@ -1909,6 +2035,7 @@ const styles: any = {
     borderWidth: 1, borderColor: '#5B21B6', alignItems: 'center', justifyContent: 'center'
   },
   profileAvatarText: { color: '#C4B5FD', fontSize: 19, fontWeight: '900' },
+  profileAvatarPremium: { backgroundColor: '#17140D', borderColor: '#8A6B2D' },
   profileName: { color: '#F7F8FA', fontSize: 21, fontWeight: '800' },
   profileHandle: { color: '#9AA4B2', fontSize: 12, marginTop: 3 },
   profileDivider: { height: 1, backgroundColor: '#202A38', marginVertical: 16 },
@@ -1929,4 +2056,9 @@ const styles: any = {
   bottomIcon: { color: '#616C7A', fontSize: 18, fontWeight: '900' },
   bottomLabel: { color: '#616C7A', fontSize: 10, fontWeight: '800', marginTop: 4 },
   bottomActive: { color: '#A78BFA' },
+  bottomNavPremium: {
+    borderTopColor: '#8A6B2D',
+    backgroundColor: '#0A0A08',
+  },
+  bottomActivePremium: { color: '#D8BC7A' },
 };
