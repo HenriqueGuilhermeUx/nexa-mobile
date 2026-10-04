@@ -58,6 +58,10 @@ export default function RootLayout() {
             <Stack.Screen name="premium-info" options={{ title: 'Sobre o Premium' }} />
             <Stack.Screen name="security" options={{ headerShown: false }} />
             <Stack.Screen
+              name="onboarding-pix"
+              options={{ title: 'Pix de resgate' }}
+            />
+            <Stack.Screen
               name="onboarding-wallet"
               options={{ title: 'Minha Carteira Premium' }}
             />
