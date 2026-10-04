@@ -1,0 +1,221 @@
+name: Nexa v143 Production AAB
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/build-triggers/v143-production-aab.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v143-production-aab
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and build v143 production AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout v143
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validate v143 production boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const dynamic = require('./app.config.js')({ config: app });
+          const pkg = require('./package.json');
+          const eas = require('./eas.json');
+          const p = eas?.build?.production;
+
+          if (app.version !== '2.0.40') throw new Error('Unexpected app version');
+          if (pkg.version !== '2.0.40') throw new Error('Unexpected package version');
+          if (Number(app.android?.versionCode) !== 143) throw new Error('Unexpected Android build');
+          if (String(app.ios?.buildNumber) !== '143') throw new Error('Unexpected iOS build');
+          if (dynamic.version !== '2.0.40' || Number(dynamic.android?.versionCode) !== 143) {
+            throw new Error('Dynamic config identity mismatch');
+          }
+          if (app.android?.package !== 'br.com.trynexa.app') throw new Error('Unexpected package');
+          if (Number(app.extra?.androidTargetApi) !== 36) throw new Error('Android target API must be 36');
+          if (app.extra?.balanceSource !== 'wallet-first') throw new Error('Wallet-First must be primary');
+          if (p?.android?.buildType !== 'app-bundle') throw new Error('Production must build AAB');
+          if (p?.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'true') {
+            throw new Error('Production AAB must be live-capable');
+          }
+          if (p?.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED !== 'true') {
+            throw new Error('Production AAB must enable Open Finance');
+          }
+          if (p?.env?.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED !== 'true') {
+            throw new Error('Production AAB must enable recurring Open Finance');
+          }
+          const fs = require('fs');
+          const shell = fs.readFileSync('src/components/AlignedLegacyApp.tsx', 'utf8');
+          if (!shell.includes("router.push('/open-finance-recurring'")) {
+            throw new Error('USDC subscription must route to recurring Open Finance');
+          }
+          for (const style of ['heroCardPremium', 'heroMarkPremium', 'premiumAccentText']) {
+            if (!shell.includes(style + ':')) throw new Error(`Missing Premium gold style: ${style}`);
+          }
+          const onboarding = fs.readFileSync('src/lib/onboarding.ts', 'utf8');
+          const payout = fs.readFileSync('app/onboarding-pix.tsx', 'utf8');
+          const wallet = fs.readFileSync('app/onboarding-wallet.tsx', 'utf8');
+          const ownership = fs.readFileSync('app/wallet-ownership.tsx', 'utf8');
+          if (!onboarding.includes("return '/onboarding-pix'")) {
+            throw new Error('Approved users must complete payout Pix onboarding');
+          }
+          if (!onboarding.includes("return '/onboarding-wallet'")) {
+            throw new Error('Wallet onboarding gate missing');
+          }
+          if (!onboarding.includes("return '/wallet-ownership'")) {
+            throw new Error('Wallet ownership gate missing');
+          }
+          if (!payout.includes('Usar meu CPF') || !payout.includes('RECOMENDADO')) {
+            throw new Error('CPF-first payout onboarding missing');
+          }
+          if (wallet.includes('Minha Carteira Premium')) {
+            throw new Error('Cripto Wallet must not be Premium-only');
+          }
+          if (!ownership.includes('Sua Nexa está pronta')) {
+            throw new Error('Final onboarding completion screen missing');
+          }
+          const kyc = fs.readFileSync('app/kyc.tsx', 'utf8');
+          const walletSession = fs.readFileSync('app/wallet-session.tsx', 'utf8');
+          if (!kyc.includes('PASSO 1 DE 4')) {
+            throw new Error('KYC must be the first explicit onboarding step');
+          }
+          if (kyc.includes('Entrar na Nexa e verificar depois')) {
+            throw new Error('KYC bypass must not exist in definitive onboarding');
+          }
+          if (!walletSession.includes("disableSignup: returnTo !== 'onboarding-wallet'")) {
+            throw new Error('First-time Privy identity must be allowed only during onboarding');
+          }
+          if (!shell.includes('Pix para resgates')) {
+            throw new Error('Payout Pix must be visible in customer profile');
+          }
+          if (!shell.includes('bottomPremiumIdle:')) {
+            throw new Error('Premium navigation must remain gold across the full shell');
+          }
+          for (const style of ['cardPremiumTheme', 'premiumSurface', 'bottomNavPremium', 'bottomActivePremium']) {
+            if (!shell.includes(style + ':')) throw new Error(`Missing full Premium theme style: ${style}`);
+          }
+
+          const buildProps = (app.plugins || []).find(p => Array.isArray(p) && p[0] === 'expo-build-properties');
+          if (!buildProps) throw new Error('expo-build-properties missing');
+          if (Number(buildProps[1]?.android?.targetSdkVersion) !== 36) throw new Error('targetSdkVersion must be 36');
+          if (buildProps[1]?.android?.enableMinifyInReleaseBuilds !== true) throw new Error('R8 minification must be enabled');
+          if (buildProps[1]?.android?.enableShrinkResourcesInReleaseBuilds !== true) throw new Error('resource shrinking must be enabled');
+          console.log('v143 production identity and release boundary validated');
+          NODE
+
+      - name: Validate Wallet-First and release contracts
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-quote.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-wallet-cross-device-recovery.js
+          node scripts/validate-biometric-app-lock.js
+          node scripts/validate-release-assets.js
+          npm run typecheck
+          npx expo-doctor
+          npx expo config --type public > v143-expo-public-config.json
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 \
+            'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1); console.log('Backend production OK')"
+
+      - name: Add build swap
+        run: |
+          set -euo pipefail
+          if ! swapon --show | grep -q .; then
+            sudo fallocate -l 4G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
+          free -h
+
+      - name: Build signed v143 production AAB
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: 'true'
+          NODE_ENV: 'production'
+          EXPO_NO_TELEMETRY: '1'
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: '1'
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ runner.temp }}/nexa-v143-aab
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/local-build-artifacts-v143-aab
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+          KOTLIN_DAEMON_JVM_OPTIONS: '-Xmx1536m,-XX:MaxMetaspaceSize=1024m'
+        run: |
+          set -euo pipefail
+          AAB="Nexa-2.0.40-v143-production.aab"
+          rm -f "$AAB"
+          eas build --platform android --profile production --local --non-interactive --output "$GITHUB_WORKSPACE/$AAB"
+          test -s "$AAB"
+          echo "AAB_FILE=$AAB" >> "$GITHUB_ENV"
+
+      - name: Verify AAB signature and contents
+        run: |
+          set -euo pipefail
+          jarsigner -verify -verbose -certs "$AAB_FILE" > aab-signature.txt 2>&1 || {
+            cat aab-signature.txt
+            exit 1
+          }
+          unzip -l "$AAB_FILE" > aab-contents.txt
+          grep -q 'base/dex/classes.dex' aab-contents.txt
+          unzip -l "$AAB_FILE" | grep 'base/dex/' > aab-dex-contents.txt
+          sha256sum "$AAB_FILE" > aab-SHA256SUMS.txt
+
+      - name: Upload verified v143 production AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-v143-PRODUCTION-AAB
+          path: |
+            ${{ env.AAB_FILE }}
+            aab-signature.txt
+            aab-contents.txt
+            aab-dex-contents.txt
+            aab-SHA256SUMS.txt
+            v143-expo-public-config.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Release boundary
+        run: |
+          echo "Production AAB only."
+          echo "Production profile is live-capable; backend remains the source of execution gates."
+          echo "No Google Play submission."
