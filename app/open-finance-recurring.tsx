@@ -38,6 +38,7 @@ export default function OpenFinanceRecurringScreen() {
   const [quantity, setQuantity] = useState('12');
   const [preview, setPreview] = useState<EfiRecurringPreview | null>(null);
   const [initiationEnabled, setInitiationEnabled] = useState(false);
+  const [existingPayments, setExistingPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -45,8 +46,8 @@ export default function OpenFinanceRecurringScreen() {
     let mounted = true;
 
     async function boot() {
-      if (!config.efiOpenFinanceEnabled) {
-        setMessage('Open Finance não está habilitado neste build.');
+      if (!config.efiOpenFinanceEnabled || !config.efiOpenFinanceRecurringEnabled) {
+        setMessage('USDC por assinatura não está disponível neste build.');
         return;
       }
 
@@ -60,15 +61,19 @@ export default function OpenFinanceRecurringScreen() {
         if (!mounted) return;
         setToken(session.accessToken);
 
-        const [status, list] = await Promise.all([
+        const [status, list, mine] = await Promise.all([
           efiOpenFinanceApi.recurringStatus(session.accessToken),
           efiOpenFinanceApi.participants(session.accessToken),
+          efiOpenFinanceApi.recurringMine(session.accessToken).catch(() => ({ payments: [] })),
         ]);
         if (!mounted) return;
         setInitiationEnabled(Boolean(status.initiationEnabled));
         setQuantity(String(status.defaultQuantity || 12));
         const valid = list.filter((item) => participantIdOf(item));
         setParticipants(valid);
+        setExistingPayments(
+          Array.isArray((mine as any)?.payments) ? (mine as any).payments : [],
+        );
 
         const hint = String(params.bank || '').trim().toLocaleLowerCase('pt-BR');
         if (hint) {
@@ -110,7 +115,7 @@ export default function OpenFinanceRecurringScreen() {
       throw new Error('Informe um valor válido em reais.');
     }
     if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 28) {
-      throw new Error('No piloto, escolha um dia entre 1 e 28.');
+      throw new Error('Escolha um dia entre 1 e 28.');
     }
     if (!participantId) {
       throw new Error('Escolha o banco de origem.');
@@ -141,9 +146,7 @@ export default function OpenFinanceRecurringScreen() {
   async function authorize() {
     if (!token) return;
     if (!initiationEnabled) {
-      setMessage(
-        'A recorrência está pronta para validação, mas a autorização financeira continua bloqueada no piloto.',
-      );
+      setMessage('A autorização bancária está temporariamente indisponível.');
       return;
     }
 
@@ -154,7 +157,30 @@ export default function OpenFinanceRecurringScreen() {
       await Linking.openURL(data.redirectURI);
       setMessage('Autorize a recorrência no seu banco e depois volte para a Nexa.');
     } catch (error: any) {
-      setMessage(error?.message || 'Não foi possível iniciar a autorização recorrente.');
+      if (
+        error?.code === 'OPEN_FINANCE_RECURRING_WALLET_FIRST_NOT_READY' ||
+        String(error?.message || '').includes('Confirme sua carteira Nexa')
+      ) {
+        setMessage('Confirme sua carteira Nexa para receber o USDC da assinatura.');
+        router.push('/wallet-ownership' as any);
+      } else {
+        setMessage(error?.message || 'Não foi possível iniciar a autorização recorrente.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function cancelPayment(paymentId: string) {
+    if (!token || !paymentId) return;
+    try {
+      setLoading(true);
+      await efiOpenFinanceApi.recurringCancel(token, paymentId);
+      const mine: any = await efiOpenFinanceApi.recurringMine(token);
+      setExistingPayments(Array.isArray(mine?.payments) ? mine.payments : []);
+      setMessage('USDC por assinatura cancelado.');
+    } catch (error: any) {
+      setMessage(error?.message || 'Não foi possível cancelar a assinatura.');
     } finally {
       setLoading(false);
     }
@@ -168,16 +194,16 @@ export default function OpenFinanceRecurringScreen() {
             <Text style={styles.backText}>‹</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Aporte recorrente</Text>
-            <Text style={styles.subtitle}>Programe dinheiro entrando na Nexa todo mês.</Text>
+            <Text style={styles.title}>USDC por assinatura</Text>
+            <Text style={styles.subtitle}>Open Finance • mensal • direto para sua carteira Nexa</Text>
           </View>
         </View>
 
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>OPEN FINANCE · PIX RECORRENTE</Text>
+          <Text style={styles.eyebrow}>OPEN FINANCE · USDC</Text>
           <Text style={styles.heroTitle}>Configure uma vez.</Text>
           <Text style={styles.heroText}>
-            Escolha o banco, valor e dia. A Nexa prepara o cronograma e a autorização acontece no seu banco.
+            Escolha banco, valor e dia. Você autoriza no seu banco e, a cada parcela confirmada, a Nexa envia o USDC para sua própria carteira.
           </Text>
         </View>
 
@@ -279,7 +305,7 @@ export default function OpenFinanceRecurringScreen() {
 
             {!initiationEnabled ? (
               <Text style={styles.safetyNotice}>
-                Piloto seguro: a criação real da recorrência está bloqueada no backend.
+                A autorização bancária está temporariamente indisponível.
               </Text>
             ) : null}
 
@@ -294,9 +320,41 @@ export default function OpenFinanceRecurringScreen() {
               <Text style={styles.primaryButtonText}>
                 {initiationEnabled
                   ? 'Confirmar e autorizar no banco'
-                  : 'Autorização bloqueada no piloto'}
+                  : 'Autorização indisponível'}
               </Text>
             </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {existingPayments.length > 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.eyebrow}>SUAS ASSINATURAS</Text>
+            {existingPayments.map((payment: any) => {
+              const paymentId = String(payment?.identificadorPagamento || '');
+              const status = String(payment?.status || 'ativo');
+              const value = Number(payment?.valor || payment?.amountBrl || 0);
+              return (
+                <View key={paymentId || String(payment?.idProprio || Math.random())} style={styles.subscriptionRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.subscriptionTitle}>
+                      {Number.isFinite(value) && value > 0
+                        ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                        : 'USDC por assinatura'}
+                    </Text>
+                    <Text style={styles.previewLine}>Status: {status}</Text>
+                  </View>
+                  {paymentId && !['cancelado', 'cancelled', 'canceled'].includes(status.toLowerCase()) ? (
+                    <TouchableOpacity
+                      disabled={loading}
+                      onPress={() => void cancelPayment(paymentId)}
+                      style={styles.cancelButton}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancelar</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         ) : null}
 
@@ -408,5 +466,22 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '900', textAlign: 'center' },
   disabled: { opacity: 0.45 },
+  subscriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e293b',
+  },
+  subscriptionTitle: { color: '#ffffff', fontSize: 15, fontWeight: '900' },
+  cancelButton: {
+    borderWidth: 1,
+    borderColor: '#475569',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  cancelButtonText: { color: '#cbd5e1', fontSize: 12, fontWeight: '800' },
   securityText: { color: '#64748b', fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 8 },
 });
