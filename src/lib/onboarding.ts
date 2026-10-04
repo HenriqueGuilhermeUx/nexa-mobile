@@ -27,14 +27,20 @@ export async function resolveAuthenticatedRoute(
     return '/kyc';
   }
 
-  const pixType = normalizedPixType(profile);
-  const hasSelfBoundPayoutPix =
-    profile?.pixWithdrawEnabled === true &&
-    Boolean(String(profile?.pixKey || '').trim()) &&
-    ['CPF', 'EMAIL', 'PHONE'].includes(pixType);
+  const countryCode = String(profile?.residenceCountry || 'BR')
+    .trim()
+    .toUpperCase();
 
-  if (!hasSelfBoundPayoutPix) {
-    return '/onboarding-pix';
+  if (countryCode === 'BR') {
+    const pixType = normalizedPixType(profile);
+    const hasSelfBoundPayoutPix =
+      profile?.pixWithdrawEnabled === true &&
+      Boolean(String(profile?.pixKey || '').trim()) &&
+      ['CPF', 'EMAIL', 'PHONE'].includes(pixType);
+
+    if (!hasSelfBoundPayoutPix) {
+      return '/onboarding-pix';
+    }
   }
 
   if (!walletAddress(profile)) {

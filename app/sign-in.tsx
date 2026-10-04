@@ -176,7 +176,7 @@ export default function SignInScreen() {
         label="Criar conta"
         variant="secondary"
         disabled={loading}
-        onPress={() => router.push('/sign-up')}
+        onPress={() => router.push('/sign-up-country' as any)}
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
