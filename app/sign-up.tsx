@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -19,6 +19,10 @@ function digits(value: string) {
 }
 
 export default function SignUpScreen() {
+  const params = useLocalSearchParams<{ countryCode?: string }>();
+  const countryCode = String(params.countryCode || 'BR').trim().toUpperCase();
+  const isBrazil = countryCode === 'BR';
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [cpf, setCpf] = useState('');
@@ -33,7 +37,9 @@ export default function SignUpScreen() {
 
     if (fullName.trim().length < 3) return 'Informe seu nome completo.';
     if (!normalizedEmail.includes('@')) return 'Informe um e-mail válido.';
-    if (normalizedCpf.length !== 11) return 'Informe um CPF com 11 números.';
+    if (isBrazil && normalizedCpf.length !== 11) {
+      return 'Informe um CPF com 11 números.';
+    }
     if (password.length < 6) {
       return 'A senha precisa ter pelo menos 6 caracteres.';
     }
@@ -55,7 +61,8 @@ export default function SignUpScreen() {
       const response = await nexaApi.register({
         fullName: fullName.trim(),
         email: normalizedEmail,
-        cpf: normalizedCpf,
+        cpf: isBrazil ? normalizedCpf : undefined,
+        countryCode,
         phone: normalizedPhone || undefined,
         password,
       });
@@ -66,8 +73,8 @@ export default function SignUpScreen() {
         email: normalizedEmail,
       });
 
-      // Todo novo cliente passa imediatamente pelo KYC. O fluxo Brasil usa
-      // CPF + selfie com prova de vida e só pede documento quando necessário.
+      // Todo novo cliente passa imediatamente pelo KYC. O backend define o
+      // fluxo por país e o app nunca presume CPF/Pix fora do Brasil.
       router.replace('/kyc' as any);
     } catch (caught) {
       await clearNexaSession();
@@ -87,9 +94,9 @@ export default function SignUpScreen() {
       <View style={styles.topSpace} />
       <Title>Criar conta</Title>
       <Paragraph>
-        Cadastre-se e confirme sua identidade. Na maioria dos casos, a
-        verificação no Brasil precisa apenas do CPF e de uma selfie com prova de
-        vida.
+        {isBrazil
+          ? 'Cadastre-se e confirme sua identidade. No Brasil, a verificação normalmente começa com CPF e selfie com prova de vida.'
+          : 'Cadastre-se e confirme sua identidade com os documentos aceitos no seu país de residência. A Nexa usa um fluxo internacional de verificação.'}
       </Paragraph>
 
       <Field
@@ -109,14 +116,16 @@ export default function SignUpScreen() {
         autoComplete="email"
         placeholder="voce@email.com"
       />
-      <Field
-        label="CPF"
-        value={cpf}
-        onChangeText={setCpf}
-        keyboardType="number-pad"
-        maxLength={14}
-        placeholder="00000000000"
-      />
+      {isBrazil ? (
+        <Field
+          label="CPF"
+          value={cpf}
+          onChangeText={setCpf}
+          keyboardType="number-pad"
+          maxLength={14}
+          placeholder="00000000000"
+        />
+      ) : null}
       <Field
         label="Telefone"
         value={phone}
@@ -136,6 +145,13 @@ export default function SignUpScreen() {
         label="Criar conta"
         loading={loading}
         onPress={createAccount}
+      />
+      <Paragraph>País de residência: {countryCode}</Paragraph>
+      <ActionButton
+        label="Trocar país"
+        variant="secondary"
+        disabled={loading}
+        onPress={() => router.replace('/sign-up-country' as any)}
       />
       <ActionButton
         label="Já tenho conta"
