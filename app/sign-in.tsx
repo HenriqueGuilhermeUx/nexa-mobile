@@ -11,6 +11,7 @@ import {
   Title,
 } from '@/components/ui';
 import { nexaApi, tokensFromLogin } from '@/lib/api';
+import { resolveAuthenticatedRoute } from '@/lib/onboarding';
 import {
   enableAppLock,
   markAppLockOfferSeen,
@@ -39,17 +40,20 @@ export default function SignInScreen() {
     };
   }, []);
 
-  function goToAuthenticatedArea(profile: any) {
-    if (profile?.kycStatus === 'approved') {
-      router.replace('/legacy' as any);
-    } else {
-      router.replace('/kyc' as any);
-    }
+  async function goToAuthenticatedArea(
+    profile: any,
+    accessToken: string,
+  ) {
+    const target = await resolveAuthenticatedRoute(profile, accessToken);
+    router.replace(target as any);
   }
 
-  async function maybeOfferDeviceProtection(profile: any) {
+  async function maybeOfferDeviceProtection(
+    profile: any,
+    accessToken: string,
+  ) {
     if (!(await shouldOfferAppLock())) {
-      goToAuthenticatedArea(profile);
+      await goToAuthenticatedArea(profile, accessToken);
       return;
     }
 
@@ -62,7 +66,7 @@ export default function SignInScreen() {
           style: 'cancel',
           onPress: () => {
             void markAppLockOfferSeen().finally(() => {
-              goToAuthenticatedArea(profile);
+              void goToAuthenticatedArea(profile, accessToken);
             });
           },
         },
@@ -78,7 +82,7 @@ export default function SignInScreen() {
                   'Você pode continuar usando a Nexa com sua senha. A proteção do aparelho poderá ser ativada em uma próxima atualização de segurança.',
                 );
               }
-              goToAuthenticatedArea(profile);
+              void goToAuthenticatedArea(profile, accessToken);
             })();
           },
         },
@@ -106,7 +110,7 @@ export default function SignInScreen() {
       });
 
       const profile = response.user || (await nexaApi.me(tokens.accessToken));
-      await maybeOfferDeviceProtection(profile);
+      await maybeOfferDeviceProtection(profile, tokens.accessToken);
     } catch (caught) {
       await clearNexaTokens();
       setError(
