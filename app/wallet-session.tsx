@@ -32,6 +32,7 @@ function maskEmail(value: string) {
 export default function WalletSessionScreen() {
   const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const returnTo = firstParam(params.returnTo) || '';
+  const walletOnboarding = returnTo === 'onboarding-wallet';
   const privy = usePrivy() as any;
   const emailLogin = useLoginWithEmail() as any;
 
@@ -63,8 +64,17 @@ export default function WalletSessionScreen() {
         }
         if (!active) return;
         setEmail(session.email.trim().toLowerCase());
+
         const token = await currentAuthorizationToken();
-        if (active && token) setReady(true);
+        if (!active || !token) return;
+        setReady(true);
+
+        if (walletOnboarding) {
+          router.replace({
+            pathname: '/onboarding-wallet' as any,
+            params: { auto: '1' },
+          });
+        }
       } catch (caught) {
         if (active) {
           setError(
@@ -75,10 +85,11 @@ export default function WalletSessionScreen() {
         }
       }
     })();
+
     return () => {
       active = false;
     };
-  }, [privy?.getAccessToken]);
+  }, [privy?.getAccessToken, walletOnboarding]);
 
   async function sendCode() {
     setError('');
@@ -86,9 +97,16 @@ export default function WalletSessionScreen() {
     try {
       if (!email) throw new Error('O e-mail da conta Nexa não está disponível.');
       if (typeof emailLogin?.sendCode !== 'function') {
-        throw new Error('A confirmação Privy por e-mail não está disponível nesta versão.');
+        throw new Error('A confirmação por e-mail não está disponível nesta versão.');
       }
-      await emailLogin.sendCode({ email, disableSignup: true });
+
+      await emailLogin.sendCode({
+        email,
+        // No primeiro onboarding a Privy pode ainda não conhecer o usuário.
+        // Nos fluxos de recuperação, criação de uma nova identidade continua
+        // bloqueada para nunca trocar a carteira silenciosamente.
+        disableSignup: !walletOnboarding,
+      });
       setCode('');
       setCodeSent(true);
     } catch (caught) {
@@ -104,26 +122,20 @@ export default function WalletSessionScreen() {
 
   async function waitForAccessToken(timeoutMs = 12_000) {
     const deadline = Date.now() + timeoutMs;
-    let lastError: unknown = null;
     while (Date.now() < deadline) {
-      try {
-        const token = await currentAuthorizationToken();
-        if (token) return token;
-      } catch (caught) {
-        lastError = caught;
-      }
+      const token = await currentAuthorizationToken();
+      if (token) return token;
       await sleep(400);
     }
     throw new Error(
-      lastError instanceof Error
-        ? `Sua carteira foi confirmada, mas a autorização Privy ainda não ficou disponível: ${lastError.message}`
-        : 'Sua carteira foi confirmada, mas a autorização Privy ainda não ficou disponível. Tente novamente em alguns segundos.',
+      'Seu e-mail foi confirmado, mas a carteira ainda está sendo preparada. Tente novamente em alguns segundos.',
     );
   }
 
   async function validateCode() {
     const normalizedCode = code.replace(/\D/g, '').trim();
     setError('');
+
     if (normalizedCode.length < 4) {
       setError('Informe o código recebido no seu e-mail.');
       return;
@@ -132,12 +144,20 @@ export default function WalletSessionScreen() {
     setWorking(true);
     try {
       if (typeof emailLogin?.loginWithCode !== 'function') {
-        throw new Error('A validação Privy por código não está disponível nesta versão.');
+        throw new Error('A validação por código não está disponível nesta versão.');
       }
+
       await emailLogin.loginWithCode({ email, code: normalizedCode });
       await waitForAccessToken();
       setCodeSent(false);
       setReady(true);
+
+      if (walletOnboarding) {
+        router.replace({
+          pathname: '/onboarding-wallet' as any,
+          params: { auto: '1' },
+        });
+      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -150,6 +170,13 @@ export default function WalletSessionScreen() {
   }
 
   function continueFlow() {
+    if (walletOnboarding) {
+      router.replace({
+        pathname: '/onboarding-wallet' as any,
+        params: { auto: '1' },
+      });
+      return;
+    }
     if (returnTo === 'rewards') {
       router.replace('/(app)/rewards' as any);
       return;
@@ -166,13 +193,15 @@ export default function WalletSessionScreen() {
       <Brand />
       <View style={styles.topSpace} />
       <Badge tone={ready ? 'success' : 'warning'}>
-        {ready ? 'CARTEIRA CONFIRMADA' : 'CONFIRMAR CARTEIRA'}
+        {ready ? 'E-MAIL CONFIRMADO' : 'CONFIRMAR E-MAIL'}
       </Badge>
-      <Title>{ready ? 'Sua carteira está pronta.' : 'Confirme sua carteira.'}</Title>
+      <Title>{ready ? 'Tudo certo.' : 'Confirme seu e-mail.'}</Title>
       <Paragraph>
         {ready
-          ? 'A sessão Privy necessária para autorizar sua carteira foi restaurada neste aparelho. Nenhuma nova carteira foi criada.'
-          : 'Use o mesmo e-mail da sua conta Nexa para restaurar a autorização Privy da carteira já vinculada. A Nexa não cria nem troca seu endereço neste fluxo.'}
+          ? 'A autorização necessária para preparar sua Cripto Wallet está pronta neste aparelho.'
+          : walletOnboarding
+            ? 'Enviaremos um código para o mesmo e-mail da sua conta Nexa. Essa confirmação protege a criação da sua Cripto Wallet.'
+            : 'Use o mesmo e-mail da sua conta Nexa para restaurar a autorização da carteira já vinculada.'}
       </Paragraph>
 
       <Card>
@@ -183,7 +212,7 @@ export default function WalletSessionScreen() {
       {!ready ? (
         !codeSent ? (
           <ActionButton
-            label="Enviar código de confirmação"
+            label="Enviar código"
             loading={working}
             onPress={sendCode}
           />
@@ -198,7 +227,7 @@ export default function WalletSessionScreen() {
               placeholder="Digite o código"
             />
             <ActionButton
-              label="Validar carteira"
+              label="Confirmar e continuar"
               loading={working}
               onPress={validateCode}
             />
@@ -211,14 +240,17 @@ export default function WalletSessionScreen() {
           </Card>
         )
       ) : (
-        <ActionButton
-          label={returnTo === 'rewards' ? 'Voltar ao Turbinar' : returnTo === 'cash-out' ? 'Voltar ao saque' : 'Continuar'}
-          onPress={continueFlow}
-        />
+        <ActionButton label="Continuar" onPress={continueFlow} />
       )}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <ActionButton label="Voltar" variant="secondary" onPress={() => router.back()} />
+      {!walletOnboarding ? (
+        <ActionButton
+          label="Voltar"
+          variant="secondary"
+          onPress={() => router.back()}
+        />
+      ) : null}
     </Screen>
   );
 }
