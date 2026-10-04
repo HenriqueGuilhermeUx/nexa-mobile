@@ -18,6 +18,7 @@ import {
   Title,
 } from '@/components/ui';
 import { BrazilKycStatus, nexaApi } from '@/lib/api';
+import { resolveAuthenticatedRoute } from '@/lib/onboarding';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -47,6 +48,12 @@ export default function KycScreen() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
 
+  async function continueAfterApproval(accessToken: string) {
+    const profile = await nexaApi.me(accessToken);
+    const target = await resolveAuthenticatedRoute(profile, accessToken);
+    router.replace(target as any);
+  }
+
   const refreshStatus = useCallback(async () => {
     const session = await loadNexaSession();
     if (!session) {
@@ -59,7 +66,7 @@ export default function KycScreen() {
       setStatus(next);
       setError('');
       if (next.kycStatus === 'approved' || next.nextAction === 'approved') {
-        router.replace('/legacy' as any);
+        await continueAfterApproval(session.accessToken);
       }
     } catch (caught) {
       setError(
@@ -96,7 +103,7 @@ export default function KycScreen() {
       setStatus(next);
 
       if (next.kycStatus === 'approved' || next.nextAction === 'approved') {
-        router.replace('/legacy' as any);
+        await continueAfterApproval(session.accessToken);
         return;
       }
 
