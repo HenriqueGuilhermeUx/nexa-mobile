@@ -109,7 +109,9 @@ export default function SignInScreen() {
         email: normalizedEmail,
       });
 
-      const profile = response.user || (await nexaApi.me(tokens.accessToken));
+      // /user/me is the canonical onboarding profile: KYC, payout Pix,
+      // Premium and linked wallet all come from the same source of truth.
+      const profile = await nexaApi.me(tokens.accessToken);
       await maybeOfferDeviceProtection(profile, tokens.accessToken);
     } catch (caught) {
       await clearNexaTokens();
