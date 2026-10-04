@@ -1,17 +1,17 @@
-// Nexa v142 definitive onboarding and Premium release.
+// Nexa v143 definitive onboarding and Premium release.
 module.exports = ({ config }) => ({
   ...config,
-  version: '2.0.39',
+  version: '2.0.40',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '142',
+    buildNumber: '143',
   },
   android: {
     ...(config.android || {}),
-    versionCode: 142,
+    versionCode: 143,
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.39-v142-definitive-onboarding',
+    releaseBuild: 'android16-api36-2.0.40-v143-definitive-onboarding',
   },
 });
