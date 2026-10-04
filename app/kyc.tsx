@@ -131,6 +131,7 @@ export default function KycScreen() {
   return (
     <Screen>
       <Brand />
+      <Badge tone="info">PASSO 1 DE 4</Badge>
       <Title>Verifique sua identidade</Title>
       <Paragraph>
         Para liberar as movimentações da Nexa, confirme que o CPF pertence a
@@ -174,11 +175,10 @@ export default function KycScreen() {
             Encontramos um resultado que precisa de revisão. Não é necessário
             repetir o processo nem enviar outro documento por conta própria.
           </Text>
-          <ActionButton
-            label="Entrar na Nexa"
-            variant="secondary"
-            onPress={() => router.replace('/legacy' as any)}
-          />
+          <Text style={styles.helper}>
+            Você pode fechar o app. Quando voltar, a Nexa consulta o resultado
+            automaticamente e continua o onboarding do ponto certo.
+          </Text>
         </Card>
       ) : (
         <Card>
@@ -204,15 +204,6 @@ export default function KycScreen() {
         disabled={starting}
         onPress={refreshStatus}
       />
-
-      {!approved ? (
-        <ActionButton
-          label="Entrar na Nexa e verificar depois"
-          variant="secondary"
-          disabled={starting}
-          onPress={() => router.replace('/legacy' as any)}
-        />
-      ) : null}
 
       {status?.outcomeCode ? (
         <Text style={styles.code}>Referência: {status.outcomeCode}</Text>
