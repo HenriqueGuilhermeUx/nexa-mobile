@@ -1,6 +1,6 @@
 {
   "name": "nexa-mobile",
-  "version": "2.0.38",
+  "version": "2.0.39",
   "private": true,
   "main": "entrypoint.js",
   "packageManager": "npm@10.8.2",
