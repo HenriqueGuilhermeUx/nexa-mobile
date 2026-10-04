@@ -94,7 +94,13 @@ async function request(path: string, accessToken: string, options: RequestInit =
 
   if (!response.ok) {
     const raw = data?.message || data?.error || `Falha Open Finance (${response.status})`;
-    throw new Error(Array.isArray(raw) ? raw.join(', ') : String(raw));
+    const error: any = new Error(
+      Array.isArray(raw) ? raw.join(', ') : String(raw),
+    );
+    error.status = response.status;
+    error.code = data?.code || null;
+    error.payload = data;
+    throw error;
   }
 
   return data;
