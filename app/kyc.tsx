@@ -44,6 +44,7 @@ function actionLabel(status?: BrazilKycStatus | null) {
 
 export default function KycScreen() {
   const [status, setStatus] = useState<BrazilKycStatus | null>(null);
+  const [countryCode, setCountryCode] = useState('BR');
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
@@ -62,7 +63,16 @@ export default function KycScreen() {
     }
 
     try {
-      const next = await nexaApi.getMyKycStatus(session.accessToken);
+      const profile = await nexaApi.me(session.accessToken);
+      const country = String(profile?.residenceCountry || 'BR')
+        .trim()
+        .toUpperCase();
+      setCountryCode(country);
+
+      const next =
+        country === 'BR'
+          ? await nexaApi.getMyKycStatus(session.accessToken)
+          : await nexaApi.getMyGlobalKycStatus(session.accessToken);
       setStatus(next);
       setError('');
       if (next.kycStatus === 'approved' || next.nextAction === 'approved') {
@@ -98,8 +108,17 @@ export default function KycScreen() {
     setError('');
     try {
       // O toque neste botão representa consentimento explícito informado para
-      // iniciar a verificação biométrica descrita na própria tela.
-      const next = await nexaApi.startBrazilKyc(session.accessToken, true);
+      // iniciar a verificação de identidade descrita na própria tela.
+      const profile = await nexaApi.me(session.accessToken);
+      const country = String(profile?.residenceCountry || countryCode || 'BR')
+        .trim()
+        .toUpperCase();
+      setCountryCode(country);
+
+      const next =
+        country === 'BR'
+          ? await nexaApi.startBrazilKyc(session.accessToken, true)
+          : await nexaApi.startGlobalKyc(session.accessToken, true);
       setStatus(next);
 
       if (next.kycStatus === 'approved' || next.nextAction === 'approved') {
@@ -134,9 +153,9 @@ export default function KycScreen() {
       <Badge tone="info">PASSO 1 DE 4</Badge>
       <Title>Verifique sua identidade</Title>
       <Paragraph>
-        Para liberar as movimentações da Nexa, confirme que o CPF pertence a
-        você. No fluxo brasileiro, a verificação normalmente usa apenas CPF e
-        uma selfie com prova de vida.
+        {countryCode === 'BR'
+          ? 'Para liberar as movimentações da Nexa, confirme que o CPF pertence a você. No fluxo brasileiro, a verificação normalmente usa CPF e selfie com prova de vida.'
+          : 'Para liberar as movimentações da Nexa, confirme sua identidade com um documento aceito no seu país de residência e a prova de vida solicitada pelo provedor.'}
       </Paragraph>
 
       <Card>
@@ -153,18 +172,37 @@ export default function KycScreen() {
         </Badge>
 
         <View style={styles.steps}>
-          <Text style={styles.step}>1. Seu CPF já está cadastrado na Nexa.</Text>
-          <Text style={styles.step}>
-            2. A Didit faz uma selfie com prova de vida.
-          </Text>
-          <Text style={styles.step}>
-            3. A identidade é comparada com a base biométrica disponível para o
-            CPF no Brasil.
-          </Text>
-          <Text style={styles.step}>
-            4. Documento só é solicitado quando a validação não consegue dar
-            uma resposta conclusiva.
-          </Text>
+          {countryCode === 'BR' ? (
+            <>
+              <Text style={styles.step}>1. Seu CPF já está cadastrado na Nexa.</Text>
+              <Text style={styles.step}>
+                2. A Didit faz uma selfie com prova de vida.
+              </Text>
+              <Text style={styles.step}>
+                3. A identidade é comparada com a base biométrica disponível para o
+                CPF no Brasil.
+              </Text>
+              <Text style={styles.step}>
+                4. Documento só é solicitado quando a validação não consegue dar
+                uma resposta conclusiva.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.step}>
+                1. A Nexa usa seu país de residência para selecionar o fluxo correto.
+              </Text>
+              <Text style={styles.step}>
+                2. Você apresenta um documento aceito pelo provedor nesse país.
+              </Text>
+              <Text style={styles.step}>
+                3. A prova de vida confirma que o documento pertence a você.
+              </Text>
+              <Text style={styles.step}>
+                4. A Nexa continua o onboarding somente depois da aprovação.
+              </Text>
+            </>
+          )}
         </View>
       </Card>
 
@@ -186,8 +224,9 @@ export default function KycScreen() {
           <Text style={styles.helper}>
             Ao tocar em “{actionLabel(status)}”, você autoriza o tratamento dos
             dados necessários para a verificação de identidade e prova de vida
-            pela Nexa e por seu provedor de verificação. A Nexa não precisa
-            receber a imagem da selfie neste fluxo hospedado.
+            pela Nexa e por seu provedor de verificação. A Nexa evita armazenar
+            imagens de documento ou selfie quando o fluxo hospedado do provedor
+            permite manter esses artefatos fora da infraestrutura da Nexa.
           </Text>
           <ActionButton
             label={actionLabel(status)}
