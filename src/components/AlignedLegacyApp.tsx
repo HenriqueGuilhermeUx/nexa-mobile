@@ -1156,187 +1156,166 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
   const contentBottom = 92 + Math.max(insets.bottom, 10);
 
+
   function Home() {
+    const recent = statement.slice(0, 3);
+    const totalLabel =
+      portfolioTotalUsd > 0
+        ? 'US$ ' + amount(portfolioTotalUsd, 2)
+        : amount(balances.USDC, 2) + ' USDC';
+
     return (
       <>
         <View style={styles.homeTop}>
           <View>
-            <Text style={[styles.welcomeLabel, isPremium ? styles.premiumAccentText : null]}>
-              CRIPTO WALLET
-            </Text>
+            <Text style={styles.welcomeLabel}>NEXA WALLET</Text>
             <Text style={styles.hello}>Olá, {firstName}</Text>
-            <Text style={styles.handle}>{handle || 'Conta Nexa'}</Text>
+            <Text style={styles.handle}>{handle || 'Sua wallet Nexa'}</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setPage('profile')}
-            style={[styles.avatar, isPremium ? styles.avatarPremium : null]}
-          >
-            <Text style={[styles.avatarText, isPremium ? styles.avatarTextPremium : null]}>
-              {firstName.charAt(0).toUpperCase()}
-            </Text>
+          <TouchableOpacity onPress={() => setPage('profile')} style={styles.avatar}>
+            <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
           </TouchableOpacity>
         </View>
 
-        <Card style={[styles.heroCard, isPremium ? styles.heroCardPremium : null]}>
+        <Card style={styles.heroCard}>
           <View style={styles.rowBetween}>
-            <View>
-              <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>
-                CARTEIRA CRIPTO
+            <View style={{ flex: 1, paddingRight: 14 }}>
+              <View style={styles.heroLabelRow}>
+                <Text style={styles.eyebrow}>VALOR DA CARTEIRA</Text>
+                <Text style={styles.heroEye}>◉</Text>
+              </View>
+              <Text style={styles.heroAmount}>{totalLabel}</Text>
+              <Text style={styles.heroUnit}>
+                {portfolioTotalUsd > 0
+                  ? amount(balances.USDC, 4) + ' USDC disponível'
+                  : 'Saldo principal em USDC'}
               </Text>
-              <Text style={styles.heroAmount}>{amount(balances.USDC, 6)}</Text>
-              <Text style={styles.heroUnit}>USDC disponível</Text>
             </View>
-            <View style={[styles.heroMark, isPremium ? styles.heroMarkPremium : null]}>
-              <Text style={[styles.heroMarkText, isPremium ? styles.premiumAccentText : null]}>N</Text>
-            </View>
+            {isPremium ? (
+              <View style={styles.premiumBadge}>
+                <Text style={styles.premiumBadgeText}>PREMIUM</Text>
+              </View>
+            ) : null}
           </View>
-          {portfolioTotalUsd > 0 ? (
-            <Text style={[styles.portfolioValue, isPremium ? styles.portfolioValuePremium : null]}>
-              Carteira estimada: US$ {amount(portfolioTotalUsd, 2)}
-            </Text>
-          ) : null}
           <Text style={styles.heroHint}>
-            Seu USDC e seus ativos em uma experiência simples, com a parte técnica nos bastidores.
+            Sua wallet individual, com a complexidade técnica ficando por trás da experiência.
           </Text>
         </Card>
 
-        <View style={styles.quickRow}>
-          <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
-          <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
-          <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
-          <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
+        <View style={styles.quickActionsRow}>
+          <QuickAction icon="plus" title="Adicionar" onPress={openWalletFirstDeposit} primary />
+          <QuickAction icon="swap" title="Converter" onPress={openWalletFirstAssets} />
+          <QuickAction icon="send" title="Enviar" onPress={openWalletFirstSend} />
+          <QuickAction icon="withdraw" title="Sacar" onPress={openWalletFirstWithdraw} />
         </View>
 
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>CARTEIRA</Text>
-            <Text style={styles.sectionTitle}>Seus ativos</Text>
+            <Text style={styles.sectionKicker}>MINHA WALLET</Text>
+            <Text style={styles.sectionTitle}>Meus ativos</Text>
           </View>
           <TouchableOpacity onPress={() => setPage('assets')}>
-            <Text style={[styles.inlineAction, isPremium ? styles.premiumAccentText : null]}>
-              Ver todos
-            </Text>
+            <Text style={styles.inlineAction}>Ver todos</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.assetGrid}>
+
+        <View style={styles.assetList}>
           {portfolioPositions.map((item) => (
             <TouchableOpacity
               key={item.symbol}
-              style={[
-                styles.assetMini,
-                isPremium ? styles.premiumSurface : null,
-              ]}
+              style={styles.assetListRow}
+              activeOpacity={0.82}
               onPress={() => {
-                setAsset(item.symbol === 'USDC' ? 'BTC' : item.symbol);
-                setPage(item.symbol === 'USDC' ? 'wallet' : 'assets');
+                if (item.symbol === 'USDC') setPage('wallet');
+                else {
+                  setAsset(item.symbol);
+                  setPage('assets');
+                }
               }}
             >
-              <Text style={[styles.assetIcon, isPremium ? styles.premiumAccentText : null]}>
-              {item.icon}
-            </Text>
-              <Text style={styles.assetSymbol}>{item.symbol}</Text>
-              <Text style={styles.assetBalance}>{amount(item.amount, 6)}</Text>
+              <View style={[styles.assetTokenIcon, { borderColor: item.tone }]}>
+                <Text style={[styles.assetTokenMark, { color: item.tone }]}>{item.icon}</Text>
+              </View>
+              <View style={styles.assetListIdentity}>
+                <Text style={styles.assetListName}>{item.name}</Text>
+                <Text style={styles.assetRowSymbol}>{item.symbol}</Text>
+              </View>
+              <View style={styles.alignRight}>
+                <Text style={styles.assetListAmount}>
+                  {amount(item.amount, item.symbol === 'USDC' ? 2 : 6)} {item.symbol}
+                </Text>
+                <Text style={styles.assetRowValue}>
+                  {item.valueUsd > 0 ? 'US$ ' + amount(item.valueUsd, 2) : '—'}
+                </Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
 
-        {config.assistantEnabled ? (
-          <Card style={styles.staffCard}>
-            <View style={styles.rowBetween}>
-              <View style={{ flex: 1, paddingRight: 16 }}>
-                <Text style={[styles.staffEyebrow, isPremium ? styles.premiumAccentText : null]}>ASSISTENTE NEXA</Text>
-                <Text style={styles.highlightTitle}>Seu assistente pessoal.</Text>
-                <Text style={styles.highlightText}>
-                  Organize o dia, acompanhe prioridades e use seu contexto da Nexa quando precisar.
-                </Text>
-              </View>
-              <View style={[styles.staffOrb, isPremium ? styles.premiumBorder : null]}>
-                <Text style={[styles.staffOrbText, isPremium ? styles.premiumAccentText : null]}>
-                  ✦
-                </Text>
-              </View>
-            </View>
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[
-                  styles.staffPrimaryAction,
-                  isPremium ? styles.staffPrimaryActionPremium : null,
-                ]}
-                onPress={() => router.push('/assistant')}
-              >
-                <Text style={styles.staffPrimaryActionText}>Abrir Assistente</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.staffSecondaryAction,
-                  isPremium ? styles.premiumBorder : null,
-                ]}
-                onPress={openNexaSupport}
-              >
-                <Text style={styles.staffSecondaryActionText}>WhatsApp</Text>
-              </TouchableOpacity>
-            </View>
-          </Card>
-        ) : null}
-
-        <Card style={styles.cryptoCard}>
-          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>ATIVOS CRIPTO</Text>
-          <Text style={styles.highlightTitle}>Compre os principais ativos cripto sem complicação.</Text>
-          <Text style={styles.highlightText}>
-            Bitcoin, Ethereum e Ouro Digital usando seu saldo em USDC.
-          </Text>
-          <PrimaryButton title="Ver ativos" onPress={() => setPage('assets')} secondary />
-        </Card>
-
-        <View style={styles.homeSecondaryRow}>
-          <TouchableOpacity
-            style={[
-              styles.homeSecondaryCard,
-              isPremium ? styles.premiumSurface : null,
-            ]}
-            onPress={() => router.push('/(app)/rewards' as any)}
-          >
-            <Text style={[styles.homeSecondaryKicker, isPremium ? styles.premiumAccentText : null]}>REWARDS</Text>
-            <Text style={styles.homeSecondaryTitle}>Turbinar USDC</Text>
-            <Text style={styles.homeSecondaryText}>
-              Separe USDC para participar do Rewards.
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.homeSecondaryCard,
-              isPremium ? styles.homePremiumCardActive : null,
-            ]}
-            onPress={() => setPage('premium')}
-          >
-            <Text style={isPremium ? styles.homePremiumKicker : styles.homeSecondaryKicker}>
-              PREMIUM
-            </Text>
-            <Text style={styles.homeSecondaryTitle}>
-              {isPremium ? 'Premium ativo' : 'Conhecer Premium'}
-            </Text>
-            <Text style={styles.homeSecondaryText}>
-              Benefícios extras por R$ 19,90/mês em USDC.
-            </Text>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionKicker}>ATIVIDADE</Text>
+            <Text style={styles.sectionTitle}>Movimentações recentes</Text>
+          </View>
+          <TouchableOpacity onPress={() => setPage('history')}>
+            <Text style={styles.inlineAction}>Ver histórico</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.homeWideCard,
-            isPremium ? styles.premiumSurface : null,
-          ]}
-          onPress={openUsdcSubscription}
-        >
-          <Text style={[styles.homeSecondaryKicker, isPremium ? styles.premiumAccentText : null]}>
-            OPEN FINANCE
-          </Text>
-          <Text style={styles.homeSecondaryTitle}>USDC por assinatura</Text>
-          <Text style={styles.homeSecondaryText}>
-            Autorize no seu banco e receba USDC automaticamente todo mês.
-          </Text>
-        </TouchableOpacity>
+        <Card style={styles.activityCard}>
+          {recent.length ? (
+            recent.map((item: any, index: number) => (
+              <View
+                key={item.id || String(item.description || 'movement') + '-' + index}
+                style={[
+                  styles.activityRow,
+                  index === recent.length - 1 ? styles.activityRowLast : null,
+                ]}
+              >
+                <View style={styles.activityIcon}>
+                  <NexaIcon
+                    name={item.direction === 'credit' ? 'receive' : 'send'}
+                    color={item.direction === 'credit' ? '#35D69A' : '#31D7FF'}
+                    size={18}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.activityTitle}>{item.description || 'Movimentação'}</Text>
+                  <Text style={styles.activityDate}>
+                    {item.createdAt
+                      ? new Date(item.createdAt).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : item.asset || 'Nexa'}
+                  </Text>
+                </View>
+                <Text
+                  style={
+                    item.direction === 'credit'
+                      ? styles.activityCredit
+                      : styles.activityDebit
+                  }
+                >
+                  {item.direction === 'credit' ? '+' : '-'}
+                  {amount(item.amount, 6)} {item.asset || ''}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyStateIcon}>
+                <NexaIcon name="history" color="#70879F" size={24} />
+              </View>
+              <Text style={styles.emptyStateTitle}>Sua wallet está pronta.</Text>
+              <Text style={styles.emptyStateText}>
+                Suas movimentações aparecerão aqui quando você começar a usar a Nexa.
+              </Text>
+            </View>
+          )}
+        </Card>
       </>
     );
   }
@@ -1459,6 +1438,47 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           </Text>
           <PrimaryButton title="Sacar para Pix" onPress={openWalletFirstWithdraw} secondary />
         </Card>
+      </>
+    );
+  }
+
+
+  function Move() {
+    return (
+      <>
+        <Text style={styles.pageKicker}>MOVIMENTAR</Text>
+        <Text style={styles.pageTitle}>O que você quer fazer?</Text>
+        <Text style={styles.pageSubtitle}>
+          Escolha uma ação. A Nexa mantém as etapas técnicas fora do caminho e mostra o que importa antes de você confirmar.
+        </Text>
+
+        <View style={styles.moveGrid}>
+          <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstDeposit} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="plus" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Adicionar</Text>
+            <Text style={styles.moveText}>Comece com Pix e receba USDC na sua wallet.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstAssets} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="swap" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Converter</Text>
+            <Text style={styles.moveText}>Use USDC para acessar ativos disponíveis na Nexa.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstSend} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="send" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Enviar</Text>
+            <Text style={styles.moveText}>Envie a partir da sua própria wallet.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moveCard} onPress={() => setPage('wallet')} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="receive" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Receber</Text>
+            <Text style={styles.moveText}>Veja endereço e informações da sua wallet.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.moveCard, styles.moveCardWide]} onPress={openWalletFirstWithdraw} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="withdraw" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Sacar</Text>
+            <Text style={styles.moveText}>Solicite o resgate de USDC para o Pix configurado.</Text>
+          </TouchableOpacity>
+        </View>
       </>
     );
   }
@@ -1936,6 +1956,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   else if (page === 'wallet') body = <Wallet />;
   else if (page === 'assets') body = <Assets />;
   else if (page === 'send') body = <Send />;
+  else if (page === 'move') body = <Move />;
   else if (page === 'menu') body = <Menu />;
   else if (page === 'premium') body = <Premium />;
   else if (page === 'recurring') body = <Recurring />;
@@ -1987,7 +2008,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <View style={styles.brandRow}>
           <View>
             <Text style={styles.brand}>NEXA</Text>
-            <Text style={styles.brandTag}>Cripto sem complicação.</Text>
+            <Text style={styles.brandTag}>WALLET · Cripto sem complicação.</Text>
           </View>
           {isPremium ? <Text style={styles.brandEditionPremium}>PREMIUM</Text> : null}
         </View>
