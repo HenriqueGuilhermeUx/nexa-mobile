@@ -164,11 +164,30 @@ export default function SendNexaScreen() {
   return (
     <Screen>
       <Brand />
-      <Eyebrow>NEXA → NEXA</Eyebrow>
-      <Title>Enviar USDC.</Title>
+      <Eyebrow>ENVIAR</Eyebrow>
+      <Title>Enviar</Title>
       <Paragraph>
-        Informe o @username. A Nexa localiza a Cripto Wallet do destinatário e você confirma o envio.
+        Envie para outro usuário Nexa pelo @username ou abra as opções avançadas para enviar a uma wallet externa.
       </Paragraph>
+
+      <View style={styles.destinationRow}>
+        <View style={[styles.destinationCard, styles.destinationCardActive]}>
+          <Text style={styles.destinationTitle}>Usuário Nexa</Text>
+          <Text style={styles.destinationText}>Use @username. A Nexa localiza a wallet correta.</Text>
+        </View>
+        <Pressable
+          style={styles.destinationCard}
+          onPress={() =>
+            router.push({
+              pathname: '/legacy' as any,
+              params: { open: 'custody' },
+            } as any)
+          }
+        >
+          <Text style={styles.destinationTitle}>Wallet externa</Text>
+          <Text style={styles.destinationText}>Endereço 0x e rede compatível.</Text>
+        </Pressable>
+      </View>
 
       <Card>
         <Field
@@ -207,7 +226,10 @@ export default function SendNexaScreen() {
           <Text style={styles.label}>Destinatário</Text>
           <Text style={styles.value}>@{prepared.receiver?.username}</Text>
           <Text style={styles.note}>
-            A Nexa já confirmou que a conta destinatária está apta a receber. O envio sai da sua própria carteira após sua autorização.
+            A Nexa já confirmou que a conta destinatária está apta a receber. O envio sai da sua própria wallet somente depois da sua autorização.
+          </Text>
+          <Text style={styles.warning}>
+            Confira o @username e o valor antes de continuar. Operações confirmadas na blockchain podem ser irreversíveis.
           </Text>
           {!txHash ? (
             <ActionButton
@@ -257,12 +279,37 @@ export default function SendNexaScreen() {
 }
 
 const styles = StyleSheet.create({
-  reviewCard: { backgroundColor: '#11143C' },
-  kicker: { color: colors.primary, fontSize: 12, fontWeight: '900', letterSpacing: 1.2 },
+  reviewCard: { backgroundColor: colors.panel, borderColor: colors.borderStrong },
+  destinationRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  destinationCard: {
+    flex: 1,
+    minHeight: 112,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.panel,
+    padding: spacing.md,
+  },
+  destinationCardActive: {
+    borderColor: colors.cyan,
+    backgroundColor: colors.primarySoft,
+  },
+  destinationTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  destinationText: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 6 },
+  kicker: { color: colors.cyan, fontSize: 12, fontWeight: '800', letterSpacing: 1.2 },
   amount: { color: colors.text, fontSize: 32, fontWeight: '900', marginTop: spacing.md },
   label: { color: colors.muted, fontSize: 12, marginTop: spacing.md },
   value: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 4 },
   note: { color: colors.muted, lineHeight: 20, marginVertical: spacing.md },
+  warning: {
+    color: colors.warning,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+    backgroundColor: colors.warningSoft,
+    borderRadius: 14,
+    padding: spacing.md,
+  },
   success: { color: colors.success, fontWeight: '800', marginTop: spacing.md },
   error: { color: colors.danger, fontWeight: '700', marginBottom: spacing.md },
 });
