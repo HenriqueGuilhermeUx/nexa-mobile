@@ -179,6 +179,8 @@ export default function SignInScreen() {
         onPress={() => router.push('/sign-up-country' as any)}
       />
 
+      <Text style={styles.securityNote}>Biometria pode proteger o acesso depois do primeiro login neste aparelho.</Text>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </Screen>
   );
@@ -186,6 +188,7 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
+  securityNote: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: spacing.md },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerSoft,
