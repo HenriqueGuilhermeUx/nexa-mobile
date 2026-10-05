@@ -5,3 +5,5 @@ Android versionCode: 143
 Native changes: none
 Purpose: apply validated Wallet-First redesign to installed v143 Live Test APKs
 Main redesign commit: cc06e2fa8b00c6853bce3ecf30d4c10ea118324a
+
+Dispatch via merged PR after CI-green Wallet 2026 redesign.
