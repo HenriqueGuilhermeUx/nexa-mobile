@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionButton,
@@ -38,13 +38,13 @@ function formatUsdc(value: unknown) {
 function friendlyTransferError(error: unknown, username?: string) {
   const message = error instanceof Error ? error.message : String(error || '');
   if (message.includes('RECEIVER_WALLET_REQUIRED')) {
-    return `@${String(username || '').replace(/^@/, '')} ainda precisa ativar a Cripto Wallet da Nexa para receber USDC.`;
+    return `@${String(username || '').replace(/^@/, '')} ainda precisa ativar a wallet da Nexa para receber USDC.`;
   }
   if (message.includes('RECEIVER_KYC_REQUIRED')) {
     return 'A conta destinatária ainda precisa concluir a verificação de identidade.';
   }
   if (message.includes('SENDER_WALLET_REQUIRED')) {
-    return 'Sua Cripto Wallet ainda não está pronta para enviar.';
+    return 'Sua wallet ainda não está pronta para enviar.';
   }
   if (message.includes('INSUFFICIENT_ONCHAIN_USDC')) {
     return 'Seu saldo USDC disponível não é suficiente para este envio.';
@@ -268,7 +268,7 @@ export default function SendNexaScreen() {
 
       <Card>
         <Text style={styles.note}>
-          Contas antigas da Nexa precisam ativar a Cripto Wallet antes de receber transferências Wallet‑First.
+          Contas antigas da Nexa precisam ativar a wallet antes de receber transferências Wallet‑First.
         </Text>
       </Card>
 
