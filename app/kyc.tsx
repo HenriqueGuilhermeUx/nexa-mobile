@@ -242,8 +242,22 @@ export default function KycScreen() {
 }
 
 const styles = StyleSheet.create({
-  steps: { marginTop: spacing.md, gap: spacing.sm },
-  step: { color: colors.text, fontSize: 15, lineHeight: 22 },
+  steps: { marginTop: spacing.md, gap: spacing.md },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  stepIndex: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    backgroundColor: colors.primarySoft,
+    color: colors.cyan,
+    fontWeight: '900',
+    marginRight: spacing.sm,
+  },
+  stepBody: { flex: 1 },
+  stepTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginBottom: 3 },
+  step: { color: colors.muted, fontSize: 13, lineHeight: 20 },
   consentTitle: {
     color: colors.text,
     fontSize: 17,
