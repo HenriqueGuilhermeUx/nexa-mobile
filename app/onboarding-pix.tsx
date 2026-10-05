@@ -155,17 +155,15 @@ export default function OnboardingPixScreen() {
       <Brand />
       <View style={styles.topSpace} />
       <Badge tone="info">PASSO 2 DE 4</Badge>
-      <Title>Onde você quer receber seus resgates?</Title>
+      <Title>Escolha seu Pix para resgates</Title>
       <Paragraph>
-        Quando você transformar USDC em reais, a Nexa enviará o Pix para esta
-        chave. Recomendamos seu CPF por ser o caminho mais simples e seguro.
+        Quando você sacar para reais, a Nexa envia o Pix para uma chave já confirmada no seu cadastro. Seu CPF é a opção recomendada no Brasil.
       </Paragraph>
 
       <Card>
-        <Text style={styles.cardTitle}>Escolha uma chave sua</Text>
+        <Text style={styles.cardTitle}>Qual chave você quer usar?</Text>
         <Text style={styles.helper}>
-          Para sua segurança, usamos apenas CPF, e-mail ou telefone que já
-          pertencem ao seu cadastro Nexa verificado.
+          Você não precisa digitar a chave. Escolha um dado já verificado na sua conta.
         </Text>
 
         <View style={styles.options}>
@@ -198,17 +196,16 @@ export default function OnboardingPixScreen() {
       </Card>
 
       <Card>
-        <Text style={styles.cardTitle}>Sua conta de resgate</Text>
+        <Text style={styles.cardTitle}>Depois disso</Text>
         <Text style={styles.helper}>
-          Depois da confirmação, a Nexa prepara sua subconta de resgate em
-          segundo plano. Você pode continuar usando o app sem esperar.
+          A Nexa prepara a infraestrutura de resgate em segundo plano. Você continua o onboarding sem precisar configurar banco ou provedor.
         </Text>
       </Card>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <ActionButton
-        label="Confirmar Pix e continuar"
+        label="Continuar"
         loading={saving || loading}
         disabled={loading || options.length === 0}
         onPress={continueOnboarding}
