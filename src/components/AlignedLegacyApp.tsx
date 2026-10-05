@@ -1436,6 +1436,46 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     );
   }
 
+  function Move() {
+    return (
+      <>
+        <Text style={styles.pageKicker}>MOVIMENTAR</Text>
+        <Text style={styles.pageTitle}>O que você quer fazer?</Text>
+        <Text style={styles.pageSubtitle}>
+          Escolha uma ação. A Nexa mantém as etapas técnicas fora do caminho e mostra o que importa antes de você confirmar.
+        </Text>
+
+        <View style={styles.moveGrid}>
+          <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstDeposit} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="plus" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Adicionar</Text>
+            <Text style={styles.moveText}>Comece com Pix e receba USDC na sua wallet.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstAssets} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="swap" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Converter</Text>
+            <Text style={styles.moveText}>Use USDC para acessar ativos disponíveis na Nexa.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstSend} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="send" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Enviar</Text>
+            <Text style={styles.moveText}>Envie a partir da sua própria wallet.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moveCard} onPress={() => setPage('wallet')} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="receive" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Receber</Text>
+            <Text style={styles.moveText}>Veja endereço e informações da sua wallet.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.moveCard, styles.moveCardWide]} onPress={openWalletFirstWithdraw} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="withdraw" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Sacar</Text>
+            <Text style={styles.moveText}>Solicite o resgate de USDC para o Pix configurado.</Text>
+          </TouchableOpacity>
+        </View>
+      </>
+    );
+  }
+
   function Send() {
     return (
       <>
@@ -1909,6 +1949,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   else if (page === 'wallet') body = <Wallet />;
   else if (page === 'assets') body = <Assets />;
   else if (page === 'send') body = <Send />;
+  else if (page === 'move') body = <Move />;
   else if (page === 'menu') body = <Menu />;
   else if (page === 'premium') body = <Premium />;
   else if (page === 'recurring') body = <Recurring />;
