@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import {
   ActionButton,
@@ -17,12 +23,37 @@ import {
   migrateLegacySession,
   saveNexaSession,
 } from '@/lib/session';
-import { colors, spacing } from '@/theme';
+import { colors, radius, spacing } from '@/theme';
+
+const INTRO = [
+  {
+    kicker: 'NEXA WALLET',
+    title: 'Sua wallet. Seus ativos.',
+    text: 'Uma forma mais simples de acessar e usar ativos digitais.',
+    symbol: 'N',
+    caption: 'Controle com experiência de fintech',
+  },
+  {
+    kicker: 'SIMPLES POR FORA',
+    title: 'A tecnologia fica por trás.',
+    text: 'Você não precisa dominar redes, bridges ou gas para começar.',
+    symbol: '◎',
+    caption: 'A Nexa cuida das etapas técnicas',
+  },
+  {
+    kicker: 'COMECE PELO FAMILIAR',
+    title: 'Comece pelo que você já conhece.',
+    text: 'No Brasil, use Pix para iniciar sua experiência com USDC.',
+    symbol: 'PIX',
+    caption: 'Pix → USDC → sua wallet',
+  },
+];
 
 export default function WelcomeScreen() {
   const [checking, setChecking] = useState(true);
   const [startupError, setStartupError] = useState('');
   const [retryKey, setRetryKey] = useState(0);
+  const [introStep, setIntroStep] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -98,12 +129,9 @@ export default function WelcomeScreen() {
             return;
           }
 
-          // O onboarding definitivo não decide KYC/Pix/wallet sem o perfil
-          // canônico do servidor. A sessão é preservada e o cliente pode tentar
-          // novamente; nenhuma etapa é pulada silenciosamente.
           if (mounted) {
             setStartupError(
-              'Não foi possível confirmar sua conta Nexa agora. Sua sessão foi preservada.',
+              'Não conseguimos confirmar sua conta agora. Sua sessão foi preservada e nenhuma movimentação foi iniciada.',
             );
             setChecking(false);
           }
@@ -122,28 +150,62 @@ export default function WelcomeScreen() {
   if (checking) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.loaderText}>Abrindo a Nexa...</Text>
+        <View style={styles.loaderBrand}>
+          <Brand />
+        </View>
+        <View style={styles.loaderMark}>
+          <Text style={styles.loaderMarkText}>N</Text>
+        </View>
+        <ActivityIndicator color={colors.cyan} size="small" />
+        <Text style={styles.loaderTitle}>Abrindo sua Nexa</Text>
+        <Text style={styles.loaderText}>
+          Confirmando sua sessão e preparando sua wallet.
+        </Text>
       </View>
     );
   }
+
+  const current = INTRO[introStep];
+  const last = introStep === INTRO.length - 1;
 
   return (
     <Screen>
       <View style={styles.content}>
         <Brand />
-        <View style={styles.hero}>
-          <Title>Cripto sem complicação.</Title>
-          <Paragraph>
-            Pix e USDC em uma experiência simples, segura e transparente.
-          </Paragraph>
+
+        <View style={styles.progressRow}>
+          {INTRO.map((_, index) => (
+            <Pressable
+              key={index}
+              accessibilityRole="button"
+              accessibilityLabel={`Ir para apresentação ${index + 1}`}
+              onPress={() => setIntroStep(index)}
+              style={[
+                styles.progressDot,
+                index === introStep ? styles.progressDotActive : null,
+              ]}
+            />
+          ))}
         </View>
+
+        <View style={styles.visual}>
+          <View style={styles.visualHalo} />
+          <View style={styles.visualCard}>
+            <Text style={styles.visualSymbol}>{current.symbol}</Text>
+            <Text style={styles.visualCaption}>{current.caption}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.kicker}>{current.kicker}</Text>
+        <Title>{current.title}</Title>
+        <Paragraph>{current.text}</Paragraph>
 
         {startupError ? (
           <>
             <Text style={styles.startupError}>{startupError}</Text>
             <ActionButton
               label="Tentar novamente"
+              variant="secondary"
               onPress={() => {
                 setChecking(true);
                 setRetryKey((value) => value + 1);
@@ -152,12 +214,33 @@ export default function WelcomeScreen() {
           </>
         ) : null}
 
-        <ActionButton label="Entrar" onPress={() => router.push('/sign-in')} />
-        <ActionButton
-          label="Criar conta"
-          variant="secondary"
-          onPress={() => router.push('/sign-up-country' as any)}
-        />
+        {last ? (
+          <>
+            <ActionButton
+              label="Começar na Nexa"
+              onPress={() => router.push('/sign-up-country' as any)}
+            />
+            <ActionButton
+              label="Já tenho uma conta"
+              variant="secondary"
+              onPress={() => router.push('/sign-in')}
+            />
+          </>
+        ) : (
+          <>
+            <ActionButton
+              label="Continuar"
+              onPress={() =>
+                setIntroStep((value) => Math.min(value + 1, INTRO.length - 1))
+              }
+            />
+            <ActionButton
+              label="Já tenho uma conta"
+              variant="secondary"
+              onPress={() => router.push('/sign-in')}
+            />
+          </>
+        )}
       </View>
     </Screen>
   );
@@ -168,16 +251,114 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
-  loaderText: { color: colors.muted, textAlign: 'center' },
-  content: { flex: 1, justifyContent: 'center' },
-  hero: { marginVertical: spacing.xl },
-  startupError: {
+  loaderBrand: {
+    position: 'absolute',
+    top: 72,
+    left: spacing.lg,
+  },
+  loaderMark: {
+    width: 78,
+    height: 78,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    marginBottom: spacing.lg,
+  },
+  loaderMarkText: {
+    color: colors.cyan,
+    fontSize: 38,
+    fontWeight: '900',
+    letterSpacing: -2,
+  },
+  loaderTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: spacing.md,
+  },
+  loaderText: {
     color: colors.muted,
     textAlign: 'center',
+    marginTop: spacing.sm,
+    lineHeight: 20,
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  progressRow: {
+    flexDirection: 'row',
+    gap: 7,
+    marginBottom: spacing.xl,
+  },
+  progressDot: {
+    width: 24,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+  },
+  progressDotActive: {
+    width: 42,
+    backgroundColor: colors.cyan,
+  },
+  visual: {
+    minHeight: 190,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
+  },
+  visualHalo: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: colors.primarySoft,
+    opacity: 0.52,
+  },
+  visualCard: {
+    width: 164,
+    minHeight: 142,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    padding: spacing.lg,
+  },
+  visualSymbol: {
+    color: colors.cyan,
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  visualCaption: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  kicker: {
+    color: colors.cyan,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+    marginBottom: spacing.sm,
+  },
+  startupError: {
+    color: colors.text,
+    backgroundColor: colors.panel,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
     marginBottom: spacing.md,
     lineHeight: 20,
   },
