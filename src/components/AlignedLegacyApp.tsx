@@ -1891,6 +1891,34 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             </>
           ) : null}
         </Card>
+        <Text style={styles.sectionKicker}>RECURSOS</Text>
+        <View style={styles.profileResourceGrid}>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('wallet')}>
+            <Text style={styles.profileResourceTitle}>Minha Wallet</Text>
+            <Text style={styles.profileResourceText}>Endereço, autonomia e segurança.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('premium')}>
+            <Text style={styles.profileResourceTitle}>Premium</Text>
+            <Text style={styles.profileResourceText}>{isPremium ? 'Plano ativo' : 'Conhecer benefícios'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('rewards')}>
+            <Text style={styles.profileResourceTitle}>Rewards</Text>
+            <Text style={styles.profileResourceText}>Recursos Wallet-First.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('recurring')}>
+            <Text style={styles.profileResourceTitle}>Open Finance</Text>
+            <Text style={styles.profileResourceText}>USDC por assinatura.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('nexaId')}>
+            <Text style={styles.profileResourceTitle}>Nexa ID</Text>
+            <Text style={styles.profileResourceText}>Sua identidade no ecossistema.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('menu')}>
+            <Text style={styles.profileResourceTitle}>Mais</Text>
+            <Text style={styles.profileResourceText}>Todas as opções e configurações.</Text>
+          </TouchableOpacity>
+        </View>
+
         <Card style={styles.profileSupportCard}>
           <Text style={[styles.staffEyebrow, isPremium ? styles.premiumAccentText : null]}>ATENDIMENTO</Text>
           <Text style={styles.highlightTitle}>Precisa de ajuda?</Text>
@@ -2001,7 +2029,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <View style={styles.brandRow}>
           <View>
             <Text style={styles.brand}>NEXA</Text>
-            <Text style={styles.brandTag}>Cripto sem complicação.</Text>
+            <Text style={styles.brandTag}>WALLET · Cripto sem complicação.</Text>
           </View>
           {isPremium ? <Text style={styles.brandEditionPremium}>PREMIUM</Text> : null}
         </View>
@@ -4420,4 +4448,32 @@ const styles: any = {
     justifyContent: 'center',
   },
   bottomCenterLabel: { marginTop: 0 },
+,
+  profileResourceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: 20,
+  },
+  profileResource: {
+    width: '48%',
+    minHeight: 96,
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: '#0E2138',
+    borderWidth: 1,
+    borderColor: '#203B59',
+  },
+  profileResourceTitle: {
+    color: '#F4F8FC',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  profileResourceText: {
+    color: '#70879F',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 6,
+  },
 };
