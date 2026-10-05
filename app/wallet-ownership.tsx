@@ -160,17 +160,14 @@ export default function WalletOwnershipScreen() {
         <Brand />
         <View style={styles.topSpace} />
         <Badge tone="success">PRONTO</Badge>
-        <Title>Sua Nexa está pronta. 🎉</Title>
+        <Title>Sua Nexa está pronta.</Title>
         <Paragraph>
-          Sua identidade, seu Pix de resgate e sua Cripto Wallet estão
-          configurados. Agora você pode adicionar reais e receber USDC na sua
-          própria carteira.
+          Sua identidade, seu Pix de resgate e sua wallet estão configurados. Agora você pode adicionar reais e usar os ativos disponíveis na Nexa.
         </Paragraph>
         <Card>
-          <Text style={styles.readyTitle}>Cripto sem complicação.</Text>
+          <Text style={styles.readyTitle}>Sua wallet. Seus ativos.</Text>
           <Text style={styles.item}>
-            A parte técnica fica nos bastidores. Você continua no controle da
-            sua carteira e autoriza suas movimentações.
+            A parte técnica fica nos bastidores. Autorizações sensíveis continuam sob seu controle.
           </Text>
         </Card>
         <ActionButton
@@ -186,14 +183,13 @@ export default function WalletOwnershipScreen() {
       <Brand />
       <View style={styles.topSpace} />
       <Badge tone="info">PASSO 4 DE 4</Badge>
-      <Title>Proteja sua carteira.</Title>
+      <Title>Confirme sua wallet</Title>
       <Paragraph>
-        Confirme que esta Cripto Wallet pertence a você. Isso não movimenta
-        dinheiro, não transfere USDC e não dá à Nexa acesso aos seus ativos.
+        Esta confirmação prova que você controla a wallet vinculada à sua conta. Ela não movimenta ativos e não dá à Nexa acesso à sua chave.
       </Paragraph>
 
       <Card>
-        <Text style={styles.cardTitle}>Sua confirmação</Text>
+        <Text style={styles.cardTitle}>O que vai acontecer?</Text>
         <Text style={styles.item}>
           Você verá um pedido de assinatura da carteira. Ele serve apenas para
           provar que você controla este endereço.
@@ -209,7 +205,7 @@ export default function WalletOwnershipScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <ActionButton
-        label="Confirmar minha carteira"
+        label="Confirmar minha wallet"
         loading={working}
         onPress={proveControl}
       />
