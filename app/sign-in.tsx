@@ -138,9 +138,9 @@ export default function SignInScreen() {
     <Screen>
       <Brand />
       <View style={styles.topSpace} />
-      <Title>Entrar</Title>
+      <Title>Bem-vindo de volta</Title>
       <Paragraph>
-        Seu e-mail fica lembrado neste aparelho. Por segurança, sua senha não é armazenada.
+        Acesse sua Nexa Wallet. Sua senha não é armazenada neste aparelho.
       </Paragraph>
 
       <Field
