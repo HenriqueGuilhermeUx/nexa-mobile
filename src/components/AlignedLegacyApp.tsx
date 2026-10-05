@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
@@ -40,10 +41,10 @@ function encodeUsdcTransfer(toAddress: string, amountUsdc: number) {
 }
 
 const ASSETS = [
-  { symbol: 'USDC', name: 'USD Coin', icon: '💵', description: 'Dólar digital para saldo, Pix, assinatura e transferências Nexa.' },
-  { symbol: 'BTC', name: 'Bitcoin', icon: '₿', description: 'Bitcoin disponível dentro da Nexa.' },
-  { symbol: 'ETH', name: 'Ethereum', icon: '◆', description: 'Ethereum disponível dentro da Nexa.' },
-  { symbol: 'PAXG', name: 'Ouro Digital', icon: '◈', description: 'Ouro Digital disponível na sua carteira Nexa.' },
+  { symbol: 'USDC', name: 'USDC', icon: 'U', tone: '#218BFF', description: 'Stablecoin ligada ao valor do dólar.' },
+  { symbol: 'BTC', name: 'Bitcoin', icon: '₿', tone: '#F59E0B', description: 'Bitcoin disponível dentro da Nexa.' },
+  { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', tone: '#8FA9FF', description: 'Ethereum disponível dentro da Nexa.' },
+  { symbol: 'PAXG', name: 'Ouro Digital', icon: 'Au', tone: '#D5E2EF', description: 'Ouro digital disponível na sua carteira Nexa.' },
 ];
 
 function premiumActive(user: any) {
@@ -152,6 +153,130 @@ function PrimaryButton({ title, onPress, disabled, secondary }: any) {
   );
 }
 
+
+function NexaIcon({
+  name,
+  color = '#A9BCD0',
+  size = 22,
+}: {
+  name: string;
+  color?: string;
+  size?: number;
+}) {
+  const common = {
+    stroke: color,
+    strokeWidth: 1.9,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    fill: 'none',
+  };
+
+  if (name === 'plus') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Circle cx="12" cy="12" r="9" {...common} />
+        <Line x1="12" y1="8" x2="12" y2="16" {...common} />
+        <Line x1="8" y1="12" x2="16" y2="12" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'swap') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M7 7h11l-3-3" {...common} />
+        <Path d="M17 17H6l3 3" {...common} />
+        <Path d="M18 7l-3 3M6 17l3-3" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'send') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M4 12l16-8-6 16-3-6-7-2z" {...common} />
+        <Path d="M11 14l4-5" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'withdraw') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M12 4v11" {...common} />
+        <Path d="M8 11l4 4 4-4" {...common} />
+        <Path d="M5 20h14" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'receive') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M12 20V9" {...common} />
+        <Path d="M8 13l4-4 4 4" {...common} />
+        <Path d="M5 4h14" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'home') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M4 11l8-7 8 7v9h-6v-6h-4v6H4z" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'assets') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Rect x="4" y="6" width="16" height="13" rx="3" {...common} />
+        <Path d="M8 6V4h8v2M15 12h5" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'move') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M7 8h10M14 5l3 3-3 3M17 16H7M10 13l-3 3 3 3" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'history') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M5 7V3M5 3H1M5 3a9 9 0 1 1-2 10" {...common} />
+        <Path d="M12 7v5l3 2" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'profile') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Circle cx="12" cy="8" r="4" {...common} />
+        <Path d="M5 21c.6-4.1 3-6 7-6s6.4 1.9 7 6" {...common} />
+      </Svg>
+    );
+  }
+  return <View style={{ width: size, height: size }} />;
+}
+
+function QuickAction({
+  icon,
+  title,
+  onPress,
+  primary = false,
+}: {
+  icon: string;
+  title: string;
+  onPress: () => void;
+  primary?: boolean;
+}) {
+  return (
+    <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.quickAction}>
+      <View style={[styles.quickActionIcon, primary ? styles.quickActionIconPrimary : null]}>
+        <NexaIcon name={icon} color={primary ? '#06111F' : '#31D7FF'} size={22} />
+      </View>
+      <Text style={styles.quickActionLabel}>{title}</Text>
+    </TouchableOpacity>
+  );
+}
+
 function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
   const globalPremium = React.useContext(PremiumThemeContext);
   const premiumTheme = globalPremium || premium;
@@ -179,27 +304,21 @@ function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
   );
 }
 
-function BottomNav({ page, onNavigate, premium }: any) {
+
+function BottomNav({ page, onNavigate }: any) {
   const insets = useSafeAreaInsets();
-  const globalPremium = React.useContext(PremiumThemeContext);
-  const premiumTheme = globalPremium || premium;
   const items = [
-    ['home', '⌂', 'Início'],
-    ['wallet', '◫', 'Carteira'],
-    ['assets', '◇', 'Ativos'],
-    ['send', '↑', 'Enviar'],
-    ['menu', '☰', 'Menu'],
+    ['home', 'home', 'Início'],
+    ['assets', 'assets', 'Ativos'],
+    ['move', 'move', 'Movimentar'],
+    ['history', 'history', 'Histórico'],
+    ['profile', 'profile', 'Perfil'],
   ];
   return (
-    <View
-      style={[
-        styles.bottomNav,
-        premiumTheme ? styles.bottomNavPremium : null,
-        { paddingBottom: Math.max(insets.bottom, 10) },
-      ]}
-    >
+    <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {items.map(([target, icon, label]) => {
         const active = page === target;
+        const center = target === 'move';
         return (
           <TouchableOpacity
             key={target}
@@ -207,21 +326,23 @@ function BottomNav({ page, onNavigate, premium }: any) {
             onPress={() => onNavigate(target)}
             activeOpacity={0.8}
           >
-            <Text
+            <View
               style={[
-                styles.bottomIcon,
-                active ? styles.bottomActive : null,
-                premiumTheme ? styles.bottomPremiumIdle : null,
-                active && premiumTheme ? styles.bottomActivePremium : null,
+                center ? styles.bottomCenterIcon : styles.bottomIconWrap,
+                active && !center ? styles.bottomIconWrapActive : null,
               ]}
             >
-              {icon}
-            </Text>
+              <NexaIcon
+                name={icon}
+                color={center ? '#06111F' : active ? '#31D7FF' : '#70879F'}
+                size={center ? 23 : 21}
+              />
+            </View>
             <Text
               style={[
                 styles.bottomLabel,
                 active ? styles.bottomActive : null,
-                active && premiumTheme ? styles.bottomActivePremium : null,
+                center ? styles.bottomCenterLabel : null,
               ]}
             >
               {label}
@@ -1035,187 +1156,166 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 
   const contentBottom = 92 + Math.max(insets.bottom, 10);
 
+
   function Home() {
+    const recent = statement.slice(0, 3);
+    const totalLabel =
+      portfolioTotalUsd > 0
+        ? 'US$ ' + amount(portfolioTotalUsd, 2)
+        : amount(balances.USDC, 2) + ' USDC';
+
     return (
       <>
         <View style={styles.homeTop}>
           <View>
-            <Text style={[styles.welcomeLabel, isPremium ? styles.premiumAccentText : null]}>
-              CRIPTO WALLET
-            </Text>
+            <Text style={styles.welcomeLabel}>NEXA WALLET</Text>
             <Text style={styles.hello}>Olá, {firstName}</Text>
-            <Text style={styles.handle}>{handle || 'Conta Nexa'}</Text>
+            <Text style={styles.handle}>{handle || 'Sua wallet Nexa'}</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setPage('profile')}
-            style={[styles.avatar, isPremium ? styles.avatarPremium : null]}
-          >
-            <Text style={[styles.avatarText, isPremium ? styles.avatarTextPremium : null]}>
-              {firstName.charAt(0).toUpperCase()}
-            </Text>
+          <TouchableOpacity onPress={() => setPage('profile')} style={styles.avatar}>
+            <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
           </TouchableOpacity>
         </View>
 
-        <Card style={[styles.heroCard, isPremium ? styles.heroCardPremium : null]}>
+        <Card style={styles.heroCard}>
           <View style={styles.rowBetween}>
-            <View>
-              <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>
-                CARTEIRA CRIPTO
+            <View style={{ flex: 1, paddingRight: 14 }}>
+              <View style={styles.heroLabelRow}>
+                <Text style={styles.eyebrow}>VALOR DA CARTEIRA</Text>
+                <Text style={styles.heroEye}>◉</Text>
+              </View>
+              <Text style={styles.heroAmount}>{totalLabel}</Text>
+              <Text style={styles.heroUnit}>
+                {portfolioTotalUsd > 0
+                  ? amount(balances.USDC, 4) + ' USDC disponível'
+                  : 'Saldo principal em USDC'}
               </Text>
-              <Text style={styles.heroAmount}>{amount(balances.USDC, 6)}</Text>
-              <Text style={styles.heroUnit}>USDC disponível</Text>
             </View>
-            <View style={[styles.heroMark, isPremium ? styles.heroMarkPremium : null]}>
-              <Text style={[styles.heroMarkText, isPremium ? styles.premiumAccentText : null]}>N</Text>
-            </View>
+            {isPremium ? (
+              <View style={styles.premiumBadge}>
+                <Text style={styles.premiumBadgeText}>PREMIUM</Text>
+              </View>
+            ) : null}
           </View>
-          {portfolioTotalUsd > 0 ? (
-            <Text style={[styles.portfolioValue, isPremium ? styles.portfolioValuePremium : null]}>
-              Carteira estimada: US$ {amount(portfolioTotalUsd, 2)}
-            </Text>
-          ) : null}
           <Text style={styles.heroHint}>
-            Seu USDC e seus ativos em uma experiência simples, com a parte técnica nos bastidores.
+            Sua wallet individual, com a complexidade técnica ficando por trás da experiência.
           </Text>
         </Card>
 
-        <View style={styles.quickRow}>
-          <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
-          <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
-          <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
-          <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
+        <View style={styles.quickActionsRow}>
+          <QuickAction icon="plus" title="Adicionar" onPress={openWalletFirstDeposit} primary />
+          <QuickAction icon="swap" title="Converter" onPress={openWalletFirstAssets} />
+          <QuickAction icon="send" title="Enviar" onPress={openWalletFirstSend} />
+          <QuickAction icon="withdraw" title="Sacar" onPress={openWalletFirstWithdraw} />
         </View>
 
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>CARTEIRA</Text>
-            <Text style={styles.sectionTitle}>Seus ativos</Text>
+            <Text style={styles.sectionKicker}>MINHA WALLET</Text>
+            <Text style={styles.sectionTitle}>Meus ativos</Text>
           </View>
           <TouchableOpacity onPress={() => setPage('assets')}>
-            <Text style={[styles.inlineAction, isPremium ? styles.premiumAccentText : null]}>
-              Ver todos
-            </Text>
+            <Text style={styles.inlineAction}>Ver todos</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.assetGrid}>
+
+        <View style={styles.assetList}>
           {portfolioPositions.map((item) => (
             <TouchableOpacity
               key={item.symbol}
-              style={[
-                styles.assetMini,
-                isPremium ? styles.premiumSurface : null,
-              ]}
+              style={styles.assetListRow}
+              activeOpacity={0.82}
               onPress={() => {
-                setAsset(item.symbol === 'USDC' ? 'BTC' : item.symbol);
-                setPage(item.symbol === 'USDC' ? 'wallet' : 'assets');
+                if (item.symbol === 'USDC') setPage('wallet');
+                else {
+                  setAsset(item.symbol);
+                  setPage('assets');
+                }
               }}
             >
-              <Text style={[styles.assetIcon, isPremium ? styles.premiumAccentText : null]}>
-              {item.icon}
-            </Text>
-              <Text style={styles.assetSymbol}>{item.symbol}</Text>
-              <Text style={styles.assetBalance}>{amount(item.amount, 6)}</Text>
+              <View style={[styles.assetTokenIcon, { borderColor: item.tone }]}>
+                <Text style={[styles.assetTokenMark, { color: item.tone }]}>{item.icon}</Text>
+              </View>
+              <View style={styles.assetListIdentity}>
+                <Text style={styles.assetListName}>{item.name}</Text>
+                <Text style={styles.assetRowSymbol}>{item.symbol}</Text>
+              </View>
+              <View style={styles.alignRight}>
+                <Text style={styles.assetListAmount}>
+                  {amount(item.amount, item.symbol === 'USDC' ? 2 : 6)} {item.symbol}
+                </Text>
+                <Text style={styles.assetRowValue}>
+                  {item.valueUsd > 0 ? 'US$ ' + amount(item.valueUsd, 2) : '—'}
+                </Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
 
-        {config.assistantEnabled ? (
-          <Card style={styles.staffCard}>
-            <View style={styles.rowBetween}>
-              <View style={{ flex: 1, paddingRight: 16 }}>
-                <Text style={[styles.staffEyebrow, isPremium ? styles.premiumAccentText : null]}>ASSISTENTE NEXA</Text>
-                <Text style={styles.highlightTitle}>Seu assistente pessoal.</Text>
-                <Text style={styles.highlightText}>
-                  Organize o dia, acompanhe prioridades e use seu contexto da Nexa quando precisar.
-                </Text>
-              </View>
-              <View style={[styles.staffOrb, isPremium ? styles.premiumBorder : null]}>
-                <Text style={[styles.staffOrbText, isPremium ? styles.premiumAccentText : null]}>
-                  ✦
-                </Text>
-              </View>
-            </View>
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[
-                  styles.staffPrimaryAction,
-                  isPremium ? styles.staffPrimaryActionPremium : null,
-                ]}
-                onPress={() => router.push('/assistant')}
-              >
-                <Text style={styles.staffPrimaryActionText}>Abrir Assistente</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.staffSecondaryAction,
-                  isPremium ? styles.premiumBorder : null,
-                ]}
-                onPress={openNexaSupport}
-              >
-                <Text style={styles.staffSecondaryActionText}>WhatsApp</Text>
-              </TouchableOpacity>
-            </View>
-          </Card>
-        ) : null}
-
-        <Card style={styles.cryptoCard}>
-          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>ATIVOS CRIPTO</Text>
-          <Text style={styles.highlightTitle}>Compre os principais ativos cripto sem complicação.</Text>
-          <Text style={styles.highlightText}>
-            Bitcoin, Ethereum e Ouro Digital usando seu saldo em USDC.
-          </Text>
-          <PrimaryButton title="Ver ativos" onPress={() => setPage('assets')} secondary />
-        </Card>
-
-        <View style={styles.homeSecondaryRow}>
-          <TouchableOpacity
-            style={[
-              styles.homeSecondaryCard,
-              isPremium ? styles.premiumSurface : null,
-            ]}
-            onPress={() => router.push('/(app)/rewards' as any)}
-          >
-            <Text style={[styles.homeSecondaryKicker, isPremium ? styles.premiumAccentText : null]}>REWARDS</Text>
-            <Text style={styles.homeSecondaryTitle}>Turbinar USDC</Text>
-            <Text style={styles.homeSecondaryText}>
-              Separe USDC para participar do Rewards.
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.homeSecondaryCard,
-              isPremium ? styles.homePremiumCardActive : null,
-            ]}
-            onPress={() => setPage('premium')}
-          >
-            <Text style={isPremium ? styles.homePremiumKicker : styles.homeSecondaryKicker}>
-              PREMIUM
-            </Text>
-            <Text style={styles.homeSecondaryTitle}>
-              {isPremium ? 'Premium ativo' : 'Conhecer Premium'}
-            </Text>
-            <Text style={styles.homeSecondaryText}>
-              Benefícios extras por R$ 19,90/mês em USDC.
-            </Text>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionKicker}>ATIVIDADE</Text>
+            <Text style={styles.sectionTitle}>Movimentações recentes</Text>
+          </View>
+          <TouchableOpacity onPress={() => setPage('history')}>
+            <Text style={styles.inlineAction}>Ver histórico</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.homeWideCard,
-            isPremium ? styles.premiumSurface : null,
-          ]}
-          onPress={openUsdcSubscription}
-        >
-          <Text style={[styles.homeSecondaryKicker, isPremium ? styles.premiumAccentText : null]}>
-            OPEN FINANCE
-          </Text>
-          <Text style={styles.homeSecondaryTitle}>USDC por assinatura</Text>
-          <Text style={styles.homeSecondaryText}>
-            Autorize no seu banco e receba USDC automaticamente todo mês.
-          </Text>
-        </TouchableOpacity>
+        <Card style={styles.activityCard}>
+          {recent.length ? (
+            recent.map((item: any, index: number) => (
+              <View
+                key={item.id || String(item.description || 'movement') + '-' + index}
+                style={[
+                  styles.activityRow,
+                  index === recent.length - 1 ? styles.activityRowLast : null,
+                ]}
+              >
+                <View style={styles.activityIcon}>
+                  <NexaIcon
+                    name={item.direction === 'credit' ? 'receive' : 'send'}
+                    color={item.direction === 'credit' ? '#35D69A' : '#31D7FF'}
+                    size={18}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.activityTitle}>{item.description || 'Movimentação'}</Text>
+                  <Text style={styles.activityDate}>
+                    {item.createdAt
+                      ? new Date(item.createdAt).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : item.asset || 'Nexa'}
+                  </Text>
+                </View>
+                <Text
+                  style={
+                    item.direction === 'credit'
+                      ? styles.activityCredit
+                      : styles.activityDebit
+                  }
+                >
+                  {item.direction === 'credit' ? '+' : '-'}
+                  {amount(item.amount, 6)} {item.asset || ''}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyStateIcon}>
+                <NexaIcon name="history" color="#70879F" size={24} />
+              </View>
+              <Text style={styles.emptyStateTitle}>Sua wallet está pronta.</Text>
+              <Text style={styles.emptyStateText}>
+                Suas movimentações aparecerão aqui quando você começar a usar a Nexa.
+              </Text>
+            </View>
+          )}
+        </Card>
       </>
     );
   }
@@ -1338,6 +1438,47 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           </Text>
           <PrimaryButton title="Sacar para Pix" onPress={openWalletFirstWithdraw} secondary />
         </Card>
+      </>
+    );
+  }
+
+
+  function Move() {
+    return (
+      <>
+        <Text style={styles.pageKicker}>MOVIMENTAR</Text>
+        <Text style={styles.pageTitle}>O que você quer fazer?</Text>
+        <Text style={styles.pageSubtitle}>
+          Escolha uma ação. A Nexa mantém as etapas técnicas fora do caminho e mostra o que importa antes de você confirmar.
+        </Text>
+
+        <View style={styles.moveGrid}>
+          <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstDeposit} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="plus" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Adicionar</Text>
+            <Text style={styles.moveText}>Comece com Pix e receba USDC na sua wallet.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstAssets} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="swap" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Converter</Text>
+            <Text style={styles.moveText}>Use USDC para acessar ativos disponíveis na Nexa.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstSend} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="send" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Enviar</Text>
+            <Text style={styles.moveText}>Envie a partir da sua própria wallet.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moveCard} onPress={() => setPage('wallet')} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="receive" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Receber</Text>
+            <Text style={styles.moveText}>Veja endereço e informações da sua wallet.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.moveCard, styles.moveCardWide]} onPress={openWalletFirstWithdraw} activeOpacity={0.82}>
+            <View style={styles.moveIcon}><NexaIcon name="withdraw" color="#31D7FF" size={24} /></View>
+            <Text style={styles.moveTitle}>Sacar</Text>
+            <Text style={styles.moveText}>Solicite o resgate de USDC para o Pix configurado.</Text>
+          </TouchableOpacity>
+        </View>
       </>
     );
   }
@@ -1757,6 +1898,34 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             </>
           ) : null}
         </Card>
+        <Text style={styles.sectionKicker}>RECURSOS</Text>
+        <View style={styles.profileResourceGrid}>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('wallet')}>
+            <Text style={styles.profileResourceTitle}>Minha Wallet</Text>
+            <Text style={styles.profileResourceText}>Endereço, autonomia e segurança.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('premium')}>
+            <Text style={styles.profileResourceTitle}>Premium</Text>
+            <Text style={styles.profileResourceText}>{isPremium ? 'Plano ativo' : 'Conhecer benefícios'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('rewards')}>
+            <Text style={styles.profileResourceTitle}>Rewards</Text>
+            <Text style={styles.profileResourceText}>Recursos Wallet-First.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('recurring')}>
+            <Text style={styles.profileResourceTitle}>Open Finance</Text>
+            <Text style={styles.profileResourceText}>USDC por assinatura.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('nexaId')}>
+            <Text style={styles.profileResourceTitle}>Nexa ID</Text>
+            <Text style={styles.profileResourceText}>Sua identidade no ecossistema.</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('menu')}>
+            <Text style={styles.profileResourceTitle}>Mais</Text>
+            <Text style={styles.profileResourceText}>Todas as opções e configurações.</Text>
+          </TouchableOpacity>
+        </View>
+
         <Card style={styles.profileSupportCard}>
           <Text style={[styles.staffEyebrow, isPremium ? styles.premiumAccentText : null]}>ATENDIMENTO</Text>
           <Text style={styles.highlightTitle}>Precisa de ajuda?</Text>
@@ -1815,6 +1984,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   else if (page === 'wallet') body = <Wallet />;
   else if (page === 'assets') body = <Assets />;
   else if (page === 'send') body = <Send />;
+  else if (page === 'move') body = <Move />;
   else if (page === 'menu') body = <Menu />;
   else if (page === 'premium') body = <Premium />;
   else if (page === 'recurring') body = <Recurring />;
@@ -1857,7 +2027,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
           <RefreshControl
             refreshing={loading}
             onRefresh={loadAll}
-            tintColor={isPremium ? '#D8BC7A' : '#60a5fa'}
+            tintColor="#31D7FF"
           />
         }
         keyboardShouldPersistTaps="handled"
@@ -1866,7 +2036,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         <View style={styles.brandRow}>
           <View>
             <Text style={styles.brand}>NEXA</Text>
-            <Text style={styles.brandTag}>Cripto sem complicação.</Text>
+            <Text style={styles.brandTag}>WALLET · Cripto sem complicação.</Text>
           </View>
           {isPremium ? <Text style={styles.brandEditionPremium}>PREMIUM</Text> : null}
         </View>
@@ -1875,7 +2045,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             <Text style={styles.messageText}>{message}</Text>
           </TouchableOpacity>
         ) : null}
-        {loading && !body ? <ActivityIndicator color="#60a5fa" /> : body}
+        {loading && !body ? <ActivityIndicator color="#31D7FF" /> : body}
       </ScrollView>
       <BottomNav page={page} onNavigate={setPage} premium={isPremium} />
     </View>
@@ -1884,7 +2054,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
 }
 
 const styles: any = {
-  root: { flex: 1, backgroundColor: '#070A0F' },
+  root: { flex: 1, backgroundColor: '#06111F' },
   scroll: { flex: 1, paddingHorizontal: 18 },
   brandRow: {
     flexDirection: 'row',
@@ -1893,189 +2063,374 @@ const styles: any = {
     marginBottom: 26,
     paddingHorizontal: 2,
   },
-  brand: { color: '#F7F8FA', fontSize: 27, fontWeight: '900', letterSpacing: 3.2 },
-  brandTag: { color: '#7F8A9B', fontSize: 11, marginTop: 3 },
-  brandEditionPremium: { color: '#D8BC7A', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
+  brand: { color: '#F4F8FC', fontSize: 27, fontWeight: '900', letterSpacing: 3.2 },
+  brandTag: { color: '#70879F', fontSize: 11, marginTop: 3 },
+  brandEditionPremium: { color: '#D5E2EF', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
   homeTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
-  welcomeLabel: { color: '#8B5CF6', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 5 },
-  hello: { color: '#F7F8FA', fontSize: 28, fontWeight: '800' },
-  handle: { color: '#8F9AAC', fontSize: 12, fontWeight: '700', marginTop: 4 },
+  welcomeLabel: { color: '#218BFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 5 },
+  hello: { color: '#F4F8FC', fontSize: 28, fontWeight: '800' },
+  handle: { color: '#A9BCD0', fontSize: 12, fontWeight: '700', marginTop: 4 },
   avatar: {
     width: 46, height: 46, borderRadius: 23, backgroundColor: '#111722',
-    borderWidth: 1, borderColor: '#2B3442', alignItems: 'center', justifyContent: 'center'
+    borderWidth: 1, borderColor: '#284B68', alignItems: 'center', justifyContent: 'center'
   },
-  avatarText: { color: '#C4B5FD', fontSize: 18, fontWeight: '900' },
-  avatarPremium: { backgroundColor: '#17140D', borderColor: '#8A6B2D' },
-  avatarTextPremium: { color: '#D8BC7A' },
-  premiumAccentText: { color: '#D8BC7A' },
+  avatarText: { color: '#A9EAF4', fontSize: 18, fontWeight: '900' },
+  avatarPremium: { backgroundColor: '#10263D', borderColor: '#315C78' },
+  avatarTextPremium: { color: '#D5E2EF' },
+  premiumAccentText: { color: '#D5E2EF' },
   card: {
-    backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
+    backgroundColor: '#0E2138', borderWidth: 1, borderColor: '#203B59',
     borderRadius: 20, padding: 18, marginBottom: 14
   },
   cardPremiumTheme: {
-    backgroundColor: '#0F100D',
-    borderColor: '#8A6B2D',
+    backgroundColor: '#0E2138',
+    borderColor: '#315C78',
   },
   premiumSurface: {
-    backgroundColor: '#0F100D',
-    borderColor: '#8A6B2D',
+    backgroundColor: '#0E2138',
+    borderColor: '#315C78',
   },
-  premiumBorder: { borderColor: '#8A6B2D' },
-  heroCard: { backgroundColor: '#0D1522', borderColor: '#4C1D95', padding: 20 },
-  heroCardPremium: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
+  premiumBorder: { borderColor: '#315C78' },
+  heroCard: { backgroundColor: '#0A192B', borderColor: '#265A7C', padding: 20 },
+  heroCardPremium: { backgroundColor: '#10263D', borderColor: '#315C78' },
   heroMark: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: '#171D27',
-    borderWidth: 1, borderColor: '#5B21B6', alignItems: 'center', justifyContent: 'center'
+    width: 44, height: 44, borderRadius: 22, backgroundColor: '#132A45',
+    borderWidth: 1, borderColor: '#218BFF', alignItems: 'center', justifyContent: 'center'
   },
-  heroMarkText: { color: '#A78BFA', fontSize: 20, fontWeight: '900' },
-  heroMarkPremium: { backgroundColor: '#1B1810', borderColor: '#A88432' },
-  eyebrow: { color: '#8B5CF6', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
-  premiumEyebrow: { color: '#A78BFA', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
-  heroAmount: { color: '#F7F8FA', fontSize: 40, fontWeight: '800', marginTop: 8 },
+  heroMarkText: { color: '#31D7FF', fontSize: 20, fontWeight: '900' },
+  heroMarkPremium: { backgroundColor: '#132A45', borderColor: '#3E6D8A' },
+  eyebrow: { color: '#218BFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  premiumEyebrow: { color: '#31D7FF', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  heroAmount: { color: '#F4F8FC', fontSize: 40, fontWeight: '800', marginTop: 8 },
   heroUnit: { color: '#A3ADBA', fontSize: 13, fontWeight: '700', marginTop: 1 },
-  portfolioValue: { color: '#A78BFA', fontSize: 12, fontWeight: '800', marginTop: 16 },
-  portfolioValuePremium: { color: '#D8BC7A' },
-  heroHint: { color: '#7F8A9B', lineHeight: 18, marginTop: 9, fontSize: 12 },
+  portfolioValue: { color: '#31D7FF', fontSize: 12, fontWeight: '800', marginTop: 16 },
+  portfolioValuePremium: { color: '#D5E2EF' },
+  heroHint: { color: '#70879F', lineHeight: 18, marginTop: 9, fontSize: 12 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   menuTile: {
-    width: '48%', minHeight: 100, backgroundColor: '#0C1119', borderWidth: 1,
-    borderColor: '#1B2432', borderRadius: 18, padding: 15
+    width: '48%', minHeight: 100, backgroundColor: '#0E2138', borderWidth: 1,
+    borderColor: '#203B59', borderRadius: 18, padding: 15
   },
-  menuTileAccent: { backgroundColor: '#111720', borderColor: '#5B21B6' },
-  menuTilePremium: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
-  menuTileIconPremium: { color: '#D8BC7A' },
-  menuTileIcon: { color: '#A78BFA', fontSize: 18, marginBottom: 12, fontWeight: '900' },
-  menuTileTitle: { color: '#F3F5F7', fontSize: 14, fontWeight: '800' },
-  menuTileSubtitle: { color: '#788393', fontSize: 10, marginTop: 5 },
+  menuTileAccent: { backgroundColor: '#132A45', borderColor: '#218BFF' },
+  menuTilePremium: { backgroundColor: '#10263D', borderColor: '#315C78' },
+  menuTileIconPremium: { color: '#D5E2EF' },
+  menuTileIcon: { color: '#31D7FF', fontSize: 18, marginBottom: 12, fontWeight: '900' },
+  menuTileTitle: { color: '#F4F8FC', fontSize: 14, fontWeight: '800' },
+  menuTileSubtitle: { color: '#70879F', fontSize: 10, marginTop: 5 },
   menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 20 },
-  menuSectionLabel: { color: '#778292', fontSize: 9, fontWeight: '900', letterSpacing: 1.4, marginBottom: 9, marginTop: 4 },
+  menuSectionLabel: { color: '#70879F', fontSize: 9, fontWeight: '900', letterSpacing: 1.4, marginBottom: 9, marginTop: 4 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 },
-  sectionKicker: { color: '#7D8795', fontSize: 9, fontWeight: '900', letterSpacing: 1.4, marginBottom: 4 },
-  sectionTitle: { color: '#F7F8FA', fontSize: 21, fontWeight: '800', marginBottom: 12, marginTop: 2 },
-  inlineAction: { color: '#8B5CF6', fontSize: 11, fontWeight: '800', marginBottom: 12 },
+  sectionKicker: { color: '#70879F', fontSize: 9, fontWeight: '900', letterSpacing: 1.4, marginBottom: 4 },
+  sectionTitle: { color: '#F4F8FC', fontSize: 21, fontWeight: '800', marginBottom: 12, marginTop: 2 },
+  inlineAction: { color: '#218BFF', fontSize: 11, fontWeight: '800', marginBottom: 12 },
   assetGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: 18 },
   assetMini: {
-    width: '48%', backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
+    width: '48%', backgroundColor: '#0E2138', borderWidth: 1, borderColor: '#203B59',
     borderRadius: 18, padding: 15, minHeight: 112
   },
-  assetSelected: { borderColor: '#6D28D9', backgroundColor: '#121821' },
-  assetIcon: { color: '#A78BFA', fontSize: 21, marginBottom: 8 },
-  assetSymbol: { color: '#F7F8FA', fontSize: 15, fontWeight: '900' },
-  assetBalance: { color: '#9AA4B2', fontSize: 12, marginTop: 6 },
-  assetNameSmall: { color: '#6E7887', fontSize: 10, marginTop: 5 },
-  staffCard: { backgroundColor: '#11151C', borderColor: '#5B21B6' },
-  staffEyebrow: { color: '#A78BFA', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
+  assetSelected: { borderColor: '#218BFF', backgroundColor: '#132A45' },
+  assetIcon: { color: '#31D7FF', fontSize: 21, marginBottom: 8 },
+  assetSymbol: { color: '#F4F8FC', fontSize: 15, fontWeight: '900' },
+  assetBalance: { color: '#A9BCD0', fontSize: 12, marginTop: 6 },
+  assetNameSmall: { color: '#70879F', fontSize: 10, marginTop: 5 },
+  staffCard: { backgroundColor: '#0E2138', borderColor: '#218BFF' },
+  staffEyebrow: { color: '#31D7FF', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
   staffOrb: {
-    width: 48, height: 48, borderRadius: 24, backgroundColor: '#1B1A17',
-    borderWidth: 1, borderColor: '#6D28D9', alignItems: 'center', justifyContent: 'center'
+    width: 48, height: 48, borderRadius: 24, backgroundColor: '#132A45',
+    borderWidth: 1, borderColor: '#218BFF', alignItems: 'center', justifyContent: 'center'
   },
-  staffOrbText: { color: '#C4B5FD', fontSize: 22, fontWeight: '900' },
+  staffOrbText: { color: '#A9EAF4', fontSize: 22, fontWeight: '900' },
   staffPrimaryAction: {
-    flex: 1, backgroundColor: '#8B5CF6', borderRadius: 13, paddingVertical: 12,
+    flex: 1, backgroundColor: '#218BFF', borderRadius: 13, paddingVertical: 12,
     paddingHorizontal: 12, alignItems: 'center'
   },
   staffPrimaryActionText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   staffPrimaryActionPremium: {
-    backgroundColor: '#8A6B2D',
+    backgroundColor: '#315C78',
     borderWidth: 1,
-    borderColor: '#D8BC7A',
+    borderColor: '#D5E2EF',
   },
   staffSecondaryAction: {
-    flex: 1, backgroundColor: '#121821', borderWidth: 1, borderColor: '#2B3442',
+    flex: 1, backgroundColor: '#132A45', borderWidth: 1, borderColor: '#284B68',
     borderRadius: 13, paddingVertical: 12, paddingHorizontal: 12, alignItems: 'center'
   },
-  staffSecondaryActionText: { color: '#E5E9EF', fontSize: 12, fontWeight: '800' },
-  cryptoCard: { backgroundColor: '#0D131D', borderColor: '#3B2A66' },
+  staffSecondaryActionText: { color: '#D5E2EF', fontSize: 12, fontWeight: '800' },
+  cryptoCard: { backgroundColor: '#0A192B', borderColor: '#203B59' },
   homeSecondaryRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
   homeSecondaryCard: {
-    flex: 1, minHeight: 126, backgroundColor: '#0C1119', borderWidth: 1,
-    borderColor: '#1B2432', borderRadius: 18, padding: 15
+    flex: 1, minHeight: 126, backgroundColor: '#0E2138', borderWidth: 1,
+    borderColor: '#203B59', borderRadius: 18, padding: 15
   },
-  homeSecondaryKicker: { color: '#8B5CF6', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
-  homeSecondaryTitle: { color: '#F3F5F7', fontSize: 15, fontWeight: '800', marginTop: 8 },
-  homeSecondaryText: { color: '#788393', fontSize: 11, lineHeight: 16, marginTop: 6 },
+  homeSecondaryKicker: { color: '#218BFF', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  homeSecondaryTitle: { color: '#F4F8FC', fontSize: 15, fontWeight: '800', marginTop: 8 },
+  homeSecondaryText: { color: '#70879F', fontSize: 11, lineHeight: 16, marginTop: 6 },
   homeWideCard: {
-    backgroundColor: '#0C1119', borderWidth: 1, borderColor: '#1B2432',
+    backgroundColor: '#0E2138', borderWidth: 1, borderColor: '#203B59',
     borderRadius: 18, padding: 15, minHeight: 94, marginBottom: 6
   },
-  homePremiumCardActive: { borderColor: '#8A6B2D', backgroundColor: '#15130E' },
-  homePremiumKicker: { color: '#D8BC7A', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
-  highlightPremium: { backgroundColor: '#11151C', borderColor: '#5B21B6' },
-  premiumCardActive: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
-  premiumKickerGold: { color: '#D8BC7A', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 6 },
-  premiumEyebrowGold: { color: '#D8BC7A', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
-  highlightRecurring: { backgroundColor: '#0D1522', borderColor: '#273A54' },
-  highlightTitle: { color: '#F7F8FA', fontSize: 20, fontWeight: '800', marginTop: 7 },
-  highlightText: { color: '#929CAA', lineHeight: 19, fontSize: 13, marginTop: 7 },
+  homePremiumCardActive: { borderColor: '#315C78', backgroundColor: '#10263D' },
+  homePremiumKicker: { color: '#D5E2EF', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  highlightPremium: { backgroundColor: '#0E2138', borderColor: '#218BFF' },
+  premiumCardActive: { backgroundColor: '#10263D', borderColor: '#315C78' },
+  premiumKickerGold: { color: '#D5E2EF', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 6 },
+  premiumEyebrowGold: { color: '#D5E2EF', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  highlightRecurring: { backgroundColor: '#0A192B', borderColor: '#284B68' },
+  highlightTitle: { color: '#F4F8FC', fontSize: 20, fontWeight: '800', marginTop: 7 },
+  highlightText: { color: '#A9BCD0', lineHeight: 19, fontSize: 13, marginTop: 7 },
   button: {
-    backgroundColor: '#8B5CF6', borderWidth: 1, borderColor: '#A78BFA',
+    backgroundColor: '#218BFF', borderWidth: 1, borderColor: '#31D7FF',
     borderRadius: 13, paddingVertical: 14, paddingHorizontal: 16, marginTop: 14
   },
-  buttonSecondary: { backgroundColor: '#111720', borderColor: '#293548' },
-  buttonPremium: { backgroundColor: '#8A6B2D', borderColor: '#D8BC7A' },
-  buttonSecondaryPremium: { backgroundColor: '#15130E', borderColor: '#8A6B2D' },
+  buttonSecondary: { backgroundColor: '#132A45', borderColor: '#284B68' },
+  buttonPremium: { backgroundColor: '#315C78', borderColor: '#D5E2EF' },
+  buttonSecondaryPremium: { backgroundColor: '#10263D', borderColor: '#315C78' },
   buttonDisabled: { opacity: 0.45 },
   buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', textAlign: 'center' },
   buttonTextSecondary: { color: '#F2F4F7' },
-  pageKicker: { color: '#8B5CF6', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 6 },
-  pageTitle: { color: '#F7F8FA', fontSize: 29, fontWeight: '800', marginBottom: 5 },
-  pageSubtitle: { color: '#8F99A8', fontSize: 13, lineHeight: 19, marginBottom: 18 },
+  pageKicker: { color: '#218BFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 6 },
+  pageTitle: { color: '#F4F8FC', fontSize: 29, fontWeight: '800', marginBottom: 5 },
+  pageSubtitle: { color: '#A9BCD0', fontSize: 13, lineHeight: 19, marginBottom: 18 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   alignRight: { alignItems: 'flex-end' },
-  assetRowTitle: { color: '#F4F6F8', fontSize: 16, fontWeight: '800' },
-  assetRowSymbol: { color: '#717B89', fontSize: 11, marginTop: 4 },
-  assetRowAmount: { color: '#F7F8FA', fontSize: 16, fontWeight: '800' },
-  assetRowValue: { color: '#939DAC', fontSize: 11, marginTop: 4 },
-  walletAddress: { color: '#8B5CF6', fontSize: 11, marginTop: 12, fontWeight: '700' },
+  assetRowTitle: { color: '#F4F8FC', fontSize: 16, fontWeight: '800' },
+  assetRowSymbol: { color: '#70879F', fontSize: 11, marginTop: 4 },
+  assetRowAmount: { color: '#F4F8FC', fontSize: 16, fontWeight: '800' },
+  assetRowValue: { color: '#A9BCD0', fontSize: 11, marginTop: 4 },
+  walletAddress: { color: '#218BFF', fontSize: 11, marginTop: 12, fontWeight: '700' },
   formLabel: { color: '#C5CBD4', fontWeight: '800', fontSize: 12, marginTop: 14, marginBottom: 7 },
   input: {
-    backgroundColor: '#080D14', borderWidth: 1, borderColor: '#273141',
-    color: '#F7F8FA', borderRadius: 13, padding: 14, fontSize: 15
+    backgroundColor: '#081726', borderWidth: 1, borderColor: '#284B68',
+    color: '#F4F8FC', borderRadius: 13, padding: 14, fontSize: 15
   },
-  quoteBox: { backgroundColor: '#080D14', borderWidth: 1, borderColor: '#273141', borderRadius: 16, padding: 14, marginTop: 12 },
-  quoteTitle: { color: '#F7F8FA', fontWeight: '900', fontSize: 14 },
-  quoteText: { color: '#929CAA', fontSize: 12, marginTop: 6 },
-  divider: { height: 1, backgroundColor: '#1B2432', marginVertical: 18 },
+  quoteBox: { backgroundColor: '#081726', borderWidth: 1, borderColor: '#284B68', borderRadius: 16, padding: 14, marginTop: 12 },
+  quoteTitle: { color: '#F4F8FC', fontWeight: '900', fontSize: 14 },
+  quoteText: { color: '#A9BCD0', fontSize: 12, marginTop: 6 },
+  divider: { height: 1, backgroundColor: '#203B59', marginVertical: 18 },
   qrWrap: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 18, padding: 16, marginTop: 16, marginBottom: 10 },
-  codeText: { color: '#929CAA', fontSize: 10, lineHeight: 15, marginTop: 6 },
-  previewNotice: { color: '#A78BFA', fontSize: 11, lineHeight: 17, marginTop: 12 },
+  codeText: { color: '#A9BCD0', fontSize: 10, lineHeight: 15, marginTop: 6 },
+  previewNotice: { color: '#31D7FF', fontSize: 11, lineHeight: 17, marginTop: 12 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  smallAction: { flex: 1, backgroundColor: '#111720', borderWidth: 1, borderColor: '#293548', borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
-  smallActionText: { color: '#E2E6EC', fontSize: 12, fontWeight: '900' },
-  successText: { color: '#6FD0A3', fontWeight: '800', marginTop: 10, fontSize: 12 },
-  benefit: { color: '#DEE3E9', lineHeight: 24, fontSize: 13, marginBottom: 5 },
-  profileCard: { backgroundColor: '#0E141D', borderColor: '#273243' },
+  smallAction: { flex: 1, backgroundColor: '#132A45', borderWidth: 1, borderColor: '#284B68', borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
+  smallActionText: { color: '#D5E2EF', fontSize: 12, fontWeight: '900' },
+  successText: { color: '#35D69A', fontWeight: '800', marginTop: 10, fontSize: 12 },
+  benefit: { color: '#D5E2EF', lineHeight: 24, fontSize: 13, marginBottom: 5 },
+  profileCard: { backgroundColor: '#0E2138', borderColor: '#284B68' },
   profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 13 },
   profileAvatar: {
     width: 52, height: 52, borderRadius: 26, backgroundColor: '#161B23',
-    borderWidth: 1, borderColor: '#5B21B6', alignItems: 'center', justifyContent: 'center'
+    borderWidth: 1, borderColor: '#218BFF', alignItems: 'center', justifyContent: 'center'
   },
-  profileAvatarText: { color: '#C4B5FD', fontSize: 19, fontWeight: '900' },
-  profileAvatarPremium: { backgroundColor: '#17140D', borderColor: '#8A6B2D' },
-  profileName: { color: '#F7F8FA', fontSize: 21, fontWeight: '800' },
-  profileHandle: { color: '#9AA4B2', fontSize: 12, marginTop: 3 },
-  profileDivider: { height: 1, backgroundColor: '#202A38', marginVertical: 16 },
-  profileLabel: { color: '#737E8D', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 10 },
+  profileAvatarText: { color: '#A9EAF4', fontSize: 19, fontWeight: '900' },
+  profileAvatarPremium: { backgroundColor: '#10263D', borderColor: '#315C78' },
+  profileName: { color: '#F4F8FC', fontSize: 21, fontWeight: '800' },
+  profileHandle: { color: '#A9BCD0', fontSize: 12, marginTop: 3 },
+  profileDivider: { height: 1, backgroundColor: '#203B59', marginVertical: 16 },
+  profileLabel: { color: '#70879F', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 10 },
   profileValue: { color: '#E7EBF0', fontSize: 13, fontWeight: '700', marginTop: 4 },
-  profileLine: { color: '#929CAA', fontSize: 13, marginBottom: 8 },
-  profileSupportCard: { backgroundColor: '#10141B', borderColor: '#4C1D95' },
-  credit: { color: '#6FD0A3', fontWeight: '900', fontSize: 12 },
-  debit: { color: '#E58992', fontWeight: '900', fontSize: 12 },
-  messageBox: { backgroundColor: '#111720', borderWidth: 1, borderColor: '#293548', borderRadius: 13, padding: 12, marginBottom: 14 },
-  messageText: { color: '#E2E6EC', fontSize: 12, lineHeight: 17 },
+  profileLine: { color: '#A9BCD0', fontSize: 13, marginBottom: 8 },
+  profileSupportCard: { backgroundColor: '#0E2138', borderColor: '#265A7C' },
+  credit: { color: '#35D69A', fontWeight: '900', fontSize: 12 },
+  debit: { color: '#FF6B7A', fontWeight: '900', fontSize: 12 },
+  messageBox: { backgroundColor: '#132A45', borderWidth: 1, borderColor: '#284B68', borderRadius: 13, padding: 12, marginBottom: 14 },
+  messageText: { color: '#D5E2EF', fontSize: 12, lineHeight: 17 },
   bottomNav: {
     position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: 70,
-    backgroundColor: '#080C12', borderTopWidth: 1, borderTopColor: '#1D2633',
+    backgroundColor: '#071522', borderTopWidth: 1, borderTopColor: '#203B59',
     flexDirection: 'row', paddingTop: 8, paddingHorizontal: 4
   },
   bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', minHeight: 52, paddingVertical: 4 },
-  bottomIcon: { color: '#616C7A', fontSize: 18, fontWeight: '900' },
-  bottomLabel: { color: '#616C7A', fontSize: 10, fontWeight: '800', marginTop: 4 },
-  bottomActive: { color: '#A78BFA' },
+  bottomIcon: { color: '#70879F', fontSize: 18, fontWeight: '900' },
+  bottomLabel: { color: '#70879F', fontSize: 10, fontWeight: '800', marginTop: 4 },
+  bottomActive: { color: '#31D7FF' },
   bottomNavPremium: {
-    borderTopColor: '#8A6B2D',
+    borderTopColor: '#315C78',
     backgroundColor: '#0A0A08',
   },
-  bottomPremiumIdle: { color: '#9F8754' },
-  bottomActivePremium: { color: '#E3C980' },
+  bottomPremiumIdle: { color: '#8FA8BB' },
+  bottomActivePremium: { color: '#D5E2EF' },
+
+  heroLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroEye: { color: '#70879F', fontSize: 11, marginTop: 1 },
+  premiumBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#416982',
+    backgroundColor: '#10263D',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  premiumBadgeText: {
+    color: '#D5E2EF',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 28,
+  },
+  quickAction: {
+    flex: 1,
+    alignItems: 'center',
+    minWidth: 68,
+  },
+  quickActionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#102A42',
+    borderWidth: 1,
+    borderColor: '#275475',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  quickActionIconPrimary: {
+    backgroundColor: '#31D7FF',
+    borderColor: '#76E7FF',
+  },
+  quickActionLabel: {
+    color: '#D5E2EF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  assetList: {
+    backgroundColor: '#0A192B',
+    borderWidth: 1,
+    borderColor: '#203B59',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    marginBottom: 26,
+  },
+  assetListRow: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#17344E',
+    gap: 12,
+  },
+  assetTokenIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    backgroundColor: '#0D2034',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assetTokenMark: { fontSize: 15, fontWeight: '900' },
+  assetListIdentity: { flex: 1 },
+  assetListName: { color: '#F4F8FC', fontSize: 14, fontWeight: '800' },
+  assetListAmount: { color: '#D5E2EF', fontSize: 12, fontWeight: '800' },
+  activityCard: { paddingVertical: 4, paddingHorizontal: 14 },
+  activityRow: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#17344E',
+  },
+  activityRowLast: { borderBottomWidth: 0 },
+  activityIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#102A42',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityTitle: { color: '#F4F8FC', fontSize: 13, fontWeight: '800' },
+  activityDate: { color: '#70879F', fontSize: 10, marginTop: 4 },
+  activityCredit: { color: '#35D69A', fontSize: 11, fontWeight: '900' },
+  activityDebit: { color: '#D5E2EF', fontSize: 11, fontWeight: '900' },
+  emptyState: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 14 },
+  emptyStateIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#102A42',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyStateTitle: { color: '#D5E2EF', fontSize: 15, fontWeight: '800' },
+  emptyStateText: {
+    color: '#70879F',
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 17,
+    marginTop: 6,
+  },
+  moveGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  moveCard: {
+    width: '48%',
+    minHeight: 152,
+    borderRadius: 20,
+    backgroundColor: '#0E2138',
+    borderWidth: 1,
+    borderColor: '#203B59',
+    padding: 16,
+  },
+  moveCardWide: { width: '100%', minHeight: 130 },
+  moveIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#102A42',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  moveTitle: { color: '#F4F8FC', fontSize: 16, fontWeight: '800' },
+  moveText: { color: '#70879F', fontSize: 11, lineHeight: 17, marginTop: 6 },
+  bottomIconWrap: {
+    width: 34,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomIconWrapActive: {
+    borderRadius: 14,
+    backgroundColor: '#0C2B43',
+  },
+  bottomCenterIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginTop: -18,
+    backgroundColor: '#31D7FF',
+    borderWidth: 4,
+    borderColor: '#06111F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomCenterLabel: { marginTop: 0 },
+  profileResourceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: 20,
+  },
+  profileResource: {
+    width: '48%',
+    minHeight: 96,
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: '#0E2138',
+    borderWidth: 1,
+    borderColor: '#203B59',
+  },
+  profileResourceTitle: { color: '#F4F8FC', fontSize: 13, fontWeight: '800' },
+  profileResourceText: {
+    color: '#70879F',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 6,
+  },
 };

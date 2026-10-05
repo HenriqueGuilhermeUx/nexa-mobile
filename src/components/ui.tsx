@@ -42,8 +42,11 @@ export function Brand() {
         <Text style={styles.brandMarkText}>N</Text>
       </View>
       <View>
-        <Text style={styles.brandName}>Nexa</Text>
-        <Text style={styles.brandTagline}>Cripto sem complicação.</Text>
+        <View style={styles.wordmarkRow}>
+          <Text style={styles.brandName}>NEX</Text>
+          <Text style={styles.brandNameAccent}>A</Text>
+        </View>
+        <Text style={styles.brandTagline}>WALLET · Cripto sem complicação.</Text>
       </View>
     </View>
   );
@@ -156,40 +159,65 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: 13,
     marginBottom: spacing.xl,
   },
   brandMark: {
     width: 48,
     height: 48,
-    borderRadius: 18,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
-  brandMarkText: { color: colors.white, fontSize: 24, fontWeight: '900' },
-  brandName: { color: colors.text, fontSize: 22, fontWeight: '900' },
-  brandTagline: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  brandMarkText: {
+    color: colors.cyan,
+    fontSize: 25,
+    fontWeight: '900',
+    letterSpacing: -1.5,
+  },
+  wordmarkRow: { flexDirection: 'row', alignItems: 'baseline' },
+  brandName: {
+    color: colors.silver,
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: 3.6,
+  },
+  brandNameAccent: {
+    color: colors.cyan,
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: 3.6,
+  },
+  brandTagline: {
+    color: colors.mutedStrong,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: .45,
+    marginTop: 3,
+  },
   eyebrow: {
     color: colors.cyan,
-    fontSize: 12,
-    fontWeight: '900',
+    fontSize: 11,
+    fontWeight: '800',
     letterSpacing: 1.7,
     textTransform: 'uppercase',
     marginBottom: spacing.sm,
   },
   title: {
     color: colors.text,
-    fontSize: 38,
-    lineHeight: 42,
-    letterSpacing: -1.3,
-    fontWeight: '900',
+    fontSize: 34,
+    lineHeight: 39,
+    letterSpacing: -1.1,
+    fontWeight: '800',
     marginBottom: spacing.md,
   },
   paragraph: {
     color: colors.muted,
-    fontSize: 17,
-    lineHeight: 25,
+    fontSize: 16,
+    lineHeight: 24,
     marginBottom: spacing.lg,
   },
   card: {
@@ -211,7 +239,7 @@ const styles = StyleSheet.create({
   badge_warning: { backgroundColor: colors.warningSoft },
   badge_danger: { backgroundColor: colors.dangerSoft },
   badgeText: { fontSize: 11, fontWeight: '900' },
-  badgeText_info: { color: '#C7D2FE' },
+  badgeText_info: { color: colors.cyan },
   badgeText_success: { color: colors.success },
   badgeText_warning: { color: colors.warning },
   badgeText_danger: { color: colors.danger },
@@ -235,7 +263,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: spacing.sm,
   },
-  button_primary: { backgroundColor: colors.primary },
+  button_primary: { backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.cyan },
   button_secondary: {
     backgroundColor: colors.panelSoft,
     borderWidth: 1,
