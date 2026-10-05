@@ -128,9 +128,9 @@ export default function SecurityScreen() {
         {enabled ? 'PROTEÇÃO ATIVA' : 'PROTEÇÃO OPCIONAL'}
       </Badge>
       <View style={styles.titleGap} />
-      <Title>Segurança da Nexa</Title>
+      <Title>Segurança</Title>
       <Paragraph>
-        Controle a proteção local deste aparelho sem enviar sua biometria para a Nexa.
+        Veja e controle os mecanismos que ajudam a proteger seu acesso. Sua biometria permanece no sistema do aparelho.
       </Paragraph>
 
       <Card>
@@ -161,21 +161,20 @@ export default function SecurityScreen() {
       </Card>
 
       <Card>
-        <Text style={styles.cardTitle}>Como seus dados ficam protegidos</Text>
-        <Text style={styles.securityItem}>✓ A senha Nexa nunca é armazenada pelo aplicativo.</Text>
-        <Text style={styles.securityItem}>✓ A sessão fica no armazenamento seguro do aparelho.</Text>
-        <Text style={styles.securityItem}>✓ Digital e reconhecimento facial são validados pelo sistema operacional.</Text>
-        <Text style={styles.securityItem}>✓ A Nexa não recebe imagem facial, digital ou template biométrico.</Text>
-        <Text style={styles.securityItem}>✓ Senha Nexa continua disponível como recuperação de acesso.</Text>
+        <Text style={styles.cardTitle}>Proteções da sua conta</Text>
+        <Text style={styles.securityItem}>✓ Biometria ou credencial do aparelho quando ativada</Text>
+        <Text style={styles.securityItem}>✓ Sessão armazenada de forma protegida no dispositivo</Text>
+        <Text style={styles.securityItem}>✓ Senha Nexa não é armazenada pelo aplicativo</Text>
+        <Text style={styles.securityItem}>✓ Digital e Face ID são validados pelo sistema operacional</Text>
+        <Text style={styles.securityItem}>✓ Senha Nexa continua disponível para recuperação de acesso</Text>
       </Card>
 
       <Card>
-        <Text style={styles.cardTitle}>Versão instalada</Text>
-        <KeyValue label="Nexa" value={config.appVersion} />
-        <KeyValue label="Build Android" value={config.appBuild} />
-        <KeyValue label="Android alvo" value={`API ${config.androidTargetApi}`} />
+        <Text style={styles.cardTitle}>Informações do aplicativo</Text>
+        <KeyValue label="Versão Nexa" value={config.appVersion} />
+        <KeyValue label="Build" value={config.appBuild} />
         <Text style={styles.releaseNote}>
-          Este build mantém execução financeira global e recorrência Open Finance sob os gates de segurança da Nexa.
+          Informações técnicas da instalação. Elas podem ser úteis quando o suporte solicitar.
         </Text>
       </Card>
 
