@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.lg,
-    backgroundColor: colors.card,
+    backgroundColor: colors.panel,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     padding: spacing.lg,
