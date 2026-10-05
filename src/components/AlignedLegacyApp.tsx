@@ -1934,31 +1934,52 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             </>
           ) : null}
         </Card>
-        <Text style={styles.sectionKicker}>RECURSOS</Text>
-        <View style={styles.profileResourceGrid}>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('wallet')}>
-            <Text style={styles.profileResourceTitle}>Minha Wallet</Text>
-            <Text style={styles.profileResourceText}>Endereço, autonomia e segurança.</Text>
+        <Text style={styles.sectionKicker}>CONTA E PREFERÊNCIAS</Text>
+        <View style={styles.profileMenu}>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={() => setPage('wallet')}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Minha Wallet</Text>
+              <Text style={styles.profileMenuText}>Endereço, receber e autonomia</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('premium')}>
-            <Text style={styles.profileResourceTitle}>Premium</Text>
-            <Text style={styles.profileResourceText}>{isPremium ? 'Plano ativo' : 'Conhecer benefícios'}</Text>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={() => router.push('/security')}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Segurança</Text>
+              <Text style={styles.profileMenuText}>Biometria e proteção do aparelho</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('rewards')}>
-            <Text style={styles.profileResourceTitle}>Rewards</Text>
-            <Text style={styles.profileResourceText}>Recursos Wallet-First.</Text>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={() => setPage('nexaId')}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Nexa ID</Text>
+              <Text style={styles.profileMenuText}>Sua identidade no ecossistema</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('recurring')}>
-            <Text style={styles.profileResourceTitle}>Open Finance</Text>
-            <Text style={styles.profileResourceText}>USDC por assinatura.</Text>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={() => setPage('premium')}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Premium</Text>
+              <Text style={styles.profileMenuText}>{isPremium ? 'Plano ativo' : 'Conhecer benefícios'}</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('nexaId')}>
-            <Text style={styles.profileResourceTitle}>Nexa ID</Text>
-            <Text style={styles.profileResourceText}>Sua identidade no ecossistema.</Text>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={openNexaSupport}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Ajuda</Text>
+              <Text style={styles.profileMenuText}>Falar com a equipe Nexa</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('menu')}>
-            <Text style={styles.profileResourceTitle}>Mais</Text>
-            <Text style={styles.profileResourceText}>Todas as opções e configurações.</Text>
+          <TouchableOpacity
+            style={[styles.profileMenuRow, styles.profileMenuRowLast]}
+            onPress={() => Linking.openURL('https://trynexa.com.br/termos')}
+          >
+            <View>
+              <Text style={styles.profileMenuTitle}>Termos e privacidade</Text>
+              <Text style={styles.profileMenuText}>Documentos e políticas da Nexa</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
         </View>
 
@@ -2446,29 +2467,26 @@ const styles: any = {
     justifyContent: 'center',
   },
   bottomCenterLabel: { marginTop: 0 },
-  profileResourceGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
-    marginBottom: 20,
-  },
-  profileResource: {
-    width: '48%',
-    minHeight: 96,
-    borderRadius: 18,
-    padding: 14,
+  profileMenu: {
+    borderRadius: 20,
     backgroundColor: '#0E2138',
     borderWidth: 1,
     borderColor: '#203B59',
+    paddingHorizontal: 16,
+    marginBottom: 20,
   },
-  profileResourceTitle: { color: '#F4F8FC', fontSize: 13, fontWeight: '800' },
-  profileResourceText: {
-    color: '#70879F',
-    fontSize: 10,
-    lineHeight: 15,
-    marginTop: 6,
+  profileMenuRow: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#17344E',
   },
+  profileMenuRowLast: { borderBottomWidth: 0 },
+  profileMenuTitle: { color: '#F4F8FC', fontSize: 14, fontWeight: '800' },
+  profileMenuText: { color: '#70879F', fontSize: 10, marginTop: 4 },
+  profileMenuArrow: { color: '#31D7FF', fontSize: 24, fontWeight: '500' },
   walletQrWrap: {
     alignSelf: 'center',
     backgroundColor: '#FFFFFF',
