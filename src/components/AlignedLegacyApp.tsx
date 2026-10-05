@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
@@ -40,10 +41,10 @@ function encodeUsdcTransfer(toAddress: string, amountUsdc: number) {
 }
 
 const ASSETS = [
-  { symbol: 'USDC', name: 'USD Coin', icon: '💵', description: 'Dólar digital para saldo, Pix, assinatura e transferências Nexa.' },
-  { symbol: 'BTC', name: 'Bitcoin', icon: '₿', description: 'Bitcoin disponível dentro da Nexa.' },
-  { symbol: 'ETH', name: 'Ethereum', icon: '◆', description: 'Ethereum disponível dentro da Nexa.' },
-  { symbol: 'PAXG', name: 'Ouro Digital', icon: '◈', description: 'Ouro Digital disponível na sua carteira Nexa.' },
+  { symbol: 'USDC', name: 'USDC', icon: 'U', tone: '#218BFF', description: 'Stablecoin ligada ao valor do dólar.' },
+  { symbol: 'BTC', name: 'Bitcoin', icon: '₿', tone: '#F59E0B', description: 'Bitcoin disponível dentro da Nexa.' },
+  { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', tone: '#8FA9FF', description: 'Ethereum disponível dentro da Nexa.' },
+  { symbol: 'PAXG', name: 'Ouro Digital', icon: 'Au', tone: '#D5E2EF', description: 'Ouro digital disponível na sua carteira Nexa.' },
 ];
 
 function premiumActive(user: any) {
@@ -152,6 +153,130 @@ function PrimaryButton({ title, onPress, disabled, secondary }: any) {
   );
 }
 
+
+function NexaIcon({
+  name,
+  color = '#A9BCD0',
+  size = 22,
+}: {
+  name: string;
+  color?: string;
+  size?: number;
+}) {
+  const common = {
+    stroke: color,
+    strokeWidth: 1.9,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    fill: 'none',
+  };
+
+  if (name === 'plus') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Circle cx="12" cy="12" r="9" {...common} />
+        <Line x1="12" y1="8" x2="12" y2="16" {...common} />
+        <Line x1="8" y1="12" x2="16" y2="12" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'swap') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M7 7h11l-3-3" {...common} />
+        <Path d="M17 17H6l3 3" {...common} />
+        <Path d="M18 7l-3 3M6 17l3-3" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'send') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M4 12l16-8-6 16-3-6-7-2z" {...common} />
+        <Path d="M11 14l4-5" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'withdraw') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M12 4v11" {...common} />
+        <Path d="M8 11l4 4 4-4" {...common} />
+        <Path d="M5 20h14" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'receive') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M12 20V9" {...common} />
+        <Path d="M8 13l4-4 4 4" {...common} />
+        <Path d="M5 4h14" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'home') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M4 11l8-7 8 7v9h-6v-6h-4v6H4z" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'assets') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Rect x="4" y="6" width="16" height="13" rx="3" {...common} />
+        <Path d="M8 6V4h8v2M15 12h5" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'move') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M7 8h10M14 5l3 3-3 3M17 16H7M10 13l-3 3 3 3" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'history') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d="M5 7V3M5 3H1M5 3a9 9 0 1 1-2 10" {...common} />
+        <Path d="M12 7v5l3 2" {...common} />
+      </Svg>
+    );
+  }
+  if (name === 'profile') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Circle cx="12" cy="8" r="4" {...common} />
+        <Path d="M5 21c.6-4.1 3-6 7-6s6.4 1.9 7 6" {...common} />
+      </Svg>
+    );
+  }
+  return <View style={{ width: size, height: size }} />;
+}
+
+function QuickAction({
+  icon,
+  title,
+  onPress,
+  primary = false,
+}: {
+  icon: string;
+  title: string;
+  onPress: () => void;
+  primary?: boolean;
+}) {
+  return (
+    <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.quickAction}>
+      <View style={[styles.quickActionIcon, primary ? styles.quickActionIconPrimary : null]}>
+        <NexaIcon name={icon} color={primary ? '#06111F' : '#31D7FF'} size={22} />
+      </View>
+      <Text style={styles.quickActionLabel}>{title}</Text>
+    </TouchableOpacity>
+  );
+}
+
 function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
   const globalPremium = React.useContext(PremiumThemeContext);
   const premiumTheme = globalPremium || premium;
@@ -179,27 +304,21 @@ function MenuTile({ icon, title, subtitle, onPress, accent, premium }: any) {
   );
 }
 
-function BottomNav({ page, onNavigate, premium }: any) {
+
+function BottomNav({ page, onNavigate }: any) {
   const insets = useSafeAreaInsets();
-  const globalPremium = React.useContext(PremiumThemeContext);
-  const premiumTheme = globalPremium || premium;
   const items = [
-    ['home', '⌂', 'Início'],
-    ['wallet', '◫', 'Carteira'],
-    ['assets', '◇', 'Ativos'],
-    ['send', '↑', 'Enviar'],
-    ['menu', '☰', 'Menu'],
+    ['home', 'home', 'Início'],
+    ['assets', 'assets', 'Ativos'],
+    ['move', 'move', 'Movimentar'],
+    ['history', 'history', 'Histórico'],
+    ['profile', 'profile', 'Perfil'],
   ];
   return (
-    <View
-      style={[
-        styles.bottomNav,
-        premiumTheme ? styles.bottomNavPremium : null,
-        { paddingBottom: Math.max(insets.bottom, 10) },
-      ]}
-    >
+    <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {items.map(([target, icon, label]) => {
         const active = page === target;
+        const center = target === 'move';
         return (
           <TouchableOpacity
             key={target}
@@ -207,21 +326,23 @@ function BottomNav({ page, onNavigate, premium }: any) {
             onPress={() => onNavigate(target)}
             activeOpacity={0.8}
           >
-            <Text
+            <View
               style={[
-                styles.bottomIcon,
-                active ? styles.bottomActive : null,
-                premiumTheme ? styles.bottomPremiumIdle : null,
-                active && premiumTheme ? styles.bottomActivePremium : null,
+                center ? styles.bottomCenterIcon : styles.bottomIconWrap,
+                active && !center ? styles.bottomIconWrapActive : null,
               ]}
             >
-              {icon}
-            </Text>
+              <NexaIcon
+                name={icon}
+                color={center ? '#06111F' : active ? '#31D7FF' : '#70879F'}
+                size={center ? 23 : 21}
+              />
+            </View>
             <Text
               style={[
                 styles.bottomLabel,
                 active ? styles.bottomActive : null,
-                active && premiumTheme ? styles.bottomActivePremium : null,
+                center ? styles.bottomCenterLabel : null,
               ]}
             >
               {label}
