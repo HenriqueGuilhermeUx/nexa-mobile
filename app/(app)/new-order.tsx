@@ -273,12 +273,12 @@ export default function NewOrderScreen() {
           <View style={styles.stepRow}>
             <View style={[styles.stepDot, rank >= 2 && styles.stepDone]} />
             <View style={styles.stepBody}>
-              <Text style={styles.stepTitle}>Entrega na carteira</Text>
+              <Text style={styles.stepTitle}>Atualização da wallet</Text>
               <Text style={styles.stepText}>
                 {complete
-                  ? `${formatUsdc(pixStatus?.quotedUsdc)} confirmado na blockchain.`
+                  ? `${formatUsdc(pixStatus?.quotedUsdc)} confirmado na sua wallet.`
                   : rank >= 2
-                    ? 'Enviando e confirmando.'
+                    ? 'Atualizando sua wallet.'
                     : 'A Nexa fará isso automaticamente.'}
               </Text>
             </View>
