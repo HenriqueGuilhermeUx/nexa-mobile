@@ -1427,10 +1427,10 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
   function Assets() {
     return (
       <>
-        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>ATIVOS CRIPTO</Text>
-        <Text style={styles.pageTitle}>Ativos</Text>
+        <Text style={styles.pageKicker}>ATIVOS</Text>
+        <Text style={styles.pageTitle}>Seus ativos</Text>
         <Text style={styles.pageSubtitle}>
-          Acompanhe suas posições e compre ativos usando o USDC da sua carteira.
+          Acompanhe o que está na sua wallet e use USDC para converter entre os ativos disponíveis.
         </Text>
 
         <View style={styles.assetGrid}>
@@ -1458,12 +1458,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
         </View>
 
         <Card style={styles.cryptoCard}>
-          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>COMPRAR</Text>
+          <Text style={styles.sectionKicker}>CONVERTER</Text>
           <Text style={styles.highlightTitle}>USDC primeiro. Outros ativos depois.</Text>
           <Text style={styles.highlightText}>
-            O dinheiro novo entra em USDC. A partir dele, você pode comprar Bitcoin, Ethereum ou Ouro Digital.
+            O dinheiro novo entra em USDC. A partir dele, você pode converter para Bitcoin, Ethereum ou Ouro Digital quando disponíveis.
           </Text>
-          <PrimaryButton title="Comprar ativos" onPress={openWalletFirstAssets} />
+          <PrimaryButton title="Converter ativos" onPress={openWalletFirstAssets} />
         </Card>
 
         <Card>
@@ -2015,23 +2015,81 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
   }
 
   function History() {
+    const items = statement.slice(0, 40);
+
     return (
       <>
-        <Text style={styles.pageTitle}>Movimentações</Text>
-        <Text style={styles.pageSubtitle}>Registros do seu saldo e dos seus ativos.</Text>
-        {statement.length ? statement.map((item: any) => (
-          <Card key={item.id}>
-            <View style={styles.rowBetween}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={styles.assetRowTitle}>{item.description || 'Movimentação'}</Text>
-                <Text style={styles.assetRowSymbol}>{item.asset || ''}</Text>
+        <Text style={styles.pageKicker}>HISTÓRICO</Text>
+        <Text style={styles.pageTitle}>Histórico</Text>
+        <Text style={styles.pageSubtitle}>
+          Entradas e saídas da sua wallet organizadas de forma simples.
+        </Text>
+
+        {items.length ? (
+          <View style={styles.historySimpleList}>
+            {items.map((item: any, index: number) => (
+              <View
+                key={item.id || String(item.description || 'movement') + '-' + index}
+                style={[
+                  styles.historySimpleRow,
+                  index === items.length - 1 ? styles.historySimpleRowLast : null,
+                ]}
+              >
+                <View style={styles.historySimpleIcon}>
+                  <NexaIcon
+                    name={item.direction === 'credit' ? 'receive' : 'send'}
+                    color={item.direction === 'credit' ? '#35D69A' : '#31D7FF'}
+                    size={18}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historySimpleTitle}>
+                    {item.description || (item.direction === 'credit' ? 'Entrada' : 'Saída')}
+                  </Text>
+                  <Text style={styles.historySimpleDate}>
+                    {item.createdAt
+                      ? new Date(item.createdAt).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : item.asset || 'Nexa'}
+                  </Text>
+                </View>
+                <Text
+                  style={
+                    item.direction === 'credit'
+                      ? styles.activityCredit
+                      : styles.activityDebit
+                  }
+                >
+                  {item.direction === 'credit' ? '+' : '-'}
+                  {amount(item.amount, 8)} {item.asset || ''}
+                </Text>
               </View>
-              <Text style={item.direction === 'credit' ? styles.credit : styles.debit}>
-                {item.direction === 'credit' ? '+' : '-'}{amount(item.amount, 8)} {item.asset}
+            ))}
+          </View>
+        ) : (
+          <Card>
+            <View style={styles.emptyState}>
+              <View style={styles.emptyStateIcon}>
+                <NexaIcon name="history" color="#70879F" size={24} />
+              </View>
+              <Text style={styles.emptyStateTitle}>Suas movimentações aparecerão aqui.</Text>
+              <Text style={styles.emptyStateText}>
+                Quando você adicionar, converter, enviar ou sacar, o histórico será organizado nesta tela.
               </Text>
             </View>
           </Card>
-        )) : <Card><Text style={styles.highlightText}>Nenhuma movimentação encontrada.</Text></Card>}
+        )}
+
+        <PrimaryButton
+          title="Histórico detalhado"
+          onPress={() => router.push('/(app)/activity' as any)}
+          secondary
+        />
       </>
     );
   }
@@ -2507,4 +2565,31 @@ const styles: any = {
     textAlign: 'center',
     marginTop: 8,
   },
+  historySimpleList: {
+    borderRadius: 20,
+    backgroundColor: '#0E2138',
+    borderWidth: 1,
+    borderColor: '#203B59',
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  historySimpleRow: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#17344E',
+  },
+  historySimpleRowLast: { borderBottomWidth: 0 },
+  historySimpleIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#102A42',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historySimpleTitle: { color: '#F4F8FC', fontSize: 13, fontWeight: '800' },
+  historySimpleDate: { color: '#70879F', fontSize: 10, marginTop: 4 },
 };
