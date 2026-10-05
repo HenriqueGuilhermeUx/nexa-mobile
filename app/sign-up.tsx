@@ -92,11 +92,11 @@ export default function SignUpScreen() {
     <Screen>
       <Brand />
       <View style={styles.topSpace} />
-      <Title>Criar conta</Title>
+      <Title>Crie sua Nexa</Title>
       <Paragraph>
         {isBrazil
-          ? 'Cadastre-se e confirme sua identidade. No Brasil, a verificação normalmente começa com CPF e selfie com prova de vida.'
-          : 'Cadastre-se e confirme sua identidade com os documentos aceitos no seu país de residência. A Nexa usa um fluxo internacional de verificação.'}
+          ? 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade para liberar sua experiência Nexa.'
+          : 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade com os documentos aceitos no seu país de residência.'}
       </Paragraph>
 
       <Field
