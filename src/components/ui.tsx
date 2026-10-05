@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { colors, radius, spacing } from '@/theme';
 
@@ -35,12 +36,45 @@ export function Screen({
   );
 }
 
+export function BrandMark({ size = 48 }: { size?: number }) {
+  return (
+    <View
+      style={[
+        styles.brandMark,
+        { width: size, height: size, borderRadius: Math.round(size * 0.33) },
+      ]}
+    >
+      <Svg width={size * 0.72} height={size * 0.72} viewBox="0 0 128 128">
+        <Defs>
+          <LinearGradient id="nexaBrand" x1="18" y1="16" x2="110" y2="112">
+            <Stop offset="0" stopColor="#234BFF" />
+            <Stop offset="0.55" stopColor="#22AFFF" />
+            <Stop offset="1" stopColor="#32E3E0" />
+          </LinearGradient>
+          <LinearGradient id="nexaSilver" x1="86" y1="10" x2="48" y2="74">
+            <Stop offset="0" stopColor="#D5E2EF" />
+            <Stop offset="0.65" stopColor="#7FA7FF" />
+            <Stop offset="1" stopColor="#234BFF" />
+          </LinearGradient>
+        </Defs>
+        <Path
+          d="M24 97V31c0-8 6-14 14-14h3l48 60V31c0-8 6-14 14-14h1v80c0 8-6 14-14 14h-3L39 51v46c0 8-6 14-14 14h-1V97z"
+          fill="url(#nexaBrand)"
+        />
+        <Path
+          d="M38 17h5l25 31-13 19-31-39c3-7 7-11 14-11z"
+          fill="url(#nexaSilver)"
+          opacity={0.96}
+        />
+      </Svg>
+    </View>
+  );
+}
+
 export function Brand() {
   return (
     <View style={styles.brandRow}>
-      <View style={styles.brandMark}>
-        <Text style={styles.brandMarkText}>N</Text>
-      </View>
+      <BrandMark />
       <View>
         <View style={styles.wordmarkRow}>
           <Text style={styles.brandName}>NEX</Text>
@@ -171,12 +205,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundSecondary,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-  },
-  brandMarkText: {
-    color: colors.cyan,
-    fontSize: 25,
-    fontWeight: '900',
-    letterSpacing: -1.5,
   },
   wordmarkRow: { flexDirection: 'row', alignItems: 'baseline' },
   brandName: {
