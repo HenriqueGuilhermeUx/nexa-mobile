@@ -19,6 +19,7 @@ import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
 import { config } from '@/config';
 import { nexaApi } from '@/lib/api';
+import { BrandMark } from '@/components/ui';
 import CustodyScreen from '../../nexa-mobile/nexa-mobile/CustodyScreen';
 
 const API = config.apiUrl.replace(/\/$/, '');
@@ -2149,9 +2150,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandRow}>
-          <View>
-            <Text style={styles.brand}>NEXA</Text>
-            <Text style={styles.brandTag}>WALLET · Cripto sem complicação.</Text>
+          <View style={styles.brandLockup}>
+            <BrandMark size={38} />
+            <View>
+              <Text style={styles.brand}>NEXA</Text>
+              <Text style={styles.brandTag}>WALLET · Cripto sem complicação.</Text>
+            </View>
           </View>
           {isPremium ? <Text style={styles.brandEditionPremium}>PREMIUM</Text> : null}
         </View>
@@ -2178,7 +2182,8 @@ const styles: any = {
     marginBottom: 26,
     paddingHorizontal: 2,
   },
-  brand: { color: '#F4F8FC', fontSize: 27, fontWeight: '900', letterSpacing: 3.2 },
+  brandLockup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brand: { color: '#F4F8FC', fontSize: 21, fontWeight: '850', letterSpacing: 3.1 },
   brandTag: { color: '#70879F', fontSize: 11, marginTop: 3 },
   brandEditionPremium: { color: '#D5E2EF', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
   homeTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
