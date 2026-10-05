@@ -1,0 +1,7 @@
+Nexa v143 Wallet 2026 design OTA
+Target: production-safe-preview
+Runtime: 2.0.40
+Android versionCode: 143
+Native changes: none
+Purpose: apply validated Wallet-First redesign to installed v143 Live Test APKs
+Main redesign commit: cc06e2fa8b00c6853bce3ecf30d4c10ea118324a
