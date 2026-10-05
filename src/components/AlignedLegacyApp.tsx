@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import * as Clipboard from 'expo-clipboard';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
@@ -354,7 +355,7 @@ function BottomNav({ page, onNavigate }: any) {
   );
 }
 
-export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) {
+export default function AlignedLegacyApp({ initialUser, token, onLogout, initialPage = 'home' }: any) {
   const insets = useSafeAreaInsets();
   const privy = usePrivy() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
@@ -364,7 +365,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     [wallets],
   );
 
-  const [page, setPage] = useState('home');
+  const [page, setPage] = useState(initialPage || 'home');
   const [user, setUser] = useState<any>(initialUser || {});
   const [balances, setBalances] = useState<any>({ BRL: 0, USDC: 0, BTC: 0, ETH: 0, PAXG: 0 });
   const [walletFirst, setWalletFirst] = useState<any>(null);
@@ -1324,63 +1325,98 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     const walletReady =
       walletFirst?.portfolio?.walletReady === true || Boolean(walletAddress);
 
+    async function copyWalletAddress() {
+      if (!walletAddress) return;
+      await Clipboard.setStringAsync(walletAddress);
+      setMessage('Endereço da wallet copiado.');
+    }
+
     return (
       <>
-        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>CRIPTO WALLET</Text>
-        <Text style={styles.pageTitle}>Carteira</Text>
+        <Text style={styles.pageKicker}>MINHA WALLET</Text>
+        <Text style={styles.pageTitle}>Sua wallet, seu controle</Text>
         <Text style={styles.pageSubtitle}>
-          Seus ativos ficam vinculados à sua própria carteira. A Nexa simplifica a experiência sem custodiar sua chave.
+          Sua carteira é individual. A Nexa simplifica a experiência sem custodiar sua chave.
         </Text>
 
         <Card style={styles.heroCard}>
-          <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>SALDO DISPONÍVEL</Text>
+          <Text style={styles.eyebrow}>SALDO DISPONÍVEL</Text>
           <Text style={styles.heroAmount}>{amount(balances.USDC, 6)} USDC</Text>
           <Text style={styles.highlightText}>
             {walletReady
-              ? 'Carteira conectada e pronta para movimentações.'
-              : 'Sua carteira está sendo preparada.'}
+              ? 'Wallet conectada e pronta para as funcionalidades disponíveis.'
+              : 'Sua wallet está sendo preparada.'}
           </Text>
-          {walletAddress ? (
-            <Text style={[styles.walletAddress, isPremium ? styles.premiumAccentText : null]}>
-              {walletAddress.slice(0, 10)}…{walletAddress.slice(-8)}
-            </Text>
-          ) : null}
         </Card>
 
-        <View style={styles.quickRow}>
-          <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
-          <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
-          <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
-          <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
+        {walletAddress ? (
+          <Card>
+            <Text style={styles.sectionKicker}>RECEBER USDC</Text>
+            <Text style={styles.highlightTitle}>Seu endereço da wallet</Text>
+            <Text style={styles.highlightText}>
+              Use este endereço para receber USDC diretamente na sua wallet.
+            </Text>
+            <View style={styles.walletQrWrap}>
+              <QRCode value={walletAddress} size={186} />
+            </View>
+            <Text selectable style={styles.walletAddressFull}>{walletAddress}</Text>
+            <Text style={styles.walletNetwork}>Rede compatível: Polygon</Text>
+            <PrimaryButton title="Copiar endereço" onPress={copyWalletAddress} secondary />
+          </Card>
+        ) : null}
+
+        <View style={styles.quickActionsRow}>
+          <QuickAction icon="plus" title="Adicionar" onPress={openWalletFirstDeposit} primary />
+          <QuickAction icon="swap" title="Converter" onPress={openWalletFirstAssets} />
+          <QuickAction icon="send" title="Enviar" onPress={openWalletFirstSend} />
+          <QuickAction icon="withdraw" title="Sacar" onPress={openWalletFirstWithdraw} />
         </View>
 
-        <Text style={styles.sectionTitle}>Posições</Text>
-        {portfolioPositions.map((item) => (
-          <Card key={item.symbol}>
-            <View style={styles.rowBetween}>
-              <View>
-                <Text style={styles.assetRowTitle}>{item.icon} {item.name}</Text>
+        <Text style={styles.sectionTitle}>Ativos na sua wallet</Text>
+        <View style={styles.assetList}>
+          {portfolioPositions.map((item) => (
+            <TouchableOpacity
+              key={item.symbol}
+              style={styles.assetListRow}
+              onPress={() => {
+                if (item.symbol === 'USDC') return;
+                router.push({
+                  pathname: '/(app)/buy-crypto',
+                  params: { asset: item.symbol },
+                } as any);
+              }}
+            >
+              <View style={[styles.assetTokenIcon, { borderColor: item.tone }]}>
+                <Text style={[styles.assetTokenMark, { color: item.tone }]}>{item.icon}</Text>
+              </View>
+              <View style={styles.assetListIdentity}>
+                <Text style={styles.assetListName}>{item.name}</Text>
                 <Text style={styles.assetRowSymbol}>{item.symbol}</Text>
               </View>
               <View style={styles.alignRight}>
-                <Text style={styles.assetRowAmount}>{amount(item.amount, 8)}</Text>
+                <Text style={styles.assetListAmount}>{amount(item.amount, 8)} {item.symbol}</Text>
                 {item.valueUsd > 0 ? (
                   <Text style={styles.assetRowValue}>US$ {amount(item.valueUsd, 2)}</Text>
                 ) : null}
               </View>
-            </View>
-          </Card>
-        ))}
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <Card>
-          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>AUTONOMIA</Text>
-          <Text style={styles.highlightTitle}>A carteira é sua.</Text>
+          <Text style={styles.sectionKicker}>AUTONOMIA</Text>
+          <Text style={styles.highlightTitle}>A wallet é sua.</Text>
           <Text style={styles.highlightText}>
-            A Nexa prepara a infraestrutura necessária, mas autorizações sensíveis continuam sob seu controle.
+            Autorizações sensíveis continuam sob seu controle. A Nexa nunca pede sua chave privada ou frase-semente.
           </Text>
           <PrimaryButton
-            title="Segurança da carteira"
+            title="Segurança"
             onPress={() => router.push('/security')}
+            secondary
+          />
+          <PrimaryButton
+            title="Opções avançadas da wallet"
+            onPress={() => setPage('custody')}
             secondary
           />
         </Card>
@@ -2432,5 +2468,25 @@ const styles: any = {
     fontSize: 10,
     lineHeight: 15,
     marginTop: 6,
+  },
+  walletQrWrap: {
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 20,
+    marginBottom: 14,
+  },
+  walletAddressFull: {
+    color: '#D5E2EF',
+    fontSize: 11,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  walletNetwork: {
+    color: '#70879F',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 8,
   },
 };
