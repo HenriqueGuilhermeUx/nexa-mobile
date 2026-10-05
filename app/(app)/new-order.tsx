@@ -79,6 +79,7 @@ export default function NewOrderScreen() {
   const [pixStatus, setPixStatus] = useState<any>(null);
   const [copyFeedback, setCopyFeedback] = useState('');
   const [showTechnical, setShowTechnical] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
   const correlationID =
     result?.kind === 'pix-charge' ? String(result.payload?.correlationID || '').trim() : '';
@@ -137,6 +138,16 @@ export default function NewOrderScreen() {
       if (timer) clearInterval(timer);
     };
   }, [correlationID]);
+
+  function reviewAmount() {
+    setError('');
+    const parsed = parseAmount(amount);
+    if (!Number.isFinite(parsed) || parsed < 10) {
+      setError('O valor mínimo para adicionar é R$ 10,00.');
+      return;
+    }
+    setReviewing(true);
+  }
 
   async function submit() {
     setError('');
@@ -334,7 +345,10 @@ export default function NewOrderScreen() {
         label="Quanto você quer adicionar?"
         value={amount}
         style={styles.amountField}
-        onChangeText={setAmount}
+        onChangeText={(value) => {
+          setAmount(value);
+          setReviewing(false);
+        }}
         keyboardType="decimal-pad"
         placeholder="R$ 0,00"
       />
@@ -342,7 +356,10 @@ export default function NewOrderScreen() {
         {[100, 250, 500, 1000].map((value) => (
           <Pressable
             key={value}
-            onPress={() => setAmount(String(value))}
+            onPress={() => {
+              setAmount(String(value));
+              setReviewing(false);
+            }}
             style={styles.quickButton}
           >
             <Text style={styles.quickButtonText}>R$ {value}</Text>
@@ -352,11 +369,32 @@ export default function NewOrderScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <ActionButton
-        label="Continuar"
-        loading={loading}
-        onPress={submit}
-      />
+      {!reviewing ? (
+        <ActionButton
+          label="Continuar"
+          disabled={loading}
+          onPress={reviewAmount}
+        />
+      ) : (
+        <Card style={styles.reviewCard}>
+          <Text style={styles.reviewLabel}>VOCÊ ADICIONA</Text>
+          <Text style={styles.reviewAmount}>{formatBrl(parseAmount(amount))}</Text>
+          <Text style={styles.reviewText}>
+            Depois do pagamento, a Nexa acompanha a confirmação e atualiza sua wallet em USDC. As condições aplicáveis aparecem no fluxo da operação.
+          </Text>
+          <ActionButton
+            label="Gerar Pix"
+            loading={loading}
+            onPress={submit}
+          />
+          <ActionButton
+            label="Editar valor"
+            variant="secondary"
+            disabled={loading}
+            onPress={() => setReviewing(false)}
+          />
+        </Card>
+      )}
       <ActionButton
         label="Trazer dinheiro via Open Finance"
         variant="secondary"
@@ -401,4 +439,8 @@ const styles = StyleSheet.create({
   resultValue: { color: colors.text, fontWeight: '900', marginTop: 4 },
   reference: { color: colors.muted, fontWeight: '700', marginTop: 4, fontSize: 11, lineHeight: 16 },
   technicalToggle: { color: colors.cyan, fontSize: 12, fontWeight: '800' },
+  reviewCard: { backgroundColor: colors.panel, borderColor: colors.borderStrong },
+  reviewLabel: { color: colors.muted, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
+  reviewAmount: { color: colors.text, fontSize: 32, fontWeight: '800', marginTop: spacing.sm },
+  reviewText: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: spacing.md },
 });
