@@ -64,11 +64,12 @@ for (const token of forbidden) {
 }
 
 const sendRequired = [
-  'NEXA → NEXA',
+  'Usuário Nexa',
+  'Wallet externa',
   'Revisar envio',
   'Confirmar envio',
   "response?.route !== 'ONCHAIN_DIRECT'",
-  'sua própria carteira',
+  'sua própria wallet',
   'RECEIVER_WALLET_REQUIRED',
 ];
 for (const token of sendRequired) {
@@ -92,8 +93,8 @@ const buyRequired = [
   'sendCalls',
   'waitForCallsStatus',
   'swapTransaction',
-  'AUTORIZAÇÃO NA SUA CARTEIRA',
-  'Confirmar compra',
+  'CONFIRME NA SUA WALLET',
+  'Confirmar conversão',
   'Atualizar autorização da compra',
 ];
 for (const token of buyRequired) {
@@ -131,7 +132,7 @@ if (funding.includes("preferredProvider: 'moonpay'")) {
 if (!rootLayout.includes('PrivyElements')) {
   throw new Error('PrivyElements must be mounted for the native funding flow.');
 }
-if (!addMoney.includes('Adicionar por Pix') || !addMoney.includes('Cartão · Apple Pay · Google Pay') || !addMoney.includes("/(app)/fund-card")) {
+if (!/Adicionar (?:por|com) Pix/.test(addMoney) || !addMoney.includes('Cartão · Apple Pay · Google Pay') || !addMoney.includes("/(app)/fund-card")) {
   throw new Error('Adicionar dinheiro must surface Woovi Pix separately from card/digital-wallet funding.');
 }
 
@@ -140,12 +141,12 @@ if (!home.includes("Redirect") || !home.includes("'/legacy'")) {
 }
 if (
   !premiumShell.includes('title="Enviar"') ||
-  !premiumShell.includes('title="Comprar"') ||
+  !premiumShell.includes('title="Converter"') ||
   !premiumShell.includes('title="Sacar"') ||
   !premiumShell.includes('Assistente Nexa')
 ) {
   throw new Error(
-    'Unified Nexa shell must surface Enviar, Comprar, Sacar and Assistente Nexa.',
+    'Unified Nexa shell must surface Enviar, Converter, Sacar and Assistente Nexa.',
   );
 }
 
