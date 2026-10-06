@@ -71,5 +71,5 @@ jobs:
           EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_DOCWALLET_URL: 'https://trydocwallet.com'
-          EXPO_PUBLIC_NEXA_HEALTHWALLET_URL: 'https://healthwallet1.netlify.app'
+          EXPO_PUBLIC_NEXA_HEALTHWALLET_URL: 'https://mydatamed.com/healthwallet'
         run: npm run export:android
