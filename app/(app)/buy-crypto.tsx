@@ -374,7 +374,7 @@ function SponsoredConfirmation(props: {
       <Card>
         <Badge tone="warning">RECONECTAR CARTEIRA</Badge>
         <Text style={styles.explain}>
-          Sua conta Nexa está ativa, mas a sessão da carteira usada nesta compra
+          Sua conta Nexa está ativa, mas a sessão da wallet usada nesta conversão
           não está carregada neste aparelho. Confirme o mesmo e-mail para recuperar
           a carteira já existente. A Nexa não criará outra carteira nem trocará seu vínculo.
         </Text>
@@ -417,11 +417,10 @@ function SponsoredConfirmation(props: {
       <Card>
         <Badge tone="success">CARTEIRA RECONECTADA</Badge>
         <Text style={styles.explain}>
-          A carteira correta voltou a ficar disponível neste aparelho. Atualize a
-          autorização para continuar a compra com segurança.
+          A wallet correta voltou a ficar disponível neste aparelho. Gere uma nova autorização para continuar a conversão com segurança.
         </Text>
         <ActionButton
-          label="Atualizar autorização da compra"
+          label="Atualizar autorização da conversão"
           onPress={props.onWalletReconnected}
         />
       </Card>
@@ -555,7 +554,7 @@ export default function BuyCryptoScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'A compra ainda não está disponível.',
+          : 'A conversão ainda não está disponível.',
       );
     } finally {
       setWorking(false);
@@ -676,7 +675,7 @@ export default function BuyCryptoScreen() {
             </Text>
           ) : (
             <Text style={styles.validity}>
-              Cotação sujeita à atualização até a confirmação da compra.
+              Cotação sujeita à atualização até a confirmação da conversão.
             </Text>
           )}
           {!prepared && !txHash ? (
@@ -714,7 +713,7 @@ export default function BuyCryptoScreen() {
           </Badge>
           {completed ? (
             <Text style={styles.success}>
-              {formatAsset(confirmation.receivedAmount, asset)} confirmado na sua carteira.
+              {formatAsset(confirmation.receivedAmount, asset)} confirmado na sua wallet.
             </Text>
           ) : (
             <>
