@@ -17,7 +17,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
       "buildNumber": "144",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "br.com.trynexa.app",
