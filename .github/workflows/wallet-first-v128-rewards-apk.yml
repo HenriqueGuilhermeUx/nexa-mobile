@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - release/rewards-v128
-      - main
     paths:
       - 'app/**'
       - 'src/**'
