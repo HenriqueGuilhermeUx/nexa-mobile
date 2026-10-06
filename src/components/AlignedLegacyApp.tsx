@@ -12,12 +12,14 @@ import {
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import * as Clipboard from 'expo-clipboard';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
 import { config } from '@/config';
 import { nexaApi } from '@/lib/api';
+import { BrandMark } from '@/components/ui';
 import CustodyScreen from '../../nexa-mobile/nexa-mobile/CustodyScreen';
 
 const API = config.apiUrl.replace(/\/$/, '');
@@ -354,7 +356,7 @@ function BottomNav({ page, onNavigate }: any) {
   );
 }
 
-export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) {
+export default function AlignedLegacyApp({ initialUser, token, onLogout, initialPage = 'home' }: any) {
   const insets = useSafeAreaInsets();
   const privy = usePrivy() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
@@ -364,7 +366,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     [wallets],
   );
 
-  const [page, setPage] = useState('home');
+  const [page, setPage] = useState(initialPage || 'home');
   const [user, setUser] = useState<any>(initialUser || {});
   const [balances, setBalances] = useState<any>({ BRL: 0, USDC: 0, BTC: 0, ETH: 0, PAXG: 0 });
   const [walletFirst, setWalletFirst] = useState<any>(null);
@@ -1324,63 +1326,98 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
     const walletReady =
       walletFirst?.portfolio?.walletReady === true || Boolean(walletAddress);
 
+    async function copyWalletAddress() {
+      if (!walletAddress) return;
+      await Clipboard.setStringAsync(walletAddress);
+      setMessage('Endereço da wallet copiado.');
+    }
+
     return (
       <>
-        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>CRIPTO WALLET</Text>
-        <Text style={styles.pageTitle}>Carteira</Text>
+        <Text style={styles.pageKicker}>MINHA WALLET</Text>
+        <Text style={styles.pageTitle}>Sua wallet, seu controle</Text>
         <Text style={styles.pageSubtitle}>
-          Seus ativos ficam vinculados à sua própria carteira. A Nexa simplifica a experiência sem custodiar sua chave.
+          Sua carteira é individual. A Nexa simplifica a experiência sem custodiar sua chave.
         </Text>
 
         <Card style={styles.heroCard}>
-          <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>SALDO DISPONÍVEL</Text>
+          <Text style={styles.eyebrow}>SALDO DISPONÍVEL</Text>
           <Text style={styles.heroAmount}>{amount(balances.USDC, 6)} USDC</Text>
           <Text style={styles.highlightText}>
             {walletReady
-              ? 'Carteira conectada e pronta para movimentações.'
-              : 'Sua carteira está sendo preparada.'}
+              ? 'Wallet conectada e pronta para as funcionalidades disponíveis.'
+              : 'Sua wallet está sendo preparada.'}
           </Text>
-          {walletAddress ? (
-            <Text style={[styles.walletAddress, isPremium ? styles.premiumAccentText : null]}>
-              {walletAddress.slice(0, 10)}…{walletAddress.slice(-8)}
-            </Text>
-          ) : null}
         </Card>
 
-        <View style={styles.quickRow}>
-          <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
-          <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
-          <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
-          <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
+        {walletAddress ? (
+          <Card>
+            <Text style={styles.sectionKicker}>RECEBER USDC</Text>
+            <Text style={styles.highlightTitle}>Seu endereço da wallet</Text>
+            <Text style={styles.highlightText}>
+              Use este endereço para receber USDC diretamente na sua wallet.
+            </Text>
+            <View style={styles.walletQrWrap}>
+              <QRCode value={walletAddress} size={186} />
+            </View>
+            <Text selectable style={styles.walletAddressFull}>{walletAddress}</Text>
+            <Text style={styles.walletNetwork}>Rede compatível: Polygon</Text>
+            <PrimaryButton title="Copiar endereço" onPress={copyWalletAddress} secondary />
+          </Card>
+        ) : null}
+
+        <View style={styles.quickActionsRow}>
+          <QuickAction icon="plus" title="Adicionar" onPress={openWalletFirstDeposit} primary />
+          <QuickAction icon="swap" title="Converter" onPress={openWalletFirstAssets} />
+          <QuickAction icon="send" title="Enviar" onPress={openWalletFirstSend} />
+          <QuickAction icon="withdraw" title="Sacar" onPress={openWalletFirstWithdraw} />
         </View>
 
-        <Text style={styles.sectionTitle}>Posições</Text>
-        {portfolioPositions.map((item) => (
-          <Card key={item.symbol}>
-            <View style={styles.rowBetween}>
-              <View>
-                <Text style={styles.assetRowTitle}>{item.icon} {item.name}</Text>
+        <Text style={styles.sectionTitle}>Ativos na sua wallet</Text>
+        <View style={styles.assetList}>
+          {portfolioPositions.map((item) => (
+            <TouchableOpacity
+              key={item.symbol}
+              style={styles.assetListRow}
+              onPress={() => {
+                if (item.symbol === 'USDC') return;
+                router.push({
+                  pathname: '/(app)/buy-crypto',
+                  params: { asset: item.symbol },
+                } as any);
+              }}
+            >
+              <View style={[styles.assetTokenIcon, { borderColor: item.tone }]}>
+                <Text style={[styles.assetTokenMark, { color: item.tone }]}>{item.icon}</Text>
+              </View>
+              <View style={styles.assetListIdentity}>
+                <Text style={styles.assetListName}>{item.name}</Text>
                 <Text style={styles.assetRowSymbol}>{item.symbol}</Text>
               </View>
               <View style={styles.alignRight}>
-                <Text style={styles.assetRowAmount}>{amount(item.amount, 8)}</Text>
+                <Text style={styles.assetListAmount}>{amount(item.amount, 8)} {item.symbol}</Text>
                 {item.valueUsd > 0 ? (
                   <Text style={styles.assetRowValue}>US$ {amount(item.valueUsd, 2)}</Text>
                 ) : null}
               </View>
-            </View>
-          </Card>
-        ))}
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <Card>
-          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>AUTONOMIA</Text>
-          <Text style={styles.highlightTitle}>A carteira é sua.</Text>
+          <Text style={styles.sectionKicker}>AUTONOMIA</Text>
+          <Text style={styles.highlightTitle}>A wallet é sua.</Text>
           <Text style={styles.highlightText}>
-            A Nexa prepara a infraestrutura necessária, mas autorizações sensíveis continuam sob seu controle.
+            Autorizações sensíveis continuam sob seu controle. A Nexa nunca pede sua chave privada ou frase-semente.
           </Text>
           <PrimaryButton
-            title="Segurança da carteira"
+            title="Segurança"
             onPress={() => router.push('/security')}
+            secondary
+          />
+          <PrimaryButton
+            title="Opções avançadas da wallet"
+            onPress={() => setPage('custody')}
             secondary
           />
         </Card>
@@ -1391,10 +1428,10 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   function Assets() {
     return (
       <>
-        <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>ATIVOS CRIPTO</Text>
-        <Text style={styles.pageTitle}>Ativos</Text>
+        <Text style={styles.pageKicker}>ATIVOS</Text>
+        <Text style={styles.pageTitle}>Seus ativos</Text>
         <Text style={styles.pageSubtitle}>
-          Acompanhe suas posições e compre ativos usando o USDC da sua carteira.
+          Acompanhe o que está na sua wallet e use USDC para converter entre os ativos disponíveis.
         </Text>
 
         <View style={styles.assetGrid}>
@@ -1422,12 +1459,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         </View>
 
         <Card style={styles.cryptoCard}>
-          <Text style={[styles.sectionKicker, isPremium ? styles.premiumAccentText : null]}>COMPRAR</Text>
+          <Text style={styles.sectionKicker}>CONVERTER</Text>
           <Text style={styles.highlightTitle}>USDC primeiro. Outros ativos depois.</Text>
           <Text style={styles.highlightText}>
-            O dinheiro novo entra em USDC. A partir dele, você pode comprar Bitcoin, Ethereum ou Ouro Digital.
+            O dinheiro novo entra em USDC. A partir dele, você pode converter para Bitcoin, Ethereum ou Ouro Digital quando disponíveis.
           </Text>
-          <PrimaryButton title="Comprar ativos" onPress={openWalletFirstAssets} />
+          <PrimaryButton title="Converter ativos" onPress={openWalletFirstAssets} />
         </Card>
 
         <Card>
@@ -1898,31 +1935,52 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
             </>
           ) : null}
         </Card>
-        <Text style={styles.sectionKicker}>RECURSOS</Text>
-        <View style={styles.profileResourceGrid}>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('wallet')}>
-            <Text style={styles.profileResourceTitle}>Minha Wallet</Text>
-            <Text style={styles.profileResourceText}>Endereço, autonomia e segurança.</Text>
+        <Text style={styles.sectionKicker}>CONTA E PREFERÊNCIAS</Text>
+        <View style={styles.profileMenu}>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={() => setPage('wallet')}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Minha Wallet</Text>
+              <Text style={styles.profileMenuText}>Endereço, receber e autonomia</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('premium')}>
-            <Text style={styles.profileResourceTitle}>Premium</Text>
-            <Text style={styles.profileResourceText}>{isPremium ? 'Plano ativo' : 'Conhecer benefícios'}</Text>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={() => router.push('/security')}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Segurança</Text>
+              <Text style={styles.profileMenuText}>Biometria e proteção do aparelho</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('rewards')}>
-            <Text style={styles.profileResourceTitle}>Rewards</Text>
-            <Text style={styles.profileResourceText}>Recursos Wallet-First.</Text>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={() => setPage('nexaId')}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Nexa ID</Text>
+              <Text style={styles.profileMenuText}>Sua identidade no ecossistema</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('recurring')}>
-            <Text style={styles.profileResourceTitle}>Open Finance</Text>
-            <Text style={styles.profileResourceText}>USDC por assinatura.</Text>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={() => setPage('premium')}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Premium</Text>
+              <Text style={styles.profileMenuText}>{isPremium ? 'Plano ativo' : 'Conhecer benefícios'}</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('nexaId')}>
-            <Text style={styles.profileResourceTitle}>Nexa ID</Text>
-            <Text style={styles.profileResourceText}>Sua identidade no ecossistema.</Text>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={openNexaSupport}>
+            <View>
+              <Text style={styles.profileMenuTitle}>Ajuda</Text>
+              <Text style={styles.profileMenuText}>Falar com a equipe Nexa</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileResource} onPress={() => setPage('menu')}>
-            <Text style={styles.profileResourceTitle}>Mais</Text>
-            <Text style={styles.profileResourceText}>Todas as opções e configurações.</Text>
+          <TouchableOpacity
+            style={[styles.profileMenuRow, styles.profileMenuRowLast]}
+            onPress={() => Linking.openURL('https://trynexa.com.br/termos')}
+          >
+            <View>
+              <Text style={styles.profileMenuTitle}>Termos e privacidade</Text>
+              <Text style={styles.profileMenuText}>Documentos e políticas da Nexa</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
         </View>
 
@@ -1958,23 +2016,81 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
   }
 
   function History() {
+    const items = statement.slice(0, 40);
+
     return (
       <>
-        <Text style={styles.pageTitle}>Movimentações</Text>
-        <Text style={styles.pageSubtitle}>Registros do seu saldo e dos seus ativos.</Text>
-        {statement.length ? statement.map((item: any) => (
-          <Card key={item.id}>
-            <View style={styles.rowBetween}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={styles.assetRowTitle}>{item.description || 'Movimentação'}</Text>
-                <Text style={styles.assetRowSymbol}>{item.asset || ''}</Text>
+        <Text style={styles.pageKicker}>HISTÓRICO</Text>
+        <Text style={styles.pageTitle}>Histórico</Text>
+        <Text style={styles.pageSubtitle}>
+          Entradas e saídas da sua wallet organizadas de forma simples.
+        </Text>
+
+        {items.length ? (
+          <View style={styles.historySimpleList}>
+            {items.map((item: any, index: number) => (
+              <View
+                key={item.id || String(item.description || 'movement') + '-' + index}
+                style={[
+                  styles.historySimpleRow,
+                  index === items.length - 1 ? styles.historySimpleRowLast : null,
+                ]}
+              >
+                <View style={styles.historySimpleIcon}>
+                  <NexaIcon
+                    name={item.direction === 'credit' ? 'receive' : 'send'}
+                    color={item.direction === 'credit' ? '#35D69A' : '#31D7FF'}
+                    size={18}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historySimpleTitle}>
+                    {item.description || (item.direction === 'credit' ? 'Entrada' : 'Saída')}
+                  </Text>
+                  <Text style={styles.historySimpleDate}>
+                    {item.createdAt
+                      ? new Date(item.createdAt).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : item.asset || 'Nexa'}
+                  </Text>
+                </View>
+                <Text
+                  style={
+                    item.direction === 'credit'
+                      ? styles.activityCredit
+                      : styles.activityDebit
+                  }
+                >
+                  {item.direction === 'credit' ? '+' : '-'}
+                  {amount(item.amount, 8)} {item.asset || ''}
+                </Text>
               </View>
-              <Text style={item.direction === 'credit' ? styles.credit : styles.debit}>
-                {item.direction === 'credit' ? '+' : '-'}{amount(item.amount, 8)} {item.asset}
+            ))}
+          </View>
+        ) : (
+          <Card>
+            <View style={styles.emptyState}>
+              <View style={styles.emptyStateIcon}>
+                <NexaIcon name="history" color="#70879F" size={24} />
+              </View>
+              <Text style={styles.emptyStateTitle}>Suas movimentações aparecerão aqui.</Text>
+              <Text style={styles.emptyStateText}>
+                Quando você adicionar, converter, enviar ou sacar, o histórico será organizado nesta tela.
               </Text>
             </View>
           </Card>
-        )) : <Card><Text style={styles.highlightText}>Nenhuma movimentação encontrada.</Text></Card>}
+        )}
+
+        <PrimaryButton
+          title="Histórico detalhado"
+          onPress={() => router.push('/(app)/activity' as any)}
+          secondary
+        />
       </>
     );
   }
@@ -2034,9 +2150,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout }: any) 
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandRow}>
-          <View>
-            <Text style={styles.brand}>NEXA</Text>
-            <Text style={styles.brandTag}>WALLET · Cripto sem complicação.</Text>
+          <View style={styles.brandLockup}>
+            <BrandMark size={38} />
+            <View>
+              <Text style={styles.brand}>NEXA</Text>
+              <Text style={styles.brandTag}>WALLET · Cripto sem complicação.</Text>
+            </View>
           </View>
           {isPremium ? <Text style={styles.brandEditionPremium}>PREMIUM</Text> : null}
         </View>
@@ -2063,7 +2182,8 @@ const styles: any = {
     marginBottom: 26,
     paddingHorizontal: 2,
   },
-  brand: { color: '#F4F8FC', fontSize: 27, fontWeight: '900', letterSpacing: 3.2 },
+  brandLockup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brand: { color: '#F4F8FC', fontSize: 21, fontWeight: '850', letterSpacing: 3.1 },
   brandTag: { color: '#70879F', fontSize: 11, marginTop: 3 },
   brandEditionPremium: { color: '#D5E2EF', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
   homeTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
@@ -2410,27 +2530,71 @@ const styles: any = {
     justifyContent: 'center',
   },
   bottomCenterLabel: { marginTop: 0 },
-  profileResourceGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
-    marginBottom: 20,
-  },
-  profileResource: {
-    width: '48%',
-    minHeight: 96,
-    borderRadius: 18,
-    padding: 14,
+  profileMenu: {
+    borderRadius: 20,
     backgroundColor: '#0E2138',
     borderWidth: 1,
     borderColor: '#203B59',
+    paddingHorizontal: 16,
+    marginBottom: 20,
   },
-  profileResourceTitle: { color: '#F4F8FC', fontSize: 13, fontWeight: '800' },
-  profileResourceText: {
+  profileMenuRow: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#17344E',
+  },
+  profileMenuRowLast: { borderBottomWidth: 0 },
+  profileMenuTitle: { color: '#F4F8FC', fontSize: 14, fontWeight: '800' },
+  profileMenuText: { color: '#70879F', fontSize: 10, marginTop: 4 },
+  profileMenuArrow: { color: '#31D7FF', fontSize: 24, fontWeight: '500' },
+  walletQrWrap: {
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 20,
+    marginBottom: 14,
+  },
+  walletAddressFull: {
+    color: '#D5E2EF',
+    fontSize: 11,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  walletNetwork: {
     color: '#70879F',
-    fontSize: 10,
-    lineHeight: 15,
-    marginTop: 6,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 8,
   },
+  historySimpleList: {
+    borderRadius: 20,
+    backgroundColor: '#0E2138',
+    borderWidth: 1,
+    borderColor: '#203B59',
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  historySimpleRow: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#17344E',
+  },
+  historySimpleRowLast: { borderBottomWidth: 0 },
+  historySimpleIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#102A42',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historySimpleTitle: { color: '#F4F8FC', fontSize: 13, fontWeight: '800' },
+  historySimpleDate: { color: '#70879F', fontSize: 10, marginTop: 4 },
 };

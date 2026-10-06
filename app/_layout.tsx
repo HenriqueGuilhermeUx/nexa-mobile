@@ -50,8 +50,8 @@ export default function RootLayout() {
             }}
           >
             <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="sign-in" options={{ title: 'Entrar' }} />
-            <Stack.Screen name="sign-up" options={{ title: 'Criar conta' }} />
+            <Stack.Screen name="sign-in" options={{ title: 'Bem-vindo de volta' }} />
+            <Stack.Screen name="sign-up" options={{ title: 'Crie sua Nexa' }} />
             <Stack.Screen name="legacy" options={{ headerShown: false }} />
             <Stack.Screen name="assistant" options={{ title: 'Assistente Nexa' }} />
             <Stack.Screen name="rewards-info" options={{ title: 'Sobre o Rewards' }} />
@@ -59,15 +59,15 @@ export default function RootLayout() {
             <Stack.Screen name="security" options={{ headerShown: false }} />
             <Stack.Screen
               name="onboarding-pix"
-              options={{ title: 'Pix de resgate' }}
+              options={{ title: 'Pix para resgates' }}
             />
             <Stack.Screen
               name="onboarding-wallet"
-              options={{ title: 'Minha Carteira Premium' }}
+              options={{ title: 'Ativar minha wallet' }}
             />
             <Stack.Screen
               name="wallet-ownership"
-              options={{ title: 'Comprovar minha carteira' }}
+              options={{ title: 'Confirmar minha wallet' }}
             />
             <Stack.Screen
               name="wallet-recovery"
@@ -75,7 +75,7 @@ export default function RootLayout() {
             />
             <Stack.Screen
               name="purchase-authorization"
-              options={{ title: 'Autorizar compra' }}
+              options={{ title: 'Confirmar conversão' }}
             />
             <Stack.Screen name="(app)" options={{ headerShown: false }} />
           </Stack>

@@ -56,12 +56,12 @@ assert.match(signIn, /Proteger a Nexa neste aparelho\?/);
 assert.match(signIn, /enableAppLock/);
 assert.match(signIn, /Sua senha não é armazenada|sua senha não é armazenada/i);
 
-assert.match(security, /Segurança da Nexa/);
+assert.match(security, /<Title>Segurança<\/Title>|Segurança da Nexa/);
 assert.match(security, /enableAppLock/);
 assert.match(security, /disableAppLock/);
 assert.match(security, /authenticateDevice/);
-assert.match(security, /biometria para a Nexa/i);
-assert.match(security, /senha Nexa nunca é armazenada/i);
+assert.match(security, /biometria permanece no sistema do aparelho|biometria para a Nexa/i);
+assert.match(security, /senha Nexa (?:nunca é|não é) armazenada/i);
 assert.match(alignedApp, /router\.push\('\/security'\)/);
 assert.match(alignedApp, /title="Segurança"/);
 

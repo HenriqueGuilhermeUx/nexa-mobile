@@ -36,10 +36,19 @@ function statusLabel(status?: BrazilKycStatus | null) {
 function actionLabel(status?: BrazilKycStatus | null) {
   if (status?.nextAction === 'resume_verification') return 'Continuar verificação';
   if (status?.nextAction === 'document_fallback') {
-    return 'Continuar verificação com documento';
+    return 'Continuar com documento';
   }
   if (status?.nextAction === 'retry_selfie') return 'Refazer selfie';
-  return 'Concordo e verificar identidade';
+  return 'Começar verificação';
+}
+
+function friendlyKycError(caught: unknown) {
+  const raw = caught instanceof Error ? caught.message : '';
+  if (!raw) return 'Não conseguimos atualizar sua verificação agora.';
+  if (/Didit|request|fetch|500|502|503|504/i.test(raw)) {
+    return 'Não conseguimos concluir esta etapa agora. Seus dados enviados não foram apagados; tente novamente em alguns instantes.';
+  }
+  return raw;
 }
 
 export default function KycScreen() {
@@ -79,11 +88,7 @@ export default function KycScreen() {
         await continueAfterApproval(session.accessToken);
       }
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Não foi possível atualizar a verificação.',
-      );
+      setError(friendlyKycError(caught));
     } finally {
       setLoading(false);
     }
@@ -134,11 +139,7 @@ export default function KycScreen() {
 
       await Linking.openURL(next.verificationUrl);
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Não foi possível iniciar a verificação.',
-      );
+      setError(friendlyKycError(caught));
     } finally {
       setStarting(false);
     }
@@ -151,11 +152,9 @@ export default function KycScreen() {
     <Screen>
       <Brand />
       <Badge tone="info">PASSO 1 DE 4</Badge>
-      <Title>Verifique sua identidade</Title>
+      <Title>Vamos confirmar que é você</Title>
       <Paragraph>
-        {countryCode === 'BR'
-          ? 'Para liberar as movimentações da Nexa, confirme que o CPF pertence a você. No fluxo brasileiro, a verificação normalmente usa CPF e selfie com prova de vida.'
-          : 'Para liberar as movimentações da Nexa, confirme sua identidade com um documento aceito no seu país de residência e a prova de vida solicitada pelo provedor.'}
+        A verificação ajuda a proteger sua conta e libera as funcionalidades da Nexa. A etapa é feita em ambiente seguro do provedor de identidade.
       </Paragraph>
 
       <Card>
@@ -172,37 +171,31 @@ export default function KycScreen() {
         </Badge>
 
         <View style={styles.steps}>
-          {countryCode === 'BR' ? (
-            <>
-              <Text style={styles.step}>1. Seu CPF já está cadastrado na Nexa.</Text>
-              <Text style={styles.step}>
-                2. A Didit faz uma selfie com prova de vida.
+          <View style={styles.stepRow}>
+            <Text style={styles.stepIndex}>1</Text>
+            <View style={styles.stepBody}>
+              <Text style={styles.stepTitle}>Identificação</Text>
+              <Text style={styles.step}>Confirmamos os dados básicos do seu cadastro.</Text>
+            </View>
+          </View>
+          <View style={styles.stepRow}>
+            <Text style={styles.stepIndex}>2</Text>
+            <View style={styles.stepBody}>
+              <Text style={styles.stepTitle}>
+                {countryCode === 'BR' ? 'Selfie e documento quando necessário' : 'Documento e prova de vida'}
               </Text>
               <Text style={styles.step}>
-                3. A identidade é comparada com a base biométrica disponível para o
-                CPF no Brasil.
+                O provedor solicita apenas o necessário para validar sua identidade.
               </Text>
-              <Text style={styles.step}>
-                4. Documento só é solicitado quando a validação não consegue dar
-                uma resposta conclusiva.
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.step}>
-                1. A Nexa usa seu país de residência para selecionar o fluxo correto.
-              </Text>
-              <Text style={styles.step}>
-                2. Você apresenta um documento aceito pelo provedor nesse país.
-              </Text>
-              <Text style={styles.step}>
-                3. A prova de vida confirma que o documento pertence a você.
-              </Text>
-              <Text style={styles.step}>
-                4. A Nexa continua o onboarding somente depois da aprovação.
-              </Text>
-            </>
-          )}
+            </View>
+          </View>
+          <View style={styles.stepRow}>
+            <Text style={styles.stepIndex}>3</Text>
+            <View style={styles.stepBody}>
+              <Text style={styles.stepTitle}>Validação</Text>
+              <Text style={styles.step}>A Nexa continua o onboarding somente depois da aprovação.</Text>
+            </View>
+          </View>
         </View>
       </Card>
 
@@ -220,13 +213,9 @@ export default function KycScreen() {
         </Card>
       ) : (
         <Card>
-          <Text style={styles.consentTitle}>Consentimento biométrico</Text>
+          <Text style={styles.consentTitle}>Antes de continuar</Text>
           <Text style={styles.helper}>
-            Ao tocar em “{actionLabel(status)}”, você autoriza o tratamento dos
-            dados necessários para a verificação de identidade e prova de vida
-            pela Nexa e por seu provedor de verificação. A Nexa evita armazenar
-            imagens de documento ou selfie quando o fluxo hospedado do provedor
-            permite manter esses artefatos fora da infraestrutura da Nexa.
+            Ao tocar em “{actionLabel(status)}”, você autoriza o tratamento dos dados necessários para confirmar sua identidade e prova de vida. A Nexa usa o fluxo hospedado do provedor para manter essa etapa separada da experiência financeira sempre que possível.
           </Text>
           <ActionButton
             label={actionLabel(status)}
@@ -253,8 +242,22 @@ export default function KycScreen() {
 }
 
 const styles = StyleSheet.create({
-  steps: { marginTop: spacing.md, gap: spacing.sm },
-  step: { color: colors.text, fontSize: 15, lineHeight: 22 },
+  steps: { marginTop: spacing.md, gap: spacing.md },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  stepIndex: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    backgroundColor: colors.primarySoft,
+    color: colors.cyan,
+    fontWeight: '900',
+    marginRight: spacing.sm,
+  },
+  stepBody: { flex: 1 },
+  stepTitle: { color: colors.text, fontSize: 15, fontWeight: '800', marginBottom: 3 },
+  step: { color: colors.muted, fontSize: 13, lineHeight: 20 },
   consentTitle: {
     color: colors.text,
     fontSize: 17,

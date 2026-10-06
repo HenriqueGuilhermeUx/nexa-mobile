@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -19,6 +19,8 @@ import {
 import { colors, spacing } from '../src/theme';
 
 export default function LegacyExperience() {
+  const params = useLocalSearchParams();
+  const requestedPage = String(params?.open || '').trim();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [user, setUser] = useState(null);
@@ -122,6 +124,7 @@ export default function LegacyExperience() {
         initialUser={user}
         token={token}
         onLogout={logout}
+        initialPage={requestedPage || 'home'}
       />
     </View>
   );

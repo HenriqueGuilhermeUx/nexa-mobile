@@ -32,7 +32,7 @@ export default function WalletOnboardingScreen() {
   const startedRef = useRef(false);
   const linkingRef = useRef(false);
   const [waitingForWallet, setWaitingForWallet] = useState(false);
-  const [stage, setStage] = useState('Preparando sua Cripto Wallet…');
+  const [stage, setStage] = useState('Preparando sua wallet…');
   const [error, setError] = useState('');
 
   async function currentPrivyToken() {
@@ -90,7 +90,7 @@ export default function WalletOnboardingScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível concluir sua Cripto Wallet.',
+          : 'Não foi possível concluir sua wallet.',
       );
     }
   }
@@ -132,10 +132,10 @@ export default function WalletOnboardingScreen() {
       }
 
       if (typeof embedded?.create !== 'function') {
-        throw new Error('A criação da Cripto Wallet não está disponível neste aparelho.');
+        throw new Error('A criação da wallet não está disponível neste aparelho.');
       }
 
-      setStage('Criando sua Cripto Wallet…');
+      setStage('Criando sua wallet…');
       setWaitingForWallet(true);
       const created = await embedded.create({ createAdditional: false });
       const createdWallet =
@@ -153,14 +153,14 @@ export default function WalletOnboardingScreen() {
 
       // O hook da Privy publica a carteira logo depois de create(). O efeito
       // abaixo continua automaticamente assim que o endereço aparece.
-      setStage('Finalizando sua Cripto Wallet…');
+      setStage('Finalizando sua wallet…');
     } catch (caught) {
       startedRef.current = false;
       setWaitingForWallet(false);
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível preparar sua Cripto Wallet.',
+          : 'Não foi possível preparar sua wallet.',
       );
     }
   }
@@ -190,10 +190,9 @@ export default function WalletOnboardingScreen() {
         <Brand />
         <View style={styles.topSpace} />
         <Badge tone="warning">PASSO 3 DE 4</Badge>
-        <Title>Vamos concluir sua Cripto Wallet.</Title>
+        <Title>Vamos ativar sua wallet</Title>
         <Paragraph>
-          Sua conta Nexa está segura. Tente novamente para terminar a criação
-          ou o vínculo da carteira.
+          Sua conta continua protegida. Tente novamente para concluir a ativação da sua wallet.
         </Paragraph>
         <Card>
           <Text style={styles.error}>{error}</Text>
@@ -207,16 +206,28 @@ export default function WalletOnboardingScreen() {
     <View style={styles.loader}>
       <Brand />
       <Badge tone="info">PASSO 3 DE 4</Badge>
-      <ActivityIndicator size="large" color={colors.primary} />
-      <Title>Preparando sua Cripto Wallet.</Title>
+      <View style={styles.progressMark}>
+        <Text style={styles.progressMarkText}>N</Text>
+      </View>
+      <Title>Ativando sua wallet</Title>
       <Paragraph>
-        A Nexa cuida da parte técnica nos bastidores. Você não precisa escolher
-        rede, configurar bridge nem guardar uma nova senha da Nexa.
+        A Nexa cuida da parte técnica nos bastidores. Você não precisa escolher rede, configurar bridge ou entender gas para continuar.
       </Paragraph>
       <Card>
-        <Text style={styles.stage}>{stage}</Text>
+        <View style={styles.progressItem}>
+          <Text style={styles.progressDone}>✓</Text>
+          <Text style={styles.progressText}>Conta confirmada</Text>
+        </View>
+        <View style={styles.progressItem}>
+          <ActivityIndicator size="small" color={colors.cyan} />
+          <Text style={styles.progressText}>{stage}</Text>
+        </View>
+        <View style={styles.progressItem}>
+          <Text style={styles.progressPending}>3</Text>
+          <Text style={styles.progressMuted}>Finalizando vínculo da wallet</Text>
+        </View>
         <Text style={styles.helper}>
-          Normalmente isso leva apenas alguns instantes.
+          Você pode aguardar nesta tela; nenhuma movimentação financeira acontece nesta etapa.
         </Text>
       </Card>
     </View>
@@ -232,12 +243,40 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   topSpace: { height: spacing.md },
-  stage: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '900',
-    textAlign: 'center',
+  progressMark: {
+    width: 70,
+    height: 70,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
+  progressMarkText: { color: colors.cyan, fontSize: 32, fontWeight: '900' },
+  progressItem: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  progressDone: { color: colors.success, fontSize: 16, fontWeight: '900' },
+  progressPending: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    backgroundColor: colors.panelSoft,
+    color: colors.muted,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  progressText: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  progressMuted: { color: colors.muted, fontSize: 13 },
   helper: {
     color: colors.muted,
     fontSize: 13,

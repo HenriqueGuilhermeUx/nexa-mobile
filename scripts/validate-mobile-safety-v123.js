@@ -56,7 +56,7 @@ assert.match(buy, /hashAuthorization/);
 assert.match(buy, /sendCalls/);
 assert.match(buy, /waitForCallsStatus/);
 assert.match(buy, /onWalletReconnected/);
-assert.match(buy, /Atualizar autorização da compra/);
+assert.match(buy, /Atualizar autorização da (?:compra|conversão)/);
 assert.doesNotMatch(buy, /@account-kit\/privy-integration/);
 assert.doesNotMatch(
   buy,
@@ -72,7 +72,7 @@ assert.match(funding, /asset:\s*'USDC'/);
 assert.match(funding, /defaultPaymentMethod:\s*'card'/);
 assert.doesNotMatch(funding, /preferredProvider:\s*'moonpay'/);
 assert.match(funding, /Pix continua separado/);
-assert.match(addMoney, /Adicionar por Pix/);
+assert.match(addMoney, /Adicionar (?:por|com) Pix/);
 assert.match(addMoney, /Cartão · Apple Pay · Google Pay/);
 assert.match(addMoney, /\(app\)\/fund-card/);
 

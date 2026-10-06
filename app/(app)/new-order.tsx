@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -76,6 +77,9 @@ export default function NewOrderScreen() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<Result | null>(null);
   const [pixStatus, setPixStatus] = useState<any>(null);
+  const [copyFeedback, setCopyFeedback] = useState('');
+  const [showTechnical, setShowTechnical] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
   const correlationID =
     result?.kind === 'pix-charge' ? String(result.payload?.correlationID || '').trim() : '';
@@ -135,6 +139,16 @@ export default function NewOrderScreen() {
     };
   }, [correlationID]);
 
+  function reviewAmount() {
+    setError('');
+    const parsed = parseAmount(amount);
+    if (!Number.isFinite(parsed) || parsed < 10) {
+      setError('O valor mínimo para adicionar é R$ 10,00.');
+      return;
+    }
+    setReviewing(true);
+  }
+
   async function submit() {
     setError('');
     setPixStatus(null);
@@ -163,6 +177,13 @@ export default function NewOrderScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function copyPixCode(code: string) {
+    if (!code) return;
+    await Clipboard.setStringAsync(code);
+    setCopyFeedback('Código Pix copiado.');
+    setTimeout(() => setCopyFeedback(''), 1800);
   }
 
   async function confirmPaidManually() {
@@ -201,15 +222,11 @@ export default function NewOrderScreen() {
           {complete ? 'PRONTO' : pixStatus?.label || 'AGUARDANDO PIX'}
         </Badge>
         <View style={styles.topSpace} />
-        <Title>
-          {complete
-            ? `${formatUsdc(pixStatus?.quotedUsdc)} disponível.`
-            : `Pague ${formatBrl(charge.amountBrl)}.`}
-        </Title>
+        <Title>{complete ? 'Seu saldo foi atualizado.' : 'Pix gerado'}</Title>
         <Paragraph>
           {complete
-            ? 'Concluído. O USDC já foi confirmado na sua carteira.'
-            : 'Depois do Pix, você pode fechar esta tela. A Nexa acompanha a operação e cuida da conversão e entrega automaticamente.'}
+            ? `${formatUsdc(pixStatus?.quotedUsdc)} já está disponível na sua wallet.`
+            : `Pague ${formatBrl(charge.amountBrl)} com o app do seu banco. A Nexa acompanha o restante automaticamente.`}
         </Paragraph>
 
         {!complete ? (
@@ -219,12 +236,17 @@ export default function NewOrderScreen() {
                 <QRCode value={pixCode} size={210} />
               </View>
             ) : null}
+            <Text style={styles.pixAmount}>{formatBrl(charge.amountBrl)}</Text>
             <Text style={styles.resultLabel}>Pix copia e cola</Text>
-            <Text selectable style={styles.pixCode}>
+            <Text selectable numberOfLines={3} style={styles.pixCode}>
               {pixCode || 'Código Pix disponível no link da cobrança.'}
             </Text>
-            {charge.paymentLinkUrl ? (
-              <Text selectable style={styles.reference}>{charge.paymentLinkUrl}</Text>
+            {pixCode ? (
+              <ActionButton
+                label={copyFeedback || 'Copiar código Pix'}
+                variant="secondary"
+                onPress={() => copyPixCode(pixCode)}
+              />
             ) : null}
           </Card>
         ) : null}
@@ -251,12 +273,12 @@ export default function NewOrderScreen() {
           <View style={styles.stepRow}>
             <View style={[styles.stepDot, rank >= 2 && styles.stepDone]} />
             <View style={styles.stepBody}>
-              <Text style={styles.stepTitle}>Entrega na carteira</Text>
+              <Text style={styles.stepTitle}>Atualização da wallet</Text>
               <Text style={styles.stepText}>
                 {complete
-                  ? `${formatUsdc(pixStatus?.quotedUsdc)} confirmado na blockchain.`
+                  ? `${formatUsdc(pixStatus?.quotedUsdc)} confirmado na sua wallet.`
                   : rank >= 2
-                    ? 'Enviando e confirmando.'
+                    ? 'Atualizando sua wallet.'
                     : 'A Nexa fará isso automaticamente.'}
               </Text>
             </View>
@@ -273,8 +295,17 @@ export default function NewOrderScreen() {
 
         {complete && pixStatus?.txHash ? (
           <Card>
-            <Text style={styles.resultLabel}>Comprovante blockchain</Text>
-            <Text selectable style={styles.reference}>{pixStatus.txHash}</Text>
+            <Pressable onPress={() => setShowTechnical((value) => !value)}>
+              <Text style={styles.technicalToggle}>
+                {showTechnical ? 'Ocultar detalhes técnicos' : 'Ver detalhes técnicos'}
+              </Text>
+            </Pressable>
+            {showTechnical ? (
+              <>
+                <Text style={styles.resultLabel}>Identificador da operação</Text>
+                <Text selectable style={styles.reference}>{pixStatus.txHash}</Text>
+              </>
+            ) : null}
           </Card>
         ) : null}
 
@@ -297,33 +328,38 @@ export default function NewOrderScreen() {
 
   return (
     <Screen>
-      <Eyebrow>ADICIONAR USDC</Eyebrow>
-      <Title>Adicionar por Pix.</Title>
+      <Eyebrow>ADICIONAR</Eyebrow>
+      <Title>Adicionar com Pix</Title>
       <Paragraph>
-        Você envia reais por Pix e recebe USDC na sua carteira Nexa. Depois, se quiser,
-        pode trocar seu USDC por outros ativos.
+        Adicione reais à sua experiência Nexa usando Pix. O valor confirmado entra em USDC na sua wallet.
       </Paragraph>
 
       <Card>
-        <Text style={styles.ruleTitle}>Entrada padrão da Nexa</Text>
+        <Text style={styles.ruleTitle}>Comece pelo que você já conhece</Text>
         <Text style={styles.ruleText}>
-          Todo dinheiro novo entra primeiro em USDC. Isso deixa saldo, histórico,
-          reconciliação e movimentações mais simples.
+          Você faz um Pix. A Nexa acompanha o pagamento, a conversão e a entrega na sua wallet.
         </Text>
       </Card>
 
       <Field
-        label="Valor em R$"
+        label="Quanto você quer adicionar?"
         value={amount}
-        onChangeText={setAmount}
+        style={styles.amountField}
+        onChangeText={(value) => {
+          setAmount(value);
+          setReviewing(false);
+        }}
         keyboardType="decimal-pad"
-        placeholder="Ex.: 50,00"
+        placeholder="R$ 0,00"
       />
       <View style={styles.quickRow}>
-        {[10, 50, 100].map((value) => (
+        {[100, 250, 500, 1000].map((value) => (
           <Pressable
             key={value}
-            onPress={() => setAmount(String(value))}
+            onPress={() => {
+              setAmount(String(value));
+              setReviewing(false);
+            }}
             style={styles.quickButton}
           >
             <Text style={styles.quickButtonText}>R$ {value}</Text>
@@ -333,11 +369,32 @@ export default function NewOrderScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <ActionButton
-        label="Gerar Pix"
-        loading={loading}
-        onPress={submit}
-      />
+      {!reviewing ? (
+        <ActionButton
+          label="Continuar"
+          disabled={loading}
+          onPress={reviewAmount}
+        />
+      ) : (
+        <Card style={styles.reviewCard}>
+          <Text style={styles.reviewLabel}>VOCÊ ADICIONA</Text>
+          <Text style={styles.reviewAmount}>{formatBrl(parseAmount(amount))}</Text>
+          <Text style={styles.reviewText}>
+            Depois do pagamento, a Nexa acompanha a confirmação e atualiza sua wallet em USDC. As condições aplicáveis aparecem no fluxo da operação.
+          </Text>
+          <ActionButton
+            label="Gerar Pix"
+            loading={loading}
+            onPress={submit}
+          />
+          <ActionButton
+            label="Editar valor"
+            variant="secondary"
+            disabled={loading}
+            onPress={() => setReviewing(false)}
+          />
+        </Card>
+      )}
       <ActionButton
         label="Trazer dinheiro via Open Finance"
         variant="secondary"
@@ -350,7 +407,7 @@ export default function NewOrderScreen() {
       />
 
       <Text style={styles.microcopy}>
-        Pix, Open Finance e cartão entram primeiro em USDC.
+        Antes de pagar, você vê o valor e acompanha cada etapa. Nenhuma cobrança é repetida automaticamente.
       </Text>
     </Screen>
   );
@@ -360,9 +417,11 @@ const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
   pixCard: { alignItems: 'stretch' },
   qrWrap: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.sm },
-  pixCode: { color: colors.text, fontSize: 12, lineHeight: 18, marginTop: 6 },
-  quickRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
-  quickButton: { flex: 1, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.panelSoft, alignItems: 'center' },
+  pixAmount: { color: colors.text, fontSize: 30, fontWeight: '800', textAlign: 'center', marginVertical: spacing.sm },
+  pixCode: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 6 },
+  amountField: { fontSize: 28, fontWeight: '800', textAlign: 'center', minHeight: 68 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  quickButton: { minWidth: '47%', flexGrow: 1, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.panelSoft, alignItems: 'center' },
   quickButtonText: { color: colors.text, fontWeight: '900' },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   stepDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border, marginTop: 4 },
@@ -378,5 +437,10 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, backgroundColor: colors.dangerSoft, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm },
   resultLabel: { color: colors.muted, fontSize: 12, marginTop: spacing.md },
   resultValue: { color: colors.text, fontWeight: '900', marginTop: 4 },
-  reference: { color: colors.text, fontWeight: '800', marginTop: 4, fontSize: 12 },
+  reference: { color: colors.muted, fontWeight: '700', marginTop: 4, fontSize: 11, lineHeight: 16 },
+  technicalToggle: { color: colors.cyan, fontSize: 12, fontWeight: '800' },
+  reviewCard: { backgroundColor: colors.panel, borderColor: colors.borderStrong },
+  reviewLabel: { color: colors.muted, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
+  reviewAmount: { color: colors.text, fontSize: 32, fontWeight: '800', marginTop: spacing.sm },
+  reviewText: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: spacing.md },
 });

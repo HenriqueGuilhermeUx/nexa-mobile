@@ -31,7 +31,7 @@ const checks = [
   [
     'cash-out customer surface uses only Nexa quote language',
     screen.includes('Cotação Nexa') &&
-      screen.includes('Valor estimado no seu Pix') &&
+      screen.includes('Você recebe') &&
       screen.includes('nexaRateBrl') &&
       screen.includes('estimatedPayoutBrl'),
   ],

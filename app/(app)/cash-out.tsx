@@ -760,17 +760,17 @@ export default function CashOutScreen() {
   return (
     <Screen>
       <Brand />
-      <Eyebrow>RESGATE</Eyebrow>
-      <Title>Sacar para Pix.</Title>
+      <Eyebrow>SACAR</Eyebrow>
+      <Title>Sacar</Title>
       <Paragraph>
-        Veja quanto você recebe, autorize o resgate na sua carteira e deixe o restante com a Nexa.
+        Converta seu USDC para reais e receba no Pix já verificado. Você vê a estimativa antes de autorizar.
       </Paragraph>
 
       <Card>
-        <Badge>SALDO DIGITAL</Badge>
+        <Badge>DA SUA WALLET</Badge>
         <View style={styles.spacer} />
         <Field
-          label="Valor do resgate"
+          label="Quanto USDC você quer sacar?"
           value={amountUsdc}
           onChangeText={(value) => {
             if (resumedActive) return;
@@ -784,7 +784,7 @@ export default function CashOutScreen() {
           placeholder="Ex.: 10,00 USDC"
         />
         <ActionButton
-          label={quote ? 'Atualizar cotação' : 'Ver quanto vou receber'}
+          label={quote ? 'Atualizar estimativa' : 'Ver estimativa'}
           onPress={requestQuote}
           loading={loading && phase === 'idle'}
           disabled={
@@ -795,8 +795,8 @@ export default function CashOutScreen() {
 
       {quote ? (
         <Card style={styles.quoteCard}>
-          <Text style={styles.quoteLabel}>COTAÇÃO NEXA</Text>
-          <Text style={styles.receiveLabel}>Valor estimado no seu Pix</Text>
+          <Text style={styles.quoteLabel}>RESUMO DO SAQUE</Text>
+          <Text style={styles.receiveLabel}>Você recebe</Text>
           <Text style={styles.receiveValue}>
             {formatBrl(quote.estimatedPayoutBrl)}
           </Text>
@@ -804,7 +804,7 @@ export default function CashOutScreen() {
             {formatUsdc(quote.amountUsdc)} · referência R$ {formatRate(quote.nexaRateBrl)}
           </Text>
           <Text style={styles.validity}>
-            A estimativa já considera as condições da operação. O valor final é confirmado durante o processamento.
+            A estimativa considera as condições apresentadas. O valor final é confirmado durante o processamento antes do Pix.
           </Text>
           {phase === 'quoted' ? (
             <ActionButton
@@ -818,10 +818,10 @@ export default function CashOutScreen() {
 
       {swapPrepared && phase === 'swap_ready_to_sign' ? (
         <Card>
-          <Badge tone="warning">1 DE 2 · AUTORIZAÇÃO</Badge>
-          <Text style={styles.stepTitle}>Autorize a preparação do resgate</Text>
+          <Badge tone="warning">1 DE 2 · PREPARAÇÃO</Badge>
+          <Text style={styles.stepTitle}>Prepare o saque</Text>
           <Text style={styles.stepText}>
-            Como sua carteira é sua, esta etapa precisa da sua autorização. A Nexa cuida da infraestrutura e das taxas de rede.
+            Sua wallet precisa autorizar a preparação do saque. A Nexa cuida da infraestrutura necessária nos bastidores.
           </Text>
           <ActionButton
             label="Autorizar"
@@ -851,8 +851,8 @@ export default function CashOutScreen() {
 
       {prepared && phase === 'ready_to_sign' ? (
         <Card>
-          <Badge tone="warning">2 DE 2 · CONFIRMAÇÃO</Badge>
-          <Text style={styles.stepTitle}>Confirme o resgate</Text>
+          <Badge tone="warning">2 DE 2 · REVISÃO FINAL</Badge>
+          <Text style={styles.stepTitle}>Confira e confirme</Text>
           <Text style={styles.stepText}>
             Valor solicitado: {formatUsdc(amountUsdc)}
           </Text>
@@ -860,10 +860,10 @@ export default function CashOutScreen() {
             Destino: sua chave Pix {prepared?.beneficiary?.pixKeyType || 'verificada'}.
           </Text>
           <Text style={styles.stepText}>
-            Depois desta confirmação, a Nexa continua o processamento automaticamente.
+            Depois desta confirmação, a Nexa continua o processamento automaticamente. Não repita a operação enquanto ela estiver em andamento.
           </Text>
           <ActionButton
-            label="Confirmar resgate"
+            label="Confirmar saque"
             onPress={signAndWithdraw}
             loading={loading}
           />
@@ -872,7 +872,7 @@ export default function CashOutScreen() {
 
       {phase === 'requested' ? (
         <Card style={styles.requestedCard}>
-          <Badge tone="success">RESGATE SOLICITADO</Badge>
+          <Badge tone="success">SAQUE SOLICITADO</Badge>
           <Text style={styles.completedAmount}>
             {formatBrl(completedAmountBrl)}
           </Text>
@@ -896,7 +896,7 @@ export default function CashOutScreen() {
           <Badge tone="success">PIX ENVIADO</Badge>
           <Text style={styles.completedAmount}>{formatBrl(completedAmountBrl)}</Text>
           <Text style={styles.successText}>
-            Resgate concluído e Pix enviado para sua chave verificada.
+            Saque concluído e Pix enviado para sua chave verificada.
           </Text>
           {finalResult?.endToEndId || finalResult?.batch?.endToEndId ? (
             <Text selectable style={styles.receipt}>
@@ -922,11 +922,11 @@ export default function CashOutScreen() {
 
 const styles = StyleSheet.create({
   spacer: { height: spacing.md },
-  quoteCard: { backgroundColor: '#10151D', borderColor: '#5F5133' },
-  requestedCard: { backgroundColor: '#101A18', borderColor: '#315E50' },
-  completedCard: { backgroundColor: '#0E1D19', borderColor: '#2F6B58' },
+  quoteCard: { backgroundColor: colors.panel, borderColor: colors.borderStrong },
+  requestedCard: { backgroundColor: colors.panel, borderColor: colors.success },
+  completedCard: { backgroundColor: colors.panel, borderColor: colors.success },
   quoteLabel: {
-    color: '#C8A968',
+    color: colors.cyan,
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   receipt: {
-    color: '#B6C1CE',
+    color: colors.muted,
     fontSize: 11,
     lineHeight: 17,
     marginTop: spacing.md,

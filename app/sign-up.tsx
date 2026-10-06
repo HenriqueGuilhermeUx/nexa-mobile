@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionButton,
+  Badge,
   Brand,
   Field,
   Paragraph,
@@ -92,6 +93,8 @@ export default function SignUpScreen() {
     <Screen>
       <Brand />
       <View style={styles.topSpace} />
+      <Badge tone="info">CADASTRO · ETAPA 1</Badge>
+      <View style={styles.badgeGap} />
       <Title>Crie sua Nexa</Title>
       <Paragraph>
         {isBrazil
@@ -142,11 +145,11 @@ export default function SignUpScreen() {
         placeholder="Mínimo de 6 caracteres"
       />
       <ActionButton
-        label="Criar conta"
+        label="Continuar"
         loading={loading}
         onPress={createAccount}
       />
-      <Paragraph>País de residência: {countryCode}</Paragraph>
+      <Text style={styles.country}>País de residência: {countryCode}</Text>
       <ActionButton
         label="Trocar país"
         variant="secondary"
@@ -167,6 +170,8 @@ export default function SignUpScreen() {
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
+  badgeGap: { height: spacing.md },
+  country: { color: colors.muted, textAlign: 'center', fontSize: 12, marginTop: spacing.md },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerSoft,

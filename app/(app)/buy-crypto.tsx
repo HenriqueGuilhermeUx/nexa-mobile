@@ -310,7 +310,7 @@ function SponsoredConfirmation(props: {
     setIsLoading(true);
     try {
       if (!wallet) {
-        throw new Error('Reconecte sua carteira antes de confirmar a compra.');
+        throw new Error('Reconecte sua wallet antes de confirmar a conversão.');
       }
 
       const signer = await buildPrivySigner(wallet);
@@ -333,20 +333,20 @@ function SponsoredConfirmation(props: {
         timeout: 120_000,
       });
       if (status.status !== 'success') {
-        throw new Error('A compra não foi confirmada. Atualize o status antes de tentar novamente.');
+        throw new Error('A conversão não foi confirmada. Atualize o status antes de tentar novamente.');
       }
 
       const receipt = status.receipts?.[status.receipts.length - 1];
       submittedHash = String(receipt?.transactionHash || '').trim();
       if (!/^0x[a-fA-F0-9]{64}$/.test(submittedHash)) {
-        throw new Error('Não foi possível confirmar o identificador da compra.');
+        throw new Error('Não foi possível confirmar o identificador da conversão.');
       }
       props.onTxHash(submittedHash);
 
       const session = await loadNexaSession();
       if (!session) {
         throw new Error(
-          'A compra foi enviada, mas sua sessão Nexa expirou antes da confirmação.',
+          'A conversão foi enviada, mas sua sessão Nexa expirou antes da confirmação.',
         );
       }
       const confirmed = await confirmOnBackend(
@@ -358,7 +358,7 @@ function SponsoredConfirmation(props: {
       props.onConfirmation(confirmed);
     } catch (caught) {
       const detail =
-        caught instanceof Error ? caught.message : 'Não foi possível concluir a compra.';
+        caught instanceof Error ? caught.message : 'Não foi possível concluir a conversão.';
       props.onError(
         submittedHash
           ? `A transação foi enviada. A confirmação automática falhou: ${detail}`
@@ -374,7 +374,7 @@ function SponsoredConfirmation(props: {
       <Card>
         <Badge tone="warning">RECONECTAR CARTEIRA</Badge>
         <Text style={styles.explain}>
-          Sua conta Nexa está ativa, mas a sessão da carteira usada nesta compra
+          Sua conta Nexa está ativa, mas a sessão da wallet usada nesta conversão
           não está carregada neste aparelho. Confirme o mesmo e-mail para recuperar
           a carteira já existente. A Nexa não criará outra carteira nem trocará seu vínculo.
         </Text>
@@ -417,11 +417,10 @@ function SponsoredConfirmation(props: {
       <Card>
         <Badge tone="success">CARTEIRA RECONECTADA</Badge>
         <Text style={styles.explain}>
-          A carteira correta voltou a ficar disponível neste aparelho. Atualize a
-          autorização para continuar a compra com segurança.
+          A wallet correta voltou a ficar disponível neste aparelho. Gere uma nova autorização para continuar a conversão com segurança.
         </Text>
         <ActionButton
-          label="Atualizar autorização da compra"
+          label="Atualizar autorização da conversão"
           onPress={props.onWalletReconnected}
         />
       </Card>
@@ -430,17 +429,17 @@ function SponsoredConfirmation(props: {
 
   return (
     <Card>
-      <Badge tone="warning">AUTORIZAÇÃO NA SUA CARTEIRA</Badge>
+      <Badge tone="warning">CONFIRME NA SUA WALLET</Badge>
       <Text style={styles.explain}>
         Ao confirmar, sua própria carteira autoriza a operação. A Nexa não recebe
         sua chave privada e cuida da infraestrutura necessária.
       </Text>
       {props.prepared.approvalRequired ? (
         <Text style={styles.explain}>
-          A autorização do USDC e a compra serão concluídas no mesmo fluxo.
+          A autorização do USDC e a conversão serão concluídas no mesmo fluxo.
         </Text>
       ) : null}
-      <ActionButton label="Confirmar compra" onPress={execute} loading={isLoading} />
+      <ActionButton label="Confirmar conversão" onPress={execute} loading={isLoading} />
     </Card>
   );
 }
@@ -555,7 +554,7 @@ export default function BuyCryptoScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'A compra ainda não está disponível.',
+          : 'A conversão ainda não está disponível.',
       );
     } finally {
       setWorking(false);
@@ -567,7 +566,7 @@ export default function BuyCryptoScreen() {
     setCredentials(null);
     setTxHash('');
     setConfirmation(null);
-    setError('Carteira reconectada. Toque em “Continuar compra” para gerar uma autorização nova.');
+    setError('Wallet reconectada. Toque em “Revisar conversão” para gerar uma autorização nova.');
   }
 
   async function refreshConfirmation() {
@@ -587,8 +586,8 @@ export default function BuyCryptoScreen() {
       if (result?.completed !== true) {
         setError(
           asset === 'PAXG'
-            ? 'O Ouro ainda está atravessando a liquidação entre redes. Não repita a compra; atualize a confirmação em instantes.'
-            : 'A compra ainda está sendo confirmada. Não repita a operação; atualize em instantes.',
+            ? 'O Ouro Digital ainda está sendo confirmado. Não repita a conversão; atualize a confirmação em instantes.'
+            : 'A conversão ainda está sendo confirmada. Não repita a operação; atualize em instantes.',
         );
       }
     } catch (caught) {
@@ -607,11 +606,10 @@ export default function BuyCryptoScreen() {
   return (
     <Screen>
       <Brand />
-      <Eyebrow>ATIVOS CRIPTO</Eyebrow>
-      <Title>Comprar com USDC.</Title>
+      <Eyebrow>CONVERTER</Eyebrow>
+      <Title>Converter</Title>
       <Paragraph>
-        Escolha Bitcoin, Ethereum ou Ouro Digital e veja a Cotação Nexa. Você autoriza
-        a compra na sua própria carteira e a Nexa cuida da parte técnica.
+        Use seu USDC para acessar Bitcoin, Ethereum ou Ouro Digital. Confira o que você envia, o que recebe e as condições antes de confirmar.
       </Paragraph>
 
       <Card>
@@ -639,7 +637,7 @@ export default function BuyCryptoScreen() {
           </Text>
         ) : null}
         <Field
-          label="Quanto USDC deseja usar?"
+          label="Você envia"
           value={amount}
           onChangeText={(value) => {
             setAmount(value);
@@ -650,7 +648,7 @@ export default function BuyCryptoScreen() {
           placeholder="Ex.: 0,50"
         />
         <ActionButton
-          label="Ver Cotação Nexa"
+          label="Ver cotação"
           onPress={requestQuote}
           loading={working && !quote}
         />
@@ -658,27 +656,31 @@ export default function BuyCryptoScreen() {
 
       {quote ? (
         <Card style={styles.quoteCard}>
-          <Text style={styles.kicker}>{quote.label || 'Cotação Nexa'}</Text>
+          <Text style={styles.kicker}>{quote.label || 'RESUMO DA CONVERSÃO'}</Text>
+          <Text style={styles.flowLabel}>Você envia</Text>
           <Text style={styles.from}>{formatUsdc(quote.from?.amount)}</Text>
-          <Text style={styles.arrow}>↓</Text>
+          <View style={styles.arrowWrap}><Text style={styles.arrow}>↓</Text></View>
+          <Text style={styles.flowLabel}>Você recebe</Text>
           <Text style={styles.receive}>
             {formatAsset(quote.to?.estimatedAmount, asset)}
           </Text>
           <Text style={styles.network}>
-            {asset === 'PAXG' ? 'Valor estimado de Ouro Digital' : `Valor estimado da compra de ${assetName(asset)}`}
+            {asset === 'PAXG' ? 'Você recebe · Ouro Digital' : `Você recebe · ${assetName(asset)}`}
           </Text>
+          <View style={styles.quoteDivider} />
+          <Text style={styles.quoteDetail}>Cotação e taxas são confirmadas antes da autorização da sua wallet.</Text>
           {quote.validForSeconds ? (
             <Text style={styles.validity}>
               Cotação válida por aproximadamente {quote.validForSeconds}s.
             </Text>
           ) : (
             <Text style={styles.validity}>
-              Cotação sujeita à atualização até a confirmação da compra.
+              Cotação sujeita à atualização até a confirmação da conversão.
             </Text>
           )}
           {!prepared && !txHash ? (
             <ActionButton
-              label={asset === 'PAXG' ? 'Continuar compra de Ouro' : 'Continuar compra'}
+              label={asset === 'PAXG' ? 'Revisar conversão' : 'Revisar conversão'}
               onPress={preparePurchase}
               loading={working}
             />
@@ -703,22 +705,22 @@ export default function BuyCryptoScreen() {
           <Badge tone={completed ? 'success' : 'warning'}>
             {completed
               ? asset === 'PAXG'
-                ? 'OURO NA SUA CARTEIRA'
-                : 'ATIVO NA SUA CARTEIRA'
+                ? 'CONVERSÃO CONCLUÍDA'
+                : 'CONVERSÃO CONCLUÍDA'
               : asset === 'PAXG'
-                ? 'LIQUIDANDO OURO'
-                : 'CONFIRMANDO COMPRA'}
+                ? 'CONFIRMANDO CONVERSÃO'
+                : 'CONFIRMANDO CONVERSÃO'}
           </Badge>
           {completed ? (
             <Text style={styles.success}>
-              {formatAsset(confirmation.receivedAmount, asset)} confirmado na sua carteira.
+              {formatAsset(confirmation.receivedAmount, asset)} confirmado na sua wallet.
             </Text>
           ) : (
             <>
               <Text style={styles.explain}>
                 {asset === 'PAXG'
-                  ? 'A compra já foi enviada. A Nexa está aguardando a confirmação final do Ouro Digital na sua carteira.'
-                  : 'A compra já foi enviada. A Nexa está confirmando o resultado com segurança.'}
+                  ? 'A conversão já foi enviada. A Nexa está aguardando a confirmação final do Ouro Digital na sua wallet.'
+                  : 'A conversão já foi enviada. A Nexa está confirmando o resultado com segurança.'}
               </Text>
               <ActionButton
                 label="Atualizar confirmação"
@@ -752,13 +754,17 @@ const styles = StyleSheet.create({
   assetText: { color: colors.muted, fontWeight: '900' },
   assetTextActive: { color: colors.text },
   goldNote: { color: colors.warning, lineHeight: 19, marginBottom: spacing.md, fontSize: 12 },
-  quoteCard: { backgroundColor: '#11143C' },
+  quoteCard: { backgroundColor: colors.panel, borderColor: colors.borderStrong },
   kicker: { color: colors.cyan, fontWeight: '900', fontSize: 12, letterSpacing: 1.2 },
   from: { color: colors.text, fontSize: 20, fontWeight: '800', marginTop: spacing.md },
-  arrow: { color: colors.cyan, fontSize: 24, marginVertical: spacing.sm },
+  flowLabel: { color: colors.muted, fontSize: 12, marginTop: spacing.sm },
+  arrowWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft, marginVertical: spacing.md },
+  arrow: { color: colors.cyan, fontSize: 20, fontWeight: '900' },
   receive: { color: colors.text, fontSize: 32, fontWeight: '900' },
   network: { color: colors.muted, marginTop: spacing.sm },
-  validity: { color: colors.muted, fontSize: 12, marginVertical: spacing.lg },
+  quoteDivider: { height: 1, backgroundColor: colors.border, marginTop: spacing.lg },
+  quoteDetail: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: spacing.md },
+  validity: { color: colors.muted, fontSize: 12, marginVertical: spacing.md },
   explain: { color: colors.muted, lineHeight: 21, marginVertical: spacing.lg },
   reconnectStatus: { color: colors.cyan, lineHeight: 20, marginBottom: spacing.md },
   hash: { color: colors.cyan, fontSize: 11, lineHeight: 17, marginTop: spacing.md },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Card, Eyebrow, Paragraph, Screen, Title } from '@/components/ui';
 import { nexaApi, PixRedemption } from '@/lib/api';
@@ -145,7 +145,7 @@ function OrderCard({ order }: { order: any }) {
     <Card>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.type}>OPERAÇÃO ANTERIOR</Text>
+          <Text style={styles.type}>CONVERSÃO / ATIVO</Text>
           <Text style={styles.date}>
             {order.createdAt ? new Date(order.createdAt).toLocaleString('pt-BR') : '—'}
           </Text>
@@ -168,7 +168,17 @@ function OrderCard({ order }: { order: any }) {
   );
 }
 
+type ActivityFilter = 'all' | 'deposit' | 'order' | 'redemption';
+
+const FILTERS: Array<{ key: ActivityFilter; label: string }> = [
+  { key: 'all', label: 'Todos' },
+  { key: 'deposit', label: 'Entradas' },
+  { key: 'order', label: 'Conversões' },
+  { key: 'redemption', label: 'Saques' },
+];
+
 export default function ActivityScreen() {
+  const [filter, setFilter] = useState<ActivityFilter>('all');
   const [orders, setOrders] = useState<any[]>([]);
   const [redemptions, setRedemptions] = useState<PixRedemption[]>([]);
   const [deposits, setDeposits] = useState<any[]>([]);
@@ -244,19 +254,44 @@ export default function ActivityScreen() {
     [deposits, orders, redemptions],
   );
 
+  const visibleActivity =
+    filter === 'all' ? activity : activity.filter((item) => item.kind === filter);
+
   return (
     <Screen
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />
       }
     >
-      <Eyebrow>Atividade</Eyebrow>
-      <Title>Seu dinheiro, sem mistério.</Title>
+      <Eyebrow>HISTÓRICO</Eyebrow>
+      <Title>Histórico</Title>
       <Paragraph>
-        Acompanhe entradas, compras e resgates com estados simples e comprovantes quando disponíveis.
+        Acompanhe entradas, conversões e saques com status simples. Detalhes técnicos ficam em segundo plano.
       </Paragraph>
 
-      {activity.map((item) => {
+      <View style={styles.filters}>
+        {FILTERS.map((item) => (
+          <Pressable
+            key={item.key}
+            onPress={() => setFilter(item.key)}
+            style={[
+              styles.filterChip,
+              filter === item.key ? styles.filterChipActive : null,
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                filter === item.key ? styles.filterTextActive : null,
+              ]}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {visibleActivity.map((item) => {
         if (item.kind === 'deposit') {
           return <DepositCard key={`deposit-${item.value.id}`} deposit={item.value} />;
         }
@@ -266,10 +301,16 @@ export default function ActivityScreen() {
         return <OrderCard key={`order-${item.value.id}`} order={item.value} />;
       })}
 
-      {!loading && !activity.length ? (
+      {!loading && !visibleActivity.length ? (
         <Card>
-          <Text style={styles.emptyTitle}>Nenhuma movimentação ainda.</Text>
-          <Text style={styles.emptyBody}>Quando você adicionar ou retirar dinheiro, tudo aparece aqui.</Text>
+          <Text style={styles.emptyTitle}>
+            {activity.length ? 'Nada neste filtro.' : 'Suas movimentações aparecerão aqui.'}
+          </Text>
+          <Text style={styles.emptyBody}>
+            {activity.length
+              ? 'Escolha outro filtro para ver suas operações.'
+              : 'Quando você adicionar, converter ou sacar, o histórico será organizado aqui.'}
+          </Text>
         </Card>
       ) : null}
 
@@ -279,6 +320,26 @@ export default function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
+  filters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  filterChip: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.panel,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  filterChipActive: {
+    borderColor: colors.cyan,
+    backgroundColor: colors.primarySoft,
+  },
+  filterText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  filterTextActive: { color: colors.cyan },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
   headerText: { flex: 1 },
   type: { color: colors.cyan, fontWeight: '900', fontSize: 12 },
