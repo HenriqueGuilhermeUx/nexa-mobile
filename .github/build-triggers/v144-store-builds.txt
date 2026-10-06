@@ -1,0 +1,11 @@
+Nexa 2.0.41 v144 store builds
+Android AAB: Google Play
+Android APK: direct install/test
+iOS IPA: App Store/TestFlight
+Native identity: 2.0.41 / 144
+Brand: Nexa Wallet 2026 native mark + navy splash
+Release merge: a993af4b8f6a4366c3df40afbfca22ca900f4432
+Product: Wallet-First preserved
+Assistente Nexa: Home
+Recurring Open Finance: discoverable
+No automatic store submission
