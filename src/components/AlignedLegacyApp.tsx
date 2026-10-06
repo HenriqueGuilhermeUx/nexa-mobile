@@ -1211,6 +1211,26 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           <QuickAction icon="withdraw" title="Sacar" onPress={openWalletFirstWithdraw} />
         </View>
 
+        {config.assistantEnabled ? (
+          <TouchableOpacity
+            style={styles.assistantHomeCard}
+            activeOpacity={0.84}
+            onPress={() => router.push('/assistant' as any)}
+          >
+            <View style={styles.assistantHomeIcon}>
+              <Text style={styles.assistantHomeIconText}>N</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.assistantHomeKicker}>ASSISTENTE NEXA</Text>
+              <Text style={styles.assistantHomeTitle}>Posso te ajudar?</Text>
+              <Text style={styles.assistantHomeText}>
+                Tire dúvidas, entenda seus ativos e encontre o que precisa.
+              </Text>
+            </View>
+            <Text style={styles.assistantHomeArrow}>›</Text>
+          </TouchableOpacity>
+        ) : null}
+
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionKicker}>MINHA WALLET</Text>
@@ -2432,6 +2452,57 @@ const styles: any = {
     color: '#D5E2EF',
     fontSize: 10,
     fontWeight: '700',
+  },
+
+  assistantHomeCard: {
+    minHeight: 88,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#203B59',
+    backgroundColor: '#0E2138',
+    padding: 14,
+    marginBottom: 26,
+  },
+  assistantHomeIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#102A42',
+    borderWidth: 1,
+    borderColor: '#2A5877',
+  },
+  assistantHomeIconText: {
+    color: '#31D7FF',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  assistantHomeKicker: {
+    color: '#31D7FF',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  assistantHomeTitle: {
+    color: '#F4F8FC',
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 3,
+  },
+  assistantHomeText: {
+    color: '#70879F',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 3,
+  },
+  assistantHomeArrow: {
+    color: '#31D7FF',
+    fontSize: 24,
+    fontWeight: '500',
   },
   assetList: {
     backgroundColor: '#0A192B',
