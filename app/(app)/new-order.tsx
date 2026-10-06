@@ -341,6 +341,22 @@ export default function NewOrderScreen() {
         </Text>
       </Card>
 
+      <Pressable
+        style={styles.recurringCard}
+        onPress={() => router.push('/open-finance-recurring' as any)}
+      >
+        <View style={styles.recurringBadge}>
+          <Text style={styles.recurringBadgeText}>AUTO</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.recurringTitle}>Quer adicionar todo mês?</Text>
+          <Text style={styles.recurringText}>
+            Configure uma recorrência via Open Finance e escolha valor e dia do mês.
+          </Text>
+        </View>
+        <Text style={styles.recurringArrow}>›</Text>
+      </Pressable>
+
       <Field
         label="Quanto você quer adicionar?"
         value={amount}
@@ -443,4 +459,34 @@ const styles = StyleSheet.create({
   reviewLabel: { color: colors.muted, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
   reviewAmount: { color: colors.text, fontSize: 32, fontWeight: '800', marginTop: spacing.sm },
   reviewText: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: spacing.md },
+  recurringCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.panel,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  recurringBadge: {
+    minWidth: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.cyan,
+  },
+  recurringBadgeText: {
+    color: colors.cyan,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  recurringTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  recurringText: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 4 },
+  recurringArrow: { color: colors.cyan, fontSize: 24, fontWeight: '500' },
 });
