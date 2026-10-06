@@ -6,12 +6,6 @@ on:
       - main
     paths:
       - '.github/build-triggers/v143-wallet-2026-design-ota.txt'
-  pull_request:
-    types: [closed]
-    branches:
-      - main
-    paths:
-      - '.github/build-triggers/v143-wallet-2026-design-ota.txt'
   workflow_dispatch:
 
 permissions:
@@ -98,7 +92,9 @@ jobs:
             'Movimentações recentes',
             "['move', 'move', 'Movimentar']",
             'bottomCenterIcon',
-            'profileResourceGrid',
+            'profileMenu',
+            'walletQrWrap',
+            '<BrandMark size={38}',
           ]) {
             if (!shell.includes(required)) throw new Error('Missing Wallet 2026 contract: ' + required);
           }
@@ -129,7 +125,7 @@ jobs:
           eas update \
             --channel production-safe-preview \
             --platform android \
-            --message "v143 Wallet 2026 redesign: navy cyan silver, wallet-first home and navigation" \
+            --message "v143 Wallet 2026: onboarding, Pix, converter, wallet, history and security redesign" \
             --clear-cache \
             --non-interactive
 
