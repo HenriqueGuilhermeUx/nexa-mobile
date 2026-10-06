@@ -215,6 +215,13 @@ export interface AssistantChatResponse {
   };
 }
 
+export interface NexaIdAccessTokenResponse {
+  success: boolean;
+  token?: string;
+  expiresAt?: string;
+  message?: string;
+}
+
 export function tokensFromLogin(response: LoginResponse) {
   const accessToken =
     response.accessToken ||
@@ -282,6 +289,14 @@ export const nexaApi = {
 
   me(accessToken: string) {
     return request<any>('/user/me', { accessToken });
+  },
+
+  createNexaIdAccessToken(accessToken: string) {
+    return request<NexaIdAccessTokenResponse>('/nexa-id/access-token-secure', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({}),
+    });
   },
 
   assistantCapabilities(accessToken: string) {
