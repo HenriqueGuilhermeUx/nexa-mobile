@@ -1,4 +1,4 @@
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { config } from '@/config';
 import { nexaApi } from '@/lib/api';
@@ -13,6 +13,20 @@ const PRODUCT_URLS: Record<NexaEcosystemProduct, () => string> = {
 const PRODUCT_ENABLED: Record<NexaEcosystemProduct, () => boolean> = {
   docwallet: () => config.docWalletEnabled,
   healthwallet: () => config.healthWalletEnabled,
+};
+
+const PRODUCT_DOWNLOAD_URLS: Record<
+  NexaEcosystemProduct,
+  { android: () => string; ios: () => string }
+> = {
+  docwallet: {
+    android: () => config.docWalletPlayStoreUrl,
+    ios: () => config.docWalletAppStoreUrl,
+  },
+  healthwallet: {
+    android: () => config.healthWalletPlayStoreUrl,
+    ios: () => config.healthWalletAppStoreUrl,
+  },
 };
 
 export function ecosystemProductEnabled(product: NexaEcosystemProduct) {
@@ -45,6 +59,32 @@ export async function openNexaEcosystemProduct(
   const supported = await Linking.canOpenURL(url);
   if (!supported) {
     throw new Error('Não foi possível abrir este produto agora.');
+  }
+
+  await Linking.openURL(url);
+}
+
+
+export function ecosystemDownloadAvailable(product: NexaEcosystemProduct) {
+  const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+  return Boolean(PRODUCT_DOWNLOAD_URLS[product][platform]());
+}
+
+export async function downloadNexaEcosystemProduct(product: NexaEcosystemProduct) {
+  const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+  const url = String(PRODUCT_DOWNLOAD_URLS[product][platform]() || '').trim();
+
+  if (!url) {
+    throw new Error(
+      platform === 'ios'
+        ? 'O link da App Store ainda não está disponível para este app.'
+        : 'O link da loja ainda não está disponível para este app.',
+    );
+  }
+
+  const supported = await Linking.canOpenURL(url);
+  if (!supported) {
+    throw new Error('Não foi possível abrir a loja de aplicativos agora.');
   }
 
   await Linking.openURL(url);
