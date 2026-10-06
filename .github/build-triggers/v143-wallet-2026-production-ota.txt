@@ -1,0 +1,9 @@
+Nexa v143 Wallet 2026 production OTA
+Target channel: production
+Source: Google Play production AAB
+Runtime: 2.0.40
+Android versionCode: 143
+Native changes: none
+Design merge: e6701f304bb52616cccf684e732b444860776267
+Production OTA workflow: c7ddbd4690515c7b95d73b044f21d51ebe4b50a7
+Reason: installed Play Store build listens to production, not production-safe-preview
