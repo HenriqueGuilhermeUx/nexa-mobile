@@ -9,3 +9,4 @@ Product: Wallet-First preserved
 Assistente Nexa: Home
 Recurring Open Finance: discoverable
 No automatic store submission
+iOS rebuild trigger after PR #86 encryption metadata fix
