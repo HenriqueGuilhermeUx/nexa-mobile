@@ -19,6 +19,10 @@ interface NexaExtra {
   healthWalletEnabled?: boolean;
   docWalletUrl?: string;
   healthWalletUrl?: string;
+  docWalletPlayStoreUrl?: string;
+  healthWalletPlayStoreUrl?: string;
+  docWalletAppStoreUrl?: string;
+  healthWalletAppStoreUrl?: string;
 }
 
 const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
@@ -60,6 +64,18 @@ const envDocWalletUrl = String(
 ).trim();
 const envHealthWalletUrl = String(
   process.env.EXPO_PUBLIC_NEXA_HEALTHWALLET_URL || '',
+).trim();
+const envDocWalletPlayStoreUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_DOCWALLET_PLAY_STORE_URL || '',
+).trim();
+const envHealthWalletPlayStoreUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_HEALTHWALLET_PLAY_STORE_URL || '',
+).trim();
+const envDocWalletAppStoreUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_DOCWALLET_APP_STORE_URL || '',
+).trim();
+const envHealthWalletAppStoreUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_HEALTHWALLET_APP_STORE_URL || '',
 ).trim();
 const envReleaseChannel = String(
   process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL || '',
@@ -104,6 +120,18 @@ export const config = {
     envDocWalletUrl || extra.docWalletUrl || 'https://trydocwallet.com',
   healthWalletUrl:
     envHealthWalletUrl || extra.healthWalletUrl || 'https://healthwallet1.netlify.app',
+  docWalletPlayStoreUrl:
+    envDocWalletPlayStoreUrl ||
+    extra.docWalletPlayStoreUrl ||
+    'https://play.google.com/store/apps/details?id=br.com.alternativeventures.docwalletdocs',
+  healthWalletPlayStoreUrl:
+    envHealthWalletPlayStoreUrl ||
+    extra.healthWalletPlayStoreUrl ||
+    'https://play.google.com/store/apps/details?id=br.com.healthwallet.app',
+  docWalletAppStoreUrl:
+    envDocWalletAppStoreUrl || extra.docWalletAppStoreUrl || '',
+  healthWalletAppStoreUrl:
+    envHealthWalletAppStoreUrl || extra.healthWalletAppStoreUrl || '',
   ledgerOperationsEnabled: extra.ledgerOperationsEnabled !== false,
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
