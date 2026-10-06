@@ -67,9 +67,9 @@ const requiredInlinePurchaseTokens = [
   'emailLogin.loginWithCode',
   'privy.getAccessToken',
   'CARTEIRA RECONECTADA',
-  'Atualizar autorização da compra',
+  'Atualizar autorização da conversão',
   'onWalletReconnected',
-  'Reconecte sua carteira antes de confirmar a compra.',
+  'Reconecte sua wallet antes de confirmar a conversão.',
 ];
 for (const token of requiredInlinePurchaseTokens) {
   if (!buy.includes(token)) {
@@ -97,5 +97,5 @@ for (const forbidden of [
 }
 
 console.log(
-  'Wallet recovery safety validated: exact cross-device wallet recovery + v127 inline login-only Privy session restoration with fresh purchase authorization.',
+  'Wallet recovery safety validated: exact cross-device wallet recovery + inline login-only Privy session restoration with fresh conversion authorization.',
 );
