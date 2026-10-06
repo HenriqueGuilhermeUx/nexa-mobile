@@ -119,7 +119,7 @@ export const config = {
   docWalletUrl:
     envDocWalletUrl || extra.docWalletUrl || 'https://trydocwallet.com',
   healthWalletUrl:
-    envHealthWalletUrl || extra.healthWalletUrl || 'https://healthwallet1.netlify.app',
+    envHealthWalletUrl || extra.healthWalletUrl || 'https://mydatamed.com/healthwallet',
   docWalletPlayStoreUrl:
     envDocWalletPlayStoreUrl ||
     extra.docWalletPlayStoreUrl ||
