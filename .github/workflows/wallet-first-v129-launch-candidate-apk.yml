@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - fix/rewards-privy-reauth-v129
-      - main
     paths:
       - 'app/**'
       - 'src/**'
