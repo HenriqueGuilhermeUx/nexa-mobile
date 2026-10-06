@@ -95,7 +95,7 @@ const buyRequired = [
   'swapTransaction',
   'CONFIRME NA SUA WALLET',
   'Confirmar conversão',
-  'Atualizar autorização da compra',
+  'Atualizar autorização da conversão',
 ];
 for (const token of buyRequired) {
   if (!buy.includes(token)) throw new Error(`Wallet-First sponsored buy contract missing: ${token}`);
