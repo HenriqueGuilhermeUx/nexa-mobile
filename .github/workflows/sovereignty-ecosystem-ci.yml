@@ -1,0 +1,75 @@
+name: Nexa Sovereignty Ecosystem CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/components/AlignedLegacyApp.tsx'
+      - 'src/config.ts'
+      - 'src/lib/api.ts'
+      - 'src/lib/nexaEcosystem.ts'
+      - '.github/workflows/sovereignty-ecosystem-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Preserve v144 release boundary
+        run: |
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const pkg = require('./package.json');
+          if (app.version !== '2.0.41' || pkg.version !== '2.0.41') throw new Error('Version changed during ecosystem foundation');
+          if (Number(app.android?.versionCode) !== 144) throw new Error('Android build changed during ecosystem foundation');
+          if (String(app.ios?.buildNumber) !== '144') throw new Error('iOS build changed during ecosystem foundation');
+          if (app.android?.package !== 'br.com.trynexa.app') throw new Error('Android package changed');
+          if (app.ios?.bundleIdentifier !== 'br.com.trynexa.app') throw new Error('iOS bundle id changed');
+          NODE
+
+      - name: Validate Wallet-First safety contracts
+        run: |
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-quote.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-wallet-cross-device-recovery.js
+          node scripts/validate-biometric-app-lock.js
+
+      - name: Validate ecosystem boundaries
+        run: |
+          grep -q "EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED" src/config.ts
+          grep -q "access-token-secure" src/lib/api.ts
+          grep -q "nexaToken" src/lib/nexaEcosystem.ts
+          grep -q "MyDoc Wallet" src/components/AlignedLegacyApp.tsx
+          grep -q "MyHealth Wallet" src/components/AlignedLegacyApp.tsx
+          grep -q "Sua vida digital. Seu controle." src/components/AlignedLegacyApp.tsx
+          ! grep -q "financialExecution.*true" src/lib/nexaEcosystem.ts
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Export Android bundle with ecosystem enabled
+        env:
+          CI: 'true'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_DOCWALLET_URL: 'https://trydocwallet.com'
+          EXPO_PUBLIC_NEXA_HEALTHWALLET_URL: 'https://healthwallet1.netlify.app'
+        run: npm run export:android
