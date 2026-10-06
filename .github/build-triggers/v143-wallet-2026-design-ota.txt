@@ -7,3 +7,5 @@ Design merge: e6701f304bb52616cccf684e732b444860776267
 Release workflow hardening: 30a992c267d7046622ca2d1fb11abeb3a4e1adac
 Scope: onboarding, KYC, Pix add/review, converter, send, receive/wallet, cash-out, history, profile, security
 Safety: Wallet-First contracts + no blind financial retry + same v143 execution boundary
+
+Discovery refresh: Assistente Nexa on Home + recurring Open Finance surfaced. Merge: 15a1ef52e60bbb51e2a635f35679ab6e4c483d93
