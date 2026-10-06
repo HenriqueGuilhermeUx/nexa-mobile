@@ -1495,6 +1495,13 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             <Text style={styles.moveTitle}>Adicionar</Text>
             <Text style={styles.moveText}>Comece com Pix e receba USDC na sua wallet.</Text>
           </TouchableOpacity>
+          {config.efiOpenFinanceEnabled ? (
+            <TouchableOpacity style={styles.moveCard} onPress={openUsdcSubscription} activeOpacity={0.82}>
+              <View style={styles.moveIcon}><NexaIcon name="receive" color="#31D7FF" size={24} /></View>
+              <Text style={styles.moveTitle}>Adicionar automaticamente</Text>
+              <Text style={styles.moveText}>Programe um valor mensal via Open Finance.</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={styles.moveCard} onPress={openWalletFirstAssets} activeOpacity={0.82}>
             <View style={styles.moveIcon}><NexaIcon name="swap" color="#31D7FF" size={24} /></View>
             <Text style={styles.moveTitle}>Converter</Text>
@@ -1597,9 +1604,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
     return (
       <>
         <Text style={[styles.pageKicker, isPremium ? styles.premiumAccentText : null]}>OPEN FINANCE</Text>
-        <Text style={styles.pageTitle}>USDC por assinatura</Text>
+        <Text style={styles.pageTitle}>Adicionar automaticamente</Text>
         <Text style={styles.pageSubtitle}>
-          Escolha valor, banco e dia do mês. Você autoriza uma vez no seu banco e a Nexa envia o USDC para sua própria carteira a cada parcela confirmada.
+          Escolha um valor e um dia do mês. Você autoriza uma vez no seu banco via Open Finance e a Nexa atualiza sua wallet em USDC a cada parcela confirmada.
         </Text>
         <Card style={styles.highlightRecurring}>
           <Text style={[styles.eyebrow, isPremium ? styles.premiumAccentText : null]}>AUTORIZAÇÃO BANCÁRIA</Text>
@@ -1608,7 +1615,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             A Nexa nunca pede sua senha bancária. A recorrência só é criada depois da sua confirmação e autorização no banco via Open Finance.
           </Text>
           <PrimaryButton
-            title="Configurar USDC por assinatura"
+            title="Configurar recorrência"
             onPress={openUsdcSubscription}
             disabled={loading}
           />
@@ -1965,6 +1972,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             </View>
             <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
+          {config.efiOpenFinanceEnabled ? (
+            <TouchableOpacity style={styles.profileMenuRow} onPress={openUsdcSubscription}>
+              <View>
+                <Text style={styles.profileMenuTitle}>Adicionar automaticamente</Text>
+                <Text style={styles.profileMenuText}>Open Finance · recorrência mensal</Text>
+              </View>
+              <Text style={styles.profileMenuArrow}>›</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={styles.profileMenuRow} onPress={openNexaSupport}>
             <View>
               <Text style={styles.profileMenuTitle}>Ajuda</Text>
