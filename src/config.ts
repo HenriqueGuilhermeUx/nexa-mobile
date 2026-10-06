@@ -14,6 +14,11 @@ interface NexaExtra {
   assistantEnabled?: boolean;
   efiOpenFinanceEnabled?: boolean;
   efiOpenFinanceRecurringEnabled?: boolean;
+  ecosystemEnabled?: boolean;
+  docWalletEnabled?: boolean;
+  healthWalletEnabled?: boolean;
+  docWalletUrl?: string;
+  healthWalletUrl?: string;
 }
 
 const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
@@ -41,6 +46,21 @@ const envEfiOpenFinanceRecurringEnabled = String(
 )
   .trim()
   .toLowerCase();
+const envEcosystemEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED || '',
+).trim().toLowerCase();
+const envDocWalletEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED || '',
+).trim().toLowerCase();
+const envHealthWalletEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED || '',
+).trim().toLowerCase();
+const envDocWalletUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_DOCWALLET_URL || '',
+).trim();
+const envHealthWalletUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_HEALTHWALLET_URL || '',
+).trim();
 const envReleaseChannel = String(
   process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL || '',
 ).trim();
@@ -71,6 +91,19 @@ export const config = {
     envEfiOpenFinanceRecurringEnabled === 'true' ||
     (envEfiOpenFinanceRecurringEnabled !== 'false' &&
       extra.efiOpenFinanceRecurringEnabled === true),
+  ecosystemEnabled:
+    envEcosystemEnabled === 'true' ||
+    (envEcosystemEnabled !== 'false' && extra.ecosystemEnabled === true),
+  docWalletEnabled:
+    envDocWalletEnabled === 'true' ||
+    (envDocWalletEnabled !== 'false' && extra.docWalletEnabled === true),
+  healthWalletEnabled:
+    envHealthWalletEnabled === 'true' ||
+    (envHealthWalletEnabled !== 'false' && extra.healthWalletEnabled === true),
+  docWalletUrl:
+    envDocWalletUrl || extra.docWalletUrl || 'https://trydocwallet.com',
+  healthWalletUrl:
+    envHealthWalletUrl || extra.healthWalletUrl || 'https://healthwallet1.netlify.app',
   ledgerOperationsEnabled: extra.ledgerOperationsEnabled !== false,
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
