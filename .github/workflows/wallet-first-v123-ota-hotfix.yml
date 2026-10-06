@@ -2,13 +2,6 @@ name: Nexa v123 OTA Hotfix
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - 'app/(app)/buy-crypto.tsx'
-      - 'app/wallet-recovery.tsx'
-      - '.github/workflows/wallet-first-v123-ota-hotfix.yml'
 
 permissions:
   contents: read
