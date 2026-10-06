@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nexa",
     "slug": "nexa",
-    "version": "2.0.40",
+    "version": "2.0.41",
     "orientation": "portrait",
     "scheme": "nexa",
     "icon": "./nexa-mobile/nexa-mobile/assets/icon.png",
@@ -16,16 +16,16 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "143",
+      "buildNumber": "144",
       "usesAppleSignIn": true
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 143,
+      "versionCode": 144,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
-        "backgroundColor": "#020617"
+        "backgroundColor": "#06111F"
       }
     },
     "plugins": [
@@ -70,9 +70,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#020617",
+          "backgroundColor": "#06111F",
           "image": "./nexa-mobile/nexa-mobile/assets/icon.png",
-          "imageWidth": 180,
+          "imageWidth": 210,
           "resizeMode": "contain"
         }
       ]
@@ -90,7 +90,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.40-v143-definitive-onboarding",
+      "releaseBuild": "android16-api36-2.0.41-v144-wallet-2026-native-brand",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       },

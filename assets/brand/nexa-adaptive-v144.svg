@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="left" x1="250" y1="220" x2="440" y2="860" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2247FF"/><stop offset=".56" stop-color="#0E54FF"/><stop offset="1" stop-color="#20D8F4"/></linearGradient>
+    <linearGradient id="front" x1="300" y1="210" x2="930" y2="850" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#21DDF2"/><stop offset=".34" stop-color="#1AC6EC"/><stop offset=".62" stop-color="#DDF2FF"/><stop offset=".72" stop-color="#4DBBFF"/><stop offset="1" stop-color="#0DD9F2"/></linearGradient>
+    <linearGradient id="right" x1="780" y1="220" x2="930" y2="790" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#F4FAFF"/><stop offset=".46" stop-color="#9EC0DE"/><stop offset=".72" stop-color="#526F98"/><stop offset="1" stop-color="#153C9D"/></linearGradient>
+    <linearGradient id="fold" x1="415" y1="480" x2="785" y2="730" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#031A4E"/><stop offset="1" stop-color="#082861"/></linearGradient>
+  </defs>
+  <g transform="translate(170 170) scale(.67)">
+    <path d="M220 790V292c0-48 34-82 82-82h80c32 0 59 10 84 31l-21 115-57-54h-66c-24 0-38 14-38 38v423c0 32-15 55-44 72l-20 12z" fill="url(#left)"/>
+    <path d="M724 316c0-34 16-58 46-75l151-88c41-24 74-2 74 46v561c0 37-18 66-50 86l-44 27V346c0-18-12-25-28-16l-77 45c-26 15-40 37-40 67v142l-32-32z" fill="url(#right)"/>
+    <path d="M382 405 846 835c24 22 60 36 93 28l-77 47c-35 21-72 18-103-9L348 535z" fill="url(#fold)" opacity=".98"/>
+    <path d="M303 211h102c37 0 67 13 92 40l441 479c29 32 31 70 6 103l-31 41c-22 29-61 31-87 5L373 384c-31-34-60-49-105-49h-30l-18-20c-30-34-4-104 83-104z" fill="url(#front)"/>
+  </g>
+</svg>
