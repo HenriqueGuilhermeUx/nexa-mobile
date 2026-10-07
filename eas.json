@@ -160,6 +160,10 @@
         "buildType": "apk"
       }
     },
+    "ios-api-ci": {
+      "extends": "production",
+      "credentialsSource": "local"
+    },
     "sovereignty-pilot": {
       "distribution": "internal",
       "channel": "sovereignty-pilot",
