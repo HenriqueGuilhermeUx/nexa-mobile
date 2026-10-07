@@ -1,0 +1,1 @@
+Trigger API-driven Apple signing and TestFlight upload for Nexa Wallet 2.0.42 build 145.
