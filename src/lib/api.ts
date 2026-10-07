@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 
 import { config } from '@/config';
+import { notifyForceUpdateRequired } from '@/lib/forceUpdate';
 import {
   parseRecurringFundingIntent,
   recurringIntentSummary,
@@ -63,6 +64,13 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   if (!response.ok) {
+    if (
+      response.status === 426 &&
+      String(payload?.code || '') === 'APP_UPDATE_REQUIRED'
+    ) {
+      notifyForceUpdateRequired(payload);
+    }
+
     throw new ApiError(
       messageFromPayload(payload, response.status),
       response.status,
