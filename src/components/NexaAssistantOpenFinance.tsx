@@ -344,7 +344,7 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={styles.attentionSource}>
-                        {item.source === 'docwallet' ? 'MYDOC WALLET' : 'HEALTH WALLET'}
+                        {item.source === 'docwallet' ? 'DOCWALLET DOCS' : 'HEALTH WALLET'}
                       </Text>
                       <Text style={styles.attentionTitle}>{item.title}</Text>
                       <Text style={styles.attentionSummary}>{item.summary}</Text>
