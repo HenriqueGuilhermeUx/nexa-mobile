@@ -1,3 +1,4 @@
+// Nexa 2.0.42 v145 sovereignty regression guard.
 const fs = require('fs');
 
 function read(path) {
