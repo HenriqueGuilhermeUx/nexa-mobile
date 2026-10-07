@@ -11,7 +11,7 @@ on:
       - 'src/lib/ecosystemOnboarding.ts'
       - 'app/ecosystem-welcome.tsx'
       - 'app/kyc.tsx'
-      - 'scripts/validate-sovereignty-v144-regression.js'
+      - 'scripts/validate-sovereignty-v145-regression.js'
       - '.github/workflows/sovereignty-ecosystem-ci.yml'
   workflow_dispatch:
 
@@ -33,14 +33,14 @@ jobs:
       - name: Install dependencies
         run: npm install --include=dev --no-audit --no-fund
 
-      - name: Preserve v144 release boundary
+      - name: Preserve v145 release boundary
         run: |
           node <<'NODE'
           const app = require('./app.json').expo;
           const pkg = require('./package.json');
-          if (app.version !== '2.0.41' || pkg.version !== '2.0.41') throw new Error('Version changed during ecosystem foundation');
-          if (Number(app.android?.versionCode) !== 144) throw new Error('Android build changed during ecosystem foundation');
-          if (String(app.ios?.buildNumber) !== '144') throw new Error('iOS build changed during ecosystem foundation');
+          if (app.version !== '2.0.42' || pkg.version !== '2.0.42') throw new Error('Version changed during ecosystem foundation');
+          if (Number(app.android?.versionCode) !== 145) throw new Error('Android build changed during ecosystem foundation');
+          if (String(app.ios?.buildNumber) !== '145') throw new Error('iOS build changed during ecosystem foundation');
           if (app.android?.package !== 'br.com.trynexa.app') throw new Error('Android package changed');
           if (app.ios?.bundleIdentifier !== 'br.com.trynexa.app') throw new Error('iOS bundle id changed');
           NODE
@@ -67,8 +67,8 @@ jobs:
           grep -q "EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED" src/config.ts
           ! grep -q "financialExecution.*true" src/lib/nexaEcosystem.ts
 
-      - name: Preserve v144 UX and onboarding boundaries
-        run: node scripts/validate-sovereignty-v144-regression.js
+      - name: Preserve v145 UX and onboarding boundaries
+        run: node scripts/validate-sovereignty-v145-regression.js
 
       - name: TypeScript
         run: npm run typecheck
