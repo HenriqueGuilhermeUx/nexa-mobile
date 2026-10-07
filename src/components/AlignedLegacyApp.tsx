@@ -2074,7 +2074,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
               {config.docWalletEnabled ? (
                 <View style={styles.ecosystemProductRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.profileMenuTitle}>MyDoc Wallet</Text>
+                    <Text style={styles.profileMenuTitle}>DocWallet Docs</Text>
                     <Text style={styles.profileMenuText}>
                       Seus documentos, assinaturas e alertas
                     </Text>
@@ -2106,7 +2106,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
               {config.healthWalletEnabled ? (
                 <View style={styles.ecosystemProductRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.profileMenuTitle}>MyHealth Wallet</Text>
+                    <Text style={styles.profileMenuTitle}>Health Wallet</Text>
                     <Text style={styles.profileMenuText}>
                       Sua saúde, exames e compromissos
                     </Text>
