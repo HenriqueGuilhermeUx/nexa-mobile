@@ -1,17 +1,17 @@
-// Nexa v144 Wallet 2026 native-brand store release.
+// Nexa v145 Sovereignty store release.
 module.exports = ({ config }) => ({
   ...config,
-  version: '2.0.41',
+  version: '2.0.42',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '144',
+    buildNumber: '145',
   },
   android: {
     ...(config.android || {}),
-    versionCode: 144,
+    versionCode: 145,
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.41-v144-wallet-2026-native-brand',
+    releaseBuild: 'android16-api36-2.0.42-v145-sovereignty',
   },
 });
