@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 
 import { config } from '@/config';
+import { notifyForceUpdateRequired } from '@/lib/forceUpdate';
 import {
   parseRecurringFundingIntent,
   recurringIntentSummary,
@@ -63,6 +64,13 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
   }
 
   if (!response.ok) {
+    if (
+      response.status === 426 &&
+      String(payload?.code || '') === 'APP_UPDATE_REQUIRED'
+    ) {
+      notifyForceUpdateRequired(payload);
+    }
+
     throw new ApiError(
       messageFromPayload(payload, response.status),
       response.status,
@@ -199,6 +207,30 @@ export interface AssistantCapabilities {
   embeddedExperience?: boolean;
 }
 
+export interface StaffAttentionItem {
+  id: string;
+  source: 'docwallet' | 'healthwallet';
+  kind: string;
+  title: string;
+  summary: string;
+  dueAt?: string | null;
+  count?: number | null;
+  action?: 'open_docwallet' | 'open_healthwallet';
+}
+
+export interface StaffAttentionResponse {
+  success: boolean;
+  enabled: boolean;
+  mode?: string;
+  items: StaffAttentionItem[];
+  sources?: Array<{
+    source: 'docwallet' | 'healthwallet';
+    status: string;
+    itemCount: number;
+  }>;
+  sensitivePayloadIncluded?: boolean;
+}
+
 export interface AssistantChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -213,6 +245,13 @@ export interface AssistantChatResponse {
     bridgeVersion?: string | null;
     memoryMode?: string | null;
   };
+}
+
+export interface NexaIdAccessTokenResponse {
+  success: boolean;
+  token?: string;
+  expiresAt?: string;
+  message?: string;
 }
 
 export function tokensFromLogin(response: LoginResponse) {
@@ -284,8 +323,22 @@ export const nexaApi = {
     return request<any>('/user/me', { accessToken });
   },
 
+  createNexaIdAccessToken(accessToken: string) {
+    return request<NexaIdAccessTokenResponse>('/nexa-id/access-token-secure', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({}),
+    });
+  },
+
   assistantCapabilities(accessToken: string) {
     return request<AssistantCapabilities>('/staff/capabilities', {
+      accessToken,
+    });
+  },
+
+  assistantAttention(accessToken: string) {
+    return request<StaffAttentionResponse>('/staff/attention', {
       accessToken,
     });
   },

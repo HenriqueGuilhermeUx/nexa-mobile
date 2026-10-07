@@ -14,6 +14,16 @@ interface NexaExtra {
   assistantEnabled?: boolean;
   efiOpenFinanceEnabled?: boolean;
   efiOpenFinanceRecurringEnabled?: boolean;
+  ecosystemEnabled?: boolean;
+  ecosystemOnboardingEnabled?: boolean;
+  docWalletEnabled?: boolean;
+  healthWalletEnabled?: boolean;
+  docWalletUrl?: string;
+  healthWalletUrl?: string;
+  docWalletPlayStoreUrl?: string;
+  healthWalletPlayStoreUrl?: string;
+  docWalletAppStoreUrl?: string;
+  healthWalletAppStoreUrl?: string;
 }
 
 const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
@@ -41,6 +51,36 @@ const envEfiOpenFinanceRecurringEnabled = String(
 )
   .trim()
   .toLowerCase();
+const envEcosystemEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED || '',
+).trim().toLowerCase();
+const envEcosystemOnboardingEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED || '',
+).trim().toLowerCase();
+const envDocWalletEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED || '',
+).trim().toLowerCase();
+const envHealthWalletEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED || '',
+).trim().toLowerCase();
+const envDocWalletUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_DOCWALLET_URL || '',
+).trim();
+const envHealthWalletUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_HEALTHWALLET_URL || '',
+).trim();
+const envDocWalletPlayStoreUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_DOCWALLET_PLAY_STORE_URL || '',
+).trim();
+const envHealthWalletPlayStoreUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_HEALTHWALLET_PLAY_STORE_URL || '',
+).trim();
+const envDocWalletAppStoreUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_DOCWALLET_APP_STORE_URL || '',
+).trim();
+const envHealthWalletAppStoreUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_HEALTHWALLET_APP_STORE_URL || '',
+).trim();
 const envReleaseChannel = String(
   process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL || '',
 ).trim();
@@ -71,6 +111,35 @@ export const config = {
     envEfiOpenFinanceRecurringEnabled === 'true' ||
     (envEfiOpenFinanceRecurringEnabled !== 'false' &&
       extra.efiOpenFinanceRecurringEnabled === true),
+  ecosystemEnabled:
+    envEcosystemEnabled === 'true' ||
+    (envEcosystemEnabled !== 'false' && extra.ecosystemEnabled === true),
+  ecosystemOnboardingEnabled:
+    envEcosystemOnboardingEnabled === 'true' ||
+    (envEcosystemOnboardingEnabled !== 'false' &&
+      extra.ecosystemOnboardingEnabled === true),
+  docWalletEnabled:
+    envDocWalletEnabled === 'true' ||
+    (envDocWalletEnabled !== 'false' && extra.docWalletEnabled === true),
+  healthWalletEnabled:
+    envHealthWalletEnabled === 'true' ||
+    (envHealthWalletEnabled !== 'false' && extra.healthWalletEnabled === true),
+  docWalletUrl:
+    envDocWalletUrl || extra.docWalletUrl || 'https://trydocwallet.com',
+  healthWalletUrl:
+    envHealthWalletUrl || extra.healthWalletUrl || 'https://mydatamed.com/healthwallet',
+  docWalletPlayStoreUrl:
+    envDocWalletPlayStoreUrl ||
+    extra.docWalletPlayStoreUrl ||
+    'https://play.google.com/store/apps/details?id=br.com.alternativeventures.docwalletdocs',
+  healthWalletPlayStoreUrl:
+    envHealthWalletPlayStoreUrl ||
+    extra.healthWalletPlayStoreUrl ||
+    'https://play.google.com/store/apps/details?id=br.com.healthwallet.app',
+  docWalletAppStoreUrl:
+    envDocWalletAppStoreUrl || extra.docWalletAppStoreUrl || '',
+  healthWalletAppStoreUrl:
+    envHealthWalletAppStoreUrl || extra.healthWalletAppStoreUrl || '',
   ledgerOperationsEnabled: extra.ledgerOperationsEnabled !== false,
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,

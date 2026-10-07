@@ -19,6 +19,11 @@ import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
 import { config } from '@/config';
 import { nexaApi } from '@/lib/api';
+import {
+  downloadNexaEcosystemProduct,
+  ecosystemDownloadAvailable,
+  openNexaEcosystemProduct,
+} from '@/lib/nexaEcosystem';
 import { BrandMark } from '@/components/ui';
 import CustodyScreen from '../../nexa-mobile/nexa-mobile/CustodyScreen';
 
@@ -400,6 +405,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
   const [rewardAmountUsdc, setRewardAmountUsdc] = useState('');
   const [rewardJoinRequestId, setRewardJoinRequestId] = useState('');
   const [depositRequestId, setDepositRequestId] = useState('');
+  const [ecosystemBusy, setEcosystemBusy] = useState('');
   const [recurringAddress, setRecurringAddress] = useState({
     zipcode: '',
     street: '',
@@ -1156,6 +1162,45 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
     router.push('/open-finance-recurring' as any);
   }
 
+  async function openEcosystemProduct(product: 'docwallet' | 'healthwallet') {
+    if (ecosystemBusy) return;
+
+    const accessToken = String(token || '').trim();
+    if (!accessToken) {
+      setMessage('Sua sessão Nexa precisa estar ativa para abrir o ecossistema.');
+      return;
+    }
+
+    setMessage('');
+    setEcosystemBusy(product);
+    try {
+      await openNexaEcosystemProduct(accessToken, product);
+    } catch (error: any) {
+      setMessage(
+        error?.message ||
+          'Não foi possível abrir este produto do ecossistema agora.',
+      );
+    } finally {
+      setEcosystemBusy('');
+    }
+  }
+
+  async function downloadEcosystemProduct(product: 'docwallet' | 'healthwallet') {
+    if (ecosystemBusy) return;
+    setMessage('');
+    setEcosystemBusy(`download-${product}`);
+    try {
+      await downloadNexaEcosystemProduct(product);
+    } catch (error: any) {
+      setMessage(
+        error?.message ||
+          'Não foi possível abrir a loja de aplicativos agora.',
+      );
+    } finally {
+      setEcosystemBusy('');
+    }
+  }
+
   const contentBottom = 92 + Math.max(insets.bottom, 10);
 
 
@@ -1224,7 +1269,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
               <Text style={styles.assistantHomeKicker}>ASSISTENTE NEXA</Text>
               <Text style={styles.assistantHomeTitle}>Posso te ajudar?</Text>
               <Text style={styles.assistantHomeText}>
-                Tire dúvidas, entenda seus ativos e encontre o que precisa.
+                {config.ecosystemEnabled
+                  ? 'Organize sua rotina, entenda seu dinheiro e acompanhe o que precisa de atenção.'
+                  : 'Tire dúvidas, entenda seus ativos e encontre o que precisa.'}
               </Text>
             </View>
             <Text style={styles.assistantHomeArrow}>›</Text>
@@ -2020,6 +2067,101 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           </TouchableOpacity>
         </View>
 
+        {config.ecosystemEnabled ? (
+          <>
+            <Text style={styles.sectionKicker}>SOBERANIA DIGITAL</Text>
+            <View style={styles.profileMenu}>
+              {config.docWalletEnabled ? (
+                <View style={styles.ecosystemProductRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.profileMenuTitle}>DocWallet Docs</Text>
+                    <Text style={styles.profileMenuText}>
+                      Seus documentos, assinaturas e alertas
+                    </Text>
+                  </View>
+                  <View style={styles.ecosystemActionRow}>
+                    <TouchableOpacity
+                      style={styles.ecosystemOpenButton}
+                      onPress={() => void openEcosystemProduct('docwallet')}
+                      disabled={Boolean(ecosystemBusy)}
+                    >
+                      <Text style={styles.ecosystemOpenButtonText}>
+                        {ecosystemBusy === 'docwallet' ? 'Abrindo…' : 'Abrir'}
+                      </Text>
+                    </TouchableOpacity>
+                    {ecosystemDownloadAvailable('docwallet') ? (
+                      <TouchableOpacity
+                        style={styles.ecosystemDownloadButton}
+                        onPress={() => void downloadEcosystemProduct('docwallet')}
+                        disabled={Boolean(ecosystemBusy)}
+                      >
+                        <Text style={styles.ecosystemDownloadButtonText}>
+                          {ecosystemBusy === 'download-docwallet' ? 'Loja…' : 'Baixar app'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+              {config.healthWalletEnabled ? (
+                <View style={styles.ecosystemProductRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.profileMenuTitle}>Health Wallet</Text>
+                    <Text style={styles.profileMenuText}>
+                      Sua saúde, exames e compromissos
+                    </Text>
+                  </View>
+                  <View style={styles.ecosystemActionRow}>
+                    <TouchableOpacity
+                      style={styles.ecosystemOpenButton}
+                      onPress={() => void openEcosystemProduct('healthwallet')}
+                      disabled={Boolean(ecosystemBusy)}
+                    >
+                      <Text style={styles.ecosystemOpenButtonText}>
+                        {ecosystemBusy === 'healthwallet' ? 'Abrindo…' : 'Abrir'}
+                      </Text>
+                    </TouchableOpacity>
+                    {ecosystemDownloadAvailable('healthwallet') ? (
+                      <TouchableOpacity
+                        style={styles.ecosystemDownloadButton}
+                        onPress={() => void downloadEcosystemProduct('healthwallet')}
+                        disabled={Boolean(ecosystemBusy)}
+                      >
+                        <Text style={styles.ecosystemDownloadButtonText}>
+                          {ecosystemBusy === 'download-healthwallet' ? 'Loja…' : 'Baixar app'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+              {config.assistantEnabled ? (
+                <TouchableOpacity
+                  style={[styles.profileMenuRow, styles.profileMenuRowLast]}
+                  onPress={() => router.push('/assistant' as any)}
+                >
+                  <View>
+                    <Text style={styles.profileMenuTitle}>Assistente Nexa</Text>
+                    <Text style={styles.profileMenuText}>
+                      Seu Staff pessoal, dentro da Nexa
+                    </Text>
+                  </View>
+                  <Text style={styles.profileMenuArrow}>›</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <Card style={styles.profileSupportCard}>
+              <Text style={styles.staffEyebrow}>SOBERANIA DIGITAL</Text>
+              <Text style={styles.highlightTitle}>Sua vida digital. Seu controle.</Text>
+              <Text style={styles.highlightText}>
+                Dinheiro, documentos e saúde continuam separados em seus próprios produtos.
+                A Nexa conecta o acesso e, progressivamente, apenas o contexto autorizado.
+              </Text>
+            </Card>
+          </>
+        ) : null}
+
         <Card style={styles.profileSupportCard}>
           <Text style={[styles.staffEyebrow, isPremium ? styles.premiumAccentText : null]}>ATENDIMENTO</Text>
           <Text style={styles.highlightTitle}>Precisa de ajuda?</Text>
@@ -2637,6 +2779,47 @@ const styles: any = {
   profileMenuTitle: { color: '#F4F8FC', fontSize: 14, fontWeight: '800' },
   profileMenuText: { color: '#70879F', fontSize: 10, marginTop: 4 },
   profileMenuArrow: { color: '#31D7FF', fontSize: 24, fontWeight: '500' },
+  ecosystemProductRow: {
+    minHeight: 104,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#17344E',
+  },
+  ecosystemActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  ecosystemOpenButton: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 12,
+    backgroundColor: '#31D7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  ecosystemOpenButtonText: {
+    color: '#04111E',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  ecosystemDownloadButton: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#31506D',
+    backgroundColor: '#102A42',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  ecosystemDownloadButtonText: {
+    color: '#D5E2EF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
   walletQrWrap: {
     alignSelf: 'center',
     backgroundColor: '#FFFFFF',

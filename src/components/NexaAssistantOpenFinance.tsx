@@ -21,8 +21,10 @@ import {
 import {
   AssistantCapabilities,
   AssistantChatMessage,
+  StaffAttentionItem,
   nexaApi,
 } from '@/lib/api';
+import { openNexaEcosystemProduct } from '@/lib/nexaEcosystem';
 import {
   parseRecurringFundingIntent,
   recurringIntentSummary,
@@ -45,6 +47,7 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
   const insets = useSafeAreaInsets();
   const [capabilities, setCapabilities] = useState<AssistantCapabilities | null>(null);
   const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
+  const [attention, setAttention] = useState<StaffAttentionItem[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -56,10 +59,24 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
 
   useEffect(() => {
     let alive = true;
-    nexaApi
-      .assistantCapabilities(token)
-      .then((data) => alive && setCapabilities(data))
-      .catch(() => alive && setCapabilities(null));
+
+    void Promise.allSettled([
+      nexaApi
+        .assistantCapabilities(token)
+        .then((data) => alive && setCapabilities(data))
+        .catch(() => alive && setCapabilities(null)),
+      nexaApi
+        .assistantAttention(token)
+        .then((data) => {
+          if (!alive) return;
+          setAttention(
+            data?.enabled === true && Array.isArray(data?.items)
+              ? data.items.slice(0, 6)
+              : [],
+          );
+        })
+        .catch(() => alive && setAttention([])),
+    ]);
 
     return () => {
       alive = false;
@@ -115,6 +132,30 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
       `Olá${firstName ? `, ${firstName}` : ''}. Posso ajudar com sua rotina, seu dinheiro e também preparar ações Open Finance com sua confirmação.`,
     [firstName],
   );
+
+  function attentionDate(value?: string | null) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  async function openAttentionItem(item: StaffAttentionItem) {
+    try {
+      if (item.source === 'docwallet') {
+        await openNexaEcosystemProduct(token, 'docwallet');
+        return;
+      }
+      await openNexaEcosystemProduct(token, 'healthwallet');
+    } catch {
+      setError('Não consegui abrir este produto agora.');
+    }
+  }
 
   async function speak(text: string) {
     const clean = String(text || '').trim();
@@ -291,6 +332,34 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
             <View style={[styles.bubble, styles.assistantBubble]}>
               <Text style={styles.assistantText}>{greeting}</Text>
             </View>
+
+            {attention.length > 0 ? (
+              <>
+                <Text style={styles.sectionLabel}>PRECISA DA SUA ATENÇÃO</Text>
+                {attention.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.attentionCard}
+                    onPress={() => void openAttentionItem(item)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.attentionSource}>
+                        {item.source === 'docwallet' ? 'DOCWALLET DOCS' : 'HEALTH WALLET'}
+                      </Text>
+                      <Text style={styles.attentionTitle}>{item.title}</Text>
+                      <Text style={styles.attentionSummary}>{item.summary}</Text>
+                      {item.dueAt ? (
+                        <Text style={styles.attentionDate}>
+                          {attentionDate(item.dueAt)}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.attentionAction}>Abrir ›</Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : null}
+
             <Text style={styles.sectionLabel}>EXPERIMENTE</Text>
             {STARTERS.map((starter) => (
               <TouchableOpacity
@@ -441,6 +510,46 @@ const styles = StyleSheet.create({
   },
   starterIcon: { fontSize: 17, width: 25, textAlign: 'center' },
   starterText: { flex: 1, color: '#cbd5e1', fontSize: 13 },
+  attentionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderColor: '#28435e',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    backgroundColor: '#0b1625',
+    marginBottom: 8,
+  },
+  attentionSource: {
+    color: '#31d7ff',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.9,
+  },
+  attentionTitle: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  attentionSummary: {
+    color: '#94a3b8',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  attentionDate: {
+    color: '#64748b',
+    fontSize: 10,
+    marginTop: 5,
+  },
+  attentionAction: {
+    color: '#31d7ff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
   bubble: {
     maxWidth: '90%',
     borderRadius: 16,

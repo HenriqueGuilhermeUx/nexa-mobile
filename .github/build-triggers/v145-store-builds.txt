@@ -1,0 +1,3 @@
+Nexa 2.0.42 v145 — Sovereignty ecosystem store release
+Trigger after production Health Wallet + DocWallet + Nexa backend readiness.
+Do not raise minimum supported build above 144 until v145 is confirmed available in stores.
