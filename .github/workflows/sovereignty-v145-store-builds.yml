@@ -84,7 +84,7 @@ jobs:
           if (prod.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'true') throw new Error('Production execution boundary changed');
           console.log('v145 release boundary validated.');
           NODE
-          node scripts/validate-sovereignty-v144-regression.js
+          node scripts/validate-sovereignty-v145-regression.js
           node scripts/validate-mobile-safety-v123.js
           node scripts/validate-wallet-first-exit-quote.js
           node scripts/validate-wallet-first-exit-flow.js
@@ -201,7 +201,7 @@ jobs:
           if(prod.EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED!=='true') throw new Error('Ecosystem disabled');
           NODE
           npm run typecheck
-          node scripts/validate-sovereignty-v144-regression.js
+          node scripts/validate-sovereignty-v145-regression.js
           node scripts/validate-wallet-first-user-actions.js
           node scripts/validate-biometric-app-lock.js
 
