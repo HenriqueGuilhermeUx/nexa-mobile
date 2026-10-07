@@ -2,6 +2,11 @@ name: Nexa iOS v145 — Build + TestFlight
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - release/ios-v145-appstore
+    paths:
+      - '.github/build-triggers/ios-v145-testflight.txt'
 
 permissions:
   contents: read
@@ -52,8 +57,8 @@ jobs:
             echo "Missing GitHub secret ASC_API_KEY_P8"
             exit 1
           fi
-          mkdir -p "$RUNNER_TEMP/apple"
-          KEY_PATH="$RUNNER_TEMP/apple/AuthKey_Q98GFR6N86.p8"
+          mkdir -p "$GITHUB_WORKSPACE/credentials"
+          KEY_PATH="$GITHUB_WORKSPACE/credentials/AuthKey_Q98GFR6N86.p8"
           printf '%s' "$ASC_API_KEY_P8" > "$KEY_PATH"
           chmod 600 "$KEY_PATH"
           grep -q -- '-----BEGIN PRIVATE KEY-----' "$KEY_PATH"
