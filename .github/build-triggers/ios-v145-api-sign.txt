@@ -1,1 +1,2 @@
 Trigger API-driven Apple signing and TestFlight upload for Nexa Wallet 2.0.42 build 145.
+Retry with macOS 26 / Xcode 26 for Expo SDK 57.
