@@ -1,0 +1,119 @@
+name: Nexa iOS v145 — Build + TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - release/ios-v145-appstore
+    paths:
+      - '.github/build-triggers/ios-v145-testflight.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-ios-v145-testflight
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  EXPO_NO_TELEMETRY: '1'
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+  EXPO_ASC_KEY_ID: Q98GFR6N86
+  EXPO_ASC_ISSUER_ID: 802406ee-f4dc-436f-ad9b-b0d3e447408c
+  EXPO_APPLE_TEAM_ID: KX826S9GK7
+  EXPO_APPLE_TEAM_TYPE: INDIVIDUAL
+
+jobs:
+  build_and_testflight:
+    name: Build signed IPA and upload to TestFlight
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Materialize App Store Connect API key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ASC_API_KEY_P8:-}" ]; then
+            echo "Missing GitHub secret ASC_API_KEY_P8"
+            exit 1
+          fi
+          mkdir -p "$GITHUB_WORKSPACE/credentials"
+          KEY_PATH="$GITHUB_WORKSPACE/credentials/AuthKey_Q98GFR6N86.p8"
+          printf '%s' "$ASC_API_KEY_P8" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          grep -q -- '-----BEGIN PRIVATE KEY-----' "$KEY_PATH"
+          grep -q -- '-----END PRIVATE KEY-----' "$KEY_PATH"
+          echo "EXPO_ASC_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Validate Nexa iOS release identity
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app=require('./app.json').expo;
+          const eas=require('./eas.json');
+          if(app.version!=='2.0.42') throw new Error('Unexpected app version');
+          if(String(app.ios?.buildNumber)!=='145') throw new Error('Unexpected iOS build');
+          if(app.ios?.bundleIdentifier!=='br.com.trynexa.app') throw new Error('Bundle identifier changed');
+          if(eas?.submit?.production?.ios?.ascAppId!=='6820200317') throw new Error('ASC app ID missing');
+          if(eas?.submit?.production?.ios?.ascApiKeyId!=='Q98GFR6N86') throw new Error('ASC key ID changed');
+          console.log('PASS: Nexa Wallet iOS v145 identity locked.');
+          NODE
+          npm run typecheck
+          node scripts/validate-sovereignty-v145-regression.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-biometric-app-lock.js
+
+      - name: Build signed iOS production IPA with ASC API
+        run: |
+          set -euo pipefail
+          eas build --platform ios --profile production --non-interactive --wait --json > ios-build.json
+          cat ios-build.json
+          node <<'NODE'
+          const fs=require('fs');
+          const raw=JSON.parse(fs.readFileSync('ios-build.json','utf8'));
+          const build=Array.isArray(raw)?raw[0]:raw;
+          const id=build?.id;
+          const url=build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl;
+          if(!id) throw new Error('EAS build ID missing');
+          if(!url) throw new Error('IPA artifact URL missing');
+          fs.writeFileSync('ios-build-id.txt',id);
+          fs.writeFileSync('ios-url.txt',url);
+          NODE
+
+      - name: Submit build to TestFlight
+        run: |
+          set -euo pipefail
+          BUILD_ID="$(cat ios-build-id.txt)"
+          eas submit --platform ios --profile production --id "$BUILD_ID" --non-interactive --wait
+
+      - name: Upload build receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.42-v145-IOS-TestFlight-receipt
+          path: |
+            ios-build.json
+            ios-build-id.txt
+            ios-url.txt
+          if-no-files-found: ignore
+          retention-days: 30
