@@ -1,0 +1,207 @@
+name: Nexa iOS v145 — API Signing + TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - release/ios-v145-appstore
+    paths:
+      - '.github/build-triggers/ios-v145-api-sign.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-ios-v145-api-sign
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  EXPO_NO_TELEMETRY: '1'
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+  ASC_KEY_ID: Q98GFR6N86
+  ASC_ISSUER_ID: 802406ee-f4dc-436f-ad9b-b0d3e447408c
+  APPLE_TEAM_ID: KX826S9GK7
+  BUNDLE_ID: br.com.trynexa.app
+
+jobs:
+  build_submit:
+    name: Generate Apple signing, build IPA, upload TestFlight
+    runs-on: macos-15
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.11.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          npm install --include=dev --no-audit --no-fund
+          gem install fastlane --no-document
+          brew install imagemagick
+
+      - name: Materialize App Store Connect API key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          test -n "${ASC_API_KEY_P8:-}"
+          mkdir -p "$GITHUB_WORKSPACE/credentials"
+          KEY_PATH="$GITHUB_WORKSPACE/credentials/AuthKey_Q98GFR6N86.p8"
+          printf '%s' "$ASC_API_KEY_P8" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          grep -q -- '-----BEGIN PRIVATE KEY-----' "$KEY_PATH"
+          grep -q -- '-----END PRIVATE KEY-----' "$KEY_PATH"
+          echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+          echo "EXPO_ASC_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+          echo "EXPO_ASC_KEY_ID=$ASC_KEY_ID" >> "$GITHUB_ENV"
+          echo "EXPO_ASC_ISSUER_ID=$ASC_ISSUER_ID" >> "$GITHUB_ENV"
+          echo "EXPO_APPLE_TEAM_ID=$APPLE_TEAM_ID" >> "$GITHUB_ENV"
+          echo "EXPO_APPLE_TEAM_TYPE=INDIVIDUAL" >> "$GITHUB_ENV"
+
+      - name: Prepare isolated signing keychain
+        run: |
+          set -euo pipefail
+          CERT_DIR="$RUNNER_TEMP/nexa-ios-signing"
+          KEYCHAIN_PATH="$RUNNER_TEMP/nexa-v145.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          P12_PASSWORD="$(openssl rand -hex 24)"
+          mkdir -p "$CERT_DIR" "$GITHUB_WORKSPACE/ios/certs"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "$HOME/Library/Keychains/login.keychain-db"
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
+          {
+            echo "CERT_DIR=$CERT_DIR"
+            echo "KEYCHAIN_PATH=$KEYCHAIN_PATH"
+            echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD"
+            echo "P12_PASSWORD=$P12_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Generate Apple Distribution certificate and App Store profile via API
+        run: |
+          set -euo pipefail
+          mkdir -p fastlane
+          cat > fastlane/Fastfile <<'RUBY'
+          default_platform(:ios)
+
+          platform :ios do
+            lane :bootstrap_signing do
+              api_key = app_store_connect_api_key(
+                key_id: ENV.fetch("ASC_KEY_ID"),
+                issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+                key_filepath: ENV.fetch("ASC_KEY_PATH"),
+                duration: 1200,
+                in_house: false
+              )
+
+              cert(
+                api_key: api_key,
+                team_id: ENV.fetch("APPLE_TEAM_ID"),
+                development: false,
+                generate_apple_certs: true,
+                output_path: ENV.fetch("CERT_DIR"),
+                keychain_path: ENV.fetch("KEYCHAIN_PATH"),
+                keychain_password: ENV.fetch("KEYCHAIN_PASSWORD")
+              )
+
+              cert_id = lane_context[SharedValues::CERT_CERTIFICATE_ID]
+              UI.user_error!("Distribution certificate ID unavailable") if cert_id.to_s.empty?
+
+              sigh(
+                api_key: api_key,
+                app_identifier: ENV.fetch("BUNDLE_ID"),
+                team_id: ENV.fetch("APPLE_TEAM_ID"),
+                force: true,
+                filename: "profile.mobileprovision",
+                output_path: ENV.fetch("CERT_DIR"),
+                cert_id: cert_id
+              )
+            end
+          end
+          RUBY
+          fastlane ios bootstrap_signing
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          test -s "$CERT_DIR/profile.mobileprovision"
+
+      - name: Export generated signing identity for local EAS build
+        run: |
+          set -euo pipefail
+          security export             -k "$KEYCHAIN_PATH"             -t identities             -f pkcs12             -P "$P12_PASSWORD"             -o "$GITHUB_WORKSPACE/ios/certs/dist.p12"
+          cp "$CERT_DIR/profile.mobileprovision" "$GITHUB_WORKSPACE/ios/certs/profile.mobileprovision"
+          test -s "$GITHUB_WORKSPACE/ios/certs/dist.p12"
+          test -s "$GITHUB_WORKSPACE/ios/certs/profile.mobileprovision"
+
+          node <<'NODE'
+          const fs=require('fs');
+          const data={
+            ios:{
+              provisioningProfilePath:"ios/certs/profile.mobileprovision",
+              distributionCertificate:{
+                path:"ios/certs/dist.p12",
+                password:process.env.P12_PASSWORD
+              }
+            }
+          };
+          fs.writeFileSync("credentials.json",JSON.stringify(data,null,2));
+          NODE
+
+      - name: Render and validate Nexa v145
+        run: |
+          set -euo pipefail
+          bash scripts/render-v144-native-brand.sh
+          node <<'NODE'
+          const app=require('./app.json').expo;
+          const eas=require('./eas.json');
+          if(app.version!=='2.0.42') throw new Error('Unexpected app version');
+          if(String(app.ios?.buildNumber)!=='145') throw new Error('Unexpected iOS build');
+          if(app.ios?.bundleIdentifier!=='br.com.trynexa.app') throw new Error('Bundle ID changed');
+          if(app.ios?.usesAppleSignIn!==true) throw new Error('Apple Sign In changed');
+          if(app.ios?.infoPlist?.ITSAppUsesNonExemptEncryption!==false) throw new Error('Encryption declaration changed');
+          if(eas?.submit?.production?.ios?.ascAppId!=='6820200317') throw new Error('ASC App ID mismatch');
+          if(eas?.build?.['ios-api-ci']?.credentialsSource!=='local') throw new Error('Local credentials profile missing');
+          console.log('PASS: Nexa Wallet iOS v145 release identity validated.');
+          NODE
+          npm run typecheck
+          node scripts/validate-sovereignty-v145-regression.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-biometric-app-lock.js
+
+      - name: Build signed App Store IPA locally
+        env:
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+          IPA="$GITHUB_WORKSPACE/Nexa-2.0.42-v145-AppStore.ipa"
+          eas build --platform ios --profile ios-api-ci --local --non-interactive --output "$IPA"
+          test -s "$IPA"
+          shasum -a 256 "$IPA" > "$GITHUB_WORKSPACE/SHA256SUMS-IOS.txt"
+
+      - name: Upload v145 to TestFlight
+        run: |
+          set -euo pipefail
+          eas submit             --platform ios             --profile production             --path "$GITHUB_WORKSPACE/Nexa-2.0.42-v145-AppStore.ipa"             --non-interactive             --wait
+
+      - name: Upload signed IPA artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.42-v145-IOS
+          path: |
+            Nexa-2.0.42-v145-AppStore.ipa
+            SHA256SUMS-IOS.txt
+          if-no-files-found: error
+          retention-days: 30
