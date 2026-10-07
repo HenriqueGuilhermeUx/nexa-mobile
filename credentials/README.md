@@ -8,7 +8,7 @@ Este diretório é somente para uso local/CI.
 - Issuer ID: 802406ee-f4dc-436f-ad9b-b0d3e447408c
 - Key ID: Q98GFR6N86
 - Bundle ID: br.com.trynexa.app
-- App: Nexa
+- App: Nexa Wallet
 - Versão: 2.0.42
 - Build: 145
 
