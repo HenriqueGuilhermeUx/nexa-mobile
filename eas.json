@@ -195,7 +195,8 @@
         "ascApiKeyPath": "./credentials/AuthKey_Q98GFR6N86.p8",
         "bundleIdentifier": "br.com.trynexa.app",
         "appName": "Nexa Wallet",
-        "language": "pt-BR"
+        "language": "pt-BR",
+        "ascAppId": "6820200317"
       }
     }
   }
