@@ -19,10 +19,10 @@ const rootLayout = read('app/_layout.tsx');
 const forceGate = read('src/components/ForceUpdateGate.tsx');
 const api = read('src/lib/api.ts');
 
-assert(app.version === '2.0.41', 'Nexa app version must remain 2.0.41');
-assert(pkg.version === '2.0.41', 'Package version must remain 2.0.41');
-assert(Number(app.android?.versionCode) === 144, 'Android versionCode must remain 144');
-assert(String(app.ios?.buildNumber) === '144', 'iOS buildNumber must remain 144');
+assert(app.version === '2.0.42', 'Nexa app version must remain 2.0.42');
+assert(pkg.version === '2.0.42', 'Package version must remain 2.0.42');
+assert(Number(app.android?.versionCode) === 145, 'Android versionCode must remain 145');
+assert(String(app.ios?.buildNumber) === '145', 'iOS buildNumber must remain 145');
 assert(app.android?.package === 'br.com.trynexa.app', 'Android package changed');
 assert(app.ios?.bundleIdentifier === 'br.com.trynexa.app', 'iOS bundle identifier changed');
 
@@ -87,4 +87,4 @@ assert(api.includes("response.status === 426"), 'API client must react to mandat
 assert(api.includes("APP_UPDATE_REQUIRED"), 'API client mandatory update code handling missing');
 assert(api.includes('notifyForceUpdateRequired(payload)'), 'API client must notify root update gate');
 
-console.log('PASS: v144 navigation, Profile, post-KYC and mandatory-update boundaries preserved.');
+console.log('PASS: v145 navigation, Profile, post-KYC and mandatory-update boundaries preserved.');
