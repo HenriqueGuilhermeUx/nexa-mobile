@@ -1,0 +1,241 @@
+name: Nexa 2.0.42 v145 Store Builds
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/build-triggers/v145-store-builds.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v145-store-builds
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  EXPO_NO_TELEMETRY: '1'
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+jobs:
+  android:
+    name: Android v145 AAB + APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 220
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies and ImageMagick
+        run: |
+          set -euo pipefail
+          npm install --include=dev --no-audit --no-fund
+          sudo apt-get update -y
+          sudo apt-get install -y imagemagick
+
+      - name: Render native Nexa brand assets
+        run: bash scripts/render-v144-native-brand.sh
+
+      - name: Validate v145 release boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const dynamic = require('./app.config.js')({ config: app });
+          const pkg = require('./package.json');
+          const eas = require('./eas.json');
+          if (app.version !== '2.0.42' || pkg.version !== '2.0.42') throw new Error('Unexpected app version');
+          if (Number(app.android?.versionCode) !== 145) throw new Error('Unexpected Android build');
+          if (String(app.ios?.buildNumber) !== '145') throw new Error('Unexpected iOS build');
+          if (dynamic.version !== '2.0.42' || Number(dynamic.android?.versionCode) !== 145 || String(dynamic.ios?.buildNumber) !== '145') throw new Error('Dynamic config identity mismatch');
+          if (app.android?.package !== 'br.com.trynexa.app') throw new Error('Package changed');
+          if (app.ios?.bundleIdentifier !== 'br.com.trynexa.app') throw new Error('Bundle id changed');
+          if (app.runtimeVersion?.policy !== 'appVersion') throw new Error('Runtime policy changed');
+          const prod = eas?.build?.production?.env || {};
+          for (const key of [
+            'EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED',
+            'EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED',
+            'EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED',
+            'EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED'
+          ]) {
+            if (prod[key] !== 'true') throw new Error(`Missing production ecosystem flag: ${key}`);
+          }
+          if (prod.EXPO_PUBLIC_NEXA_DOCWALLET_URL !== 'https://trydocwallet.com') throw new Error('DocWallet production URL changed');
+          if (prod.EXPO_PUBLIC_NEXA_HEALTHWALLET_URL !== 'https://mydatamed.com/healthwallet') throw new Error('Health Wallet production URL changed');
+          if (prod.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'true') throw new Error('Production execution boundary changed');
+          console.log('v145 release boundary validated.');
+          NODE
+          node scripts/validate-sovereignty-v144-regression.js
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-quote.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-wallet-cross-device-recovery.js
+          node scripts/validate-biometric-app-lock.js
+          npm run typecheck
+          npx expo config --type public > v145-expo-public-config.json
+          npx expo export --platform android --output-dir dist-v145-smoke
+
+      - name: Preflight production dependencies
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1)"
+          curl --fail --silent --show-error --location --max-time 20 'https://trydocwallet.com' -o /tmp/docwallet.html
+          curl --fail --silent --show-error --location --max-time 20 'https://mydatamed.com/healthwallet' -o /tmp/healthwallet.html
+
+      - name: Add build swap
+        run: |
+          set -euo pipefail
+          if ! swapon --show | grep -q .; then
+            sudo fallocate -l 4G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
+
+      - name: Build signed production AAB
+        env:
+          NODE_ENV: production
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+        run: |
+          set -euo pipefail
+          AAB="Nexa-2.0.42-v145-GooglePlay.aab"
+          eas build --platform android --profile production --local --non-interactive --output "$GITHUB_WORKSPACE/$AAB"
+          test -s "$AAB"
+          echo "AAB_FILE=$AAB" >> "$GITHUB_ENV"
+
+      - name: Build signed installable APK
+        env:
+          NODE_ENV: production
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+        run: |
+          set -euo pipefail
+          APK="Nexa-2.0.42-v145-Android.apk"
+          eas build --platform android --profile production-apk --local --non-interactive --output "$GITHUB_WORKSPACE/$APK"
+          test -s "$APK"
+          echo "APK_FILE=$APK" >> "$GITHUB_ENV"
+
+      - name: Verify Android artifacts
+        run: |
+          set -euo pipefail
+          jarsigner -verify -verbose -certs "$AAB_FILE" > aab-signature.txt 2>&1
+          sha256sum "$AAB_FILE" "$APK_FILE" > SHA256SUMS-ANDROID.txt
+
+      - name: Upload Android store artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.42-v145-ANDROID
+          path: |
+            ${{ env.AAB_FILE }}
+            ${{ env.APK_FILE }}
+            SHA256SUMS-ANDROID.txt
+            aab-signature.txt
+            v145-expo-public-config.json
+          if-no-files-found: error
+          retention-days: 30
+
+  ios:
+    name: iOS v145 App Store IPA
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies and ImageMagick
+        run: |
+          set -euo pipefail
+          npm install --include=dev --no-audit --no-fund
+          sudo apt-get update -y
+          sudo apt-get install -y imagemagick
+
+      - name: Render native Nexa brand assets
+        run: bash scripts/render-v144-native-brand.sh
+
+      - name: Validate iOS identity and ecosystem
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app=require('./app.json').expo;
+          const dyn=require('./app.config.js')({config:app});
+          const eas=require('./eas.json');
+          if(app.version!=='2.0.42' || String(app.ios?.buildNumber)!=='145') throw new Error('Unexpected iOS identity');
+          if(dyn.version!=='2.0.42' || String(dyn.ios?.buildNumber)!=='145') throw new Error('Dynamic iOS identity mismatch');
+          if(app.ios?.bundleIdentifier!=='br.com.trynexa.app') throw new Error('Bundle identifier changed');
+          if(app.ios?.usesAppleSignIn!==true) throw new Error('Apple Sign In changed');
+          if(app.ios?.infoPlist?.ITSAppUsesNonExemptEncryption!==false) throw new Error('Encryption declaration changed');
+          const prod=eas?.build?.production?.env || {};
+          if(prod.EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED!=='true') throw new Error('Ecosystem disabled');
+          NODE
+          npm run typecheck
+          node scripts/validate-sovereignty-v144-regression.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-biometric-app-lock.js
+
+      - name: Start and wait for signed iOS production build
+        run: |
+          set -euo pipefail
+          eas build --platform ios --profile production --non-interactive --wait --json > ios-build.json
+          cat ios-build.json
+          node <<'NODE'
+          const fs=require('fs');
+          const raw=JSON.parse(fs.readFileSync('ios-build.json','utf8'));
+          const build=Array.isArray(raw)?raw[0]:raw;
+          const url=build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl;
+          if(!url) throw new Error('iOS artifact URL missing');
+          fs.writeFileSync('ios-url.txt',url);
+          NODE
+
+      - name: Download IPA
+        run: |
+          set -euo pipefail
+          URL="$(cat ios-url.txt)"
+          IPA="Nexa-2.0.42-v145-AppStore.ipa"
+          curl -L --fail --retry 5 --retry-delay 5 "$URL" -o "$IPA"
+          test -s "$IPA"
+          sha256sum "$IPA" > SHA256SUMS-IOS.txt
+          echo "IPA_FILE=$IPA" >> "$GITHUB_ENV"
+
+      - name: Upload iOS store artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.42-v145-IOS
+          path: |
+            ${{ env.IPA_FILE }}
+            SHA256SUMS-IOS.txt
+            ios-build.json
+          if-no-files-found: error
+          retention-days: 30
