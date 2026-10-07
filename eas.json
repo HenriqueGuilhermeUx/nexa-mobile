@@ -36,7 +36,15 @@
         "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
         "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
         "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED": "true",
-        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "true"
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_DOCWALLET_URL": "https://trydocwallet.com",
+        "EXPO_PUBLIC_NEXA_HEALTHWALLET_URL": "https://mydatamed.com/healthwallet",
+        "EXPO_PUBLIC_NEXA_DOCWALLET_PLAY_STORE_URL": "https://play.google.com/store/apps/details?id=br.com.alternativeventures.docwalletdocs",
+        "EXPO_PUBLIC_NEXA_HEALTHWALLET_PLAY_STORE_URL": "https://play.google.com/store/apps/details?id=br.com.healthwallet.app"
       },
       "android": {
         "buildType": "app-bundle"
@@ -52,7 +60,15 @@
         "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "production-safe-preview",
         "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
         "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED": "true",
-        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "true"
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_DOCWALLET_URL": "https://trydocwallet.com",
+        "EXPO_PUBLIC_NEXA_HEALTHWALLET_URL": "https://mydatamed.com/healthwallet",
+        "EXPO_PUBLIC_NEXA_DOCWALLET_PLAY_STORE_URL": "https://play.google.com/store/apps/details?id=br.com.alternativeventures.docwalletdocs",
+        "EXPO_PUBLIC_NEXA_HEALTHWALLET_PLAY_STORE_URL": "https://play.google.com/store/apps/details?id=br.com.healthwallet.app"
       },
       "android": {
         "buildType": "apk"
@@ -130,7 +146,15 @@
         "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
         "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
         "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED": "true",
-        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "true"
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_DOCWALLET_URL": "https://trydocwallet.com",
+        "EXPO_PUBLIC_NEXA_HEALTHWALLET_URL": "https://mydatamed.com/healthwallet",
+        "EXPO_PUBLIC_NEXA_DOCWALLET_PLAY_STORE_URL": "https://play.google.com/store/apps/details?id=br.com.alternativeventures.docwalletdocs",
+        "EXPO_PUBLIC_NEXA_HEALTHWALLET_PLAY_STORE_URL": "https://play.google.com/store/apps/details?id=br.com.healthwallet.app"
       },
       "android": {
         "buildType": "apk"
