@@ -18,6 +18,7 @@ import {
   Title,
 } from '@/components/ui';
 import { BrazilKycStatus, nexaApi } from '@/lib/api';
+import { shouldShowEcosystemWelcome } from '@/lib/ecosystemOnboarding';
 import { resolveAuthenticatedRoute } from '@/lib/onboarding';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
@@ -60,6 +61,12 @@ export default function KycScreen() {
 
   async function continueAfterApproval(accessToken: string) {
     const profile = await nexaApi.me(accessToken);
+
+    if (await shouldShowEcosystemWelcome(profile)) {
+      router.replace('/ecosystem-welcome' as any);
+      return;
+    }
+
     const target = await resolveAuthenticatedRoute(profile, accessToken);
     router.replace(target as any);
   }
