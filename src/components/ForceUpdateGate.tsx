@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   Linking,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { config } from '@/config';
+import { FORCE_UPDATE_EVENT, ForceUpdatePolicyPayload } from '@/lib/forceUpdate';
 import { colors, radius, spacing } from '@/theme';
 
 type VersionPolicy = {
@@ -68,7 +71,7 @@ export function ForceUpdateGate({ children }: { children: React.ReactNode }) {
         headers: {
           'X-Nexa-App-Version': config.appVersion,
           'X-Nexa-App-Build': config.appBuild,
-          'X-Nexa-Platform': 'android',
+          'X-Nexa-Platform': Platform.OS,
         },
       });
       const payload = (await response.json()) as VersionPolicy;
@@ -89,6 +92,18 @@ export function ForceUpdateGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void checkVersion();
+
+    const subscription = DeviceEventEmitter.addListener(
+      FORCE_UPDATE_EVENT,
+      (nextPolicy: ForceUpdatePolicyPayload) => {
+        setOffline(false);
+        setPolicy(nextPolicy);
+        setRequired(true);
+        setChecking(false);
+      },
+    );
+
+    return () => subscription.remove();
   }, [checkVersion]);
 
   async function openStore() {
