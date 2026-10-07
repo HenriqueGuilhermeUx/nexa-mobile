@@ -199,6 +199,30 @@ export interface AssistantCapabilities {
   embeddedExperience?: boolean;
 }
 
+export interface StaffAttentionItem {
+  id: string;
+  source: 'docwallet' | 'healthwallet';
+  kind: string;
+  title: string;
+  summary: string;
+  dueAt?: string | null;
+  count?: number | null;
+  action?: 'open_docwallet' | 'open_healthwallet';
+}
+
+export interface StaffAttentionResponse {
+  success: boolean;
+  enabled: boolean;
+  mode?: string;
+  items: StaffAttentionItem[];
+  sources?: Array<{
+    source: 'docwallet' | 'healthwallet';
+    status: string;
+    itemCount: number;
+  }>;
+  sensitivePayloadIncluded?: boolean;
+}
+
 export interface AssistantChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -301,6 +325,12 @@ export const nexaApi = {
 
   assistantCapabilities(accessToken: string) {
     return request<AssistantCapabilities>('/staff/capabilities', {
+      accessToken,
+    });
+  },
+
+  assistantAttention(accessToken: string) {
+    return request<StaffAttentionResponse>('/staff/attention', {
       accessToken,
     });
   },
