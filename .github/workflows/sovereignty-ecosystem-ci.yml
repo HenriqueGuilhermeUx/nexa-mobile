@@ -11,6 +11,7 @@ on:
       - 'src/lib/ecosystemOnboarding.ts'
       - 'app/ecosystem-welcome.tsx'
       - 'app/kyc.tsx'
+      - 'scripts/validate-sovereignty-v144-regression.js'
       - '.github/workflows/sovereignty-ecosystem-ci.yml'
   workflow_dispatch:
 
@@ -65,6 +66,9 @@ jobs:
           grep -q "shouldShowEcosystemWelcome" app/kyc.tsx
           grep -q "EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED" src/config.ts
           ! grep -q "financialExecution.*true" src/lib/nexaEcosystem.ts
+
+      - name: Preserve v144 UX and onboarding boundaries
+        run: node scripts/validate-sovereignty-v144-regression.js
 
       - name: TypeScript
         run: npm run typecheck
