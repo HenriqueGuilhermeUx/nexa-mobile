@@ -15,6 +15,7 @@ interface NexaExtra {
   efiOpenFinanceEnabled?: boolean;
   efiOpenFinanceRecurringEnabled?: boolean;
   ecosystemEnabled?: boolean;
+  ecosystemOnboardingEnabled?: boolean;
   docWalletEnabled?: boolean;
   healthWalletEnabled?: boolean;
   docWalletUrl?: string;
@@ -52,6 +53,9 @@ const envEfiOpenFinanceRecurringEnabled = String(
   .toLowerCase();
 const envEcosystemEnabled = String(
   process.env.EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED || '',
+).trim().toLowerCase();
+const envEcosystemOnboardingEnabled = String(
+  process.env.EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED || '',
 ).trim().toLowerCase();
 const envDocWalletEnabled = String(
   process.env.EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED || '',
@@ -110,6 +114,10 @@ export const config = {
   ecosystemEnabled:
     envEcosystemEnabled === 'true' ||
     (envEcosystemEnabled !== 'false' && extra.ecosystemEnabled === true),
+  ecosystemOnboardingEnabled:
+    envEcosystemOnboardingEnabled === 'true' ||
+    (envEcosystemOnboardingEnabled !== 'false' &&
+      extra.ecosystemOnboardingEnabled === true),
   docWalletEnabled:
     envDocWalletEnabled === 'true' ||
     (envDocWalletEnabled !== 'false' && extra.docWalletEnabled === true),
