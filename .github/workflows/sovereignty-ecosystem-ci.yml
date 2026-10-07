@@ -55,8 +55,8 @@ jobs:
           grep -q "EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED" src/config.ts
           grep -q "access-token-secure" src/lib/api.ts
           grep -q "nexaToken" src/lib/nexaEcosystem.ts
-          grep -q "MyDoc Wallet" src/components/AlignedLegacyApp.tsx
-          grep -q "MyHealth Wallet" src/components/AlignedLegacyApp.tsx
+          grep -q "DocWallet Docs" src/components/AlignedLegacyApp.tsx
+          grep -q "Health Wallet" src/components/AlignedLegacyApp.tsx
           grep -q "Sua vida digital. Seu controle." src/components/AlignedLegacyApp.tsx
           ! grep -q "financialExecution.*true" src/lib/nexaEcosystem.ts
 
