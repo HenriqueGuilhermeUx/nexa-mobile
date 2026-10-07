@@ -15,6 +15,9 @@ const kyc = read('app/kyc.tsx');
 const welcome = read('app/ecosystem-welcome.tsx');
 const config = read('src/config.ts');
 const onboarding = read('src/lib/onboarding.ts');
+const rootLayout = read('app/_layout.tsx');
+const forceGate = read('src/components/ForceUpdateGate.tsx');
+const api = read('src/lib/api.ts');
 
 assert(app.version === '2.0.41', 'Nexa app version must remain 2.0.41');
 assert(pkg.version === '2.0.41', 'Package version must remain 2.0.41');
@@ -76,4 +79,12 @@ assert(!welcome.includes('/withdraw'), 'Post-KYC ecosystem screen must not execu
 assert(!welcome.includes('/swap'), 'Post-KYC ecosystem screen must not execute financial flows');
 assert(!welcome.includes('/transfer'), 'Post-KYC ecosystem screen must not execute financial flows');
 
-console.log('PASS: v144 navigation, Profile and post-KYC regression boundaries preserved.');
+assert(rootLayout.includes('<ForceUpdateGate>'), 'Root mandatory-update gate missing');
+assert(forceGate.includes('Atualização obrigatória'), 'Mandatory update screen missing');
+assert(forceGate.includes('FORCE_UPDATE_EVENT'), 'Runtime mandatory-update listener missing');
+assert(forceGate.includes("'X-Nexa-Platform': Platform.OS"), 'Version check must declare runtime platform');
+assert(api.includes("response.status === 426"), 'API client must react to mandatory update HTTP 426');
+assert(api.includes("APP_UPDATE_REQUIRED"), 'API client mandatory update code handling missing');
+assert(api.includes('notifyForceUpdateRequired(payload)'), 'API client must notify root update gate');
+
+console.log('PASS: v144 navigation, Profile, post-KYC and mandatory-update boundaries preserved.');
