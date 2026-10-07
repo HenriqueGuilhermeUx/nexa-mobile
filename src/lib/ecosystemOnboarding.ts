@@ -15,6 +15,10 @@ export async function shouldShowEcosystemWelcome(profile: any) {
     return false;
   }
 
+  if (!config.docWalletEnabled && !config.healthWalletEnabled) {
+    return false;
+  }
+
   const key = profileKey(profile);
   if (!key) return false;
 
