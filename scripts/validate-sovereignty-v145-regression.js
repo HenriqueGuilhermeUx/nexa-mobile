@@ -1,4 +1,4 @@
-// Nexa 2.0.42 v145 sovereignty regression guard.
+// Nexa 2.0.42 release sovereignty regression guard (Android 145 / iOS 146).
 const fs = require('fs');
 
 function read(path) {
@@ -23,7 +23,7 @@ const api = read('src/lib/api.ts');
 assert(app.version === '2.0.42', 'Nexa app version must remain 2.0.42');
 assert(pkg.version === '2.0.42', 'Package version must remain 2.0.42');
 assert(Number(app.android?.versionCode) === 145, 'Android versionCode must remain 145');
-assert(String(app.ios?.buildNumber) === '145', 'iOS buildNumber must remain 145');
+assert(String(app.ios?.buildNumber) === '146', 'iOS buildNumber must remain 146');
 assert(app.android?.package === 'br.com.trynexa.app', 'Android package changed');
 assert(app.ios?.bundleIdentifier === 'br.com.trynexa.app', 'iOS bundle identifier changed');
 
@@ -88,4 +88,4 @@ assert(api.includes("response.status === 426"), 'API client must react to mandat
 assert(api.includes("APP_UPDATE_REQUIRED"), 'API client mandatory update code handling missing');
 assert(api.includes('notifyForceUpdateRequired(payload)'), 'API client must notify root update gate');
 
-console.log('PASS: v145 navigation, Profile, post-KYC and mandatory-update boundaries preserved.');
+console.log('PASS: 2.0.42 navigation, Profile, post-KYC and mandatory-update boundaries preserved (Android 145 / iOS 146).');
