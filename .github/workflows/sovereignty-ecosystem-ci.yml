@@ -8,6 +8,9 @@ on:
       - 'src/config.ts'
       - 'src/lib/api.ts'
       - 'src/lib/nexaEcosystem.ts'
+      - 'src/lib/ecosystemOnboarding.ts'
+      - 'app/ecosystem-welcome.tsx'
+      - 'app/kyc.tsx'
       - '.github/workflows/sovereignty-ecosystem-ci.yml'
   workflow_dispatch:
 
@@ -58,6 +61,9 @@ jobs:
           grep -q "DocWallet Docs" src/components/AlignedLegacyApp.tsx
           grep -q "Health Wallet" src/components/AlignedLegacyApp.tsx
           grep -q "Sua vida digital. Seu controle." src/components/AlignedLegacyApp.tsx
+          grep -q "Seu controle pode ir além do dinheiro." app/ecosystem-welcome.tsx
+          grep -q "shouldShowEcosystemWelcome" app/kyc.tsx
+          grep -q "EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED" src/config.ts
           ! grep -q "financialExecution.*true" src/lib/nexaEcosystem.ts
 
       - name: TypeScript
@@ -68,6 +74,7 @@ jobs:
           CI: 'true'
           EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
           EXPO_PUBLIC_NEXA_DOCWALLET_URL: 'https://trydocwallet.com'
