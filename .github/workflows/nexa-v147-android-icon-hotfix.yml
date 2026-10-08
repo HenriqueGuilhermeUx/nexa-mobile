@@ -1,0 +1,168 @@
+name: Nexa 2.0.42 v147 Android Launcher Icon Hotfix
+
+on:
+  push:
+    branches:
+      - hotfix/android-v147-launcher-icon
+    paths:
+      - '.github/build-triggers/v147-android-icon-hotfix.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v147-android-icon-hotfix
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  EXPO_NO_TELEMETRY: '1'
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+jobs:
+  build:
+    name: Android v147 verified color launcher AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 220
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.11.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies and deterministic SVG renderer
+        run: |
+          set -euo pipefail
+          npm install --include=dev --no-audit --no-fund
+          sudo apt-get update -y
+          sudo apt-get install -y imagemagick librsvg2-bin
+          command -v rsvg-convert
+          command -v magick || command -v convert
+
+      - name: Render bright Nexa launcher assets
+        run: bash scripts/render-v144-native-brand.sh
+
+      - name: Validate Android v147 / iOS unchanged
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app=require('./app.json').expo;
+          const dyn=require('./app.config.js')({config:app});
+          const eas=require('./eas.json');
+          if(app.version!=='2.0.42') throw new Error('Unexpected app version');
+          if(Number(app.android?.versionCode)!==147) throw new Error('Android must be versionCode 147');
+          if(String(app.ios?.buildNumber)!=='146') throw new Error('iOS must remain build 146');
+          if(Number(dyn.android?.versionCode)!==147) throw new Error('Dynamic Android config mismatch');
+          if(String(dyn.ios?.buildNumber)!=='146') throw new Error('Dynamic iOS config changed');
+          if(app.android?.package!=='br.com.trynexa.app') throw new Error('Package changed');
+          if(app.ios?.bundleIdentifier!=='br.com.trynexa.app') throw new Error('Bundle ID changed');
+          const prod=eas?.build?.production?.env||{};
+          if(prod.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='true') throw new Error('Production execution boundary changed');
+          if(prod.EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED!=='true') throw new Error('Ecosystem disabled');
+          console.log('PASS: Android-only v147 icon hotfix identity.');
+          NODE
+          node scripts/validate-sovereignty-v145-regression.js
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-quote.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-wallet-cross-device-recovery.js
+          node scripts/validate-biometric-app-lock.js
+          npm run typecheck
+          npx expo config --type public > v147-expo-public-config.json
+          npx expo export --platform android --output-dir dist-v147-smoke
+
+      - name: Preflight production dependencies
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1)"
+          curl --fail --silent --show-error --location --retry 6 --retry-delay 10 --max-time 20 'https://trydocwallet.com' -o /tmp/docwallet.html
+          curl --fail --silent --show-error --location --retry 6 --retry-delay 10 --max-time 20 'https://mydatamed.com/healthwallet' -o /tmp/healthwallet.html
+
+      - name: Add build swap
+        run: |
+          set -euo pipefail
+          if ! swapon --show | grep -q .; then
+            sudo fallocate -l 4G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
+
+      - name: Build signed production AAB
+        env:
+          NODE_ENV: production
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+        run: |
+          set -euo pipefail
+          AAB='Nexa-2.0.42-v147-GooglePlay-IconHotfix.aab'
+          eas build --platform android --profile production --local --non-interactive --output "$GITHUB_WORKSPACE/$AAB"
+          test -s "$AAB"
+          echo "AAB_FILE=$AAB" >> "$GITHUB_ENV"
+
+      - name: Verify compiled launcher icon inside AAB
+        run: |
+          set -euo pipefail
+          mkdir -p compiled-icon
+          unzip -p "$AAB_FILE" base/res/mipmap-xxxhdpi-v4/ic_launcher_foreground.webp > compiled-icon/ic_launcher_foreground.webp
+          unzip -p "$AAB_FILE" base/res/mipmap-xxxhdpi-v4/ic_launcher.webp > compiled-icon/ic_launcher.webp
+          test -s compiled-icon/ic_launcher_foreground.webp
+          test -s compiled-icon/ic_launcher.webp
+
+          identify compiled-icon/ic_launcher_foreground.webp
+          identify compiled-icon/ic_launcher.webp
+
+          FG_MEAN="$(magick compiled-icon/ic_launcher_foreground.webp -alpha off -colorspace sRGB -format '%[fx:mean]' info:)"
+          ICON_MEAN="$(magick compiled-icon/ic_launcher.webp -alpha off -colorspace sRGB -format '%[fx:mean]' info:)"
+          echo "Compiled adaptive RGB mean: $FG_MEAN"
+          echo "Compiled legacy RGB mean:   $ICON_MEAN"
+
+          awk -v v="$FG_MEAN" 'BEGIN { if (!(v > 0.02)) exit 1 }' || {
+            echo 'FAIL: compiled adaptive launcher foreground is effectively black.' >&2
+            exit 1
+          }
+          awk -v v="$ICON_MEAN" 'BEGIN { if (!(v > 0.02)) exit 1 }' || {
+            echo 'FAIL: compiled legacy launcher icon is effectively black.' >&2
+            exit 1
+          }
+
+          magick -size 432x432 xc:'#06111F' compiled-icon/ic_launcher_foreground.webp -compose over -composite compiled-icon/launcher-preview.png
+          jarsigner -verify -verbose -certs "$AAB_FILE" > aab-signature.txt 2>&1
+          grep -q 'jar verified' aab-signature.txt
+          sha256sum "$AAB_FILE" > SHA256SUMS-ANDROID.txt
+          echo 'PASS: final AAB contains visible-color launcher resources.'
+
+      - name: Upload verified Google Play AAB and icon proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.42-v147-GooglePlay-IconHotfix
+          path: |
+            ${{ env.AAB_FILE }}
+            SHA256SUMS-ANDROID.txt
+            aab-signature.txt
+            v147-expo-public-config.json
+            compiled-icon/ic_launcher_foreground.webp
+            compiled-icon/ic_launcher.webp
+            compiled-icon/launcher-preview.png
+            nexa-mobile/nexa-mobile/assets/adaptive-icon.png
+            nexa-mobile/nexa-mobile/assets/icon.png
+          if-no-files-found: error
+          retention-days: 30
