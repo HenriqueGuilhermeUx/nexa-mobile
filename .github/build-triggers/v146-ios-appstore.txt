@@ -1,2 +1,2 @@
 Build and upload Nexa Wallet 2.0.42 build 146 to App Store Connect.
-Includes required photo-library purpose string and ecosystem profile onboarding.
+Retry after targeting the current ephemeral Apple Distribution certificate slot.
