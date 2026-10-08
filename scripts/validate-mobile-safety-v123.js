@@ -18,7 +18,9 @@ const iosBuild = String(app.expo.ios?.buildNumber || '');
 const releaseBuild = String(app.expo.extra?.releaseBuild || '');
 assert.match(appVersion, /^\d+\.\d+\.\d+$/);
 assert.ok(Number.isInteger(androidBuild) && androidBuild > 0, 'Android versionCode must be a positive integer');
-assert.equal(iosBuild, String(androidBuild));
+assert.match(iosBuild, /^\d+$/, 'iOS buildNumber must be a positive integer string');
+assert.ok(Number(iosBuild) > 0, 'iOS buildNumber must be positive');
+// Platform-specific store hotfixes may advance Android without forcing an iOS rebuild.
 assert.match(releaseBuild, new RegExp(appVersion.replace(/\./g, '\\.')));
 assert.match(releaseBuild, new RegExp(`v${androidBuild}(?:-|$)`));
 assert.equal(app.expo.runtimeVersion?.policy, 'appVersion');
