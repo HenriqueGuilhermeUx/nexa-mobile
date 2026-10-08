@@ -517,6 +517,69 @@ export const nexaApi = {
     });
   },
 
+  nexaPayPremiumPreview(
+    accessToken: string,
+    data: {
+      instrument: 'BARCODE' | 'PIX_QR' | 'PIX_COPY_PASTE';
+      payload: string;
+      amountBrl?: number;
+      scheduledFor: string;
+    },
+  ) {
+    return request<any>('/nexa-pay/v1/premium/preview', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(data),
+    });
+  },
+
+  nexaPayPremiumSchedule(
+    accessToken: string,
+    data: {
+      instrument: 'BARCODE' | 'PIX_QR' | 'PIX_COPY_PASTE';
+      payload: string;
+      amountBrl?: number;
+      scheduledFor: string;
+      maximumUsdcApproved: number;
+    },
+  ) {
+    return request<any>('/nexa-pay/v1/premium/schedule', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(data),
+    });
+  },
+
+  nexaPayPremiumMine(accessToken: string) {
+    return request<any[]>('/nexa-pay/v1/premium/mine', { accessToken });
+  },
+
+  nexaPayPremiumConfirmWalletTransfer(
+    accessToken: string,
+    paymentId: string,
+    txHash: string,
+  ) {
+    return request<any>(
+      `/nexa-pay/v1/premium/${encodeURIComponent(paymentId)}/wallet-transfer`,
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify({ txHash }),
+      },
+    );
+  },
+
+  nexaPayPremiumCancel(accessToken: string, paymentId: string) {
+    return request<any>(
+      `/nexa-pay/v1/premium/${encodeURIComponent(paymentId)}/cancel`,
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify({}),
+      },
+    );
+  },
+
   requestPixRedemption(
     accessToken: string,
     data: { amountUsdc: number; pixKey: string },
