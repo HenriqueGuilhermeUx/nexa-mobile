@@ -16,15 +16,16 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "145",
+      "buildNumber": "146",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Permita que a Nexa acesse sua biblioteca de fotos quando você escolher uma imagem para usar no aplicativo."
       }
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 145,
+      "versionCode": 146,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
@@ -93,7 +94,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.42-v145-sovereignty",
+      "releaseBuild": "android16-api36-2.0.42-v146-ecosystem",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       },
