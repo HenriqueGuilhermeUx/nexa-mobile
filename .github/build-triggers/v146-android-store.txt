@@ -1,2 +1,2 @@
 Build Nexa 2.0.42 Android versionCode 146 for Google Play.
-Includes full-color adaptive icon validation and ecosystem profile onboarding.
+Retry after aligning app.config.js to build 146. Full-color adaptive icon validation remains required.
