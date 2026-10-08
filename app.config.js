@@ -1,10 +1,10 @@
-// Nexa Android v147 launcher icon hotfix. iOS remains build 146.
+// Nexa 2.0.42 v147 store icon hotfix.
 module.exports = ({ config }) => ({
   ...config,
   version: '2.0.42',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '146',
+    buildNumber: '147',
   },
   android: {
     ...(config.android || {}),
@@ -12,6 +12,6 @@ module.exports = ({ config }) => ({
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.42-v147-icon-hotfix',
+    releaseBuild: 'stores-2.0.42-v147-icon-hotfix',
   },
 });
