@@ -1,0 +1,94 @@
+name: Nexa Ecosystem Profile Pilot APK
+
+on:
+  push:
+    branches:
+      - feature/nexa-ecosystem-profile-v1
+    paths:
+      - '.github/build-triggers/ecosystem-profile-pilot.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-ecosystem-profile-pilot
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  EXPO_NO_TELEMETRY: '1'
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+jobs:
+  build:
+    name: Build ecosystem pilot APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies and ImageMagick
+        run: |
+          set -euo pipefail
+          npm install --include=dev --no-audit --no-fund
+          sudo apt-get update -y
+          sudo apt-get install -y imagemagick
+
+      - name: Render and validate native brand
+        run: bash scripts/render-v144-native-brand.sh
+
+      - name: Validate release boundaries
+        run: |
+          set -euo pipefail
+          node scripts/validate-sovereignty-v145-regression.js
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-biometric-app-lock.js
+          npm run typecheck
+
+      - name: Build sovereignty pilot APK
+        run: |
+          set -euo pipefail
+          eas build --platform android --profile sovereignty-pilot --non-interactive --wait --json > pilot-build.json
+          cat pilot-build.json
+          node <<'NODE'
+          const fs = require('fs');
+          const raw = JSON.parse(fs.readFileSync('pilot-build.json','utf8'));
+          const build = Array.isArray(raw) ? raw[0] : raw;
+          const url = build?.artifacts?.buildUrl || build?.artifacts?.applicationArchiveUrl;
+          if (!url) throw new Error('Pilot APK URL missing');
+          fs.writeFileSync('pilot-url.txt', url);
+          NODE
+
+      - name: Download pilot APK
+        run: |
+          set -euo pipefail
+          APK='Nexa-2.0.42-v145-Ecosystem-Pilot.apk'
+          curl -L --fail --retry 5 --retry-delay 5 "$(cat pilot-url.txt)" -o "$APK"
+          test -s "$APK"
+          sha256sum "$APK" > SHA256SUMS-PILOT.txt
+          echo "APK_FILE=$APK" >> "$GITHUB_ENV"
+
+      - name: Upload pilot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.42-v145-Ecosystem-Pilot
+          path: |
+            ${{ env.APK_FILE }}
+            SHA256SUMS-PILOT.txt
+            pilot-build.json
+          if-no-files-found: error
+          retention-days: 14

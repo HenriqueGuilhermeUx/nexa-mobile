@@ -16,12 +16,19 @@ else
   exit 1
 fi
 
-"${IM[@]}" -background none "$ICON_SVG" -resize 1024x1024 -strip "$ICON_PNG"
-"${IM[@]}" -background none "$ADAPTIVE_SVG" -resize 1024x1024 -strip "$ADAPTIVE_PNG"
+"${IM[@]}" -background none "$ICON_SVG" -resize 1024x1024 -alpha on -colorspace sRGB -type TrueColorAlpha -strip "PNG32:$ICON_PNG"
+"${IM[@]}" -background none "$ADAPTIVE_SVG" -resize 1024x1024 -alpha on -colorspace sRGB -type TrueColorAlpha -strip "PNG32:$ADAPTIVE_PNG"
 
 if command -v identify >/dev/null 2>&1; then
   identify "$ICON_PNG"
   identify "$ADAPTIVE_PNG"
+
+  ADAPTIVE_INFO="$(identify -format '%[colorspace] %[type] %[channels]' "$ADAPTIVE_PNG")"
+  echo "Adaptive icon: $ADAPTIVE_INFO"
+  if printf '%s' "$ADAPTIVE_INFO" | grep -qi 'gray'; then
+    echo "Adaptive icon unexpectedly rendered as grayscale." >&2
+    exit 1
+  fi
 fi
 
 node <<'NODE'

@@ -24,6 +24,10 @@ import {
   ecosystemDownloadAvailable,
   openNexaEcosystemProduct,
 } from '@/lib/nexaEcosystem';
+import {
+  markEcosystemProfileIntroSeen,
+  shouldShowEcosystemProfileIntro,
+} from '@/lib/ecosystemOnboarding';
 import { BrandMark } from '@/components/ui';
 import CustodyScreen from '../../nexa-mobile/nexa-mobile/CustodyScreen';
 
@@ -1203,6 +1207,20 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
 
   const contentBottom = 92 + Math.max(insets.bottom, 10);
 
+  async function navigate(target: string) {
+    if (target === 'profile') {
+      try {
+        if (await shouldShowEcosystemProfileIntro(user)) {
+          setPage('ecosystemProfileIntro');
+          return;
+        }
+      } catch {
+        // A local storage failure must never block the Profile itself.
+      }
+    }
+    setPage(target);
+  }
+
 
   function Home() {
     const recent = statement.slice(0, 3);
@@ -1219,7 +1237,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             <Text style={styles.hello}>Olá, {firstName}</Text>
             <Text style={styles.handle}>{handle || 'Sua wallet Nexa'}</Text>
           </View>
-          <TouchableOpacity onPress={() => setPage('profile')} style={styles.avatar}>
+          <TouchableOpacity onPress={() => void navigate('profile')} style={styles.avatar}>
             <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
           </TouchableOpacity>
         </View>
@@ -1949,6 +1967,61 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
     );
   }
 
+  function EcosystemProfileIntro() {
+    async function continueToProfile() {
+      try {
+        await markEcosystemProfileIntroSeen(user);
+      } catch {
+        // The intro remains optional even if local persistence is unavailable.
+      }
+      setPage('profile');
+    }
+
+    return (
+      <>
+        <Text style={styles.pageKicker}>ECOSSISTEMA NEXA</Text>
+        <Text style={styles.pageTitle}>Um Nexa ID. Produtos independentes.</Text>
+        <Text style={styles.pageSubtitle}>
+          A Nexa conecta seu acesso sem misturar seu dinheiro, seus documentos e sua saúde.
+          Você decide o que usar e o que conectar.
+        </Text>
+
+        {config.docWalletEnabled ? (
+          <Card>
+            <Text style={styles.staffEyebrow}>DOCUMENTOS</Text>
+            <Text style={styles.highlightTitle}>DocWallet Docs</Text>
+            <Text style={styles.highlightText}>
+              Organize documentos, acompanhe assinaturas e alertas. O conteúdo continua no
+              DocWallet; o Nexa ID conecta apenas o acesso autorizado.
+            </Text>
+          </Card>
+        ) : null}
+
+        {config.healthWalletEnabled ? (
+          <Card>
+            <Text style={styles.staffEyebrow}>SAÚDE</Text>
+            <Text style={styles.highlightTitle}>Health Wallet</Text>
+            <Text style={styles.highlightText}>
+              Exames, consultas e compromissos de saúde ficam no Health Wallet. O Nexa ID
+              pode conectar sua sessão sem criar outra identidade na Nexa.
+            </Text>
+          </Card>
+        ) : null}
+
+        <Card style={styles.profileSupportCard}>
+          <Text style={styles.staffEyebrow}>VOCÊ NO CONTROLE</Text>
+          <Text style={styles.highlightTitle}>Separados por padrão. Conectados por escolha.</Text>
+          <Text style={styles.highlightText}>
+            A Nexa nunca transforma esses produtos em uma única base de dados. Cada produto
+            mantém sua própria sessão e suas próprias informações.
+          </Text>
+        </Card>
+
+        <PrimaryButton title="Entendi, continuar para o Perfil" onPress={() => void continueToProfile()} />
+      </>
+    );
+  }
+
   function Profile() {
     return (
       <>
@@ -2070,6 +2143,19 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
         {config.ecosystemEnabled ? (
           <>
             <Text style={styles.sectionKicker}>SOBERANIA DIGITAL</Text>
+            <TouchableOpacity
+              style={styles.ecosystemAboutButton}
+              activeOpacity={0.84}
+              onPress={() => setPage('ecosystemProfileIntro')}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.profileMenuTitle}>Como funciona o ecossistema</Text>
+                <Text style={styles.profileMenuText}>
+                  Um Nexa ID. Produtos independentes. Você decide o que conectar.
+                </Text>
+              </View>
+              <Text style={styles.profileMenuArrow}>›</Text>
+            </TouchableOpacity>
             <View style={styles.profileMenu}>
               {config.docWalletEnabled ? (
                 <View style={styles.ecosystemProductRow}>
@@ -2286,6 +2372,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
   else if (page === 'deposit') body = <DepositPix />;
   else if (page === 'withdraw') body = <WithdrawPix />;
   else if (page === 'nexaId') body = <NexaId />;
+  else if (page === 'ecosystemProfileIntro') body = <EcosystemProfileIntro />;
   else if (page === 'profile') body = <Profile />;
   else if (page === 'history') body = <History />;
   else if (page === 'custody') {
@@ -2344,7 +2431,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
         ) : null}
         {loading && !body ? <ActivityIndicator color="#31D7FF" /> : body}
       </ScrollView>
-      <BottomNav page={page} onNavigate={setPage} premium={isPremium} />
+      <BottomNav page={page} onNavigate={(target: string) => void navigate(target)} premium={isPremium} />
     </View>
     </PremiumThemeContext.Provider>
   );
@@ -2759,6 +2846,18 @@ const styles: any = {
     justifyContent: 'center',
   },
   bottomCenterLabel: { marginTop: 0 },
+  ecosystemAboutButton: {
+    backgroundColor: '#0A192B',
+    borderWidth: 1,
+    borderColor: '#265A7C',
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   profileMenu: {
     borderRadius: 20,
     backgroundColor: '#0E2138',
