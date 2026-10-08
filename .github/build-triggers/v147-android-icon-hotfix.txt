@@ -1,3 +1,3 @@
 Build Nexa 2.0.42 Android versionCode 147 launcher-icon hotfix.
-Retry after fixing the final platform-specific biometric guard.
+Retry after fixing platform-specific biometric validation and numeric iOS guard.
 Validate the compiled AAB launcher foreground is visibly colored, not black.
