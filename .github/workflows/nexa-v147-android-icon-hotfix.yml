@@ -130,8 +130,13 @@ jobs:
           identify compiled-icon/ic_launcher_foreground.webp
           identify compiled-icon/ic_launcher.webp
 
-          FG_MEAN="$(magick compiled-icon/ic_launcher_foreground.webp -alpha off -colorspace sRGB -format '%[fx:mean]' info:)"
-          ICON_MEAN="$(magick compiled-icon/ic_launcher.webp -alpha off -colorspace sRGB -format '%[fx:mean]' info:)"
+          if command -v magick >/dev/null 2>&1; then
+            IM=(magick)
+          else
+            IM=(convert)
+          fi
+          FG_MEAN="$("${IM[@]}" compiled-icon/ic_launcher_foreground.webp -alpha off -colorspace sRGB -format '%[fx:mean]' info:)"
+          ICON_MEAN="$("${IM[@]}" compiled-icon/ic_launcher.webp -alpha off -colorspace sRGB -format '%[fx:mean]' info:)"
           echo "Compiled adaptive RGB mean: $FG_MEAN"
           echo "Compiled legacy RGB mean:   $ICON_MEAN"
 
@@ -144,7 +149,7 @@ jobs:
             exit 1
           }
 
-          magick -size 432x432 xc:'#06111F' compiled-icon/ic_launcher_foreground.webp -compose over -composite compiled-icon/launcher-preview.png
+          "${IM[@]}" -size 432x432 xc:'#06111F' compiled-icon/ic_launcher_foreground.webp -compose over -composite compiled-icon/launcher-preview.png
           jarsigner -verify -verbose -certs "$AAB_FILE" > aab-signature.txt 2>&1
           grep -q 'jar verified' aab-signature.txt
           sha256sum "$AAB_FILE" > SHA256SUMS-ANDROID.txt
