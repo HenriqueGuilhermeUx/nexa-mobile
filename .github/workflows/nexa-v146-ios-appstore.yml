@@ -23,11 +23,10 @@ env:
   ASC_ISSUER_ID: 802406ee-f4dc-436f-ad9b-b0d3e447408c
   APPLE_TEAM_ID: KX826S9GK7
   BUNDLE_ID: br.com.trynexa.app
-  OLD_EPHEMERAL_CERT_ID: B9MLK33CS4
 
 jobs:
   build_submit:
-    name: Build v146 IPA and upload to App Store Connect
+    name: Build v146 IPA and upload directly to App Store Connect
     runs-on: macos-26
     timeout-minutes: 180
 
@@ -72,28 +71,6 @@ jobs:
           echo "EXPO_APPLE_TEAM_ID=$APPLE_TEAM_ID" >> "$GITHUB_ENV"
           echo "EXPO_APPLE_TEAM_TYPE=INDIVIDUAL" >> "$GITHUB_ENV"
 
-      - name: Free the prior ephemeral distribution slot
-        run: |
-          set -euo pipefail
-          ruby <<'RUBY'
-          require 'spaceship'
-          token = Spaceship::ConnectAPI::Token.create(
-            key_id: ENV.fetch('ASC_KEY_ID'),
-            issuer_id: ENV.fetch('ASC_ISSUER_ID'),
-            filepath: ENV.fetch('ASC_KEY_PATH'),
-            duration: 1200,
-            in_house: false
-          )
-          Spaceship::ConnectAPI.token = token
-          cert = Spaceship::ConnectAPI::Certificate.all.find { |item| item.id == ENV.fetch('OLD_EPHEMERAL_CERT_ID') }
-          if cert
-            cert.delete!
-            puts "Revoked prior ephemeral certificate #{cert.id}."
-          else
-            puts "Prior ephemeral certificate already absent."
-          end
-          RUBY
-
       - name: Prepare isolated signing keychain
         run: |
           set -euo pipefail
@@ -114,7 +91,7 @@ jobs:
             echo "P12_PASSWORD=$P12_PASSWORD"
           } >> "$GITHUB_ENV"
 
-      - name: Generate one-time signing certificate and App Store profile
+      - name: Generate signing certificate and App Store profile
         run: |
           set -euo pipefail
           mkdir -p fastlane
@@ -159,8 +136,12 @@ jobs:
           RUBY
           fastlane ios bootstrap_signing
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          security find-certificate -c "Apple Distribution: Henrique de Campos" -p "$KEYCHAIN_PATH" \
+            | openssl x509 -noout -serial -fingerprint -sha1 \
+            | tee "$GITHUB_WORKSPACE/generated-cert-identity.txt"
           test -s "$CERT_DIR/profile.mobileprovision"
           test -s "$GITHUB_WORKSPACE/generated-cert-id.txt"
+          test -s "$GITHUB_WORKSPACE/generated-cert-identity.txt"
 
       - name: Export signing identity for local EAS build
         run: |
@@ -220,30 +201,9 @@ jobs:
           test -s "$IPA"
           shasum -a 256 "$IPA" > "$GITHUB_WORKSPACE/SHA256SUMS-IOS.txt"
 
-      - name: Upload build 146 to App Store Connect
+      - name: Confirm signing certificate is active before upload
         run: |
           set -euo pipefail
-          eas submit --platform ios --profile production --path "$GITHUB_WORKSPACE/Nexa-2.0.42-v146-AppStore.ipa" --non-interactive --wait
-
-      - name: Upload signed IPA artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Nexa-2.0.42-v146-IOS
-          path: |
-            Nexa-2.0.42-v146-AppStore.ipa
-            SHA256SUMS-IOS.txt
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Revoke one-time signing certificate
-        if: always()
-        run: |
-          set +e
-          if [ ! -s "$GITHUB_WORKSPACE/generated-cert-id.txt" ]; then
-            echo 'No generated certificate id to revoke.'
-            exit 0
-          fi
           GENERATED_CERT_ID="$(cat "$GITHUB_WORKSPACE/generated-cert-id.txt")"
           export GENERATED_CERT_ID
           ruby <<'RUBY'
@@ -257,10 +217,46 @@ jobs:
           )
           Spaceship::ConnectAPI.token = token
           cert = Spaceship::ConnectAPI::Certificate.all.find { |item| item.id == ENV.fetch('GENERATED_CERT_ID') }
-          if cert
-            cert.delete!
-            puts "Revoked one-time certificate #{cert.id}."
-          else
-            puts "Generated certificate already absent."
+          raise 'Generated signing certificate is no longer active before upload' unless cert
+          puts "ACTIVE_CERT_ID=#{cert.id}"
+          puts "ACTIVE_CERT_SERIAL=#{cert.serial_number}" if cert.respond_to?(:serial_number)
+          RUBY
+
+      - name: Upload build 146 directly to App Store Connect
+        env:
+          IPA_PATH: ${{ github.workspace }}/Nexa-2.0.42-v146-AppStore.ipa
+        run: |
+          set -euo pipefail
+          cat > fastlane/SubmitFastfile <<'RUBY'
+          default_platform(:ios)
+          platform :ios do
+            lane :upload_local do
+              api_key = app_store_connect_api_key(
+                key_id: ENV.fetch("ASC_KEY_ID"),
+                issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+                key_filepath: ENV.fetch("ASC_KEY_PATH"),
+                duration: 1200,
+                in_house: false
+              )
+              pilot(
+                api_key: api_key,
+                ipa: ENV.fetch("IPA_PATH"),
+                skip_waiting_for_build_processing: true,
+                distribute_external: false
+              )
+            end
           end
           RUBY
+          fastlane --fastfile fastlane/SubmitFastfile ios upload_local
+
+      - name: Upload signed IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.42-v146-IOS
+          path: |
+            Nexa-2.0.42-v146-AppStore.ipa
+            SHA256SUMS-IOS.txt
+            generated-cert-id.txt
+            generated-cert-identity.txt
+          if-no-files-found: error
+          retention-days: 30
