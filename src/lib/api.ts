@@ -34,7 +34,11 @@ function messageFromPayload(payload: any, status: number) {
   return String(raw || `Falha na API (${status}).`);
 }
 
-async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: ApiOptions = {},
+  baseUrl = config.apiUrl,
+): Promise<T> {
   const headers = new Headers(options.headers || {});
   if (options.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
@@ -51,7 +55,7 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     headers.set('x-privy-access-token', `Bearer ${options.privyAccessToken}`);
   }
 
-  const response = await fetch(`${config.apiUrl}${path}`, {
+  const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers,
   });
@@ -526,11 +530,15 @@ export const nexaApi = {
       scheduledFor: string;
     },
   ) {
-    return request<any>('/nexa-pay/v1/premium/preview', {
-      method: 'POST',
-      accessToken,
-      body: JSON.stringify(data),
-    });
+    return request<any>(
+      '/nexa-pay/v1/premium/preview',
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify(data),
+      },
+      config.nexaPayApiUrl,
+    );
   },
 
   nexaPayPremiumSchedule(
@@ -543,15 +551,23 @@ export const nexaApi = {
       maximumUsdcApproved: number;
     },
   ) {
-    return request<any>('/nexa-pay/v1/premium/schedule', {
-      method: 'POST',
-      accessToken,
-      body: JSON.stringify(data),
-    });
+    return request<any>(
+      '/nexa-pay/v1/premium/schedule',
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify(data),
+      },
+      config.nexaPayApiUrl,
+    );
   },
 
   nexaPayPremiumMine(accessToken: string) {
-    return request<any[]>('/nexa-pay/v1/premium/mine', { accessToken });
+    return request<any[]>(
+      '/nexa-pay/v1/premium/mine',
+      { accessToken },
+      config.nexaPayApiUrl,
+    );
   },
 
   nexaPayPremiumConfirmWalletTransfer(
@@ -566,6 +582,7 @@ export const nexaApi = {
         accessToken,
         body: JSON.stringify({ txHash }),
       },
+      config.nexaPayApiUrl,
     );
   },
 
@@ -577,6 +594,7 @@ export const nexaApi = {
         accessToken,
         body: JSON.stringify({}),
       },
+      config.nexaPayApiUrl,
     );
   },
 
