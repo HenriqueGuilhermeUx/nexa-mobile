@@ -74,7 +74,7 @@ jobs:
       - name: Revoke failed-run ephemeral certificate
         run: |
           set -euo pipefail
-          FAILED_CERT_ID='HMSNJ25PYU'
+          FAILED_CERT_ID='F54B4YAS5N'
           export FAILED_CERT_ID
           ruby <<'RUBY'
           require 'spaceship'
@@ -225,23 +225,39 @@ jobs:
           test -s "$IPA"
           shasum -a 256 "$IPA" > "$GITHUB_WORKSPACE/SHA256SUMS-IOS.txt"
 
-      - name: Verify embedded app icon before upload
+      - name: Verify build 147 identity and embedded app icon before upload
         env:
           IPA_PATH: ${{ github.workspace }}/Nexa-2.0.42-v146-AppStore.ipa
         run: |
           set -euo pipefail
-          mkdir -p compiled-icon
+          mkdir -p compiled-icon compiled-app
+
+          APP_ENTRY="$(unzip -Z1 "$IPA_PATH" | grep -E '^Payload/[^/]+\.app/$' | head -n1)"
+          test -n "$APP_ENTRY"
+          INFO_ENTRY="${APP_ENTRY}Info.plist"
+          unzip -p "$IPA_PATH" "$INFO_ENTRY" > compiled-app/Info.plist
+          BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' compiled-app/Info.plist)"
+          SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' compiled-app/Info.plist)"
+          echo "Embedded iOS version=$SHORT_VERSION build=$BUILD_NUMBER"
+          test "$SHORT_VERSION" = "2.0.42"
+          test "$BUILD_NUMBER" = "147"
+
           ICON_ENTRY="$(unzip -Z1 "$IPA_PATH" | grep 'AppIcon' | grep '\.png$' | sort -V | tail -n1)"
           test -n "$ICON_ENTRY"
-          unzip -p "$IPA_PATH" "$ICON_ENTRY" > compiled-icon/AppIcon.png
+          unzip -p "$IPA_PATH" "$ICON_ENTRY" > compiled-icon/AppIcon-cgbi.png
+          test -s compiled-icon/AppIcon-cgbi.png
+
+          xcrun pngcrush -revert-iphone-optimizations -q compiled-icon/AppIcon-cgbi.png compiled-icon/AppIcon.png
           test -s compiled-icon/AppIcon.png
           identify compiled-icon/AppIcon.png
           MEAN="$(magick compiled-icon/AppIcon.png -alpha off -colorspace sRGB -format '%[fx:mean]' info:)"
           PEAK="$(magick compiled-icon/AppIcon.png -alpha off -colorspace sRGB -format '%[fx:maxima]' info:)"
-          echo "Embedded iOS icon mean=$MEAN peak=$PEAK"
+          COLORS="$(magick compiled-icon/AppIcon.png -format '%k' info:)"
+          echo "Embedded iOS icon mean=$MEAN peak=$PEAK colors=$COLORS"
           awk -v v="$MEAN" 'BEGIN { if (!(v > 0.07)) exit 1 }'
           awk -v v="$PEAK" 'BEGIN { if (!(v > 0.55)) exit 1 }'
-          echo "PASS: embedded iOS app icon is visibly colored."
+          test "$COLORS" -gt 64
+          echo "PASS: build 147 IPA identity and embedded Nexa icon are verified."
 
       - name: Confirm signing certificate is active before upload
         run: |
