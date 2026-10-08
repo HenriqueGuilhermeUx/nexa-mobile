@@ -1,2 +1,3 @@
 Build Nexa 2.0.42 Android versionCode 147 launcher-icon hotfix.
+Retry after allowing Android/iOS build numbers to diverge for platform-only releases.
 Validate the compiled AAB launcher foreground is visibly colored, not black.
