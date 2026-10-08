@@ -200,7 +200,7 @@ export default function NexaPayPreparedScreen() {
         functionName: 'transfer',
         args: [
           destination as `0x${string}`,
-          parseUnits(String(amountUsdc), decimals),
+          parseUnits(Number(amountUsdc).toFixed(decimals), decimals),
         ],
       });
 
