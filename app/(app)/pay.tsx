@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { Redirect } from 'expo-router';
+import { encodeFunctionData, parseUnits } from 'viem';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,7 +19,37 @@ import { colors, radius, spacing } from '@/theme';
 
 type Instrument = 'BARCODE' | 'PIX_COPY_PASTE';
 
+const ERC20_TRANSFER_ABI = [
+  {
+    type: 'function',
+    name: 'transfer',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const;
+
+function validEvmAddress(value: unknown) {
+  return /^0x[a-fA-F0-9]{40}$/.test(String(value || '').trim());
+}
+
+function normalizeAddress(value: unknown) {
+  return String(value || '').trim().toLowerCase();
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export default function NexaPayPreparedScreen() {
+  const embedded = useEmbeddedEthereumWallet() as any;
+  const wallets = (embedded.wallets || []) as any[];
+  const wallet = useMemo(
+    () => wallets.find((candidate) => validEvmAddress(candidate?.address)) || null,
+    [wallets],
+  );
+
   const [token, setToken] = useState('');
   const [instrument, setInstrument] = useState<Instrument>('BARCODE');
   const [payload, setPayload] = useState('');
@@ -70,6 +102,169 @@ export default function NexaPayPreparedScreen() {
       setScheduled(null);
     } catch (error: any) {
       setMessage(error?.message || 'Não foi possível validar a conta.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function providerFor(currentWallet: any) {
+    if (typeof currentWallet?.getProvider === 'function') {
+      return currentWallet.getProvider();
+    }
+    if (typeof currentWallet?.getEthereumProvider === 'function') {
+      return currentWallet.getEthereumProvider();
+    }
+    throw new Error('Sua wallet Privy ainda não está pronta para autorizar o pagamento.');
+  }
+
+  async function confirmTransferWithRetry(
+    accessToken: string,
+    paymentId: string,
+    txHash: string,
+  ) {
+    let last: any = null;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      last = await nexaApi.nexaPayPremiumConfirmWalletTransfer(
+        accessToken,
+        paymentId,
+        txHash,
+      );
+      if (last?.verified === true) return last;
+      if (last?.pending !== true) return last;
+      await sleep(5_000);
+    }
+    return last;
+  }
+
+  async function authorizeUsdc() {
+    const authorization = scheduled?.walletAuthorization;
+    const paymentId = String(scheduled?.payment?.id || '').trim();
+    if (!token || !paymentId || !authorization) return;
+
+    try {
+      setLoading(true);
+      setMessage('');
+
+      if (!wallet || !validEvmAddress(wallet.address)) {
+        throw new Error(
+          'Sua wallet Privy vinculada não está disponível neste aparelho.',
+        );
+      }
+
+      const destination = String(authorization.toAddress || '').trim();
+      const tokenContract = String(authorization.tokenContract || '').trim();
+      const amountUsdc = Number(authorization.amountUsdc);
+      const decimals = Number(authorization.decimals ?? 6);
+
+      if (!validEvmAddress(destination) || !validEvmAddress(tokenContract)) {
+        throw new Error('A rota USDC da Foxbit não está válida.');
+      }
+      if (!Number.isFinite(amountUsdc) || amountUsdc <= 0) {
+        throw new Error('Valor USDC inválido para autorização.');
+      }
+      if (Number(authorization.chainId || 137) !== 137) {
+        throw new Error('A rota de pagamento não está na Polygon.');
+      }
+
+      const provider = await providerFor(wallet);
+      if (!provider || typeof provider.request !== 'function') {
+        throw new Error('A wallet Privy não está pronta para transacionar.');
+      }
+
+      const accounts = await provider
+        .request({ method: 'eth_accounts' })
+        .catch(() => []);
+      if (
+        Array.isArray(accounts) &&
+        accounts.length > 0 &&
+        !accounts.some(
+          (account: unknown) =>
+            normalizeAddress(account) === normalizeAddress(wallet.address),
+        )
+      ) {
+        throw new Error('A wallet ativa não corresponde à wallet vinculada à Nexa.');
+      }
+
+      const currentChain = String(
+        (await provider.request({ method: 'eth_chainId' }).catch(() => '')) || '',
+      ).toLowerCase();
+      if (currentChain && currentChain !== '0x89') {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x89' }],
+        });
+      }
+
+      const data = encodeFunctionData({
+        abi: ERC20_TRANSFER_ABI,
+        functionName: 'transfer',
+        args: [
+          destination as `0x${string}`,
+          parseUnits(String(amountUsdc), decimals),
+        ],
+      });
+
+      const txHash = String(
+        (await provider.request({
+          method: 'eth_sendTransaction',
+          params: [
+            {
+              from: wallet.address,
+              to: tokenContract,
+              data,
+              value: '0x0',
+            },
+          ],
+        })) || '',
+      ).trim();
+
+      if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+        throw new Error('A Privy não retornou uma transação válida.');
+      }
+
+      setMessage('USDC enviado. Confirmando a transação na Polygon…');
+      const confirmation = await confirmTransferWithRetry(
+        token,
+        paymentId,
+        txHash,
+      );
+
+      if (confirmation?.verified === true) {
+        setScheduled((current: any) => ({
+          ...current,
+          payment: confirmation.payment,
+          walletTransfer: {
+            txHash,
+            verified: true,
+          },
+        }));
+        const rows = await nexaApi.nexaPayPremiumMine(token).catch(() => []);
+        setMine(Array.isArray(rows) ? rows : []);
+        setMessage(
+          'USDC confirmado. A Nexa agora acompanha o crédito na Foxbit e prepara o BRL para o pagamento.',
+        );
+        return;
+      }
+
+      if (confirmation?.pending === true) {
+        setScheduled((current: any) => ({
+          ...current,
+          walletTransfer: { txHash, verified: false, pending: true },
+        }));
+        setMessage(
+          'USDC enviado. A confirmação on-chain ainda está em andamento; a Nexa não fará o pagamento antes de validar a transação.',
+        );
+        return;
+      }
+
+      throw new Error(
+        'A transação foi enviada, mas ainda não pôde ser validada pela Nexa.',
+      );
+    } catch (error: any) {
+      setMessage(
+        error?.message ||
+          'Não foi possível autorizar o USDC na wallet Privy.',
+      );
     } finally {
       setLoading(false);
     }
@@ -257,10 +452,39 @@ export default function NexaPayPreparedScreen() {
             {scheduled.walletAuthorization.toAddress}
           </Text>
           <Text style={styles.safety}>
-            A autorização Privy será conectada a esta etapa somente após o
-            endereço de settlement Foxbit estar homologado. Não há débito
-            automático posterior da wallet.
+            O destino é consultado diretamente na rota de depósito
+            USDC/Polygon da Foxbit. Você autoriza esta transferência na própria
+            Privy; a Nexa não recebe permissão permanente sobre sua wallet.
           </Text>
+
+          {scheduled?.walletTransfer?.verified ? (
+            <View style={styles.verifiedBox}>
+              <Text style={styles.verifiedTitle}>USDC confirmado na Polygon ✓</Text>
+              <Text selectable style={styles.txHash}>
+                {scheduled.walletTransfer.txHash}
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              disabled={loading || !wallet}
+              onPress={() => void authorizeUsdc()}
+              style={[
+                styles.primaryButton,
+                (loading || !wallet) && styles.disabled,
+              ]}
+            >
+              <Text style={styles.primaryText}>
+                Autorizar USDC na Privy
+              </Text>
+            </Pressable>
+          )}
+
+          {!wallet ? (
+            <Text style={styles.warningText}>
+              Abra a sessão Privy da sua wallet para autorizar.
+            </Text>
+          ) : null}
+
           <Pressable onPress={reset} style={styles.secondaryButton}>
             <Text style={styles.secondaryText}>Novo pagamento</Text>
           </Pressable>
@@ -422,6 +646,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 17,
     marginTop: spacing.md,
+  },
+  verifiedBox: {
+    backgroundColor: colors.backgroundSecondary,
+    borderColor: colors.success,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  verifiedTitle: {
+    color: colors.success,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  txHash: {
+    color: colors.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: spacing.sm,
+  },
+  warningText: {
+    color: colors.warning,
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: spacing.sm,
   },
   item: {
     flexDirection: 'row',
