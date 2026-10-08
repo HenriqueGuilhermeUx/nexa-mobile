@@ -1979,7 +1979,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
 
     return (
       <>
-        <Text style={styles.pageKicker}>SOBERANIA DIGITAL</Text>
+        <Text style={styles.pageKicker}>ECOSSISTEMA NEXA</Text>
         <Text style={styles.pageTitle}>Um Nexa ID. Produtos independentes.</Text>
         <Text style={styles.pageSubtitle}>
           A Nexa conecta seu acesso sem misturar seu dinheiro, seus documentos e sua saúde.
