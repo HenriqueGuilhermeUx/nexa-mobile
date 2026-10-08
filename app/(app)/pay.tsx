@@ -6,6 +6,10 @@ import { colors, radius, spacing } from '@/theme';
 
 const METHODS = [
   {
+    title: 'Agendar pagamento',
+    subtitle: 'Premium: programe com pelo menos 1 dia útil de antecedência.',
+  },
+  {
     title: 'Escanear QR Pix',
     subtitle: 'Prioridade para contas e cobranças com QR Pix.',
   },
