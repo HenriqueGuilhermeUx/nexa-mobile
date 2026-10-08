@@ -1,0 +1,2 @@
+Build Nexa 2.0.42 ecosystem profile pilot APK.
+Includes one-time Profile intro and full-color adaptive icon validation.
