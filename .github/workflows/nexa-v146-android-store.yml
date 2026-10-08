@@ -1,0 +1,152 @@
+name: Nexa 2.0.42 v146 Android Store
+
+on:
+  push:
+    branches:
+      - release/nexa-2.0.42-v146
+    paths:
+      - '.github/build-triggers/v146-android-store.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v146-android-store
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  EXPO_NO_TELEMETRY: '1'
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+jobs:
+  build:
+    name: Android v146 signed AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 220
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.11.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies and ImageMagick
+        run: |
+          set -euo pipefail
+          npm install --include=dev --no-audit --no-fund
+          sudo apt-get update -y
+          sudo apt-get install -y imagemagick
+
+      - name: Render and validate full-color native brand
+        run: bash scripts/render-v144-native-brand.sh
+
+      - name: Validate v146 release boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const dynamic = require('./app.config.js')({ config: app });
+          const pkg = require('./package.json');
+          const eas = require('./eas.json');
+          if (app.version !== '2.0.42' || pkg.version !== '2.0.42') throw new Error('Unexpected app version');
+          if (Number(app.android?.versionCode) !== 146) throw new Error('Unexpected Android build');
+          if (String(app.ios?.buildNumber) !== '146') throw new Error('Unexpected iOS build');
+          if (dynamic.version !== '2.0.42' || Number(dynamic.android?.versionCode) !== 146 || String(dynamic.ios?.buildNumber) !== '146') throw new Error('Dynamic config identity mismatch');
+          if (app.android?.package !== 'br.com.trynexa.app') throw new Error('Package changed');
+          if (app.ios?.bundleIdentifier !== 'br.com.trynexa.app') throw new Error('Bundle id changed');
+          const prod = eas?.build?.production?.env || {};
+          for (const key of [
+            'EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED',
+            'EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED',
+            'EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED',
+            'EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED'
+          ]) {
+            if (prod[key] !== 'true') throw new Error(`Missing production ecosystem flag: ${key}`);
+          }
+          console.log('PASS: Nexa 2.0.42 v146 release identity validated.');
+          NODE
+          node scripts/validate-sovereignty-v145-regression.js
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-quote.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-wallet-cross-device-recovery.js
+          node scripts/validate-biometric-app-lock.js
+          npm run typecheck
+          npx expo config --type public > v146-expo-public-config.json
+          npx expo export --platform android --output-dir dist-v146-smoke
+
+      - name: Preflight production dependencies
+        run: |
+          set -euo pipefail
+          API='https://nexa-backend-p2u0.onrender.com/api/v1'
+          for attempt in 1 2 3 4 5 6; do
+            if curl --fail --silent --show-error --max-time 20 "$API/health" -o nexa-health.json; then break; fi
+            sleep 10
+          done
+          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1)"
+          curl --fail --silent --show-error --location --retry 6 --retry-delay 10 --max-time 20 'https://trydocwallet.com' -o /tmp/docwallet.html
+          curl --fail --silent --show-error --location --retry 6 --retry-delay 10 --max-time 20 'https://mydatamed.com/healthwallet' -o /tmp/healthwallet.html
+
+          DOC_LINK_STATUS="$(curl --silent --output /tmp/doc-link.json --write-out '%{http_code}' -X POST -H 'content-type: application/json' -d '{}' 'https://docwallet-backend.onrender.com/api/auth/nexa/link')"
+          test "$DOC_LINK_STATUS" = '401' || test "$DOC_LINK_STATUS" = '400'
+
+          HEALTH_LINK_STATUS="$(curl --silent --output /tmp/health-link.json --write-out '%{http_code}' -X POST -H 'content-type: application/json' -d '{}' 'https://mydatamed.com/api/nexa/session')"
+          test "$HEALTH_LINK_STATUS" = '400' || test "$HEALTH_LINK_STATUS" = '503'
+
+      - name: Add build swap
+        run: |
+          set -euo pipefail
+          if ! swapon --show | grep -q .; then
+            sudo fallocate -l 4G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
+
+      - name: Build signed production AAB
+        env:
+          NODE_ENV: production
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+        run: |
+          set -euo pipefail
+          AAB='Nexa-2.0.42-v146-GooglePlay.aab'
+          eas build --platform android --profile production --local --non-interactive --output "$GITHUB_WORKSPACE/$AAB"
+          test -s "$AAB"
+          echo "AAB_FILE=$AAB" >> "$GITHUB_ENV"
+
+      - name: Verify AAB
+        run: |
+          set -euo pipefail
+          jarsigner -verify -verbose -certs "$AAB_FILE" > aab-signature.txt 2>&1
+          grep -q 'jar verified' aab-signature.txt
+          sha256sum "$AAB_FILE" > SHA256SUMS-ANDROID.txt
+
+      - name: Upload Google Play AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.42-v146-GooglePlay
+          path: |
+            ${{ env.AAB_FILE }}
+            SHA256SUMS-ANDROID.txt
+            aab-signature.txt
+            v146-expo-public-config.json
+          if-no-files-found: error
+          retention-days: 30
