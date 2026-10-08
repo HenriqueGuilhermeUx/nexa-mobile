@@ -76,7 +76,7 @@ const iosBuild = String(appJson.expo.ios?.buildNumber || '');
 const releaseBuild = String(appJson.expo.extra?.releaseBuild || '');
 assert.match(appVersion, /^\d+\.\d+\.\d+$/);
 assert.ok(Number.isInteger(androidBuild) && androidBuild > 0, 'Android versionCode must be a positive integer');
-assert.match(iosBuild, /^\\d+$/, 'iOS build number must remain numeric');
+assert.match(iosBuild, /^\d+$/, 'iOS build number must remain numeric');
 assert.ok(Number(iosBuild) > 0, 'iOS build number must remain positive');
 // Android-only launcher hotfix may advance independently of iOS.
 assert.equal(dynamicConfig.version, appVersion);
