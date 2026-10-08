@@ -25,7 +25,7 @@
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 146,
+      "versionCode": 147,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
@@ -94,7 +94,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.42-v146-ecosystem",
+      "releaseBuild": "android16-api36-2.0.42-v147-icon-hotfix",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       },
