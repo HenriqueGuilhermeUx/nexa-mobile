@@ -1,2 +1,2 @@
-Build and upload Nexa Wallet 2.0.42 build 146 directly to App Store Connect.
-Retry after correcting the Fastlane upload invocation; keep the new signing certificate active through upload.
+Build and upload Nexa Wallet 2.0.42 iOS build 147 app-icon hotfix to App Store Connect.
+The production EAS build advances to 147 while historical repository guards stay at 146. Render the Nexa icon with librsvg and keep the new signing certificate active through upload.
