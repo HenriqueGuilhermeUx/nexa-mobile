@@ -1,4 +1,4 @@
-name: Nexa iOS v146 — App Store Connect
+name: Nexa iOS v147 — App Icon Hotfix
 
 on:
   push:
@@ -26,7 +26,7 @@ env:
 
 jobs:
   build_submit:
-    name: Build v146 IPA and upload directly to App Store Connect
+    name: Build v147 IPA and upload directly to App Store Connect
     runs-on: macos-26
     timeout-minutes: 180
 
@@ -74,7 +74,7 @@ jobs:
       - name: Revoke failed-run ephemeral certificate
         run: |
           set -euo pipefail
-          FAILED_CERT_ID='VSXF79VZFR'
+          FAILED_CERT_ID='HMSNJ25PYU'
           export FAILED_CERT_ID
           ruby <<'RUBY'
           require 'spaceship'
@@ -185,7 +185,7 @@ jobs:
           }, null, 2));
           NODE
 
-      - name: Validate v146 App Store identity
+      - name: Validate v147 App Store identity
         run: |
           set -euo pipefail
           bash scripts/render-v144-native-brand.sh
@@ -224,6 +224,82 @@ jobs:
           eas build --platform ios --profile ios-api-ci --local --non-interactive --output "$IPA"
           test -s "$IPA"
           shasum -a 256 "$IPA" > "$GITHUB_WORKSPACE/SHA256SUMS-IOS.txt"
+
+      - name: Verify embedded app icon before upload
+        env:
+          IPA_PATH: ${{ github.workspace }}/Nexa-2.0.42-v146-AppStore.ipa
+        run: |
+          set -euo pipefail
+          mkdir -p compiled-icon
+          ICON_ENTRY="$(unzip -Z1 "$IPA_PATH" | grep -E '^Payload/[^/]+\\.app/AppIcon.*\\.png        run: |
+          set -euo pipefail
+          GENERATED_CERT_ID="$(cat "$GITHUB_WORKSPACE/generated-cert-id.txt")"
+          export GENERATED_CERT_ID
+          ruby <<'RUBY'
+          require 'spaceship'
+          token = Spaceship::ConnectAPI::Token.create(
+            key_id: ENV.fetch('ASC_KEY_ID'),
+            issuer_id: ENV.fetch('ASC_ISSUER_ID'),
+            filepath: ENV.fetch('ASC_KEY_PATH'),
+            duration: 1200,
+            in_house: false
+          )
+          Spaceship::ConnectAPI.token = token
+          cert = Spaceship::ConnectAPI::Certificate.all.find { |item| item.id == ENV.fetch('GENERATED_CERT_ID') }
+          raise 'Generated signing certificate is no longer active before upload' unless cert
+          puts "ACTIVE_CERT_ID=#{cert.id}"
+          puts "ACTIVE_CERT_SERIAL=#{cert.serial_number}" if cert.respond_to?(:serial_number)
+          RUBY
+
+      - name: Upload build 147 directly to App Store Connect
+        env:
+          IPA_PATH: ${{ github.workspace }}/Nexa-2.0.42-v146-AppStore.ipa
+        run: |
+          set -euo pipefail
+          cat > fastlane/Fastfile <<'RUBY'
+          default_platform(:ios)
+          platform :ios do
+            lane :upload_local do
+              api_key = app_store_connect_api_key(
+                key_id: ENV.fetch("ASC_KEY_ID"),
+                issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+                key_filepath: ENV.fetch("ASC_KEY_PATH"),
+                duration: 1200,
+                in_house: false
+              )
+              pilot(
+                api_key: api_key,
+                ipa: ENV.fetch("IPA_PATH"),
+                skip_waiting_for_build_processing: true,
+                distribute_external: false
+              )
+            end
+          end
+          RUBY
+          fastlane ios upload_local
+
+      - name: Upload signed IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.42-v146-IOS
+          path: |
+            Nexa-2.0.42-v146-AppStore.ipa
+            SHA256SUMS-IOS.txt
+            generated-cert-id.txt
+            generated-cert-identity.txt
+          if-no-files-found: error
+          retention-days: 30
+ | sort -V | tail -n1)"
+          test -n "$ICON_ENTRY"
+          unzip -p "$IPA_PATH" "$ICON_ENTRY" > compiled-icon/AppIcon.png
+          test -s compiled-icon/AppIcon.png
+          identify compiled-icon/AppIcon.png
+          MEAN="$(magick compiled-icon/AppIcon.png -alpha off -colorspace sRGB -format '%[fx:mean]' info:)"
+          PEAK="$(magick compiled-icon/AppIcon.png -alpha off -colorspace sRGB -format '%[fx:maxima]' info:)"
+          echo "Embedded iOS icon mean=$MEAN peak=$PEAK"
+          awk -v v="$MEAN" 'BEGIN { if (!(v > 0.07)) exit 1 }'
+          awk -v v="$PEAK" 'BEGIN { if (!(v > 0.55)) exit 1 }'
+          echo "PASS: embedded iOS app icon is visibly colored."
 
       - name: Confirm signing certificate is active before upload
         run: |
