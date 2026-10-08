@@ -71,6 +71,30 @@ jobs:
           echo "EXPO_APPLE_TEAM_ID=$APPLE_TEAM_ID" >> "$GITHUB_ENV"
           echo "EXPO_APPLE_TEAM_TYPE=INDIVIDUAL" >> "$GITHUB_ENV"
 
+      - name: Revoke failed-run ephemeral certificate
+        run: |
+          set -euo pipefail
+          FAILED_CERT_ID='VSXF79VZFR'
+          export FAILED_CERT_ID
+          ruby <<'RUBY'
+          require 'spaceship'
+          token = Spaceship::ConnectAPI::Token.create(
+            key_id: ENV.fetch('ASC_KEY_ID'),
+            issuer_id: ENV.fetch('ASC_ISSUER_ID'),
+            filepath: ENV.fetch('ASC_KEY_PATH'),
+            duration: 1200,
+            in_house: false
+          )
+          Spaceship::ConnectAPI.token = token
+          cert = Spaceship::ConnectAPI::Certificate.all.find { |item| item.id == ENV.fetch('FAILED_CERT_ID') }
+          if cert
+            cert.delete!
+            puts "Revoked failed-run certificate #{cert.id}."
+          else
+            puts "Failed-run certificate already absent."
+          end
+          RUBY
+
       - name: Prepare isolated signing keychain
         run: |
           set -euo pipefail
@@ -227,7 +251,7 @@ jobs:
           IPA_PATH: ${{ github.workspace }}/Nexa-2.0.42-v146-AppStore.ipa
         run: |
           set -euo pipefail
-          cat > fastlane/SubmitFastfile <<'RUBY'
+          cat > fastlane/Fastfile <<'RUBY'
           default_platform(:ios)
           platform :ios do
             lane :upload_local do
@@ -247,7 +271,7 @@ jobs:
             end
           end
           RUBY
-          fastlane --fastfile fastlane/SubmitFastfile ios upload_local
+          fastlane ios upload_local
 
       - name: Upload signed IPA artifact
         uses: actions/upload-artifact@v4
