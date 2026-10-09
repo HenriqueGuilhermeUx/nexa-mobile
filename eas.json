@@ -195,7 +195,8 @@
         "EXPO_PUBLIC_NEXA_PAY_ENABLED": "true",
         "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
         "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
-        "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "nexa-pay-pilot"
+        "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "nexa-pay-pilot",
+        "EXPO_PUBLIC_NEXA_PAY_QR_ENABLED": "false"
       },
       "android": {
         "buildType": "apk"
