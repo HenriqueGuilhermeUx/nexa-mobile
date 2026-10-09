@@ -19,7 +19,7 @@ module.exports = ({ config }) => {
       versionCode: 1,
       adaptiveIcon: {
         ...((config.android && config.android.adaptiveIcon) || {}),
-        backgroundColor: '#218BFF',
+        backgroundColor: '#06111F',
       },
     },
   };
