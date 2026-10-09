@@ -68,11 +68,24 @@ jobs:
       - name: Prebuild Android
         run: npx expo prebuild --platform android --clean
 
+      - name: Tune Gradle memory for CI
+        shell: bash
+        run: |
+          {
+            echo ''
+            echo 'org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m -Dfile.encoding=UTF-8'
+            echo 'org.gradle.workers.max=2'
+            echo 'kotlin.daemon.jvmargs=-Xmx2048m'
+            echo 'reactNativeArchitectures=arm64-v8a'
+          } >> android/gradle.properties
+
       - name: Build standalone release APK
         working-directory: android
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m -Dfile.encoding=UTF-8"
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --max-workers=2 --stacktrace
 
       - name: Prepare artifact
         shell: bash
