@@ -17,6 +17,7 @@ import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
+// NEXA_PAY_PILOT_APK_BUILD_MARKER: dry-run pilot build.
 type Instrument = 'BARCODE' | 'PIX_COPY_PASTE';
 
 const ERC20_TRANSFER_ABI = [
