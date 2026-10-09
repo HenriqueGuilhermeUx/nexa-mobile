@@ -5,6 +5,9 @@ function envFlag(name: string): boolean {
 export const futureFinancialFeatures = {
   nexaPayEnabled: envFlag('EXPO_PUBLIC_NEXA_PAY_ENABLED'),
   nexaPayQrEnabled: envFlag('EXPO_PUBLIC_NEXA_PAY_QR_ENABLED'),
+  nexaPayWalletExecutionEnabled: envFlag(
+    'EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED',
+  ),
   usReceivingEnabled: envFlag('EXPO_PUBLIC_NEXA_US_RECEIVING_ENABLED'),
 };
 
