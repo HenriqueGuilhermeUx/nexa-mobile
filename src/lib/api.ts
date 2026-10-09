@@ -34,7 +34,11 @@ function messageFromPayload(payload: any, status: number) {
   return String(raw || `Falha na API (${status}).`);
 }
 
-async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: ApiOptions = {},
+  baseUrl = config.apiUrl,
+): Promise<T> {
   const headers = new Headers(options.headers || {});
   if (options.body !== undefined && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
@@ -51,7 +55,7 @@ async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
     headers.set('x-privy-access-token', `Bearer ${options.privyAccessToken}`);
   }
 
-  const response = await fetch(`${config.apiUrl}${path}`, {
+  const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers,
   });
@@ -515,6 +519,92 @@ export const nexaApi = {
       accessToken,
       body: JSON.stringify(data),
     });
+  },
+
+  nexaPayPilotSelfReadiness(accessToken: string) {
+    return request<any>(
+      '/nexa-pay/v1/premium/pilot-self-readiness',
+      { accessToken },
+      config.nexaPayApiUrl,
+    );
+  },
+
+  nexaPayPremiumPreview(
+    accessToken: string,
+    data: {
+      instrument: 'BARCODE' | 'PIX_QR' | 'PIX_COPY_PASTE';
+      payload: string;
+      amountBrl?: number;
+      scheduledFor: string;
+    },
+  ) {
+    return request<any>(
+      '/nexa-pay/v1/premium/preview',
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify(data),
+      },
+      config.nexaPayApiUrl,
+    );
+  },
+
+  nexaPayPremiumSchedule(
+    accessToken: string,
+    data: {
+      instrument: 'BARCODE' | 'PIX_QR' | 'PIX_COPY_PASTE';
+      payload: string;
+      amountBrl?: number;
+      scheduledFor: string;
+      maximumUsdcApproved: number;
+      clientRequestId: string;
+    },
+  ) {
+    return request<any>(
+      '/nexa-pay/v1/premium/schedule',
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify(data),
+      },
+      config.nexaPayApiUrl,
+    );
+  },
+
+  nexaPayPremiumMine(accessToken: string) {
+    return request<any[]>(
+      '/nexa-pay/v1/premium/mine',
+      { accessToken },
+      config.nexaPayApiUrl,
+    );
+  },
+
+  nexaPayPremiumConfirmWalletTransfer(
+    accessToken: string,
+    paymentId: string,
+    txHash: string,
+  ) {
+    return request<any>(
+      `/nexa-pay/v1/premium/${encodeURIComponent(paymentId)}/wallet-transfer`,
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify({ txHash }),
+      },
+      config.nexaPayApiUrl,
+    );
+  },
+
+  nexaPayPremiumCancel(accessToken: string, paymentId: string) {
+    return request<any>(
+      `/nexa-pay/v1/premium/${encodeURIComponent(paymentId)}/cancel`,
+      {
+        method: 'POST',
+        accessToken,
+        body: JSON.stringify({}),
+      },
+      config.nexaPayApiUrl,
+    );
   },
 
   requestPixRedemption(
