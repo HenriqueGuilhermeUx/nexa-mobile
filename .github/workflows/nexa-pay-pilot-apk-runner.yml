@@ -88,13 +88,13 @@ jobs:
           fs.writeFileSync('app.json', JSON.stringify(data, null, 2) + '\n');
           NODE
 
-      - name: Render current Nexa blue/cyan brand assets
+      - name: Render approved Nexa pilot icon
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p assets/generated-nexa-pay-pilot
-          rsvg-convert -w 1024 -h 1024 assets/brand/nexa-mark-v144.svg > assets/generated-nexa-pay-pilot/icon.png
-          rsvg-convert -w 1024 -h 1024 assets/brand/nexa-adaptive-v144.svg > assets/generated-nexa-pay-pilot/adaptive-icon.png
+          rsvg-convert -w 1024 -h 1024 assets/brand/nexa-pilot-icon.svg > assets/generated-nexa-pay-pilot/icon.png
+          rsvg-convert -w 1024 -h 1024 assets/brand/nexa-pilot-foreground.svg > assets/generated-nexa-pay-pilot/adaptive-icon.png
           file assets/generated-nexa-pay-pilot/icon.png
           file assets/generated-nexa-pay-pilot/adaptive-icon.png
 
