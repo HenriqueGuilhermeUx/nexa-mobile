@@ -3,7 +3,7 @@ name: Nexa Pay Pilot APK Runner
 on:
   pull_request:
     branches:
-      - ci/nexa-pay-pilot-apk-base
+      - 'ci/nexa-pay-pilot-apk-base-v*'
     types: [opened, synchronize, reopened]
 
 permissions:
