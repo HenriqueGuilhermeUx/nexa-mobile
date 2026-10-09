@@ -1,15 +1,31 @@
-function envFlag(name: string): boolean {
-  return String(process.env[name] || '').trim().toLowerCase() === 'true';
+function enabled(value: unknown): boolean {
+  return String(value || '').trim().toLowerCase() === 'true';
 }
 
+const releaseChannel = String(
+  process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL || '',
+).trim();
+
+const pilotBuild = releaseChannel === 'nexa-pay-pilot';
+
 export const futureFinancialFeatures = {
-  nexaPayEnabled: envFlag('EXPO_PUBLIC_NEXA_PAY_ENABLED'),
-  nexaPayQrEnabled: envFlag('EXPO_PUBLIC_NEXA_PAY_QR_ENABLED'),
-  nexaPayWalletExecutionEnabled: envFlag(
-    'EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED',
+  // Expo only inlines EXPO_PUBLIC_* variables when they are referenced
+  // statically. Keep Nexa Pay visible in the isolated pilot even if the
+  // environment optimization changes during release bundling.
+  nexaPayEnabled:
+    enabled(process.env.EXPO_PUBLIC_NEXA_PAY_ENABLED) || pilotBuild,
+  nexaPayQrEnabled:
+    enabled(process.env.EXPO_PUBLIC_NEXA_PAY_QR_ENABLED) && !pilotBuild,
+  nexaPayWalletExecutionEnabled:
+    enabled(process.env.EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED) &&
+    !pilotBuild,
+  usReceivingEnabled: enabled(
+    process.env.EXPO_PUBLIC_NEXA_US_RECEIVING_ENABLED,
   ),
-  usReceivingEnabled: envFlag('EXPO_PUBLIC_NEXA_US_RECEIVING_ENABLED'),
 };
 
-// All flags intentionally default to false. These surfaces must remain hidden
-// until backend/provider homologation is complete.
+// Pilot safety envelope:
+// - Nexa Pay boleto UI is visible.
+// - QR remains hidden.
+// - Wallet execution remains disabled.
+// - Financial execution remains backend-gated.
