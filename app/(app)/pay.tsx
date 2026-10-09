@@ -42,6 +42,12 @@ function normalizeAddress(value: unknown) {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function newClientRequestId() {
+  return `nexapay_${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 12)}`;
+}
+
 export default function NexaPayPreparedScreen() {
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
@@ -55,6 +61,7 @@ export default function NexaPayPreparedScreen() {
   const [payload, setPayload] = useState('');
   const [amount, setAmount] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
+  const [clientRequestId, setClientRequestId] = useState('');
   const [preview, setPreview] = useState<any>(null);
   const [scheduled, setScheduled] = useState<any>(null);
   const [mine, setMine] = useState<any[]>([]);
@@ -99,6 +106,7 @@ export default function NexaPayPreparedScreen() {
         scheduledFor,
       });
       setPreview(result);
+      setClientRequestId(newClientRequestId());
       setScheduled(null);
     } catch (error: any) {
       setMessage(error?.message || 'Não foi possível validar a conta.');
@@ -149,6 +157,20 @@ export default function NexaPayPreparedScreen() {
         throw new Error(
           'Sua wallet Privy vinculada não está disponível neste aparelho.',
         );
+      }
+
+      const expiresAtMs = new Date(
+        String(authorization.expiresAt || ''),
+      ).getTime();
+      if (
+        !Number.isFinite(expiresAtMs) ||
+        Date.now() >= expiresAtMs
+      ) {
+        const error = new Error(
+          'A cotação expirou antes da autorização. Cancele este agendamento e valide novamente para receber uma nova cotação.',
+        ) as Error & { code?: string };
+        error.code = 'NEXA_PAY_QUOTE_EXPIRED';
+        throw error;
       }
 
       const destination = String(authorization.toAddress || '').trim();
@@ -281,6 +303,7 @@ export default function NexaPayPreparedScreen() {
         amountBrl: instrument === 'BARCODE' ? undefined : amountBrl,
         scheduledFor,
         maximumUsdcApproved: Number(preview.quote.requiredUsdc),
+        clientRequestId: clientRequestId || newClientRequestId(),
       });
       setScheduled(result);
       const rows = await nexaApi.nexaPayPremiumMine(token).catch(() => []);
@@ -292,10 +315,34 @@ export default function NexaPayPreparedScreen() {
     }
   }
 
+  async function cancelScheduled() {
+    const paymentId = String(scheduled?.payment?.id || '').trim();
+    if (!token || !paymentId) return;
+
+    try {
+      setLoading(true);
+      setMessage('');
+      await nexaApi.nexaPayPremiumCancel(token, paymentId);
+      setScheduled(null);
+      setPreview(null);
+      setClientRequestId('');
+      const rows = await nexaApi.nexaPayPremiumMine(token).catch(() => []);
+      setMine(Array.isArray(rows) ? rows : []);
+      setMessage(
+        'Agendamento cancelado. Valide a cobrança novamente para gerar uma nova cotação.',
+      );
+    } catch (error: any) {
+      setMessage(error?.message || 'Não foi possível cancelar o agendamento.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function reset() {
     setPayload('');
     setAmount('');
     setScheduledFor('');
+    setClientRequestId('');
     setPreview(null);
     setScheduled(null);
     setMessage('');
@@ -419,6 +466,11 @@ export default function NexaPayPreparedScreen() {
             })}
           </Text>
           <Text style={styles.line}>Data: {preview.scheduledFor}</Text>
+          {preview.billDueDate ? (
+            <Text style={styles.line}>
+              Vencimento: {preview.billDueDate}
+            </Text>
+          ) : null}
           <Text style={styles.line}>
             USDC: {Number(preview.quote?.requiredUsdc || 0).toFixed(6)}
           </Text>
@@ -483,6 +535,16 @@ export default function NexaPayPreparedScreen() {
             <Text style={styles.warningText}>
               Abra a sessão Privy da sua wallet para autorizar.
             </Text>
+          ) : null}
+
+          {!scheduled?.walletTransfer?.verified ? (
+            <Pressable
+              disabled={loading}
+              onPress={() => void cancelScheduled()}
+              style={[styles.secondaryButton, loading && styles.disabled]}
+            >
+              <Text style={styles.secondaryText}>Cancelar e recalcular</Text>
+            </Pressable>
           ) : null}
 
           <Pressable onPress={reset} style={styles.secondaryButton}>
