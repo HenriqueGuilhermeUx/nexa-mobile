@@ -26,7 +26,7 @@ jobs:
       EXPO_PUBLIC_NEXA_PAY_API_URL: "https://nexa-open-finance-homolog.onrender.com/api/v1"
       EXPO_PUBLIC_NEXA_PAY_ENABLED: "true"
       EXPO_PUBLIC_NEXA_PAY_QR_ENABLED: "false"
-      EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED: "true"
+      EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED: "false"
       EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: "false"
       EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: "true"
       EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: "nexa-pay-pilot"
@@ -67,7 +67,7 @@ jobs:
       - name: Verify pilot safety envelope
         run: |
           test "$EXPO_PUBLIC_NEXA_PAY_ENABLED" = "true"
-          test "$EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED" = "true"
+          test "$EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED" = "false"
           test "$EXPO_PUBLIC_NEXA_PAY_QR_ENABLED" = "false"
           test "$EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED" = "false"
 
