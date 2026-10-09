@@ -25,6 +25,7 @@ jobs:
       EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: "false"
       EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: "true"
       EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: "nexa-pay-pilot"
+      NODE_OPTIONS: "--max-old-space-size=6144"
 
     steps:
       - name: Checkout pilot branch
@@ -101,11 +102,21 @@ jobs:
       - name: Prebuild Android
         run: npx expo prebuild --platform android --clean
 
+      - name: Tune Gradle memory for CI
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.gradle"
+          {
+            echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8"
+            echo "org.gradle.workers.max=2"
+            echo "org.gradle.parallel=false"
+          } >> "$HOME/.gradle/gradle.properties"
+
       - name: Build standalone release APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
 
       - name: Sign installable pilot APK
         shell: bash
