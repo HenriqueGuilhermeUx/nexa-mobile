@@ -381,15 +381,20 @@ export default function NexaPayPreparedScreen() {
           >
             <Text style={styles.choiceText}>Código de barras</Text>
           </Pressable>
-          <Pressable
-            style={[styles.choice, instrument === 'PIX_COPY_PASTE' && styles.choiceActive]}
-            onPress={() => {
-              setInstrument('PIX_COPY_PASTE');
-              setPreview(null);
-            }}
-          >
-            <Text style={styles.choiceText}>QR Pix / Copia e Cola</Text>
-          </Pressable>
+          {futureFinancialFeatures.nexaPayQrEnabled ? (
+            <Pressable
+              style={[
+                styles.choice,
+                instrument === 'PIX_COPY_PASTE' && styles.choiceActive,
+              ]}
+              onPress={() => {
+                setInstrument('PIX_COPY_PASTE');
+                setPreview(null);
+              }}
+            >
+              <Text style={styles.choiceText}>QR Pix / Copia e Cola</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <Text style={styles.label}>
