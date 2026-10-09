@@ -17,6 +17,10 @@ module.exports = ({ config }) => {
       ...(config.android || {}),
       package: 'br.com.trynexa.paypilot',
       versionCode: 1,
+      adaptiveIcon: {
+        ...((config.android && config.android.adaptiveIcon) || {}),
+        backgroundColor: '#218BFF',
+      },
     },
   };
 };
