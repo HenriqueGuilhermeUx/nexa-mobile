@@ -47,6 +47,9 @@ async function request<T>(
   headers.set('X-Nexa-App-Version', config.appVersion);
   headers.set('X-Nexa-App-Build', config.appBuild);
   headers.set('X-Nexa-Platform', Platform.OS);
+  if (config.pilotBuild) {
+    headers.set('X-Nexa-Release-Channel', 'nexa-pay-pilot');
+  }
 
   if (options.accessToken) {
     headers.set('Authorization', `Bearer ${options.accessToken}`);
@@ -69,6 +72,7 @@ async function request<T>(
 
   if (!response.ok) {
     if (
+      !config.pilotBuild &&
       response.status === 426 &&
       String(payload?.code || '') === 'APP_UPDATE_REQUIRED'
     ) {

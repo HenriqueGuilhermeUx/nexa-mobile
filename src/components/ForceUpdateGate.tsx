@@ -57,7 +57,8 @@ function requiresUpdate(policy: VersionPolicy) {
 }
 
 export function ForceUpdateGate({ children }: { children: React.ReactNode }) {
-  const bypassForceUpdate = config.releaseChannel === 'nexa-pay-pilot';
+  const bypassForceUpdate =
+    config.pilotBuild || config.releaseChannel === 'nexa-pay-pilot';
   const [checking, setChecking] = useState(!bypassForceUpdate);
   const [required, setRequired] = useState(false);
   const [policy, setPolicy] = useState<VersionPolicy | null>(null);
