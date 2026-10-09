@@ -549,6 +549,7 @@ export const nexaApi = {
       amountBrl?: number;
       scheduledFor: string;
       maximumUsdcApproved: number;
+      clientRequestId: string;
     },
   ) {
     return request<any>(
