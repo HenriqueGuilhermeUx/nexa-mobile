@@ -521,6 +521,14 @@ export const nexaApi = {
     });
   },
 
+  nexaPayPilotSelfReadiness(accessToken: string) {
+    return request<any>(
+      '/nexa-pay/v1/premium/pilot-self-readiness',
+      { accessToken },
+      config.nexaPayApiUrl,
+    );
+  },
+
   nexaPayPremiumPreview(
     accessToken: string,
     data: {
