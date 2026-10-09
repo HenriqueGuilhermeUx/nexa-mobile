@@ -1,1 +1,1 @@
-pilot-apk-build-trigger-v2
+pilot-apk-build-trigger-v3
