@@ -1,1 +1,1 @@
-approved-icon-signed-pilot 2026-10-09T21:36:59.805Z
+approved-icon-final-arm64 2026-10-09T21:46:44.154Z
