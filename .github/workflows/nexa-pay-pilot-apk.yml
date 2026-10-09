@@ -61,6 +61,11 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Install SVG renderer
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y librsvg2-bin
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -71,6 +76,38 @@ jobs:
           test "$EXPO_PUBLIC_NEXA_PAY_QR_ENABLED" = "false"
           test "$EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED" = "false"
 
+      - name: Prepare current Nexa blue/cyan branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/generated-nexa-pay-pilot
+          rsvg-convert -w 1024 -h 1024 assets/brand/nexa-mark-v144.svg > assets/generated-nexa-pay-pilot/icon.png
+          rsvg-convert -w 1024 -h 1024 assets/brand/nexa-adaptive-v144.svg > assets/generated-nexa-pay-pilot/adaptive-icon.png
+
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'app.json';
+          const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+          data.expo.name = 'Nexa Pay Pilot';
+          data.expo.icon = './assets/generated-nexa-pay-pilot/icon.png';
+          data.expo.android = data.expo.android || {};
+          data.expo.android.adaptiveIcon = {
+            foregroundImage: './assets/generated-nexa-pay-pilot/adaptive-icon.png',
+            backgroundColor: '#06111F'
+          };
+          data.expo.plugins = (data.expo.plugins || []).map((plugin) => {
+            if (Array.isArray(plugin) && plugin[0] === 'expo-splash-screen') {
+              return ['expo-splash-screen', {
+                ...(plugin[1] || {}),
+                image: './assets/generated-nexa-pay-pilot/icon.png',
+                backgroundColor: '#06111F'
+              }];
+            }
+            return plugin;
+          });
+          fs.writeFileSync(p, JSON.stringify(data, null, 2) + '\n');
+          NODE
+
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean --no-install
 
@@ -78,22 +115,39 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
 
-      - name: Collect APK
+      - name: Sign installable APK
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist-apk
-          APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
-          test -n "$APK"
-          cp "$APK" dist-apk/Nexa-Pay-Pilot-Blue.apk
-          sha256sum dist-apk/Nexa-Pay-Pilot-Blue.apk > dist-apk/Nexa-Pay-Pilot-Blue.sha256.txt
+
+          UNSIGNED="$(find android/app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$UNSIGNED"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          test -x "$ZIPALIGN"
+
+          openssl req -x509 -newkey rsa:2048             -keyout "$RUNNER_TEMP/nexa-pay-pilot-key.pem"             -out "$RUNNER_TEMP/nexa-pay-pilot-cert.pem"             -days 3650 -nodes             -subj "/CN=Nexa Pay Pilot/O=Nexa/C=BR"
+
+          openssl pkcs8 -topk8 -inform PEM -outform DER             -in "$RUNNER_TEMP/nexa-pay-pilot-key.pem"             -out "$RUNNER_TEMP/nexa-pay-pilot-key.pk8"             -nocrypt
+
+          "$ZIPALIGN" -p -f 4 "$UNSIGNED" "$RUNNER_TEMP/Nexa-Pay-Pilot-aligned.apk"
+
+          "$APKSIGNER" sign             --key "$RUNNER_TEMP/nexa-pay-pilot-key.pk8"             --cert "$RUNNER_TEMP/nexa-pay-pilot-cert.pem"             --out dist-apk/Nexa-Pay-Pilot-Signed-Blue.apk             "$RUNNER_TEMP/Nexa-Pay-Pilot-aligned.apk"
+
+          "$APKSIGNER" verify --verbose --print-certs dist-apk/Nexa-Pay-Pilot-Signed-Blue.apk
+          sha256sum dist-apk/Nexa-Pay-Pilot-Signed-Blue.apk > dist-apk/Nexa-Pay-Pilot-Signed-Blue.sha256.txt
+          ls -lh dist-apk/Nexa-Pay-Pilot-Signed-Blue.apk
+          cat dist-apk/Nexa-Pay-Pilot-Signed-Blue.sha256.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: nexa-pay-pilot-blue-apk
+          name: nexa-pay-pilot-signed-blue-apk
           path: |
-            dist-apk/Nexa-Pay-Pilot-Blue.apk
-            dist-apk/Nexa-Pay-Pilot-Blue.sha256.txt
+            dist-apk/Nexa-Pay-Pilot-Signed-Blue.apk
+            dist-apk/Nexa-Pay-Pilot-Signed-Blue.sha256.txt
           if-no-files-found: error
           retention-days: 14
