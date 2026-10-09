@@ -475,7 +475,9 @@ export default function NexaPayPreparedScreen() {
             USDC: {Number(preview.quote?.requiredUsdc || 0).toFixed(6)}
           </Text>
           <Text style={styles.line}>
-            Taxa/conversão Premium: {Number(preview.quote?.feePercent || 0).toFixed(2)}%
+            Conversão: R$ {Number(
+              preview.quote?.effectiveRateBrlPerUsdc || 0,
+            ).toFixed(4)} por USDC
           </Text>
           <Text style={styles.expiry}>
             Cotação curta. O valor é recalculado no momento do agendamento.
