@@ -45,6 +45,11 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Install SVG renderer
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y librsvg2-bin
+
       - name: Validate TypeScript
         run: npm run typecheck
 
@@ -56,14 +61,42 @@ jobs:
           const data = JSON.parse(fs.readFileSync('app.json', 'utf8'));
           data.expo.name = 'Nexa Pay Pilot';
           data.expo.scheme = 'nexa-pay-pilot';
+          data.expo.icon = './assets/generated-nexa-pay-pilot/icon.png';
           data.expo.android = data.expo.android || {};
           data.expo.android.package = 'br.com.trynexa.pilot';
           data.expo.android.versionCode = 146;
+          data.expo.android.adaptiveIcon = {
+            foregroundImage: './assets/generated-nexa-pay-pilot/adaptive-icon.png',
+            backgroundColor: '#06111F'
+          };
+          data.expo.plugins = (data.expo.plugins || []).map((plugin) => {
+            if (Array.isArray(plugin) && plugin[0] === 'expo-splash-screen') {
+              return [
+                'expo-splash-screen',
+                {
+                  ...(plugin[1] || {}),
+                  image: './assets/generated-nexa-pay-pilot/icon.png',
+                  backgroundColor: '#06111F'
+                }
+              ];
+            }
+            return plugin;
+          });
           data.expo.extra = data.expo.extra || {};
           data.expo.extra.releaseChannel = 'nexa-pay-pilot';
           data.expo.extra.financialExecutionEnabled = false;
           fs.writeFileSync('app.json', JSON.stringify(data, null, 2) + '\n');
           NODE
+
+      - name: Render current Nexa blue/cyan brand assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/generated-nexa-pay-pilot
+          rsvg-convert -w 1024 -h 1024 assets/brand/nexa-mark-v144.svg > assets/generated-nexa-pay-pilot/icon.png
+          rsvg-convert -w 1024 -h 1024 assets/brand/nexa-adaptive-v144.svg > assets/generated-nexa-pay-pilot/adaptive-icon.png
+          file assets/generated-nexa-pay-pilot/icon.png
+          file assets/generated-nexa-pay-pilot/adaptive-icon.png
 
       - name: Prebuild Android
         run: npx expo prebuild --platform android --clean
@@ -74,18 +107,41 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Prepare artifact
+      - name: Sign installable pilot APK
         shell: bash
         run: |
-          APK="$(find android/app/build/outputs/apk/release -name '*.apk' -type f | head -n 1)"
-          test -n "$APK"
-          cp "$APK" Nexa-Pay-Pilot.apk
+          set -euo pipefail
+          UNSIGNED="$(find android/app/build/outputs/apk/release -name '*.apk' -type f | head -n 1)"
+          test -n "$UNSIGNED"
+
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          test -x "$ZIPALIGN"
+
+          KEYSTORE="$RUNNER_TEMP/nexa-pay-pilot.jks"
+          keytool -genkeypair             -keystore "$KEYSTORE"             -storepass nexapaypilot             -keypass nexapaypilot             -alias nexapaypilot             -keyalg RSA             -keysize 2048             -validity 3650             -dname "CN=Nexa Pay Pilot, OU=Pilot, O=Nexa, L=Santos, ST=SP, C=BR"             -noprompt
+
+          ALIGNED="$RUNNER_TEMP/Nexa-Pay-Pilot-aligned.apk"
+          "$ZIPALIGN" -p -f 4 "$UNSIGNED" "$ALIGNED"
+
+          "$APKSIGNER" sign             --ks "$KEYSTORE"             --ks-key-alias nexapaypilot             --ks-pass pass:nexapaypilot             --key-pass pass:nexapaypilot             --out Nexa-Pay-Pilot.apk             "$ALIGNED"
+
+          "$APKSIGNER" verify --verbose --print-certs Nexa-Pay-Pilot.apk
           ls -lh Nexa-Pay-Pilot.apk
+
+      - name: Prepare checksum
+        shell: bash
+        run: |
+          sha256sum Nexa-Pay-Pilot.apk > Nexa-Pay-Pilot.sha256.txt
+          cat Nexa-Pay-Pilot.sha256.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nexa-pay-pilot-apk
-          path: Nexa-Pay-Pilot.apk
+          path: |
+            Nexa-Pay-Pilot.apk
+            Nexa-Pay-Pilot.sha256.txt
           if-no-files-found: error
           retention-days: 7
