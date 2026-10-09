@@ -15,17 +15,13 @@ export const futureFinancialFeatures = {
   nexaPayEnabled:
     enabled(process.env.EXPO_PUBLIC_NEXA_PAY_ENABLED) || pilotBuild,
   nexaPayQrEnabled:
-    enabled(process.env.EXPO_PUBLIC_NEXA_PAY_QR_ENABLED) && !pilotBuild,
+    enabled(process.env.EXPO_PUBLIC_NEXA_PAY_QR_ENABLED),
   nexaPayWalletExecutionEnabled:
-    enabled(process.env.EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED) &&
-    !pilotBuild,
+    enabled(process.env.EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED),
   usReceivingEnabled: enabled(
     process.env.EXPO_PUBLIC_NEXA_US_RECEIVING_ENABLED,
   ),
 };
 
-// Pilot safety envelope:
-// - Nexa Pay boleto UI is visible.
-// - QR remains hidden.
-// - Wallet execution remains disabled.
-// - Financial execution remains backend-gated.
+// Pilot execution flags are explicit in the APK build workflow.
+// Backend controls still enforce allowlist, KYC/Premium and the R$ 5 pilot cap.
