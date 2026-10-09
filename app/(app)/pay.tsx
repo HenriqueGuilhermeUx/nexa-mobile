@@ -65,6 +65,7 @@ export default function NexaPayPreparedScreen() {
   const [preview, setPreview] = useState<any>(null);
   const [scheduled, setScheduled] = useState<any>(null);
   const [mine, setMine] = useState<any[]>([]);
+  const [pilotReadiness, setPilotReadiness] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -73,6 +74,19 @@ export default function NexaPayPreparedScreen() {
     void loadNexaSession().then(async (session) => {
       if (!session?.accessToken) return;
       setToken(session.accessToken);
+      try {
+        const readiness = await nexaApi.nexaPayPilotSelfReadiness(
+          session.accessToken,
+        );
+        setPilotReadiness(readiness);
+      } catch (error: any) {
+        setPilotReadiness({
+          authenticated: false,
+          readyForPreview: false,
+          error: error?.message || 'Piloto indisponível para esta sessão.',
+        });
+      }
+
       try {
         const rows = await nexaApi.nexaPayPremiumMine(session.accessToken);
         setMine(Array.isArray(rows) ? rows : []);
@@ -94,6 +108,13 @@ export default function NexaPayPreparedScreen() {
   async function prepare() {
     if (!token) {
       setMessage('Sessão Nexa indisponível.');
+      return;
+    }
+    if (pilotReadiness?.readyForPreview !== true) {
+      setMessage(
+        pilotReadiness?.error ||
+          'Este usuário ainda não está liberado para o piloto Nexa Pay.',
+      );
       return;
     }
     try {
@@ -145,6 +166,13 @@ export default function NexaPayPreparedScreen() {
   }
 
   async function authorizeUsdc() {
+    if (!futureFinancialFeatures.nexaPayWalletExecutionEnabled) {
+      setMessage(
+        'Execução da wallet está desligada neste APK de validação. Nenhum USDC será enviado.',
+      );
+      return;
+    }
+
     const authorization = scheduled?.walletAuthorization;
     const paymentId = String(scheduled?.payment?.id || '').trim();
     if (!token || !paymentId || !authorization) return;
@@ -358,10 +386,27 @@ export default function NexaPayPreparedScreen() {
       <Text style={styles.kicker}>NEXA PAY · PREMIUM</Text>
       <Text style={styles.title}>Pague contas com USDC</Text>
       <Text style={styles.subtitle}>
-        Agende com pelo menos 1 dia útil de antecedência. O USDC é autorizado
-        na sua wallet no agendamento e o pagamento em reais é preparado antes
-        da data escolhida.
+        Agende com pelo menos 1 dia útil de antecedência.
+        {futureFinancialFeatures.nexaPayWalletExecutionEnabled
+          ? ' O USDC é autorizado na sua wallet no agendamento e o pagamento em reais é preparado antes da data escolhida.'
+          : ' Este APK é um piloto de validação: consulta, cotação e agendamento de teste funcionam, mas nenhum USDC é enviado.'}
       </Text>
+
+      {!futureFinancialFeatures.nexaPayWalletExecutionEnabled ? (
+        <View style={styles.notice}>
+          <Text style={styles.noticeText}>
+            PILOTO SEGURO · Nenhuma transferência USDC ou pagamento real será executado neste APK.
+          </Text>
+        </View>
+      ) : null}
+
+      {pilotReadiness && pilotReadiness.readyForPreview !== true ? (
+        <View style={styles.notice}>
+          <Text style={styles.noticeText}>
+            Piloto ainda não liberado para esta sessão. A tela permanece em modo seguro.
+          </Text>
+        </View>
+      ) : null}
 
       {message ? (
         <Pressable style={styles.notice} onPress={() => setMessage('')}>
@@ -489,16 +534,25 @@ export default function NexaPayPreparedScreen() {
           </Text>
 
           <Pressable
-            disabled={loading}
+            disabled={loading || pilotReadiness?.readyForPreview !== true}
             onPress={() => void schedule()}
-            style={[styles.primaryButton, loading && styles.disabled]}
+            style={[
+              styles.primaryButton,
+              (loading || pilotReadiness?.readyForPreview !== true) &&
+                styles.disabled,
+            ]}
           >
-            <Text style={styles.primaryText}>Agendar e reservar USDC</Text>
+            <Text style={styles.primaryText}>
+              {futureFinancialFeatures.nexaPayWalletExecutionEnabled
+                ? 'Agendar e reservar USDC'
+                : 'Criar agendamento de teste'}
+            </Text>
           </Pressable>
         </View>
       ) : null}
 
-      {scheduled?.walletAuthorization ? (
+      {scheduled?.walletAuthorization &&
+      futureFinancialFeatures.nexaPayWalletExecutionEnabled ? (
         <View style={styles.successCard}>
           <Text style={styles.successTitle}>Agendamento criado</Text>
           <Text style={styles.line}>
@@ -560,6 +614,29 @@ export default function NexaPayPreparedScreen() {
         </View>
       ) : null}
 
+      {scheduled?.payment &&
+      !scheduled?.walletAuthorization &&
+      !futureFinancialFeatures.nexaPayWalletExecutionEnabled ? (
+        <View style={styles.successCard}>
+          <Text style={styles.successTitle}>Agendamento de teste criado ✓</Text>
+          <Text style={styles.line}>
+            Valor: {Number(scheduled.payment.amountBrl || 0).toLocaleString('pt-BR', {
+              style: 'currency',
+              currency: 'BRL',
+            })}
+          </Text>
+          <Text style={styles.line}>
+            Data: {scheduled.payment.scheduledFor || scheduledFor}
+          </Text>
+          <Text style={styles.safety}>
+            Dry-run concluído. Nenhuma autorização Privy foi gerada e nenhum USDC será movimentado.
+          </Text>
+          <Pressable onPress={reset} style={styles.secondaryButton}>
+            <Text style={styles.secondaryText}>Novo pagamento</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {mine.length > 0 ? (
         <View style={styles.card}>
           <Text style={styles.kicker}>SEUS AGENDAMENTOS</Text>
@@ -587,8 +664,7 @@ export default function NexaPayPreparedScreen() {
       ) : null}
 
       <Text style={styles.footer}>
-        V1 Premium: liquidação Foxbit → Efí assistida pela operação Nexa; pagamento
-        Efí por API. Recurso permanece oculto até o piloto ser habilitado.
+        V1 Premium: boleto-only no primeiro piloto. Liquidação Foxbit → Efí permanece assistida pela operação Nexa. Execução financeira e QR Pix continuam desligados neste APK.
       </Text>
     </ScrollView>
   );
