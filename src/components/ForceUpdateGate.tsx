@@ -57,12 +57,20 @@ function requiresUpdate(policy: VersionPolicy) {
 }
 
 export function ForceUpdateGate({ children }: { children: React.ReactNode }) {
-  const [checking, setChecking] = useState(true);
+  const bypassForceUpdate = config.releaseChannel === 'nexa-pay-pilot';
+  const [checking, setChecking] = useState(!bypassForceUpdate);
   const [required, setRequired] = useState(false);
   const [policy, setPolicy] = useState<VersionPolicy | null>(null);
   const [offline, setOffline] = useState(false);
 
   const checkVersion = useCallback(async () => {
+    if (bypassForceUpdate) {
+      setChecking(false);
+      setOffline(false);
+      setRequired(false);
+      return;
+    }
+
     setChecking(true);
     setOffline(false);
 
@@ -88,10 +96,12 @@ export function ForceUpdateGate({ children }: { children: React.ReactNode }) {
     } finally {
       setChecking(false);
     }
-  }, []);
+  }, [bypassForceUpdate]);
 
   useEffect(() => {
     void checkVersion();
+
+    if (bypassForceUpdate) return;
 
     const subscription = DeviceEventEmitter.addListener(
       FORCE_UPDATE_EVENT,
@@ -104,7 +114,11 @@ export function ForceUpdateGate({ children }: { children: React.ReactNode }) {
     );
 
     return () => subscription.remove();
-  }, [checkVersion]);
+  }, [bypassForceUpdate, checkVersion]);
+
+  if (bypassForceUpdate) {
+    return children;
+  }
 
   async function openStore() {
     const url =
