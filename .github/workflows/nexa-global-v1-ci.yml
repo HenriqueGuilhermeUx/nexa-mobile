@@ -1,0 +1,51 @@
+name: Nexa Global V1 CI
+
+on:
+  push:
+    branches:
+      - feat/nexa-global-v1
+    paths:
+      - '.github/build-triggers/nexa-global-v1-ci.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'nexa-global'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.20.2'
+          cache: npm
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+      - name: Validate Global product boundary
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const app=require('./app.json').expo;
+          const dyn=require('./app.config.js')({config:app});
+          if(dyn.name!=='Nexa Global') throw new Error('Global name missing');
+          if(dyn.android?.package!=='com.trynexa.global') throw new Error('Global Android package missing');
+          if(dyn.ios?.bundleIdentifier!=='com.trynexa.global') throw new Error('Global iOS bundle missing');
+          if(dyn.icon!=='./assets/brand/nexa-pilot-icon-exact.png') throw new Error('Approved Nexa icon missing');
+          const home=fs.readFileSync('app/(app)/index.tsx','utf8');
+          for(const text of ['Enviar para @Nexa User','Adicionar USDC','Pix para o Brasil','Pagar conta no Brasil','BTC, ETH e Ouro']) {
+            if(!home.includes(text)) throw new Error('Global home missing: '+text);
+          }
+          const funding=fs.readFileSync('app/(app)/fund-card.tsx','utf8');
+          if(!funding.includes('estimated USDC') || !funding.includes('reaches')) throw new Error('Funding quote/credit copy missing');
+          const product=fs.readFileSync('src/lib/globalProduct.ts','utf8');
+          if(!product.includes("coreAsset: 'USDC'") || !product.includes("primaryAction: 'SEND_NEXA_USER'")) throw new Error('USDC/Nexa User global model missing');
+          console.log('Nexa Global V1 boundary validated.');
+          NODE
+      - name: Typecheck
+        run: npm run typecheck
