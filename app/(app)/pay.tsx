@@ -105,6 +105,51 @@ function saoPauloDateOffsetBr(daysAhead: number) {
   ).padStart(2, '0')}/${date.getUTCFullYear()}`;
 }
 
+function friendlyPaymentError(error: any) {
+  const raw = String(error?.message || '').trim();
+  const normalized = raw.toLowerCase();
+
+  if (
+    normalized.includes('boleto vencido') ||
+    normalized.includes('after_due_date') ||
+    normalized.includes('posterior ao vencimento')
+  ) {
+    return 'Este boleto está vencido ou a data escolhida ultrapassa o vencimento. Solicite uma via atualizada ou escolha uma data válida antes do vencimento.';
+  }
+
+  if (
+    normalized.includes('não está disponível para pagamento') ||
+    normalized.includes('não pode ser paga') ||
+    normalized.includes('bill_not_payable')
+  ) {
+    return 'Não foi possível agendar este boleto. Ele pode estar vencido, já pago, cancelado, substituído pelo emissor ou temporariamente indisponível. Confira os dados e, se necessário, solicite uma nova via.';
+  }
+
+  if (
+    normalized.includes('valor da cobrança mudou') ||
+    normalized.includes('bill_changed')
+  ) {
+    return 'O valor desta cobrança foi atualizado. Por segurança, revise a nova via antes de agendar o pagamento.';
+  }
+
+  if (
+    normalized.includes('código de barras') &&
+    normalized.includes('inválido')
+  ) {
+    return 'Não reconhecemos esse código de barras. Confira os números ou fotografe novamente a cobrança.';
+  }
+
+  if (
+    normalized.includes('limite') ||
+    normalized.includes('excede')
+  ) {
+    return 'Esta cobrança está acima do limite disponível para este perfil. Ajuste o valor ou entre em contato com a Nexa.';
+  }
+
+  return raw || 'Não foi possível validar esta cobrança agora. Confira os dados e tente novamente.';
+}
+
+
 export default function NexaPayPreparedScreen() {
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
@@ -190,7 +235,7 @@ export default function NexaPayPreparedScreen() {
       setClientRequestId(newClientRequestId());
       setScheduled(null);
     } catch (error: any) {
-      setMessage(error?.message || 'Não foi possível validar a conta.');
+      setMessage(friendlyPaymentError(error));
     } finally {
       setLoading(false);
     }
@@ -542,7 +587,7 @@ export default function NexaPayPreparedScreen() {
       <Text style={styles.kicker}>NEXA PAY · PREMIUM</Text>
       <Text style={styles.title}>Pague contas com USDC</Text>
       <Text style={styles.subtitle}>
-        Fotografe ou cole a cobrança, escolha a data e revise o valor antes de autorizar.
+        Fotografe ou cole a cobrança, escolha uma data futura e revise o valor antes de autorizar.
         {futureFinancialFeatures.nexaPayWalletExecutionEnabled
           ? ' O USDC é autorizado na sua wallet no agendamento e o pagamento em reais é preparado antes da data escolhida.'
           : ' Este APK é um piloto de validação: consulta, cotação e agendamento de teste funcionam, mas nenhum USDC é enviado.'}
@@ -663,7 +708,7 @@ export default function NexaPayPreparedScreen() {
           </>
         ) : null}
 
-        <Text style={styles.label}>Data do pagamento</Text>
+        <Text style={styles.label}>Data agendada</Text>
         <TextInput
           style={styles.input}
           value={scheduledFor}
@@ -679,21 +724,12 @@ export default function NexaPayPreparedScreen() {
         <View style={styles.dateQuickRow}>
           <Pressable
             onPress={() => {
-              setScheduledFor(saoPauloDateOffsetBr(0));
-              setPreview(null);
-            }}
-            style={styles.dateChip}
-          >
-            <Text style={styles.dateChipText}>Hoje</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
               setScheduledFor(saoPauloDateOffsetBr(1));
               setPreview(null);
             }}
             style={styles.dateChip}
           >
-            <Text style={styles.dateChipText}>Amanhã</Text>
+            <Text style={styles.dateChipText}>Agendar para amanhã</Text>
           </Pressable>
         </View>
 
