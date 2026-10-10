@@ -53,7 +53,9 @@
     "react-native-web": "~0.21.0",
     "react-native-webview": "13.16.1",
     "react-native-worklets": "0.10.1",
-    "viem": "2.55.5"
+    "viem": "2.55.5",
+    "expo-camera": "57.0.5",
+    "expo-image-picker": "57.0.19"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
