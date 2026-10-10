@@ -48,22 +48,28 @@ export default function FundCardScreen() {
   return (
     <Screen>
       <Brand />
-      <Eyebrow>ADICIONAR DINHEIRO</Eyebrow>
-      <Title>Cartão, Apple Pay ou Google Pay.</Title>
+      <Eyebrow>NEXA GLOBAL · FUNDING</Eyebrow>
+      <Title>Add USDC.</Title>
       <Paragraph>
-        Escolha a forma de pagamento disponível para você. O valor é convertido e entregue em USDC diretamente na sua carteira Nexa.
+        Use card, Apple Pay or Google Pay when available in your country. The
+        funding provider shows the conversion, fees and estimated USDC before
+        you confirm.
       </Paragraph>
 
       <Card>
         <Badge tone="info">CARTÃO E CARTEIRAS DIGITAIS</Badge>
         <Text style={{ color: colors.text, fontWeight: '900', fontSize: 17, marginTop: spacing.md }}>
-          Funding Nexa
+          USDC Funding
         </Text>
         <Text style={{ color: colors.muted, lineHeight: 21, marginTop: spacing.sm }}>
-          A Nexa usa os provedores de cartão habilitados para sua região e pode selecionar automaticamente a melhor rota disponível, sem prender sua compra a um único parceiro.
+          Nexa uses the funding providers enabled for your region. The provider
+          quote is the source of truth for exchange rate, transaction fee,
+          network fee, partner fee and the estimated USDC to be delivered.
         </Text>
         <Text style={{ color: colors.muted, lineHeight: 21, marginTop: spacing.sm }}>
-          Pix continua separado no fluxo Nexa e não é roteado por esta tela.
+          Nexa Global does not create a fiat balance from this purchase. The
+          operation is considered credited only when the purchased USDC reaches
+          your Nexa wallet.
         </Text>
       </Card>
 
@@ -73,8 +79,8 @@ export default function FundCardScreen() {
         </Text>
       ) : null}
 
-      <ActionButton label="Continuar" loading={working} onPress={startFunding} />
-      <ActionButton label="Voltar" variant="secondary" onPress={() => router.back()} />
+      <ActionButton label="See funding options" loading={working} onPress={startFunding} />
+      <ActionButton label="Back" variant="secondary" onPress={() => router.back()} />
     </Screen>
   );
 }
