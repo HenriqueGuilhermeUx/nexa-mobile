@@ -19,6 +19,7 @@ import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
 import { config } from '@/config';
 import { nexaApi } from '@/lib/api';
+import { futureFinancialFeatures } from '@/lib/futureFinancialFeatures';
 import {
   downloadNexaEcosystemProduct,
   ecosystemDownloadAvailable,
@@ -1597,6 +1598,21 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             <Text style={styles.moveTitle}>Enviar</Text>
             <Text style={styles.moveText}>Envie a partir da sua própria wallet.</Text>
           </TouchableOpacity>
+          {futureFinancialFeatures.nexaPayEnabled ? (
+            <TouchableOpacity
+              style={styles.moveCard}
+              onPress={() => router.push('/(app)/pay' as any)}
+              activeOpacity={0.82}
+            >
+              <View style={styles.moveIcon}>
+                <NexaIcon name="withdraw" color="#31D7FF" size={24} />
+              </View>
+              <Text style={styles.moveTitle}>Pagar conta</Text>
+              <Text style={styles.moveText}>
+                Use USDC para agendar boleto pelo Nexa Pay Premium.
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={styles.moveCard} onPress={() => setPage('wallet')} activeOpacity={0.82}>
             <View style={styles.moveIcon}><NexaIcon name="receive" color="#31D7FF" size={24} /></View>
             <Text style={styles.moveTitle}>Receber</Text>

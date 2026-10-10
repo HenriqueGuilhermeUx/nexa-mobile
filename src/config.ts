@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 interface NexaExtra {
   apiUrl?: string;
   efiOpenFinanceApiUrl?: string;
+  nexaPayApiUrl?: string;
   privyAppId?: string;
   privyClientId?: string;
   financialExecutionEnabled?: boolean;
@@ -10,6 +11,7 @@ interface NexaExtra {
   balanceSource?: string;
   privyOptional?: boolean;
   releaseChannel?: string;
+  pilotBuild?: boolean;
   androidTargetApi?: number;
   assistantEnabled?: boolean;
   efiOpenFinanceEnabled?: boolean;
@@ -30,6 +32,9 @@ const extra = (Constants.expoConfig?.extra || {}) as NexaExtra;
 const envApiUrl = String(process.env.EXPO_PUBLIC_NEXA_API_URL || '').trim();
 const envEfiOpenFinanceApiUrl = String(
   process.env.EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL || '',
+).trim();
+const envNexaPayApiUrl = String(
+  process.env.EXPO_PUBLIC_NEXA_PAY_API_URL || '',
 ).trim();
 const envFinancialExecution = String(
   process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED || '',
@@ -84,6 +89,11 @@ const envHealthWalletAppStoreUrl = String(
 const envReleaseChannel = String(
   process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL || '',
 ).trim();
+const envPilotBuild =
+  envReleaseChannel === 'nexa-pay-pilot' ||
+  String(process.env.EXPO_PUBLIC_NEXA_PILOT_BUILD || '')
+    .trim()
+    .toLowerCase() === 'true';
 
 const apiUrl =
   envApiUrl ||
@@ -94,6 +104,8 @@ export const config = {
   apiUrl,
   efiOpenFinanceApiUrl:
     envEfiOpenFinanceApiUrl || extra.efiOpenFinanceApiUrl || apiUrl,
+  nexaPayApiUrl:
+    envNexaPayApiUrl || extra.nexaPayApiUrl || apiUrl,
   appVersion: Constants.expoConfig?.version || '2.0.23',
   appBuild: String(Constants.expoConfig?.android?.versionCode || '124'),
   privyAppId: extra.privyAppId || '',
@@ -144,6 +156,10 @@ export const config = {
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
   releaseChannel: envReleaseChannel || extra.releaseChannel || 'production',
+  pilotBuild:
+    envPilotBuild ||
+    extra.pilotBuild === true ||
+    extra.releaseChannel === 'nexa-pay-pilot',
   androidTargetApi: Number(extra.androidTargetApi || 36),
 };
 
