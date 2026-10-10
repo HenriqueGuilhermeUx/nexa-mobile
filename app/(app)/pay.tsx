@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useEmbeddedEthereumWallet } from '@privy-io/expo';
+import { Camera } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { Redirect } from 'expo-router';
 import { encodeFunctionData, parseUnits } from 'viem';
 import {
@@ -49,6 +51,60 @@ function newClientRequestId() {
     .slice(2, 12)}`;
 }
 
+function maskDateBr(value: string) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) {
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  }
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function brDateToIso(value: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || '').trim());
+  if (!match) return '';
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return '';
+  }
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function isoDateToBr(value: unknown) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || '').trim());
+  if (!match) return String(value || '');
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function saoPauloDateOffsetBr(daysAhead: number) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const date = new Date(
+    Date.UTC(
+      Number(values.year),
+      Number(values.month) - 1,
+      Number(values.day),
+      12,
+    ),
+  );
+  date.setUTCDate(date.getUTCDate() + daysAhead);
+  return `${String(date.getUTCDate()).padStart(2, '0')}/${String(
+    date.getUTCMonth() + 1,
+  ).padStart(2, '0')}/${date.getUTCFullYear()}`;
+}
+
 export default function NexaPayPreparedScreen() {
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
@@ -68,6 +124,7 @@ export default function NexaPayPreparedScreen() {
   const [mine, setMine] = useState<any[]>([]);
   const [pilotReadiness, setPilotReadiness] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [scanningImage, setScanningImage] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -102,6 +159,11 @@ export default function NexaPayPreparedScreen() {
     return Number.isFinite(value) ? value : undefined;
   }, [amount]);
 
+  const scheduledForIso = useMemo(
+    () => brDateToIso(scheduledFor),
+    [scheduledFor],
+  );
+
   if (!futureFinancialFeatures.nexaPayEnabled) {
     return <Redirect href={'/legacy' as any} />;
   }
@@ -111,11 +173,8 @@ export default function NexaPayPreparedScreen() {
       setMessage('Sessão Nexa indisponível.');
       return;
     }
-    if (pilotReadiness?.readyForPreview !== true) {
-      setMessage(
-        pilotReadiness?.error ||
-          'Este usuário ainda não está liberado para o piloto Nexa Pay.',
-      );
+    if (!scheduledForIso) {
+      setMessage('Informe uma data válida no formato DD/MM/AAAA.');
       return;
     }
     try {
@@ -125,7 +184,7 @@ export default function NexaPayPreparedScreen() {
         instrument,
         payload: payload.trim(),
         amountBrl: instrument === 'BARCODE' ? undefined : amountBrl,
-        scheduledFor,
+        scheduledFor: scheduledForIso,
       });
       setPreview(result);
       setClientRequestId(newClientRequestId());
@@ -134,6 +193,102 @@ export default function NexaPayPreparedScreen() {
       setMessage(error?.message || 'Não foi possível validar a conta.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function readCodeFromImage(uri: string) {
+    const results = await Camera.scanFromURLAsync(uri);
+    const first = Array.isArray(results) ? results[0] : null;
+    const data = String(first?.data || '').trim();
+
+    if (!data) {
+      throw new Error(
+        'Não consegui encontrar um QR Code ou código de barras nessa foto. Aproxime o código e tente novamente.',
+      );
+    }
+
+    const digits = data.replace(/\D/g, '');
+    const qrType = String(first?.type || '').toLowerCase() === 'qr';
+    const looksLikePix =
+      data.startsWith('000201') || /br\.gov\.bcb\.pix/i.test(data);
+
+    if (looksLikePix) {
+      setInstrument('PIX_COPY_PASTE');
+      setPayload(data);
+      setAmount('');
+      setPreview(null);
+      setScheduled(null);
+      setMessage('QR Pix lido pela foto ✓');
+      return;
+    }
+
+    if (!qrType && digits.length >= 40 && digits.length <= 60) {
+      setInstrument('BARCODE');
+      setPayload(digits);
+      setPreview(null);
+      setScheduled(null);
+      setMessage('Código de barras lido pela foto ✓');
+      return;
+    }
+
+    if (qrType) {
+      throw new Error(
+        'O QR Code foi lido, mas não parece ser um Pix Copia e Cola válido.',
+      );
+    }
+
+    setInstrument('BARCODE');
+    setPayload(data);
+    setPreview(null);
+    setScheduled(null);
+    setMessage('Código lido pela foto ✓');
+  }
+
+  async function scanFromCameraPhoto() {
+    try {
+      setScanningImage(true);
+      setMessage('');
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        throw new Error(
+          'Autorize o uso da câmera para fotografar o QR Code ou código de barras.',
+        );
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 1,
+        allowsEditing: false,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      await readCodeFromImage(result.assets[0].uri);
+    } catch (error: any) {
+      setMessage(error?.message || 'Não foi possível ler o código pela câmera.');
+    } finally {
+      setScanningImage(false);
+    }
+  }
+
+  async function scanFromGalleryPhoto() {
+    try {
+      setScanningImage(true);
+      setMessage('');
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        throw new Error(
+          'Autorize o acesso às fotos para selecionar a imagem da cobrança.',
+        );
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 1,
+        allowsEditing: false,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      await readCodeFromImage(result.assets[0].uri);
+    } catch (error: any) {
+      setMessage(error?.message || 'Não foi possível ler o código da foto.');
+    } finally {
+      setScanningImage(false);
     }
   }
 
@@ -330,7 +485,7 @@ export default function NexaPayPreparedScreen() {
         instrument,
         payload: payload.trim(),
         amountBrl: instrument === 'BARCODE' ? undefined : amountBrl,
-        scheduledFor,
+        scheduledFor: scheduledForIso,
         maximumUsdcApproved: Number(preview.quote.requiredUsdc),
         clientRequestId: clientRequestId || newClientRequestId(),
       });
@@ -387,7 +542,7 @@ export default function NexaPayPreparedScreen() {
       <Text style={styles.kicker}>NEXA PAY · PREMIUM</Text>
       <Text style={styles.title}>Pague contas com USDC</Text>
       <Text style={styles.subtitle}>
-        Agende com pelo menos 1 dia útil de antecedência.
+        Fotografe ou cole a cobrança, escolha a data e revise o valor antes de autorizar.
         {futureFinancialFeatures.nexaPayWalletExecutionEnabled
           ? ' O USDC é autorizado na sua wallet no agendamento e o pagamento em reais é preparado antes da data escolhida.'
           : ' Este APK é um piloto de validação: consulta, cotação e agendamento de teste funcionam, mas nenhum USDC é enviado.'}
@@ -404,7 +559,7 @@ export default function NexaPayPreparedScreen() {
       {pilotReadiness && pilotReadiness.readyForPreview !== true ? (
         <View style={styles.notice}>
           <Text style={styles.noticeText}>
-            Piloto ainda não liberado para esta sessão. A tela permanece em modo seguro.
+            Validando sua sessão no Nexa Pay. Você pode tentar a cobrança normalmente; o backend fará a validação final do acesso.
           </Text>
         </View>
       ) : null}
@@ -463,6 +618,34 @@ export default function NexaPayPreparedScreen() {
           autoCapitalize="none"
         />
 
+        <View style={styles.scanRow}>
+          <Pressable
+            disabled={loading || scanningImage}
+            onPress={() => void scanFromCameraPhoto()}
+            style={[
+              styles.scanButton,
+              (loading || scanningImage) && styles.disabled,
+            ]}
+          >
+            <Text style={styles.scanText}>
+              {scanningImage ? 'Lendo…' : 'Fotografar código'}
+            </Text>
+          </Pressable>
+          <Pressable
+            disabled={loading || scanningImage}
+            onPress={() => void scanFromGalleryPhoto()}
+            style={[
+              styles.scanButton,
+              (loading || scanningImage) && styles.disabled,
+            ]}
+          >
+            <Text style={styles.scanText}>Escolher foto</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.scanHint}>
+          Para código de barras, aproxime a câmera para o código ocupar boa parte da foto.
+        </Text>
+
         {instrument !== 'BARCODE' ? (
           <>
             <Text style={styles.label}>Valor da cobrança</Text>
@@ -485,19 +668,41 @@ export default function NexaPayPreparedScreen() {
           style={styles.input}
           value={scheduledFor}
           onChangeText={(value) => {
-            setScheduledFor(value.replace(/[^0-9-]/g, '').slice(0, 10));
+            setScheduledFor(maskDateBr(value));
             setPreview(null);
           }}
-          placeholder="AAAA-MM-DD"
+          placeholder="DD/MM/AAAA"
           placeholderTextColor={colors.mutedStrong}
+          keyboardType="number-pad"
+          maxLength={10}
         />
+        <View style={styles.dateQuickRow}>
+          <Pressable
+            onPress={() => {
+              setScheduledFor(saoPauloDateOffsetBr(0));
+              setPreview(null);
+            }}
+            style={styles.dateChip}
+          >
+            <Text style={styles.dateChipText}>Hoje</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setScheduledFor(saoPauloDateOffsetBr(1));
+              setPreview(null);
+            }}
+            style={styles.dateChip}
+          >
+            <Text style={styles.dateChipText}>Amanhã</Text>
+          </Pressable>
+        </View>
 
         <Pressable
-          disabled={loading || !payload.trim() || !scheduledFor}
+          disabled={loading || !payload.trim() || !scheduledForIso}
           onPress={() => void prepare()}
           style={[
             styles.secondaryButton,
-            (loading || !payload.trim() || !scheduledFor) && styles.disabled,
+            (loading || !payload.trim() || !scheduledForIso) && styles.disabled,
           ]}
         >
           <Text style={styles.secondaryText}>Validar e calcular USDC</Text>
@@ -516,10 +721,10 @@ export default function NexaPayPreparedScreen() {
               currency: 'BRL',
             })}
           </Text>
-          <Text style={styles.line}>Data: {preview.scheduledFor}</Text>
+          <Text style={styles.line}>Data: {isoDateToBr(preview.scheduledFor)}</Text>
           {preview.billDueDate ? (
             <Text style={styles.line}>
-              Vencimento: {preview.billDueDate}
+              Vencimento: {isoDateToBr(preview.billDueDate)}
             </Text>
           ) : null}
           <Text style={styles.line}>
@@ -535,13 +740,9 @@ export default function NexaPayPreparedScreen() {
           </Text>
 
           <Pressable
-            disabled={loading || pilotReadiness?.readyForPreview !== true}
+            disabled={loading}
             onPress={() => void schedule()}
-            style={[
-              styles.primaryButton,
-              (loading || pilotReadiness?.readyForPreview !== true) &&
-                styles.disabled,
-            ]}
+            style={[styles.primaryButton, loading && styles.disabled]}
           >
             <Text style={styles.primaryText}>
               {futureFinancialFeatures.nexaPayWalletExecutionEnabled
@@ -627,7 +828,7 @@ export default function NexaPayPreparedScreen() {
             })}
           </Text>
           <Text style={styles.line}>
-            Data: {scheduled.payment.scheduledFor || scheduledFor}
+            Data: {isoDateToBr(scheduled.payment.scheduledFor || scheduledForIso)}
           </Text>
           <Text style={styles.safety}>
             Dry-run concluído. Nenhuma autorização Privy foi gerada e nenhum USDC será movimentado.
@@ -651,7 +852,7 @@ export default function NexaPayPreparedScreen() {
                   })}
                 </Text>
                 <Text style={styles.line}>
-                  {item.scheduledFor} · {String(item.state || '').replace(/_/g, ' ')}
+                  {isoDateToBr(item.scheduledFor)} · {String(item.state || '').replace(/_/g, ' ')}
                 </Text>
               </View>
               {item.paidAt ? <Text style={styles.paid}>PAGO</Text> : null}
@@ -665,7 +866,7 @@ export default function NexaPayPreparedScreen() {
       ) : null}
 
       <Text style={styles.footer}>
-        V1 Premium: boleto-only no primeiro piloto. Liquidação Foxbit → Efí permanece assistida pela operação Nexa. Execução financeira e QR Pix continuam desligados neste APK.
+        Piloto controlado Nexa Pay: boleto e QR Pix, leitura por foto, limite de R$ 5 e autorização USDC pela sua wallet Privy.
       </Text>
     </ScrollView>
   );
@@ -738,6 +939,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   multiline: { minHeight: 72, textAlignVertical: 'top' },
+  scanRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  scanButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.cyan,
+    backgroundColor: colors.cyanSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  scanText: {
+    color: colors.text,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  scanHint: {
+    color: colors.mutedStrong,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: spacing.sm,
+  },
+  dateQuickRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  dateChip: {
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  dateChipText: {
+    color: colors.silver,
+    fontSize: 11,
+    fontWeight: '800',
+  },
   primaryButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,
