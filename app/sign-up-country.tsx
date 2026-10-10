@@ -11,16 +11,14 @@ import {
   Title,
 } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
+import { GLOBAL_JURISDICTIONS } from '@/lib/globalProduct';
 import { colors, radius, spacing } from '@/theme';
 
-const countries = [
-  { code: 'BR', label: 'Brasil' },
-  { code: 'US', label: 'Estados Unidos' },
-  { code: 'PT', label: 'Portugal' },
-  { code: 'GB', label: 'Reino Unido' },
-  { code: 'ES', label: 'Espanha' },
-  { code: 'CA', label: 'Canadá' },
-] as const;
+const countries = GLOBAL_JURISDICTIONS.map((country) => ({
+  code: country.code,
+  label: country.label,
+  documentHint: country.documentHint,
+}));
 
 export default function SignUpCountryScreen() {
   const [loadingCountry, setLoadingCountry] = useState('');
@@ -45,13 +43,13 @@ export default function SignUpCountryScreen() {
       }
 
       setMessage(
-        `A Conta Global Nexa para ${label} está em preparação. O cadastro será liberado quando KYC e os rails locais desse país estiverem habilitados.`,
+        `Nexa Global for ${label} is being prepared. Registration opens only when KYC and the required compliance policy for that country are enabled.`,
       );
     } catch (caught) {
       setMessage(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível consultar a disponibilidade neste país.',
+          : 'We could not confirm availability for this country right now.',
       );
     } finally {
       setLoadingCountry('');
@@ -61,10 +59,10 @@ export default function SignUpCountryScreen() {
   return (
     <Screen>
       <Brand />
-      <Title>Onde você mora?</Title>
+      <Title>Where do you live?</Title>
       <Paragraph>
-        A Nexa adapta verificação de identidade, formas de adicionar dinheiro e
-        saques ao país de residência. O Brasil continua disponível normalmente.
+        Nexa Global adapts identity verification and supported funding methods
+        to your country of residence. Your Global balance remains USDC-first.
       </Paragraph>
 
       <Card>
@@ -72,7 +70,7 @@ export default function SignUpCountryScreen() {
           <ActionButton
             key={country.code}
             label={country.label}
-            variant={country.code === 'BR' ? 'primary' : 'secondary'}
+            variant={country.code === 'US' ? 'primary' : 'secondary'}
             loading={loadingCountry === country.code}
             disabled={Boolean(loadingCountry)}
             onPress={() => selectCountry(country.code, country.label)}
@@ -83,7 +81,7 @@ export default function SignUpCountryScreen() {
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
       <ActionButton
-        label="Já tenho conta"
+        label="I already have an account"
         variant="secondary"
         disabled={Boolean(loadingCountry)}
         onPress={() => router.replace('/sign-in')}
