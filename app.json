@@ -2,10 +2,10 @@
   "expo": {
     "name": "Nexa",
     "slug": "nexa",
-    "version": "2.0.42",
+    "version": "2.0.43",
     "orientation": "portrait",
     "scheme": "nexa",
-    "icon": "./nexa-mobile/nexa-mobile/assets/icon.png",
+    "icon": "./assets/brand/nexa-pilot-icon-exact.png",
     "userInterfaceStyle": "dark",
     "runtimeVersion": {
       "policy": "appVersion"
@@ -16,20 +16,18 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "br.com.trynexa.app",
-      "buildNumber": "145",
+      "buildNumber": "148",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Permita que a Nexa use a câmera para ler QR Code e código de barras.",
+        "NSPhotoLibraryUsageDescription": "Permita que a Nexa acesse uma foto para ler QR Code ou código de barras."
       }
     },
     "android": {
       "package": "br.com.trynexa.app",
-      "versionCode": 145,
-      "permissions": [],
-      "adaptiveIcon": {
-        "foregroundImage": "./nexa-mobile/nexa-mobile/assets/adaptive-icon.png",
-        "backgroundColor": "#06111F"
-      }
+      "versionCode": 148,
+      "permissions": []
     },
     "plugins": [
       "expo-router",
@@ -74,9 +72,23 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#06111F",
-          "image": "./nexa-mobile/nexa-mobile/assets/icon.png",
+          "image": "./assets/brand/nexa-pilot-icon-exact.png",
           "imageWidth": 210,
           "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permita que a Nexa use a câmera para ler QR Code e código de barras.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permita que a Nexa acesse uma foto para ler QR Code ou código de barras.",
+          "cameraPermission": "Permita que a Nexa use a câmera para fotografar QR Code e código de barras."
         }
       ]
     ],
@@ -93,7 +105,7 @@
       "privyOptional": true,
       "releaseChannel": "production",
       "androidTargetApi": 36,
-      "releaseBuild": "android16-api36-2.0.42-v145-sovereignty",
+      "releaseBuild": "android16-api36-2.0.43-v148-brasil-final",
       "eas": {
         "projectId": "b3faabec-283a-4ba2-88b5-f096304e68aa"
       },
