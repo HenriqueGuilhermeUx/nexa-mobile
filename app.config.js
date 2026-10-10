@@ -20,8 +20,28 @@ module.exports = ({ config }) => {
     android: {
       ...androidWithoutAdaptiveIcon,
       package: 'br.com.trynexa.paypilot',
-      versionCode: 146,
+      versionCode: 147,
     },
+    plugins: [
+      ...(config.plugins || []),
+      [
+        'expo-camera',
+        {
+          cameraPermission:
+            'Permita que a Nexa use a câmera para ler QR Code e código de barras.',
+          recordAudioAndroid: false,
+        },
+      ],
+      [
+        'expo-image-picker',
+        {
+          photosPermission:
+            'Permita que a Nexa acesse uma foto para ler QR Code ou código de barras.',
+          cameraPermission:
+            'Permita que a Nexa use a câmera para fotografar QR Code e código de barras.',
+        },
+      ],
+    ],
     extra: {
       ...(config.extra || {}),
       releaseChannel: 'nexa-pay-pilot',
