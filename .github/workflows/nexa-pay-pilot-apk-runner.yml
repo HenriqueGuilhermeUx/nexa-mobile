@@ -60,7 +60,7 @@ jobs:
           data.expo.icon = './assets/brand/nexa-pilot-icon-exact.png';
           data.expo.android = data.expo.android || {};
           data.expo.android.package = 'br.com.trynexa.paypilot';
-          data.expo.android.versionCode = 146;
+          data.expo.android.versionCode = 147;
           delete data.expo.android.adaptiveIcon;
           data.expo.plugins = (data.expo.plugins || []).map((plugin) => {
             if (Array.isArray(plugin) && plugin[0] === 'expo-splash-screen') {
