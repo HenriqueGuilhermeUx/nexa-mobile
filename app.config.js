@@ -1,12 +1,52 @@
 module.exports = ({ config }) => {
-  const pilot =
-    String(process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL || '').trim() ===
-    'nexa-pay-pilot';
+  const releaseChannel = String(
+    process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL || '',
+  ).trim();
+
+  const pilot = releaseChannel === 'nexa-pay-pilot';
+  const global = releaseChannel === 'nexa-global';
+
+  if (global) {
+    const android = config.android || {};
+    const { adaptiveIcon: _legacyAdaptiveIcon, ...androidWithoutAdaptiveIcon } =
+      android;
+
+    return {
+      ...config,
+      name: 'Nexa Global',
+      slug: 'nexa-global',
+      scheme: 'nexa-global',
+      icon: './assets/brand/nexa-pilot-icon-exact.png',
+      updates: {
+        ...(config.updates || {}),
+        enabled: false,
+      },
+      ios: {
+        ...(config.ios || {}),
+        bundleIdentifier: 'com.trynexa.global',
+      },
+      android: {
+        ...androidWithoutAdaptiveIcon,
+        package: 'com.trynexa.global',
+      },
+      extra: {
+        ...(config.extra || {}),
+        releaseChannel: 'nexa-global',
+        globalProduct: true,
+        assistantEnabled: true,
+        efiOpenFinanceEnabled: false,
+        efiOpenFinanceRecurringEnabled: false,
+        ecosystemEnabled: false,
+        ecosystemOnboardingEnabled: false,
+      },
+    };
+  }
 
   if (!pilot) return config;
 
   const android = config.android || {};
-  const { adaptiveIcon: _legacyAdaptiveIcon, ...androidWithoutAdaptiveIcon } = android;
+  const { adaptiveIcon: _legacyAdaptiveIcon, ...androidWithoutAdaptiveIcon } =
+    android;
 
   return {
     ...config,
