@@ -1,0 +1,99 @@
+name: Build Nexa Pay Pilot APK
+
+on:
+  push:
+    branches:
+      - prep/nexa-pay-us-receiving-disabled
+    paths:
+      - ".github/workflows/build-nexa-pay-pilot-apk.yml"
+      - "app/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "app.json"
+      - "eas.json"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_PAY_API_URL: https://nexa-open-finance-homolog.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_PAY_ENABLED: "true"
+      EXPO_PUBLIC_NEXA_PAY_QR_ENABLED: "false"
+      EXPO_PUBLIC_NEXA_PAY_WALLET_EXECUTION_ENABLED: "false"
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: "false"
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: "true"
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: nexa-pay-pilot
+      NODE_OPTIONS: --max-old-space-size=6144
+
+    steps:
+      - name: Checkout pilot branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.2"
+          cache: npm
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Patch isolated pilot identity
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'app.json';
+          const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+          data.expo.name = 'Nexa Pay Pilot';
+          data.expo.scheme = 'nexa-pay-pilot';
+          data.expo.android.package = 'br.com.trynexa.app.pilot';
+          data.expo.android.versionCode = Math.max(Number(data.expo.android.versionCode || 1), 146);
+          data.expo.extra = {
+            ...(data.expo.extra || {}),
+            financialExecutionEnabled: false,
+            releaseChannel: 'nexa-pay-pilot',
+            releaseBuild: 'nexa-pay-pilot-apk'
+          };
+          fs.writeFileSync(p, JSON.stringify(data, null, 2) + '\n');
+          NODE
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build standalone release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Collect APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find android/app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" Nexa-Pay-Pilot.apk
+          ls -lh Nexa-Pay-Pilot.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Pay-Pilot-APK
+          path: Nexa-Pay-Pilot.apk
+          if-no-files-found: error
+          retention-days: 7
