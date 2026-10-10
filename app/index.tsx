@@ -27,25 +27,25 @@ import { colors, radius, spacing } from '@/theme';
 
 const INTRO = [
   {
-    kicker: 'NEXA WALLET',
-    title: 'Sua wallet. Seus ativos.',
-    text: 'Uma forma mais simples de acessar e usar ativos digitais.',
+    kicker: 'NEXA GLOBAL',
+    title: 'USDC. Across borders.',
+    text: 'A wallet-first way to move value globally and keep Brazil within reach.',
     symbol: 'N',
-    caption: 'Controle com experiência de fintech',
+    caption: 'USDC-first global experience',
   },
   {
-    kicker: 'SIMPLES POR FORA',
-    title: 'A tecnologia fica por trás.',
-    text: 'Você não precisa dominar redes, bridges ou gas para começar.',
-    symbol: '◎',
-    caption: 'A Nexa cuida das etapas técnicas',
+    kicker: 'SEND SIMPLY',
+    title: 'Start with @username.',
+    text: 'Send USDC to another Nexa user without turning blockchain details into the main experience.',
+    symbol: '@',
+    caption: 'Nexa User is the primary global route',
   },
   {
-    kicker: 'COMECE PELO FAMILIAR',
-    title: 'Comece pelo que você já conhece.',
-    text: 'No Brasil, use Pix para iniciar sua experiência com USDC.',
+    kicker: 'BRAZIL WITHIN REACH',
+    title: 'More than a transfer.',
+    text: 'Use supported Brazil utilities, including Pix settlement and Brazilian bill payment.',
     symbol: 'PIX',
-    caption: 'Pix → USDC → sua wallet',
+    caption: 'Nexa Global → Nexa User → Brazil',
   },
 ];
 
@@ -131,7 +131,7 @@ export default function WelcomeScreen() {
 
           if (mounted) {
             setStartupError(
-              'Não conseguimos confirmar sua conta agora. Sua sessão foi preservada e nenhuma movimentação foi iniciada.',
+              'We could not confirm your account right now. Your session was preserved and no transaction was started.',
             );
             setChecking(false);
           }
@@ -157,9 +157,9 @@ export default function WelcomeScreen() {
           <Text style={styles.loaderMarkText}>N</Text>
         </View>
         <ActivityIndicator color={colors.cyan} size="small" />
-        <Text style={styles.loaderTitle}>Abrindo sua Nexa</Text>
+        <Text style={styles.loaderTitle}>Opening Nexa Global</Text>
         <Text style={styles.loaderText}>
-          Confirmando sua sessão e preparando sua wallet.
+          Confirming your session and preparing your Global wallet.
         </Text>
       </View>
     );
@@ -204,7 +204,7 @@ export default function WelcomeScreen() {
           <>
             <Text style={styles.startupError}>{startupError}</Text>
             <ActionButton
-              label="Tentar novamente"
+              label="Try again"
               variant="secondary"
               onPress={() => {
                 setChecking(true);
@@ -217,11 +217,11 @@ export default function WelcomeScreen() {
         {last ? (
           <>
             <ActionButton
-              label="Começar na Nexa"
+              label="Start Nexa Global"
               onPress={() => router.push('/sign-up-country' as any)}
             />
             <ActionButton
-              label="Já tenho uma conta"
+              label="I already have an account"
               variant="secondary"
               onPress={() => router.push('/sign-in')}
             />
