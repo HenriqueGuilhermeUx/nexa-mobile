@@ -1,0 +1,124 @@
+name: Nexa Brasil 2.0.43 v148 Android Store
+
+on:
+  push:
+    branches:
+      - release/nexa-2.0.43-v148-brasil
+    paths:
+      - '.github/build-triggers/v148-brasil-aab.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v148-brasil-aab
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  EXPO_NO_TELEMETRY: '1'
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+jobs:
+  android:
+    name: Build signed Google Play AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20.20.2'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validate final Brazil release
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app=require('./app.json').expo;
+          const pkg=require('./package.json');
+          const eas=require('./eas.json');
+          const fs=require('fs');
+          if(app.version!=='2.0.43' || pkg.version!=='2.0.43') throw new Error('Unexpected version');
+          if(Number(app.android?.versionCode)!==148) throw new Error('Unexpected Android build');
+          if(String(app.ios?.buildNumber)!=='148') throw new Error('Unexpected iOS build');
+          if(app.android?.package!=='br.com.trynexa.app') throw new Error('Android package changed');
+          if(app.ios?.bundleIdentifier!=='br.com.trynexa.app') throw new Error('iOS bundle changed');
+          if(app.icon!=='./assets/brand/nexa-pilot-icon-exact.png') throw new Error('Approved Nexa icon missing');
+          if(app.android?.adaptiveIcon) throw new Error('Adaptive icon must stay disabled for exact approved mark');
+          if(eas?.build?.production?.android?.buildType!=='app-bundle') throw new Error('Production must be AAB');
+          const pay=fs.readFileSync('app/(app)/pay.tsx','utf8');
+          if(pay.includes('>Hoje<')) throw new Error('Same-day shortcut still present');
+          if(!pay.includes('Data agendada')) throw new Error('Scheduled-payment copy missing');
+          if(!pay.includes('Escolher foto')) throw new Error('Photo scanner missing');
+          const funding=fs.readFileSync('app/(app)/fund-card.tsx','utf8');
+          if(!funding.includes('Apple Pay') || !funding.includes('Google Pay') || !funding.includes("asset: 'USDC'")) throw new Error('USDC funding surface missing');
+          const crypto=fs.readFileSync('app/(app)/buy-crypto.tsx','utf8');
+          for(const asset of ["'BTC'","'ETH'","'PAXG'"]) if(!crypto.includes(asset)) throw new Error('Asset purchase surface incomplete');
+          console.log('Nexa Brasil v148 release boundary validated.');
+          NODE
+          npm run typecheck
+          npx expo config --type public > v148-expo-public-config.json
+
+      - name: Preflight production backend
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 10 --max-time 20 'https://nexa-backend-p2u0.onrender.com/api/v1/health' -o nexa-health.json
+          node -e "const h=require('./nexa-health.json'); if(String(h.status||'').toLowerCase()!=='ok') process.exit(1)"
+
+      - name: Add build swap
+        run: |
+          set -euo pipefail
+          if ! swapon --show | grep -q .; then
+            sudo fallocate -l 4G /swapfile
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          fi
+
+      - name: Build signed production AAB
+        env:
+          NODE_ENV: production
+          EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8" -Dorg.gradle.workers.max=2'
+        run: |
+          set -euo pipefail
+          AAB="Nexa-2.0.43-v148-GooglePlay.aab"
+          eas build --platform android --profile production --local --non-interactive --output "$GITHUB_WORKSPACE/$AAB"
+          test -s "$AAB"
+          echo "AAB_FILE=$AAB" >> "$GITHUB_ENV"
+
+      - name: Verify and checksum AAB
+        run: |
+          set -euo pipefail
+          jarsigner -verify -verbose -certs "$AAB_FILE" > aab-signature.txt 2>&1
+          sha256sum "$AAB_FILE" > SHA256SUMS.txt
+
+      - name: Upload Google Play artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-2.0.43-v148-GooglePlay
+          path: |
+            ${{ env.AAB_FILE }}
+            SHA256SUMS.txt
+            aab-signature.txt
+            v148-expo-public-config.json
+          if-no-files-found: error
+          retention-days: 30
