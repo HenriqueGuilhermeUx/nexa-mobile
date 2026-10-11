@@ -11,7 +11,9 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { config } from '@/config';
 import { nexaApi, tokensFromLogin } from '@/lib/api';
+import { globalJurisdiction } from '@/lib/globalProduct';
 import { clearNexaSession, saveNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -23,6 +25,9 @@ export default function SignUpScreen() {
   const params = useLocalSearchParams<{ countryCode?: string }>();
   const countryCode = String(params.countryCode || 'BR').trim().toUpperCase();
   const isBrazil = countryCode === 'BR';
+  const globalProduct = config.globalProduct;
+  const country = globalJurisdiction(countryCode);
+  const countryLabel = country?.label || countryCode;
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,13 +41,19 @@ export default function SignUpScreen() {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedCpf = digits(cpf);
 
-    if (fullName.trim().length < 3) return 'Informe seu nome completo.';
-    if (!normalizedEmail.includes('@')) return 'Informe um e-mail válido.';
+    if (fullName.trim().length < 3) {
+      return globalProduct ? 'Enter your full name.' : 'Informe seu nome completo.';
+    }
+    if (!normalizedEmail.includes('@')) {
+      return globalProduct ? 'Enter a valid email address.' : 'Informe um e-mail válido.';
+    }
     if (isBrazil && normalizedCpf.length !== 11) {
       return 'Informe um CPF com 11 números.';
     }
     if (password.length < 6) {
-      return 'A senha precisa ter pelo menos 6 caracteres.';
+      return globalProduct
+        ? 'Your password must have at least 6 characters.'
+        : 'A senha precisa ter pelo menos 6 caracteres.';
     }
     return '';
   }
@@ -82,7 +93,9 @@ export default function SignUpScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível concluir seu cadastro.',
+          : globalProduct
+            ? 'We could not complete your registration.'
+            : 'Não foi possível concluir seu cadastro.',
       );
     } finally {
       setLoading(false);
@@ -93,31 +106,35 @@ export default function SignUpScreen() {
     <Screen>
       <Brand />
       <View style={styles.topSpace} />
-      <Badge tone="info">CADASTRO · ETAPA 1</Badge>
+      <Badge tone="info">
+        {globalProduct ? 'SIGN UP · STEP 1' : 'CADASTRO · ETAPA 1'}
+      </Badge>
       <View style={styles.badgeGap} />
-      <Title>Crie sua Nexa</Title>
+      <Title>{globalProduct ? 'Create your Nexa' : 'Crie sua Nexa'}</Title>
       <Paragraph>
-        {isBrazil
-          ? 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade para liberar sua experiência Nexa.'
-          : 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade com os documentos aceitos no seu país de residência.'}
+        {globalProduct
+          ? 'Your wallet starts here. Create your account and verify your identity with the documents supported in your country of residence.'
+          : isBrazil
+            ? 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade para liberar sua experiência Nexa.'
+            : 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade com os documentos aceitos no seu país de residência.'}
       </Paragraph>
 
       <Field
-        label="Nome completo"
+        label={globalProduct ? 'Full name' : 'Nome completo'}
         value={fullName}
         onChangeText={setFullName}
         autoCapitalize="words"
-        placeholder="Seu nome"
+        placeholder={globalProduct ? 'Your name' : 'Seu nome'}
       />
       <Field
-        label="E-mail"
+        label={globalProduct ? 'Email' : 'E-mail'}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
         autoComplete="email"
-        placeholder="voce@email.com"
+        placeholder={globalProduct ? 'you@example.com' : 'voce@email.com'}
       />
       {isBrazil ? (
         <Field
@@ -130,34 +147,36 @@ export default function SignUpScreen() {
         />
       ) : null}
       <Field
-        label="Telefone"
+        label={globalProduct ? 'Phone' : 'Telefone'}
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
-        placeholder="11999999999"
+        placeholder={globalProduct ? '+1 555 555 0100' : '11999999999'}
       />
       <Field
-        label="Senha"
+        label={globalProduct ? 'Password' : 'Senha'}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
         autoComplete="new-password"
-        placeholder="Mínimo de 6 caracteres"
+        placeholder={globalProduct ? 'At least 6 characters' : 'Mínimo de 6 caracteres'}
       />
       <ActionButton
-        label="Continuar"
+        label={globalProduct ? 'Continue' : 'Continuar'}
         loading={loading}
         onPress={createAccount}
       />
-      <Text style={styles.country}>País de residência: {countryCode}</Text>
+      <Text style={styles.country}>
+        {globalProduct ? 'Country of residence' : 'País de residência'}: {countryLabel}
+      </Text>
       <ActionButton
-        label="Trocar país"
+        label={globalProduct ? 'Change country' : 'Trocar país'}
         variant="secondary"
         disabled={loading}
         onPress={() => router.replace('/sign-up-country' as any)}
       />
       <ActionButton
-        label="Já tenho conta"
+        label={globalProduct ? 'I already have an account' : 'Já tenho conta'}
         variant="secondary"
         disabled={loading}
         onPress={() => router.replace('/sign-in')}

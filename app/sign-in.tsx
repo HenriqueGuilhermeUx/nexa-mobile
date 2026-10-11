@@ -10,6 +10,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { config } from '@/config';
 import { nexaApi, tokensFromLogin } from '@/lib/api';
 import { resolveAuthenticatedRoute } from '@/lib/onboarding';
 import {
@@ -29,6 +30,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const globalProduct = config.globalProduct;
 
   useEffect(() => {
     let active = true;
@@ -95,7 +97,11 @@ export default function SignInScreen() {
     const normalizedEmail = email.trim().toLowerCase();
     setError('');
     if (!normalizedEmail || !password) {
-      setError('Informe seu e-mail e sua senha.');
+      setError(
+        globalProduct
+          ? 'Enter your email and password.'
+          : 'Informe seu e-mail e sua senha.',
+      );
       return;
     }
 
@@ -116,7 +122,11 @@ export default function SignInScreen() {
     } catch (caught) {
       await clearNexaTokens();
       setError(
-        caught instanceof Error ? caught.message : 'Não foi possível entrar.',
+        caught instanceof Error
+          ? caught.message
+          : globalProduct
+            ? 'We could not sign you in.'
+            : 'Não foi possível entrar.',
       );
     } finally {
       setLoading(false);
@@ -138,48 +148,54 @@ export default function SignInScreen() {
     <Screen>
       <Brand />
       <View style={styles.topSpace} />
-      <Title>Bem-vindo de volta</Title>
+      <Title>{globalProduct ? 'Welcome back' : 'Bem-vindo de volta'}</Title>
       <Paragraph>
-        Acesse sua Nexa Wallet. Sua senha não é armazenada neste aparelho.
+        {globalProduct
+          ? 'Access your Nexa Global wallet. Your Nexa password is not stored on this device.'
+          : 'Acesse sua Nexa Wallet. Sua senha não é armazenada neste aparelho.'}
       </Paragraph>
 
       <Field
-        label="E-mail"
+        label={globalProduct ? 'Email' : 'E-mail'}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="email"
         keyboardType="email-address"
-        placeholder="voce@email.com"
+        placeholder={globalProduct ? 'you@example.com' : 'voce@email.com'}
       />
       <Field
-        label="Senha"
+        label={globalProduct ? 'Password' : 'Senha'}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
         autoComplete="current-password"
-        placeholder="Sua senha"
+        placeholder={globalProduct ? 'Your password' : 'Sua senha'}
       />
       <ActionButton
-        label="Entrar"
+        label={globalProduct ? 'Sign in' : 'Entrar'}
         loading={loading}
         onPress={authenticateNexa}
       />
       <ActionButton
-        label="Esqueci minha senha"
+        label={globalProduct ? 'Forgot my password' : 'Esqueci minha senha'}
         variant="secondary"
         disabled={loading}
         onPress={openPasswordRecovery}
       />
       <ActionButton
-        label="Criar conta"
+        label={globalProduct ? 'Create account' : 'Criar conta'}
         variant="secondary"
         disabled={loading}
         onPress={() => router.push('/sign-up-country' as any)}
       />
 
-      <Text style={styles.securityNote}>Biometria pode proteger o acesso depois do primeiro login neste aparelho.</Text>
+      <Text style={styles.securityNote}>
+        {globalProduct
+          ? 'Biometrics can protect access after your first sign-in on this device.'
+          : 'Biometria pode proteger o acesso depois do primeiro login neste aparelho.'}
+      </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </Screen>
