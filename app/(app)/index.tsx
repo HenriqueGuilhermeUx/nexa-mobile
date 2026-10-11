@@ -13,6 +13,7 @@ import {
   Title,
 } from '@/components/ui';
 import { config } from '@/config';
+import { futureFinancialFeatures } from '@/lib/futureFinancialFeatures';
 import {
   globalCapabilityEnabled,
   loadGlobalCapabilityContext,
@@ -100,7 +101,9 @@ export default function NexaGlobalHome() {
   const canFund = globalCapabilityEnabled(capabilities, 'fundUsdc');
   const canReceive = globalCapabilityEnabled(capabilities, 'receiveUsdc');
   const canBrazilPix = globalCapabilityEnabled(capabilities, 'brazilPix');
-  const canBrazilBillPay = globalCapabilityEnabled(capabilities, 'brazilBillPay');
+  const canBrazilBillPay =
+    futureFinancialFeatures.nexaPayEnabled &&
+    globalCapabilityEnabled(capabilities, 'brazilBillPay');
   const canBuyAssets = globalCapabilityEnabled(capabilities, 'buyAssets');
 
   return (

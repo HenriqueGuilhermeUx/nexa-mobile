@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 
+import { config } from '@/config';
 import { futureFinancialFeatures } from '@/lib/futureFinancialFeatures';
 import { assertGlobalCapability } from '@/lib/globalCapabilities';
 import { nexaApi } from '@/lib/api';
@@ -211,7 +212,9 @@ export default function NexaPayPreparedScreen() {
   );
 
   if (!futureFinancialFeatures.nexaPayEnabled) {
-    return <Redirect href={'/legacy' as any} />;
+    return (
+      <Redirect href={(config.globalProduct ? '/(app)' : '/legacy') as any} />
+    );
   }
 
   async function prepare() {
