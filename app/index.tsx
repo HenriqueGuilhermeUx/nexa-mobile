@@ -15,6 +15,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { config } from '@/config';
 import { ApiError, nexaApi } from '@/lib/api';
 import { resolveAuthenticatedRoute } from '@/lib/onboarding';
 import {
@@ -25,7 +26,31 @@ import {
 } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
-const INTRO = [
+const BRAZIL_INTRO = [
+  {
+    kicker: 'NEXA WALLET',
+    title: 'Sua wallet. Seus ativos.',
+    text: 'Uma forma mais simples de acessar e usar ativos digitais.',
+    symbol: 'N',
+    caption: 'Controle com experiência de fintech',
+  },
+  {
+    kicker: 'SIMPLES POR FORA',
+    title: 'A tecnologia fica por trás.',
+    text: 'Você não precisa dominar redes, bridges ou gas para começar.',
+    symbol: '◎',
+    caption: 'A Nexa cuida das etapas técnicas',
+  },
+  {
+    kicker: 'COMECE PELO FAMILIAR',
+    title: 'Comece pelo que você já conhece.',
+    text: 'No Brasil, use Pix para iniciar sua experiência com USDC.',
+    symbol: 'PIX',
+    caption: 'Pix → USDC → sua wallet',
+  },
+];
+
+const GLOBAL_INTRO = [
   {
     kicker: 'NEXA GLOBAL',
     title: 'USDC. Across borders.',
@@ -54,6 +79,8 @@ export default function WelcomeScreen() {
   const [startupError, setStartupError] = useState('');
   const [retryKey, setRetryKey] = useState(0);
   const [introStep, setIntroStep] = useState(0);
+  const globalProduct = config.globalProduct;
+  const intro = globalProduct ? GLOBAL_INTRO : BRAZIL_INTRO;
 
   useEffect(() => {
     let mounted = true;
@@ -131,7 +158,9 @@ export default function WelcomeScreen() {
 
           if (mounted) {
             setStartupError(
-              'We could not confirm your account right now. Your session was preserved and no transaction was started.',
+              globalProduct
+                ? 'We could not confirm your account right now. Your session was preserved and no transaction was started.'
+                : 'Não conseguimos confirmar sua conta agora. Sua sessão foi preservada e nenhuma movimentação foi iniciada.',
             );
             setChecking(false);
           }
@@ -157,16 +186,20 @@ export default function WelcomeScreen() {
           <Text style={styles.loaderMarkText}>N</Text>
         </View>
         <ActivityIndicator color={colors.cyan} size="small" />
-        <Text style={styles.loaderTitle}>Opening Nexa Global</Text>
+        <Text style={styles.loaderTitle}>
+          {globalProduct ? 'Opening Nexa Global' : 'Abrindo sua Nexa'}
+        </Text>
         <Text style={styles.loaderText}>
-          Confirming your session and preparing your Global wallet.
+          {globalProduct
+            ? 'Confirming your session and preparing your Global wallet.'
+            : 'Confirmando sua sessão e preparando sua wallet.'}
         </Text>
       </View>
     );
   }
 
-  const current = INTRO[introStep];
-  const last = introStep === INTRO.length - 1;
+  const current = intro[introStep];
+  const last = introStep === intro.length - 1;
 
   return (
     <Screen>
@@ -174,7 +207,7 @@ export default function WelcomeScreen() {
         <Brand />
 
         <View style={styles.progressRow}>
-          {INTRO.map((_, index) => (
+          {intro.map((_, index) => (
             <Pressable
               key={index}
               accessibilityRole="button"
@@ -217,11 +250,11 @@ export default function WelcomeScreen() {
         {last ? (
           <>
             <ActionButton
-              label="Start Nexa Global"
+              label={globalProduct ? 'Start Nexa Global' : 'Começar na Nexa'}
               onPress={() => router.push('/sign-up-country' as any)}
             />
             <ActionButton
-              label="I already have an account"
+              label={globalProduct ? 'I already have an account' : 'Já tenho uma conta'}
               variant="secondary"
               onPress={() => router.push('/sign-in')}
             />
@@ -229,13 +262,13 @@ export default function WelcomeScreen() {
         ) : (
           <>
             <ActionButton
-              label="Continuar"
+              label={globalProduct ? 'Continue' : 'Continuar'}
               onPress={() =>
-                setIntroStep((value) => Math.min(value + 1, INTRO.length - 1))
+                setIntroStep((value) => Math.min(value + 1, intro.length - 1))
               }
             />
             <ActionButton
-              label="Já tenho uma conta"
+              label={globalProduct ? 'I already have an account' : 'Já tenho uma conta'}
               variant="secondary"
               onPress={() => router.push('/sign-in')}
             />

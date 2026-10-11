@@ -11,6 +11,7 @@ interface NexaExtra {
   balanceSource?: string;
   privyOptional?: boolean;
   releaseChannel?: string;
+  globalProduct?: boolean;
   pilotBuild?: boolean;
   androidTargetApi?: number;
   assistantEnabled?: boolean;
@@ -156,6 +157,10 @@ export const config = {
   balanceSource: extra.balanceSource || 'ledger',
   privyOptional: extra.privyOptional !== false,
   releaseChannel: envReleaseChannel || extra.releaseChannel || 'production',
+  globalProduct:
+    envReleaseChannel === 'nexa-global' ||
+    extra.globalProduct === true ||
+    extra.releaseChannel === 'nexa-global',
   pilotBuild:
     envPilotBuild ||
     extra.pilotBuild === true ||

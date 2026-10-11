@@ -1,3 +1,4 @@
+import { config } from '@/config';
 import { walletFirstApi } from '@/lib/walletFirst';
 
 export type NexaAuthenticatedRoute =
@@ -5,7 +6,8 @@ export type NexaAuthenticatedRoute =
   | '/onboarding-pix'
   | '/onboarding-wallet'
   | '/wallet-ownership'
-  | '/legacy';
+  | '/legacy'
+  | '/(app)';
 
 function normalizedPixType(profile: any) {
   return String(profile?.pixKeyType || '').trim().toUpperCase();
@@ -58,5 +60,5 @@ export async function resolveAuthenticatedRoute(
     // continuam fail-closed no backend.
   }
 
-  return '/legacy';
+  return config.globalProduct ? '/(app)' : '/legacy';
 }

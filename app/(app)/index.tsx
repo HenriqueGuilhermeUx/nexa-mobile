@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -11,6 +11,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { config } from '@/config';
 import { NEXA_GLOBAL_PRODUCT } from '@/lib/globalProduct';
 import { colors, radius, spacing } from '@/theme';
 
@@ -37,6 +38,10 @@ function FeatureCard(props: {
 }
 
 export default function NexaGlobalHome() {
+  if (!config.globalProduct) {
+    return <Redirect href={'/legacy' as any} />;
+  }
+
   return (
     <Screen>
       <Brand />

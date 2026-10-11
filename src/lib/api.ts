@@ -47,8 +47,8 @@ async function request<T>(
   headers.set('X-Nexa-App-Version', config.appVersion);
   headers.set('X-Nexa-App-Build', config.appBuild);
   headers.set('X-Nexa-Platform', Platform.OS);
-  if (config.pilotBuild) {
-    headers.set('X-Nexa-Release-Channel', 'nexa-pay-pilot');
+  if (config.releaseChannel && config.releaseChannel !== 'production') {
+    headers.set('X-Nexa-Release-Channel', config.releaseChannel);
   }
 
   if (options.accessToken) {
@@ -147,11 +147,28 @@ export interface CountryCapabilities {
     provider?: string;
     sourceOfTruth?: string;
   };
-  funding?: Record<string, string>;
+  funding?: {
+    pix?: string;
+    ach?: string;
+    sepa?: string;
+    externalUsdc?: string;
+    card?: string;
+    applePay?: string;
+    googlePay?: string;
+    providerSelection?: string;
+  };
   payout?: Record<string, string>;
   globalAccount?: string;
   cards?: string;
   stablecoins?: Record<string, string>;
+  utilities?: {
+    nexaUserTransfer?: string;
+    brazilPix?: string;
+    brazilBillPay?: string;
+    btc?: string;
+    eth?: string;
+    paxg?: string;
+  };
 }
 
 export interface BrazilKycStatus {
