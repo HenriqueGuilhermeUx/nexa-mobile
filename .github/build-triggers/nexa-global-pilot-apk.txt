@@ -1,1 +1,2 @@
 Global USA APK after Expo dependency alignment
+Global USA APK with dedicated EAS project
