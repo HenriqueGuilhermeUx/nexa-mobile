@@ -15,10 +15,12 @@ module.exports = ({ config }) => {
       ...config,
       name: 'Nexa Global',
       slug: 'nexa-global',
+      owner: 'henrriquenexa',
       scheme: 'nexa-global',
       icon: './assets/brand/nexa-pilot-icon-exact.png',
       updates: {
         ...(config.updates || {}),
+        url: 'https://u.expo.dev/5c005f7f-7770-4b0c-94d3-8aca3d71a9a1',
         enabled: false,
       },
       ios: {
@@ -31,6 +33,10 @@ module.exports = ({ config }) => {
       },
       extra: {
         ...(config.extra || {}),
+        eas: {
+          ...((config.extra || {}).eas || {}),
+          projectId: '5c005f7f-7770-4b0c-94d3-8aca3d71a9a1',
+        },
         releaseChannel: 'nexa-global',
         globalProduct: true,
         assistantEnabled: true,
