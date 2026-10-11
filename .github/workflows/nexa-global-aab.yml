@@ -1,0 +1,229 @@
+name: Nexa Global USA AAB
+
+on:
+  push:
+    branches:
+      - feat/nexa-global-v1
+    paths:
+      - '.github/workflows/nexa-global-aab.yml'
+      - '.github/build-triggers/nexa-global-aab.txt'
+      - 'eas.json'
+      - 'app.config.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-global-usa-aab
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and build Nexa Global USA AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'nexa-global'
+
+    steps:
+      - name: Checkout Global branch
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validate Global AAB identity and safety boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const dyn = require('./app.config.js')({ config: app });
+          const eas = require('./eas.json');
+          const p = eas?.build?.['nexa-global-aab'];
+
+          if (!p) throw new Error('nexa-global-aab profile missing');
+          if (p.android?.buildType !== 'app-bundle') throw new Error('Global AAB profile must build app-bundle');
+          if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-global-us-pilot.onrender.com/api/v1') {
+            throw new Error('Global AAB must use isolated USA backend');
+          }
+          if (p.env?.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL !== 'nexa-global') {
+            throw new Error('Global AAB must stay on nexa-global release channel');
+          }
+          if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') {
+            throw new Error('Global AAB financial execution must remain disabled');
+          }
+          if (dyn.name !== 'Nexa Global') throw new Error('Unexpected Global app name');
+          if (dyn.slug !== 'nexa-global') throw new Error('Unexpected Global slug');
+          if (dyn.owner !== 'henrriquenexa') throw new Error('Unexpected EAS owner');
+          if (dyn.android?.package !== 'com.trynexa.global') throw new Error('Unexpected Global Android package');
+          if (dyn.ios?.bundleIdentifier !== 'com.trynexa.global') throw new Error('Unexpected Global iOS bundle id');
+          if (dyn.extra?.eas?.projectId !== '5c005f7f-7770-4b0c-94d3-8aca3d71a9a1') {
+            throw new Error('Global AAB is not bound to dedicated EAS project');
+          }
+          if (dyn.extra?.eas?.projectId === app.extra?.eas?.projectId) {
+            throw new Error('Global AAB still shares Brazil EAS project');
+          }
+
+          console.log(JSON.stringify({
+            name: dyn.name,
+            slug: dyn.slug,
+            owner: dyn.owner,
+            package: dyn.android.package,
+            projectId: dyn.extra.eas.projectId,
+            buildType: p.android.buildType,
+            releaseChannel: p.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL,
+            financialExecution: p.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED,
+          }, null, 2));
+          NODE
+
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const roots = ['app', 'src'];
+          const files = [];
+          function walk(dir) {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const p = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(p);
+              else if (/\.(ts|tsx|js|json)$/.test(entry.name)) files.push(p);
+            }
+          }
+          for (const root of roots) walk(root);
+          files.push('app.json', 'eas.json', 'package.json', 'app.config.js');
+          const source = files.map((p) => fs.readFileSync(p, 'utf8')).join('\n');
+          if (/PRIVY_APP_SECRET\s*[:=]|PRIVY_SECRET_KEY\s*[:=]|MASTER_WALLET_PRIVATE_KEY\s*[:=]|BEGIN PRIVATE KEY/i.test(source)) {
+            throw new Error('Sensitive server-side credential found in mobile source');
+          }
+          console.log('Global AAB secret boundary validated.');
+          NODE
+
+          npm run typecheck
+          npx expo-doctor
+
+      - name: Validate USA homolog readiness
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const base = 'https://nexa-global-us-pilot.onrender.com/api/v1';
+          async function get(path) {
+            let last;
+            for (let attempt = 1; attempt <= 8; attempt++) {
+              try {
+                const response = await fetch(base + path, {
+                  headers: { 'user-agent': 'nexa-global-aab-ci/1.0' },
+                });
+                const text = await response.text();
+                if (!response.ok) throw new Error(path + ': HTTP ' + response.status);
+                return text ? JSON.parse(text) : {};
+              } catch (error) {
+                last = error;
+                await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+              }
+            }
+            throw last;
+          }
+
+          const health = await get('/health');
+          const caps = await get('/nexa-rails/v1/capabilities/US');
+          const readiness = await get('/nexa-rails/v1/global-pilot/readiness');
+
+          if (health?.status !== 'ok') throw new Error('USA homolog unhealthy');
+          if (caps?.countryCode !== 'US') throw new Error('US capabilities missing');
+          if (caps?.onboarding?.registrationEnabled !== true) throw new Error('US registration not active');
+          if (caps?.wallet?.status !== 'active') throw new Error('US wallet not active');
+          if (caps?.stablecoins?.usdc !== 'active') throw new Error('USDC not active');
+          if (readiness?.providers?.identity?.apiKeyConfigured !== true) throw new Error('Didit API key missing');
+          if (readiness?.providers?.identity?.dedicatedWorkflowConfigured !== true) throw new Error('Didit USA workflow missing');
+          if (readiness?.providers?.wallet?.linkSecretConfigured !== true) throw new Error('Wallet proof secret missing');
+          if (readiness?.financialExecution !== false) throw new Error('Financial execution must remain disabled');
+
+          console.log('USA homolog ready for controlled Global AAB.');
+          NODE
+
+      - name: Build signed Nexa Global AAB on EAS Cloud
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN"
+          eas whoami
+          eas build --platform android --profile nexa-global-aab --non-interactive --wait
+
+      - name: Resolve finished Global AAB and download bundle
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          eas build:list --platform android --status finished --limit 30 --json --non-interactive > eas-builds.json
+          node <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('eas-builds.json', 'utf8'));
+          const builds = Array.isArray(data) ? data : (data?.builds || []);
+          const sha = process.env.GITHUB_SHA;
+
+          const matches = builds.filter((b) => {
+            const profile = b.buildProfile || b.profile || b.metadata?.buildProfile;
+            const commit = b.gitCommitHash || b.gitCommit?.hash || b.metadata?.gitCommitHash;
+            return profile === 'nexa-global-aab' && (!commit || commit === sha);
+          });
+
+          const b = matches[0] || builds.find((x) =>
+            (x.buildProfile || x.profile || x.metadata?.buildProfile) === 'nexa-global-aab'
+          );
+          if (!b) throw new Error('No finished nexa-global-aab EAS build found');
+
+          const url =
+            b.artifacts?.applicationArchiveUrl ||
+            b.artifacts?.buildUrl ||
+            b.artifactUrl;
+          if (!url) throw new Error('EAS Global AAB artifact URL missing');
+
+          fs.writeFileSync('eas-global-aab-url.txt', url);
+          fs.writeFileSync('eas-global-aab-build.json', JSON.stringify({
+            id: b.id || null,
+            buildProfile: b.buildProfile || b.profile || b.metadata?.buildProfile || null,
+            gitCommitHash: b.gitCommitHash || b.gitCommit?.hash || b.metadata?.gitCommitHash || null,
+            appVersion: b.appVersion || null,
+            appBuildVersion: b.appBuildVersion || null,
+          }, null, 2));
+          console.log('Resolved Nexa Global AAB artifact.');
+          NODE
+
+          URL="$(cat eas-global-aab-url.txt)"
+          curl --fail --location --retry 5 --retry-delay 5 "$URL" -o Nexa-Global-USA-Pilot.aab
+          test -s Nexa-Global-USA-Pilot.aab
+          sha256sum Nexa-Global-USA-Pilot.aab > SHA256SUMS-AAB.txt
+
+      - name: Upload Nexa Global AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Global-USA-Pilot-AAB
+          path: |
+            Nexa-Global-USA-Pilot.aab
+            SHA256SUMS-AAB.txt
+            eas-global-aab-build.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Release boundary
+        run: |
+          echo "Nexa Global AAB generated only."
+          echo "No Google Play submission was performed."
+          echo "Nexa Brazil production was not changed."
+          echo "Financial execution remains disabled."
