@@ -6,3 +6,4 @@ Validate bill-pay capability/build dual gate after ef21ee6
 Validate United States first-market pilot after bad2ee0
 Validate English US pilot onboarding after b50beda
 Validate KYC locale fix after 343484f
+US pilot wallet proof + isolated homolog validation
