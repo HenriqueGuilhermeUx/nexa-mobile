@@ -172,7 +172,7 @@ export default function KycScreen() {
 
       await Linking.openURL(next.verificationUrl);
     } catch (caught) {
-      setError(friendlyKycError(caught));
+      setError(friendlyKycError(caught, globalProduct));
     } finally {
       setStarting(false);
     }
