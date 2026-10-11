@@ -49,6 +49,10 @@ export async function resolveAuthenticatedRoute(
     return '/onboarding-wallet';
   }
 
+  if (config.globalProduct) {
+    return '/(app)';
+  }
+
   try {
     const readiness = await walletFirstApi.readiness(accessToken);
     if (readiness?.pilotProfile?.userControlledWalletConfirmed !== true) {
