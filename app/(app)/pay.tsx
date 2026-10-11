@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { futureFinancialFeatures } from '@/lib/futureFinancialFeatures';
+import { assertGlobalCapability } from '@/lib/globalCapabilities';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
@@ -225,6 +226,7 @@ export default function NexaPayPreparedScreen() {
     try {
       setLoading(true);
       setMessage('');
+      await assertGlobalCapability(token, 'brazilBillPay');
       const result = await nexaApi.nexaPayPremiumPreview(token, {
         instrument,
         payload: payload.trim(),
@@ -381,6 +383,7 @@ export default function NexaPayPreparedScreen() {
     try {
       setLoading(true);
       setMessage('');
+      await assertGlobalCapability(token, 'brazilBillPay');
 
       if (!wallet || !validEvmAddress(wallet.address)) {
         throw new Error(
@@ -526,6 +529,7 @@ export default function NexaPayPreparedScreen() {
     try {
       setLoading(true);
       setMessage('');
+      await assertGlobalCapability(token, 'brazilBillPay');
       const result = await nexaApi.nexaPayPremiumSchedule(token, {
         instrument,
         payload: payload.trim(),

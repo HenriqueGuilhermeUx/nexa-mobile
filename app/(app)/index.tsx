@@ -1,4 +1,5 @@
 import { Redirect, router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -12,7 +13,12 @@ import {
   Title,
 } from '@/components/ui';
 import { config } from '@/config';
+import {
+  globalCapabilityEnabled,
+  loadGlobalCapabilityContext,
+} from '@/lib/globalCapabilities';
 import { NEXA_GLOBAL_PRODUCT } from '@/lib/globalProduct';
+import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
 function FeatureCard(props: {
@@ -21,26 +27,81 @@ function FeatureCard(props: {
   action: string;
   onPress: () => void;
   primary?: boolean;
+  enabled?: boolean;
 }) {
   return (
     <Pressable
+      disabled={props.enabled === false}
       onPress={props.onPress}
       style={[
         styles.featureCard,
         props.primary ? styles.featureCardPrimary : null,
+        props.enabled === false ? styles.featureCardDisabled : null,
       ]}
     >
       <Text style={styles.featureTitle}>{props.title}</Text>
       <Text style={styles.featureText}>{props.text}</Text>
-      <Text style={styles.featureAction}>{props.action} →</Text>
+      <Text style={styles.featureAction}>
+        {props.enabled === false ? 'Indisponível no momento' : `${props.action} →`}
+      </Text>
     </Pressable>
   );
 }
 
 export default function NexaGlobalHome() {
+  const [capabilities, setCapabilities] = useState<any>(null);
+  const [countryCode, setCountryCode] = useState('');
+  const [capabilityMessage, setCapabilityMessage] = useState(
+    'Confirmando disponibilidade no seu país…',
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!config.globalProduct) {
+      setCapabilityMessage('');
+      return () => {
+        mounted = false;
+      };
+    }
+
+    void (async () => {
+      try {
+        const session = await loadNexaSession();
+        if (!session) throw new Error('Sua sessão Nexa expirou.');
+        const context = await loadGlobalCapabilityContext(session.accessToken);
+        if (!mounted || !context) return;
+        setCapabilities(context.capabilities);
+        setCountryCode(context.countryCode);
+        setCapabilityMessage(
+          'Recursos em prévia permanecem bloqueados até a liberação do backend.',
+        );
+      } catch (caught) {
+        if (!mounted) return;
+        setCapabilities(null);
+        setCapabilityMessage(
+          caught instanceof Error
+            ? caught.message
+            : 'Não foi possível confirmar a disponibilidade agora.',
+        );
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   if (!config.globalProduct) {
     return <Redirect href={'/legacy' as any} />;
   }
+
+  const canSendNexa = globalCapabilityEnabled(capabilities, 'nexaUserTransfer');
+  const canFund = globalCapabilityEnabled(capabilities, 'fundUsdc');
+  const canReceive = globalCapabilityEnabled(capabilities, 'receiveUsdc');
+  const canBrazilPix = globalCapabilityEnabled(capabilities, 'brazilPix');
+  const canBrazilBillPay = globalCapabilityEnabled(capabilities, 'brazilBillPay');
+  const canBuyAssets = globalCapabilityEnabled(capabilities, 'buyAssets');
 
   return (
     <Screen>
@@ -53,7 +114,9 @@ export default function NexaGlobalHome() {
       </Paragraph>
 
       <Card style={styles.hero}>
-        <Badge tone="info">PRINCIPAL</Badge>
+        <Badge tone={canSendNexa ? 'info' : 'warning'}>
+          {canSendNexa ? 'PRINCIPAL' : 'AGUARDANDO LIBERAÇÃO'}
+        </Badge>
         <Text style={styles.heroTitle}>Enviar para @Nexa User</Text>
         <Text style={styles.heroText}>
           A forma mais simples de mandar valor para alguém no ecossistema Nexa.
@@ -62,6 +125,7 @@ export default function NexaGlobalHome() {
         </Text>
         <ActionButton
           label="Enviar para @username"
+          disabled={!canSendNexa}
           onPress={() => router.push('/(app)/send-nexa' as any)}
         />
       </Card>
@@ -71,12 +135,14 @@ export default function NexaGlobalHome() {
           title="Adicionar USDC"
           text="Cartão, Apple Pay, Google Pay ou outro método disponível para sua região."
           action="Adicionar"
+          enabled={canFund}
           onPress={() => router.push('/(app)/fund-card' as any)}
         />
         <FeatureCard
           title="Receber USDC"
           text="Use sua wallet Nexa para receber USDC de outra wallet ou exchange compatível."
           action="Ver wallet"
+          enabled={canReceive}
           onPress={() =>
             router.push({
               pathname: '/legacy' as any,
@@ -88,18 +154,21 @@ export default function NexaGlobalHome() {
           title="Pix para o Brasil"
           text="Converta USDC e use a infraestrutura Nexa para receber em reais no Brasil."
           action="Abrir Pix"
+          enabled={canBrazilPix}
           onPress={() => router.push('/(app)/cash-out' as any)}
         />
         <FeatureCard
           title="Pagar conta no Brasil"
           text="Agende pagamento de boleto ou QR Pix brasileiro usando a infraestrutura Nexa."
           action="Pagar conta"
+          enabled={canBrazilBillPay}
           onPress={() => router.push('/(app)/pay' as any)}
         />
         <FeatureCard
           title="BTC, ETH e Ouro"
           text="Use USDC para acessar Bitcoin, Ether e ouro digital quando disponíveis."
           action="Comprar ativos"
+          enabled={canBuyAssets}
           onPress={() => router.push('/(app)/buy-crypto' as any)}
         />
         <FeatureCard
@@ -109,6 +178,13 @@ export default function NexaGlobalHome() {
           onPress={() => router.push('/(app)/activity' as any)}
         />
       </View>
+
+      <Card>
+        <Text style={styles.noteTitle}>
+          {countryCode ? `Disponibilidade · ${countryCode}` : 'Disponibilidade'}
+        </Text>
+        <Text style={styles.note}>{capabilityMessage}</Text>
+      </Card>
 
       <Card>
         <Text style={styles.noteTitle}>Como o Global funciona</Text>
@@ -157,6 +233,9 @@ const styles = StyleSheet.create({
   featureCardPrimary: {
     borderColor: colors.cyan,
     backgroundColor: colors.primarySoft,
+  },
+  featureCardDisabled: {
+    opacity: 0.5,
   },
   featureTitle: {
     color: colors.text,

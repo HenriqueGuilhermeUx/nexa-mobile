@@ -32,6 +32,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { assertGlobalCapability } from '@/lib/globalCapabilities';
 import { loadNexaSession } from '@/lib/session';
 import {
   ClientSponsorshipCredentials,
@@ -485,6 +486,10 @@ export default function BuyCryptoScreen() {
     try {
       const session = await loadNexaSession();
       if (!session) throw new Error('Sua sessão Nexa expirou.');
+      await assertGlobalCapability(
+        session.accessToken,
+        asset === 'PAXG' ? 'paxg' : asset === 'ETH' ? 'eth' : 'btc',
+      );
       const response =
         asset === 'PAXG'
           ? await getPremiumGoldQuote(session.accessToken, amountUsdc)
@@ -512,6 +517,10 @@ export default function BuyCryptoScreen() {
     try {
       const session = await loadNexaSession();
       if (!session) throw new Error('Sua sessão Nexa expirou.');
+      await assertGlobalCapability(
+        session.accessToken,
+        asset === 'PAXG' ? 'paxg' : asset === 'ETH' ? 'eth' : 'btc',
+      );
 
       const response =
         asset === 'PAXG'

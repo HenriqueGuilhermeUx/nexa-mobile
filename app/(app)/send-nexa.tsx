@@ -14,6 +14,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { assertGlobalCapability } from '@/lib/globalCapabilities';
 import { loadNexaSession } from '@/lib/session';
 import {
   confirmDirectTransfer,
@@ -98,6 +99,7 @@ export default function SendNexaScreen() {
     try {
       const session = await loadNexaSession();
       if (!session) throw new Error('Sua sessão Nexa expirou.');
+      await assertGlobalCapability(session.accessToken, 'nexaUserTransfer');
       const response = await prepareDirectTransfer(
         session.accessToken,
         receiverUsername,

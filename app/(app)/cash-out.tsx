@@ -28,6 +28,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { assertGlobalCapability } from '@/lib/globalCapabilities';
 import { loadNexaSession } from '@/lib/session';
 import {
   normalizeWalletAddress,
@@ -403,6 +404,7 @@ export default function CashOutScreen() {
     setLoading(true);
     try {
       const accessToken = await sessionToken();
+      await assertGlobalCapability(accessToken, 'brazilPix');
       const nextQuote = await getWalletFirstExitQuote(accessToken, amount);
       setQuote(nextQuote);
       setPhase('quoted');
@@ -423,6 +425,7 @@ export default function CashOutScreen() {
     setLoading(true);
     try {
       const accessToken = await sessionToken();
+      await assertGlobalCapability(accessToken, 'brazilPix');
       let currentIntent = intent;
       if (!currentIntent?.order?.id) {
         const clientRequestId = `wf-exit-${Date.now()}-${Math.random()

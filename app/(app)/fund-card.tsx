@@ -6,6 +6,8 @@ import { Text } from 'react-native';
 import { polygon } from 'viem/chains';
 
 import { ActionButton, Badge, Brand, Card, Eyebrow, Paragraph, Screen, Title } from '@/components/ui';
+import { assertGlobalCapability } from '@/lib/globalCapabilities';
+import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
 export default function FundCardScreen() {
@@ -19,6 +21,10 @@ export default function FundCardScreen() {
     setError('');
     setWorking(true);
     try {
+      const session = await loadNexaSession();
+      if (!session) throw new Error('Sua sessão Nexa expirou.');
+      await assertGlobalCapability(session.accessToken, 'fundUsdc');
+
       const wallet = wallets.length === 1 ? wallets[0] : wallets.find((candidate) => Boolean(candidate?.address));
       const address = String(wallet?.address || '').trim();
       if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
