@@ -1,2 +1,3 @@
 Validate Nexa Global V1 mobile foundation
 Validate Brazil/Global product boundary after 845b58c
+Validate country capability gating after 41bcd88
