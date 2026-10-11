@@ -49,3 +49,59 @@ jobs:
           NODE
       - name: Typecheck
         run: npm run typecheck
+      - name: Validate USA homolog readiness
+        env:
+          NEXA_GLOBAL_HOMOLOG_URL: https://nexa-global-us-pilot.onrender.com/api/v1
+        run: |
+          node <<'NODE'
+          const base = process.env.NEXA_GLOBAL_HOMOLOG_URL;
+          async function get(path) {
+            let last;
+            for (let attempt = 1; attempt <= 8; attempt++) {
+              try {
+                const response = await fetch(base + path, {
+                  headers: { 'user-agent': 'nexa-global-ci/1.0' },
+                });
+                const text = await response.text();
+                if (!response.ok) throw new Error(`${path}: HTTP ${response.status} ${text.slice(0, 300)}`);
+                return text ? JSON.parse(text) : {};
+              } catch (error) {
+                last = error;
+                await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+              }
+            }
+            throw last;
+          }
+
+          const health = await get('/health');
+          const caps = await get('/nexa-rails/v1/capabilities/US');
+          const readiness = await get('/nexa-rails/v1/global-pilot/readiness');
+
+          if (health?.status !== 'ok') throw new Error('USA homolog health is not OK');
+          if (caps?.countryCode !== 'US') throw new Error('US capability response missing');
+          if (caps?.onboarding?.registrationEnabled !== true) throw new Error('US registration must be active');
+          if (caps?.wallet?.status !== 'active') throw new Error('US wallet must be active');
+          if (caps?.stablecoins?.usdc !== 'active') throw new Error('USDC capability must be active');
+
+          const identity = readiness?.providers?.identity || {};
+          const wallet = readiness?.providers?.wallet || {};
+          if (identity.apiKeyConfigured !== true) throw new Error('DIDIT_API_KEY is not configured');
+          if (identity.dedicatedWorkflowConfigured !== true) throw new Error('DIDIT_GLOBAL_WORKFLOW_ID is not configured');
+          if (identity.webhookSignatureRequired !== true) throw new Error('Didit webhook signature must be required');
+          if (wallet.linkSecretConfigured !== true) throw new Error('Global wallet link secret is not configured');
+          if (readiness?.financialExecution !== false) throw new Error('Financial execution must remain disabled');
+
+          console.log(JSON.stringify({
+            health: health.status,
+            countryCode: caps.countryCode,
+            registrationEnabled: caps.onboarding.registrationEnabled,
+            walletStatus: caps.wallet.status,
+            usdcStatus: caps.stablecoins.usdc,
+            diditApiKeyConfigured: identity.apiKeyConfigured,
+            diditDedicatedWorkflowConfigured: identity.dedicatedWorkflowConfigured,
+            diditWebhookSignatureRequired: identity.webhookSignatureRequired,
+            walletProofSecretConfigured: wallet.linkSecretConfigured,
+            financialExecution: readiness.financialExecution,
+          }, null, 2));
+          NODE
+
