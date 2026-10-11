@@ -437,6 +437,39 @@ export const nexaApi = {
     return request<BrazilKycStatus>('/kyc/didit/global/me', { accessToken });
   },
 
+  globalWalletChallenge(
+    accessToken: string,
+    walletAddress: string,
+  ) {
+    return request<any>('/nexa-rails/v1/global-wallet/challenge', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({ walletAddress }),
+    });
+  },
+
+  globalWalletVerify(
+    accessToken: string,
+    data: {
+      challengeToken: string;
+      walletAddress: string;
+      signature: string;
+      privyWalletId?: string;
+    },
+  ) {
+    return request<any>('/nexa-rails/v1/global-wallet/verify', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(data),
+    });
+  },
+
+  globalWalletStatus(accessToken: string) {
+    return request<any>('/nexa-rails/v1/global-wallet/status', {
+      accessToken,
+    });
+  },
+
   configurePayoutOnboarding(
     accessToken: string,
     pixKeyType: 'CPF' | 'EMAIL' | 'PHONE',
