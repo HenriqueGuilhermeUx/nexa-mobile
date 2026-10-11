@@ -1,0 +1,164 @@
+name: Nexa Global USA Pilot APK
+
+on:
+  push:
+    branches:
+      - feat/nexa-global-v1
+    paths:
+      - '.github/workflows/nexa-global-pilot-apk.yml'
+      - '.github/build-triggers/nexa-global-pilot-apk.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-global-usa-pilot-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Validate and build Nexa Global USA APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'nexa-global'
+
+    steps:
+      - name: Checkout Global pilot branch
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validate Global identity and financial boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const dyn = require('./app.config.js')({ config: app });
+          const eas = require('./eas.json');
+          const p = eas?.build?.['nexa-global'];
+
+          if (!p) throw new Error('nexa-global profile missing');
+          if (p.android?.buildType !== 'apk') throw new Error('Global pilot must build APK');
+          if (p.env?.EXPO_PUBLIC_NEXA_API_URL !== 'https://nexa-global-us-pilot.onrender.com/api/v1') {
+            throw new Error('Global pilot must use isolated USA homolog backend');
+          }
+          if (p.env?.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL !== 'nexa-global') {
+            throw new Error('Global release channel missing');
+          }
+          if (p.env?.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED !== 'false') {
+            throw new Error('Global financial execution must remain disabled');
+          }
+          if (dyn.name !== 'Nexa Global') throw new Error('Unexpected Global app name');
+          if (dyn.android?.package !== 'com.trynexa.global') throw new Error('Unexpected Global Android package');
+          if (dyn.ios?.bundleIdentifier !== 'com.trynexa.global') throw new Error('Unexpected Global iOS bundle id');
+          console.log('Nexa Global USA identity and financial boundary validated.');
+          NODE
+          node scripts/validate-mobile-safety.js
+          npm run typecheck
+          npx expo-doctor
+
+      - name: Validate USA homolog readiness
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const base = 'https://nexa-global-us-pilot.onrender.com/api/v1';
+          async function get(path) {
+            let last;
+            for (let attempt = 1; attempt <= 8; attempt++) {
+              try {
+                const response = await fetch(base + path, { headers: { 'user-agent': 'nexa-global-apk-ci/1.0' } });
+                const text = await response.text();
+                if (!response.ok) throw new Error(path + ': HTTP ' + response.status);
+                return text ? JSON.parse(text) : {};
+              } catch (error) {
+                last = error;
+                await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+              }
+            }
+            throw last;
+          }
+          const health = await get('/health');
+          const caps = await get('/nexa-rails/v1/capabilities/US');
+          const readiness = await get('/nexa-rails/v1/global-pilot/readiness');
+          if (health?.status !== 'ok') throw new Error('USA homolog unhealthy');
+          if (caps?.countryCode !== 'US' || caps?.wallet?.status !== 'active' || caps?.stablecoins?.usdc !== 'active') {
+            throw new Error('USA core capabilities are not active');
+          }
+          if (readiness?.providers?.identity?.apiKeyConfigured !== true) throw new Error('Didit API key missing');
+          if (readiness?.providers?.identity?.dedicatedWorkflowConfigured !== true) throw new Error('Didit USA workflow missing');
+          if (readiness?.providers?.wallet?.linkSecretConfigured !== true) throw new Error('Wallet ownership proof secret missing');
+          if (readiness?.financialExecution !== false) throw new Error('Financial execution must remain disabled');
+          console.log('USA homolog is ready for controlled APK pilot.');
+          NODE
+
+      - name: Build signed Nexa Global APK on EAS Cloud
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN"
+          eas whoami
+          eas build --platform android --profile nexa-global --non-interactive --wait
+
+      - name: Resolve finished Global build and download APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          eas build:list --platform android --status finished --limit 20 --json --non-interactive > eas-builds.json
+          node <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('eas-builds.json','utf8'));
+          const builds = Array.isArray(data) ? data : (data?.builds || []);
+          const sha = process.env.GITHUB_SHA;
+          const candidates = builds.filter((b) => {
+            const profile = b.buildProfile || b.profile || b.metadata?.buildProfile;
+            const commit = b.gitCommitHash || b.gitCommit?.hash || b.metadata?.gitCommitHash;
+            return profile === 'nexa-global' && (!commit || commit === sha);
+          });
+          const b = candidates[0] || builds.find((x) => (x.buildProfile || x.profile) === 'nexa-global');
+          if (!b) throw new Error('No finished nexa-global EAS build found');
+          const url = b.artifacts?.buildUrl || b.artifacts?.applicationArchiveUrl || b.artifactUrl;
+          if (!url) throw new Error('EAS Global APK artifact URL missing');
+          fs.writeFileSync('eas-global-apk-url.txt', url);
+          console.log('Resolved finished Nexa Global APK artifact.');
+          NODE
+          URL="$(cat eas-global-apk-url.txt)"
+          curl --fail --location --retry 5 --retry-delay 5 "$URL" -o Nexa-Global-USA-Pilot.apk
+          test -s Nexa-Global-USA-Pilot.apk
+          sha256sum Nexa-Global-USA-Pilot.apk > SHA256SUMS.txt
+
+      - name: Upload Nexa Global pilot APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Global-USA-Pilot-APK
+          path: |
+            Nexa-Global-USA-Pilot.apk
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Release boundary
+        run: |
+          echo "Internal Nexa Global USA APK only."
+          echo "No Google Play submission."
+          echo "No Nexa Brazil release modification."
+          echo "Financial execution remains disabled."
