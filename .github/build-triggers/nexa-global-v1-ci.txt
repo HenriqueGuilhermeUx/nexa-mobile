@@ -8,3 +8,4 @@ Validate English US pilot onboarding after b50beda
 Validate KYC locale fix after 343484f
 US pilot wallet proof + isolated homolog validation
 USA homolog provider readiness validation
+Post-deploy USA homolog smoke validation
