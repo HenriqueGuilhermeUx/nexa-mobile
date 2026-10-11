@@ -143,12 +143,7 @@ export default function NexaGlobalHome() {
           text="Use sua wallet Nexa para receber USDC de outra wallet ou exchange compatível."
           action="Ver wallet"
           enabled={canReceive}
-          onPress={() =>
-            router.push({
-              pathname: '/legacy' as any,
-              params: { open: 'custody' },
-            } as any)
-          }
+          onPress={() => router.push('/(app)/receive-usdc' as any)}
         />
         <FeatureCard
           title="Pix para o Brasil"

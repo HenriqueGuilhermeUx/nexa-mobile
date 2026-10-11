@@ -15,6 +15,7 @@ import {
   Title,
 } from '@/components/ui';
 import { assertGlobalCapability } from '@/lib/globalCapabilities';
+import { config } from '@/config';
 import { loadNexaSession } from '@/lib/session';
 import {
   confirmDirectTransfer,
@@ -177,18 +178,27 @@ export default function SendNexaScreen() {
           <Text style={styles.destinationTitle}>Usuário Nexa</Text>
           <Text style={styles.destinationText}>Use @username. A Nexa localiza a wallet correta.</Text>
         </View>
-        <Pressable
-          style={styles.destinationCard}
-          onPress={() =>
-            router.push({
-              pathname: '/legacy' as any,
-              params: { open: 'custody' },
-            } as any)
-          }
-        >
-          <Text style={styles.destinationTitle}>Wallet externa</Text>
-          <Text style={styles.destinationText}>Endereço 0x e rede compatível.</Text>
-        </Pressable>
+        {config.globalProduct ? (
+          <View style={[styles.destinationCard, styles.destinationCardDisabled]}>
+            <Text style={styles.destinationTitle}>Wallet externa</Text>
+            <Text style={styles.destinationText}>
+              Envio avançado para endereço externo será liberado separadamente.
+            </Text>
+          </View>
+        ) : (
+          <Pressable
+            style={styles.destinationCard}
+            onPress={() =>
+              router.push({
+                pathname: '/legacy' as any,
+                params: { open: 'custody' },
+              } as any)
+            }
+          >
+            <Text style={styles.destinationTitle}>Wallet externa</Text>
+            <Text style={styles.destinationText}>Endereço 0x e rede compatível.</Text>
+          </Pressable>
+        )}
       </View>
 
       <Card>
@@ -295,6 +305,9 @@ const styles = StyleSheet.create({
   destinationCardActive: {
     borderColor: colors.cyan,
     backgroundColor: colors.primarySoft,
+  },
+  destinationCardDisabled: {
+    opacity: 0.5,
   },
   destinationTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
   destinationText: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 6 },
