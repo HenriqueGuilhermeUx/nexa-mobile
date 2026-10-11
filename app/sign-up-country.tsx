@@ -12,7 +12,10 @@ import {
 } from '@/components/ui';
 import { config } from '@/config';
 import { nexaApi } from '@/lib/api';
-import { GLOBAL_JURISDICTIONS } from '@/lib/globalProduct';
+import {
+  GLOBAL_JURISDICTIONS,
+  NEXA_GLOBAL_PILOT_COUNTRY,
+} from '@/lib/globalProduct';
 import { colors, radius, spacing } from '@/theme';
 
 const BRAZIL_COUNTRIES = [
@@ -26,7 +29,10 @@ const BRAZIL_COUNTRIES = [
 
 const GLOBAL_COUNTRIES = GLOBAL_JURISDICTIONS.map((country) => ({
   code: country.code,
-  label: country.label,
+  label:
+    country.code === NEXA_GLOBAL_PILOT_COUNTRY
+      ? `${country.label} · Pilot`
+      : country.label,
 }));
 
 export default function SignUpCountryScreen() {
@@ -77,7 +83,7 @@ export default function SignUpCountryScreen() {
       <Title>{globalProduct ? 'Where do you live?' : 'Onde você mora?'}</Title>
       <Paragraph>
         {globalProduct
-          ? 'Nexa Global adapts identity verification and supported funding methods to your country of residence. Your Global balance remains USDC-first.'
+          ? 'The United States is the first Nexa Global pilot market. Other countries remain visible as upcoming markets and only open when their country capability is active.'
           : 'A Nexa adapta verificação de identidade, formas de adicionar dinheiro e saques ao país de residência. O Brasil continua disponível normalmente.'}
       </Paragraph>
 
@@ -86,7 +92,7 @@ export default function SignUpCountryScreen() {
           <ActionButton
             key={country.code}
             label={country.label}
-            variant={(globalProduct ? country.code === 'US' : country.code === 'BR') ? 'primary' : 'secondary'}
+            variant={(globalProduct ? country.code === NEXA_GLOBAL_PILOT_COUNTRY : country.code === 'BR') ? 'primary' : 'secondary'}
             loading={loadingCountry === country.code}
             disabled={Boolean(loadingCountry)}
             onPress={() => selectCountry(country.code, country.label)}

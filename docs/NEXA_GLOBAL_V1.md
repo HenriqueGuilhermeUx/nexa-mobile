@@ -9,11 +9,17 @@ The product is **USDC-first**. Local fiat is never the ledger balance of Nexa Gl
 Primary use case:
 
 1. User completes country-aware onboarding and KYC.
-2. User brings USDC from an external wallet/exchange **or** buys USDC through the existing Privy/Meld funding surface.
+2. User brings USDC from an external wallet/exchange **or** buys USDC through the Privy funding surface when the country capability is active. In the United States, the intended onramp path is Stripe Crypto Onramp through Privy.
 3. User sends USDC to another Nexa user by `@username`.
 4. Brazilian recipients can use the Nexa Brazil utilities available to their account, including Pix.
 5. Global users can also use supported Brazil bill-pay functionality.
 6. BTC, ETH and PAXG remain available where the user's jurisdiction/product eligibility permits them.
+
+## First pilot market
+
+The first controlled market is **United States (US)**.
+
+Phase 1 opens country-aware registration/KYC, Privy wallet creation and USDC receive only when the backend capability matrix marks each item active. Registration alone must never activate transfers, card/ACH funding, Brazil utilities or asset purchases.
 
 ## Main audience
 
@@ -38,7 +44,9 @@ Existing mobile implementation:
 - Privy `useFundWallet`
 - target asset: `USDC`
 - chain: Polygon
-- provider selection: Privy/Meld based on enabled providers and region
+- provider selection: Privy funding
+- United States intended provider path: Stripe Crypto Onramp
+- other markets: Privy global funding network when separately enabled
 
 Supported payment methods are not promised globally. The UI must only present them as available when the selected provider/jurisdiction supports them.
 

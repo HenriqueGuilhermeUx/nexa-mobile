@@ -6,6 +6,8 @@ export type GlobalJurisdiction = {
   documentHint: string;
 };
 
+export const NEXA_GLOBAL_PILOT_COUNTRY = 'US' as const;
+
 export const GLOBAL_JURISDICTIONS: GlobalJurisdiction[] = [
   { code: 'US', label: 'United States', region: 'NORTH_AMERICA', currency: 'USD', documentHint: 'Passport or supported U.S. identity document' },
   { code: 'CA', label: 'Canada', region: 'NORTH_AMERICA', currency: 'CAD', documentHint: 'Passport or supported Canadian identity document' },
@@ -31,8 +33,10 @@ export const NEXA_GLOBAL_PRODUCT = {
   primaryAction: 'SEND_NEXA_USER',
   funding: {
     asset: 'USDC',
-    methods: ['CARD', 'APPLE_PAY', 'GOOGLE_PAY', 'EXTERNAL_WALLET'] as const,
-    providerSelection: 'PRIVY_MELD',
+    methods: ['CARD', 'APPLE_PAY', 'GOOGLE_PAY', 'ACH', 'EXTERNAL_WALLET'] as const,
+    providerSelection: 'PRIVY_FUNDING',
+    unitedStatesProvider: 'STRIPE_CRYPTO_ONRAMP',
+    otherMarketsProvider: 'PRIVY_GLOBAL_NETWORK',
   },
   utilities: {
     nexaUserTransfer: true,

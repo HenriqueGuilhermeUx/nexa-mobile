@@ -18,7 +18,10 @@ import {
   globalCapabilityEnabled,
   loadGlobalCapabilityContext,
 } from '@/lib/globalCapabilities';
-import { NEXA_GLOBAL_PRODUCT } from '@/lib/globalProduct';
+import {
+  NEXA_GLOBAL_PILOT_COUNTRY,
+  NEXA_GLOBAL_PRODUCT,
+} from '@/lib/globalProduct';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -75,7 +78,9 @@ export default function NexaGlobalHome() {
         setCapabilities(context.capabilities);
         setCountryCode(context.countryCode);
         setCapabilityMessage(
-          'Recursos em prévia permanecem bloqueados até a liberação do backend.',
+          context.countryCode === NEXA_GLOBAL_PILOT_COUNTRY
+            ? 'USA pilot · Phase 1. Wallet and USDC receive can be enabled independently; transfers, funding, assets and Brazil utilities remain blocked until their own capability is active.'
+            : 'This market is still in preview. Financial features remain blocked until the country capability is activated.',
         );
       } catch (caught) {
         if (!mounted) return;
