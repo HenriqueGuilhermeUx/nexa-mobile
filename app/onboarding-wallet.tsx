@@ -12,6 +12,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { config } from '@/config';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
@@ -20,8 +21,24 @@ function validWallet(candidate: any) {
   return /^0x[a-fA-F0-9]{40}$/.test(String(candidate?.address || ''));
 }
 
+function messageToHex(message: string) {
+  const bytes = new TextEncoder().encode(message);
+  return `0x${Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+async function providerFor(wallet: any) {
+  if (typeof wallet?.getProvider === 'function') return wallet.getProvider();
+  if (typeof wallet?.getEthereumProvider === 'function') {
+    return wallet.getEthereumProvider();
+  }
+  throw new Error('Your wallet is not ready for ownership verification.');
+}
+
 export default function WalletOnboardingScreen() {
   const privy = usePrivy() as any;
+  const globalProduct = config.globalProduct;
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
   const wallet = useMemo(
@@ -32,7 +49,9 @@ export default function WalletOnboardingScreen() {
   const startedRef = useRef(false);
   const linkingRef = useRef(false);
   const [waitingForWallet, setWaitingForWallet] = useState(false);
-  const [stage, setStage] = useState('Preparando sua wallet…');
+  const [stage, setStage] = useState(
+    globalProduct ? 'Preparing your wallet…' : 'Preparando sua wallet…',
+  );
   const [error, setError] = useState('');
 
   async function currentPrivyToken() {
@@ -48,7 +67,11 @@ export default function WalletOnboardingScreen() {
     if (linkingRef.current || !validWallet(currentWallet)) return;
     linkingRef.current = true;
     setError('');
-    setStage('Protegendo e vinculando sua carteira…');
+    setStage(
+      globalProduct
+        ? 'Securing and linking your wallet…'
+        : 'Protegendo e vinculando sua carteira…',
+    );
 
     try {
       const session = await loadNexaSession();
@@ -73,6 +96,36 @@ export default function WalletOnboardingScreen() {
           currentWallet.address,
       ).trim();
 
+      if (globalProduct) {
+        const challenge = await nexaApi.globalWalletChallenge(
+          session.accessToken,
+          currentWallet.address,
+        );
+        const provider = await providerFor(currentWallet);
+        if (!provider || typeof provider.request !== 'function') {
+          throw new Error('Your wallet is not ready for ownership verification.');
+        }
+
+        const signature = await provider.request({
+          method: 'personal_sign',
+          params: [
+            messageToHex(String(challenge?.message || '')),
+            currentWallet.address,
+          ],
+        });
+
+        await nexaApi.globalWalletVerify(session.accessToken, {
+          challengeToken: String(challenge?.challengeToken || ''),
+          walletAddress: currentWallet.address,
+          signature: String(signature || ''),
+          privyWalletId,
+        });
+
+        setStage('Wallet verified.');
+        router.replace('/(app)' as any);
+        return;
+      }
+
       await nexaApi.linkWallet(
         session.accessToken,
         privyAccessToken,
@@ -90,7 +143,9 @@ export default function WalletOnboardingScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível concluir sua wallet.',
+          : globalProduct
+            ? 'We could not finish your wallet.'
+            : 'Não foi possível concluir sua wallet.',
       );
     }
   }
@@ -113,7 +168,7 @@ export default function WalletOnboardingScreen() {
       ).trim();
 
       if (linkedAddress) {
-        router.replace('/wallet-ownership' as any);
+        router.replace(globalProduct ? '/(app)' as any : '/wallet-ownership' as any);
         return;
       }
 
@@ -132,10 +187,14 @@ export default function WalletOnboardingScreen() {
       }
 
       if (typeof embedded?.create !== 'function') {
-        throw new Error('A criação da wallet não está disponível neste aparelho.');
+        throw new Error(
+          globalProduct
+            ? 'Wallet creation is not available on this device.'
+            : 'A criação da wallet não está disponível neste aparelho.',
+        );
       }
 
-      setStage('Criando sua wallet…');
+      setStage(globalProduct ? 'Creating your wallet…' : 'Criando sua wallet…');
       setWaitingForWallet(true);
       const created = await embedded.create({ createAdditional: false });
       const createdWallet =
@@ -153,14 +212,16 @@ export default function WalletOnboardingScreen() {
 
       // O hook da Privy publica a carteira logo depois de create(). O efeito
       // abaixo continua automaticamente assim que o endereço aparece.
-      setStage('Finalizando sua wallet…');
+      setStage(globalProduct ? 'Finishing your wallet…' : 'Finalizando sua wallet…');
     } catch (caught) {
       startedRef.current = false;
       setWaitingForWallet(false);
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível preparar sua wallet.',
+          : globalProduct
+            ? 'We could not prepare your wallet.'
+            : 'Não foi possível preparar sua wallet.',
       );
     }
   }
@@ -189,15 +250,17 @@ export default function WalletOnboardingScreen() {
       <Screen>
         <Brand />
         <View style={styles.topSpace} />
-        <Badge tone="warning">PASSO 3 DE 4</Badge>
-        <Title>Vamos ativar sua wallet</Title>
+        <Badge tone="warning">{globalProduct ? 'STEP 3 OF 4' : 'PASSO 3 DE 4'}</Badge>
+        <Title>{globalProduct ? 'Activate your wallet' : 'Vamos ativar sua wallet'}</Title>
         <Paragraph>
-          Sua conta continua protegida. Tente novamente para concluir a ativação da sua wallet.
+          {globalProduct
+            ? 'Your account remains protected. Try again to finish activating your wallet.'
+            : 'Sua conta continua protegida. Tente novamente para concluir a ativação da sua wallet.'}
         </Paragraph>
         <Card>
           <Text style={styles.error}>{error}</Text>
         </Card>
-        <ActionButton label="Tentar novamente" onPress={retry} />
+        <ActionButton label={globalProduct ? 'Try again' : 'Tentar novamente'} onPress={retry} />
       </Screen>
     );
   }
@@ -205,18 +268,20 @@ export default function WalletOnboardingScreen() {
   return (
     <View style={styles.loader}>
       <Brand />
-      <Badge tone="info">PASSO 3 DE 4</Badge>
+      <Badge tone="info">{globalProduct ? 'STEP 3 OF 4' : 'PASSO 3 DE 4'}</Badge>
       <View style={styles.progressMark}>
         <Text style={styles.progressMarkText}>N</Text>
       </View>
-      <Title>Ativando sua wallet</Title>
+      <Title>{globalProduct ? 'Activating your wallet' : 'Ativando sua wallet'}</Title>
       <Paragraph>
-        A Nexa cuida da parte técnica nos bastidores. Você não precisa escolher rede, configurar bridge ou entender gas para continuar.
+        {globalProduct
+          ? 'Nexa handles the technical setup in the background. You do not need to choose a network, configure a bridge, or manage gas to continue.'
+          : 'A Nexa cuida da parte técnica nos bastidores. Você não precisa escolher rede, configurar bridge ou entender gas para continuar.'}
       </Paragraph>
       <Card>
         <View style={styles.progressItem}>
           <Text style={styles.progressDone}>✓</Text>
-          <Text style={styles.progressText}>Conta confirmada</Text>
+          <Text style={styles.progressText}>{globalProduct ? 'Account confirmed' : 'Conta confirmada'}</Text>
         </View>
         <View style={styles.progressItem}>
           <ActivityIndicator size="small" color={colors.cyan} />
@@ -224,10 +289,12 @@ export default function WalletOnboardingScreen() {
         </View>
         <View style={styles.progressItem}>
           <Text style={styles.progressPending}>3</Text>
-          <Text style={styles.progressMuted}>Finalizando vínculo da wallet</Text>
+          <Text style={styles.progressMuted}>{globalProduct ? 'Finishing wallet link' : 'Finalizando vínculo da wallet'}</Text>
         </View>
         <Text style={styles.helper}>
-          Você pode aguardar nesta tela; nenhuma movimentação financeira acontece nesta etapa.
+          {globalProduct
+            ? 'You can stay on this screen; no financial transaction happens during this step.'
+            : 'Você pode aguardar nesta tela; nenhuma movimentação financeira acontece nesta etapa.'}
         </Text>
       </Card>
     </View>
