@@ -13,6 +13,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { config } from '@/config';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -33,6 +34,7 @@ export default function WalletSessionScreen() {
   const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const returnTo = firstParam(params.returnTo) || '';
   const walletOnboarding = returnTo === 'onboarding-wallet';
+  const globalProduct = config.globalProduct;
   const privy = usePrivy() as any;
   const emailLogin = useLoginWithEmail() as any;
 
@@ -80,7 +82,9 @@ export default function WalletSessionScreen() {
           setError(
             caught instanceof Error
               ? caught.message
-              : 'Não foi possível preparar a confirmação da carteira.',
+              : globalProduct
+                ? 'We could not prepare wallet confirmation.'
+                : 'Não foi possível preparar a confirmação da carteira.',
           );
         }
       }
@@ -95,9 +99,19 @@ export default function WalletSessionScreen() {
     setError('');
     setWorking(true);
     try {
-      if (!email) throw new Error('O e-mail da conta Nexa não está disponível.');
+      if (!email) {
+        throw new Error(
+          globalProduct
+            ? 'Your Nexa account email is not available.'
+            : 'O e-mail da conta Nexa não está disponível.',
+        );
+      }
       if (typeof emailLogin?.sendCode !== 'function') {
-        throw new Error('A confirmação por e-mail não está disponível nesta versão.');
+        throw new Error(
+          globalProduct
+            ? 'Email confirmation is not available in this version.'
+            : 'A confirmação por e-mail não está disponível nesta versão.',
+        );
       }
 
       await emailLogin.sendCode({
@@ -113,7 +127,9 @@ export default function WalletSessionScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível enviar o código de confirmação.',
+          : globalProduct
+            ? 'We could not send the confirmation code.'
+            : 'Não foi possível enviar o código de confirmação.',
       );
     } finally {
       setWorking(false);
@@ -128,7 +144,9 @@ export default function WalletSessionScreen() {
       await sleep(400);
     }
     throw new Error(
-      'Seu e-mail foi confirmado, mas a carteira ainda está sendo preparada. Tente novamente em alguns segundos.',
+      globalProduct
+        ? 'Your email was confirmed, but the wallet is still being prepared. Try again shortly.'
+        : 'Seu e-mail foi confirmado, mas a carteira ainda está sendo preparada. Tente novamente em alguns segundos.',
     );
   }
 
@@ -137,14 +155,22 @@ export default function WalletSessionScreen() {
     setError('');
 
     if (normalizedCode.length < 4) {
-      setError('Informe o código recebido no seu e-mail.');
+      setError(
+        globalProduct
+          ? 'Enter the code sent to your email.'
+          : 'Informe o código recebido no seu e-mail.',
+      );
       return;
     }
 
     setWorking(true);
     try {
       if (typeof emailLogin?.loginWithCode !== 'function') {
-        throw new Error('A validação por código não está disponível nesta versão.');
+        throw new Error(
+          globalProduct
+            ? 'Code verification is not available in this version.'
+            : 'A validação por código não está disponível nesta versão.',
+        );
       }
 
       await emailLogin.loginWithCode({ email, code: normalizedCode });
@@ -162,7 +188,9 @@ export default function WalletSessionScreen() {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Código inválido ou expirado. Solicite um novo código.',
+          : globalProduct
+            ? 'Invalid or expired code. Request a new one.'
+            : 'Código inválido ou expirado. Solicite um novo código.',
       );
     } finally {
       setWorking(false);
@@ -197,46 +225,58 @@ export default function WalletSessionScreen() {
       <Brand />
       <View style={styles.topSpace} />
       <Badge tone={ready ? 'success' : 'warning'}>
-        {ready ? 'E-MAIL CONFIRMADO' : 'CONFIRMAR E-MAIL'}
+        {ready
+          ? globalProduct ? 'EMAIL CONFIRMED' : 'E-MAIL CONFIRMADO'
+          : globalProduct ? 'CONFIRM EMAIL' : 'CONFIRMAR E-MAIL'}
       </Badge>
-      <Title>{ready ? 'Tudo certo.' : 'Confirme seu e-mail.'}</Title>
+      <Title>
+        {ready
+          ? globalProduct ? 'All set.' : 'Tudo certo.'
+          : globalProduct ? 'Confirm your email.' : 'Confirme seu e-mail.'}
+      </Title>
       <Paragraph>
         {ready
-          ? 'A autorização necessária para preparar sua Cripto Wallet está pronta neste aparelho.'
+          ? globalProduct
+            ? 'The authorization needed to prepare your wallet is ready on this device.'
+            : 'A autorização necessária para preparar sua Cripto Wallet está pronta neste aparelho.'
           : walletOnboarding
-            ? 'Enviaremos um código para o mesmo e-mail da sua conta Nexa. Essa confirmação protege a criação da sua Cripto Wallet.'
-            : 'Use o mesmo e-mail da sua conta Nexa para restaurar a autorização da carteira já vinculada.'}
+            ? globalProduct
+              ? 'We will send a code to the same email used for your Nexa account. This confirmation protects creation of your wallet.'
+              : 'Enviaremos um código para o mesmo e-mail da sua conta Nexa. Essa confirmação protege a criação da sua Cripto Wallet.'
+            : globalProduct
+              ? 'Use the same email as your Nexa account to restore wallet authorization.'
+              : 'Use o mesmo e-mail da sua conta Nexa para restaurar a autorização da carteira já vinculada.'}
       </Paragraph>
 
       <Card>
-        <Text style={styles.label}>Conta Nexa</Text>
+        <Text style={styles.label}>{globalProduct ? 'Nexa account' : 'Conta Nexa'}</Text>
         <Text style={styles.muted}>{email ? maskEmail(email) : '—'}</Text>
       </Card>
 
       {!ready ? (
         !codeSent ? (
           <ActionButton
-            label="Enviar código"
+            label={globalProduct ? 'Send code' : 'Enviar código'}
             loading={working}
             onPress={sendCode}
           />
         ) : (
           <Card>
             <Field
-              label="Código recebido por e-mail"
+              label={globalProduct ? 'Code sent by email' : 'Código recebido por e-mail'}
               value={code}
               onChangeText={setCode}
               keyboardType="number-pad"
               autoComplete="one-time-code"
-              placeholder="Digite o código"
+              placeholder={globalProduct ? 'Enter the code' : 'Digite o código'}
             />
             <ActionButton
-              label="Confirmar e continuar"
+              label={globalProduct ? 'Confirm and continue' : 'Confirmar e continuar'}
               loading={working}
               onPress={validateCode}
             />
             <ActionButton
-              label="Enviar novo código"
+              label={globalProduct ? 'Send new code' : 'Enviar novo código'}
               variant="secondary"
               disabled={working}
               onPress={sendCode}
@@ -244,13 +284,13 @@ export default function WalletSessionScreen() {
           </Card>
         )
       ) : (
-        <ActionButton label="Continuar" onPress={continueFlow} />
+        <ActionButton label={globalProduct ? 'Continue' : 'Continuar'} onPress={continueFlow} />
       )}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {!walletOnboarding ? (
         <ActionButton
-          label="Voltar"
+          label={globalProduct ? 'Back' : 'Voltar'}
           variant="secondary"
           onPress={() => router.back()}
         />
