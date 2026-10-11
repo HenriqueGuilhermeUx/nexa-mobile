@@ -202,6 +202,24 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "nexa-global": {
+      "distribution": "internal",
+      "channel": "nexa-global",
+      "autoIncrement": false,
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-global-us-pilot.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "nexa-global",
+        "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED": "false"
+      },
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
