@@ -71,7 +71,26 @@ jobs:
           if (dyn.ios?.bundleIdentifier !== 'com.trynexa.global') throw new Error('Unexpected Global iOS bundle id');
           console.log('Nexa Global USA identity and financial boundary validated.');
           NODE
-          node scripts/validate-mobile-safety.js
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const roots = ['app', 'src'];
+          const files = [];
+          function walk(dir) {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const p = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(p);
+              else if (/\.(ts|tsx|js|json)$/.test(entry.name)) files.push(p);
+            }
+          }
+          for (const root of roots) walk(root);
+          files.push('app.json', 'eas.json', 'package.json');
+          const source = files.map((p) => fs.readFileSync(p, 'utf8')).join('\n');
+          if (/PRIVY_APP_SECRET\s*[:=]|PRIVY_SECRET_KEY\s*[:=]|MASTER_WALLET_PRIVATE_KEY\s*[:=]|BEGIN PRIVATE KEY/i.test(source)) {
+            throw new Error('Sensitive server-side credential found in mobile source');
+          }
+          console.log('Global mobile secret boundary validated.');
+          NODE
           npm run typecheck
           npx expo-doctor
 
