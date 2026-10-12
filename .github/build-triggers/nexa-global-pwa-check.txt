@@ -1,0 +1,2 @@
+PWA check after web adapters
+commit: ecb640b990dad510396206892f6e53ab0c0ff418
