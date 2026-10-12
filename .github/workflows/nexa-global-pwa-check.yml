@@ -1,0 +1,41 @@
+name: Nexa Global PWA Compatibility
+
+on:
+  push:
+    branches:
+      - feat/nexa-global-v1
+    paths:
+      - '.github/workflows/nexa-global-pwa-check.yml'
+      - '.github/build-triggers/nexa-global-pwa-check.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Validate Nexa Global web export
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'nexa-global'
+      EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-global-us-pilot.onrender.com/api/v1'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm install --include=dev --no-audit --no-fund
+      - run: npm run typecheck
+      - name: Export Global app for web
+        run: npx expo export --platform web --output-dir dist-web
+      - name: Inspect web export
+        run: |
+          test -s dist-web/index.html
+          find dist-web -maxdepth 2 -type f | sort | head -100
+          du -sh dist-web
