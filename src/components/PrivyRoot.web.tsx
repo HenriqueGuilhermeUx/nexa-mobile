@@ -19,7 +19,9 @@ export function PrivyRoot({ children }: PropsWithChildren) {
           accentColor: '#00D4FF',
         },
         embeddedWallets: {
-          createOnLogin: 'off',
+          ethereum: {
+            createOnLogin: 'off',
+          },
           showWalletUIs: true,
         },
       }}
