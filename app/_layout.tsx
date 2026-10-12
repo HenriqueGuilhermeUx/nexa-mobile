@@ -1,5 +1,3 @@
-import { PrivyProvider } from '@privy-io/expo';
-import { PrivyElements } from '@privy-io/expo/ui';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -8,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppLockGate } from '@/components/AppLockGate';
 import { ForceUpdateGate } from '@/components/ForceUpdateGate';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
+import { PrivyRoot } from '@/components/PrivyRoot';
 import { assertPublicConfiguration, config } from '@/config';
 import { initializeNexaNotifications } from '@/lib/nexaNotifications';
 import '@/lib/walletFirstProfilePatch';
@@ -25,21 +24,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ForceUpdateGate>
-      <PrivyProvider
-        appId={config.privyAppId}
-        clientId={config.privyClientId}
-        config={{
-          embedded: {
-            ethereum: {
-              // A Nexa não cria mais uma carteira on-chain automaticamente
-              // para todo usuário. A criação é iniciada explicitamente pelo
-              // fluxo Premium; carteiras já existentes continuam acessíveis.
-              createOnLogin: 'off',
-            },
-          },
-        }}
-      >
-        <PrivyElements config={{ appearance: { colorScheme: 'dark' } }} />
+      <PrivyRoot>
         <StatusBar style="light" />
         <AppLockGate>
           <Stack
@@ -82,7 +67,7 @@ export default function RootLayout() {
           </Stack>
         </AppLockGate>
         <PwaInstallPrompt />
-      </PrivyProvider>
+      </PrivyRoot>
       </ForceUpdateGate>
     </SafeAreaProvider>
   );

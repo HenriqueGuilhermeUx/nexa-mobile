@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui';
 import { config } from '@/config';
 import { nexaApi } from '@/lib/api';
+import { useNexaPrivy } from '@/lib/privyBridge';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -21,26 +21,10 @@ function validWallet(candidate: any) {
   return /^0x[a-fA-F0-9]{40}$/.test(String(candidate?.address || ''));
 }
 
-function messageToHex(message: string) {
-  const bytes = new TextEncoder().encode(message);
-  return `0x${Array.from(bytes)
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')}`;
-}
-
-async function providerFor(wallet: any) {
-  if (typeof wallet?.getProvider === 'function') return wallet.getProvider();
-  if (typeof wallet?.getEthereumProvider === 'function') {
-    return wallet.getEthereumProvider();
-  }
-  throw new Error('Your wallet is not ready for ownership verification.');
-}
-
 export default function WalletOnboardingScreen() {
-  const privy = usePrivy() as any;
   const globalProduct = config.globalProduct;
-  const embedded = useEmbeddedEthereumWallet() as any;
-  const wallets = (embedded.wallets || []) as any[];
+  const privy = useNexaPrivy();
+  const wallets = privy.wallets;
   const wallet = useMemo(
     () => wallets.find((candidate) => validWallet(candidate)) || null,
     [wallets],
@@ -55,7 +39,6 @@ export default function WalletOnboardingScreen() {
   const [error, setError] = useState('');
 
   async function currentPrivyToken() {
-    if (typeof privy?.getAccessToken !== 'function') return '';
     try {
       return String((await privy.getAccessToken()) || '').trim();
     } catch {
@@ -101,18 +84,10 @@ export default function WalletOnboardingScreen() {
           session.accessToken,
           currentWallet.address,
         );
-        const provider = await providerFor(currentWallet);
-        if (!provider || typeof provider.request !== 'function') {
-          throw new Error('Your wallet is not ready for ownership verification.');
-        }
-
-        const signature = await provider.request({
-          method: 'personal_sign',
-          params: [
-            messageToHex(String(challenge?.message || '')),
-            currentWallet.address,
-          ],
-        });
+        const signature = await privy.signMessage(
+          currentWallet,
+          String(challenge?.message || ''),
+        );
 
         await nexaApi.globalWalletVerify(session.accessToken, {
           challengeToken: String(challenge?.challengeToken || ''),
@@ -186,17 +161,9 @@ export default function WalletOnboardingScreen() {
         return;
       }
 
-      if (typeof embedded?.create !== 'function') {
-        throw new Error(
-          globalProduct
-            ? 'Wallet creation is not available on this device.'
-            : 'A criação da wallet não está disponível neste aparelho.',
-        );
-      }
-
       setStage(globalProduct ? 'Creating your wallet…' : 'Criando sua wallet…');
       setWaitingForWallet(true);
-      const created = await embedded.create({ createAdditional: false });
+      const created = await privy.createWallet();
       const createdWallet =
         validWallet(created)
           ? created
@@ -210,7 +177,7 @@ export default function WalletOnboardingScreen() {
         return;
       }
 
-      // O hook da Privy publica a carteira logo depois de create(). O efeito
+      // A ponte da Privy publica a carteira logo depois de create(). O efeito
       // abaixo continua automaticamente assim que o endereço aparece.
       setStage(globalProduct ? 'Finishing your wallet…' : 'Finalizando sua wallet…');
     } catch (caught) {
@@ -227,9 +194,9 @@ export default function WalletOnboardingScreen() {
   }
 
   useEffect(() => {
-    if (!privy?.isReady) return;
+    if (!privy.ready) return;
     void startWalletOnboarding();
-  }, [privy?.isReady]);
+  }, [privy.ready]);
 
   useEffect(() => {
     if (!waitingForWallet || !wallet || linkingRef.current) return;

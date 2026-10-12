@@ -1,4 +1,3 @@
-import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -14,6 +13,7 @@ import {
   Title,
 } from '@/components/ui';
 import { config } from '@/config';
+import { useNexaPrivy } from '@/lib/privyBridge';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -35,8 +35,7 @@ export default function WalletSessionScreen() {
   const returnTo = firstParam(params.returnTo) || '';
   const walletOnboarding = returnTo === 'onboarding-wallet';
   const globalProduct = config.globalProduct;
-  const privy = usePrivy() as any;
-  const emailLogin = useLoginWithEmail() as any;
+  const privy = useNexaPrivy();
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -46,7 +45,6 @@ export default function WalletSessionScreen() {
   const [error, setError] = useState('');
 
   async function currentAuthorizationToken() {
-    if (typeof privy?.getAccessToken !== 'function') return '';
     try {
       const token = String((await privy.getAccessToken()) || '').trim();
       return token.length > 40 && token.split('.').length === 3 ? token : '';
@@ -106,15 +104,7 @@ export default function WalletSessionScreen() {
             : 'O e-mail da conta Nexa não está disponível.',
         );
       }
-      if (typeof emailLogin?.sendCode !== 'function') {
-        throw new Error(
-          globalProduct
-            ? 'Email confirmation is not available in this version.'
-            : 'A confirmação por e-mail não está disponível nesta versão.',
-        );
-      }
-
-      await emailLogin.sendCode({
+      await privy.sendEmailCode({
         email,
         // No primeiro onboarding a Privy pode ainda não conhecer o usuário.
         // Nos fluxos de recuperação, criação de uma nova identidade continua
@@ -165,15 +155,7 @@ export default function WalletSessionScreen() {
 
     setWorking(true);
     try {
-      if (typeof emailLogin?.loginWithCode !== 'function') {
-        throw new Error(
-          globalProduct
-            ? 'Code verification is not available in this version.'
-            : 'A validação por código não está disponível nesta versão.',
-        );
-      }
-
-      await emailLogin.loginWithCode({ email, code: normalizedCode });
+      await privy.loginWithEmailCode({ email, code: normalizedCode });
       await waitForAccessToken();
       setCodeSent(false);
       setReady(true);
