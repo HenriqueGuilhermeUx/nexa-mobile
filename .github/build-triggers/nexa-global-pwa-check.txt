@@ -1,2 +1,2 @@
-PWA check after web adapters
-commit: ecb640b990dad510396206892f6e53ab0c0ff418
+PWA check after official Privy React SDK bridge
+commit: 96caf614ce352525d2b661eac68cd0512e499f81
