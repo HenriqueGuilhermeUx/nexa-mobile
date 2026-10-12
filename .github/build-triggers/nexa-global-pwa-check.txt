@@ -1,2 +1,2 @@
-PWA check after official Privy React SDK bridge
-commit: 96caf614ce352525d2b661eac68cd0512e499f81
+PWA check after Privy React config fix
+commit: 2475ee68958cf133dc30156b745115bf06eb4b64
