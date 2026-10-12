@@ -1,0 +1,29 @@
+{
+  "id": "/global-app/",
+  "name": "Nexa Global",
+  "short_name": "Nexa Global",
+  "description": "Nexa Global — USDC without the crypto maze.",
+  "start_url": "/global-app/",
+  "scope": "/global-app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06111F",
+  "theme_color": "#06111F",
+  "categories": [
+    "finance"
+  ],
+  "icons": [
+    {
+      "src": "/global-app/icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/global-app/icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

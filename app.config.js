@@ -18,6 +18,19 @@ module.exports = ({ config }) => {
       owner: 'henrriquenexa',
       scheme: 'nexa-global',
       icon: './assets/brand/nexa-pilot-icon-exact.png',
+      web: {
+        ...(config.web || {}),
+        output: 'single',
+        bundler: 'metro',
+        favicon: './assets/brand/nexa-pilot-icon-exact.png',
+        name: 'Nexa Global',
+        shortName: 'Nexa Global',
+      },
+      experiments: {
+        ...(config.experiments || {}),
+        typedRoutes: true,
+        baseUrl: '/global-app',
+      },
       updates: {
         ...(config.updates || {}),
         url: 'https://u.expo.dev/5c005f7f-7770-4b0c-94d3-8aca3d71a9a1',

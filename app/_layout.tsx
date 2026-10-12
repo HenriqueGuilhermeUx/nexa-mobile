@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppLockGate } from '@/components/AppLockGate';
 import { ForceUpdateGate } from '@/components/ForceUpdateGate';
+import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import { assertPublicConfiguration, config } from '@/config';
 import { initializeNexaNotifications } from '@/lib/nexaNotifications';
 import '@/lib/walletFirstProfilePatch';
@@ -80,6 +81,7 @@ export default function RootLayout() {
             <Stack.Screen name="(app)" options={{ headerShown: false }} />
           </Stack>
         </AppLockGate>
+        <PwaInstallPrompt />
       </PrivyProvider>
       </ForceUpdateGate>
     </SafeAreaProvider>
