@@ -1,4 +1,5 @@
 import { walletFirstApi } from '@/lib/walletFirst';
+import { nexaApi } from '@/lib/api';
 
 export type NexaAuthenticatedRoute =
   | '/kyc'
@@ -30,6 +31,26 @@ export async function resolveAuthenticatedRoute(
   const countryCode = String(profile?.residenceCountry || 'BR')
     .trim()
     .toUpperCase();
+
+  // Legacy customers with an existing linked wallet must not be sent through
+  // new Pix/direct-settlement onboarding. This only changes navigation;
+  // server-side financial eligibility and settlement gates stay unchanged.
+  if (walletAddress(profile)) {
+    // Existing Beta/Legacy customers keep their linked wallet and original
+    // settlement permissions. Ownership proof for direct settlement must not
+    // become a prerequisite for opening the current app.
+    try {
+      const response = await nexaApi.directProfile(accessToken);
+      const directProfile = response?.profile || response;
+      const settlementProfile = String(directProfile?.settlementProfile || '').toLowerCase();
+      if (directProfile?.isLegacyBeta === true || settlementProfile === 'legacy_beta') {
+        return '/legacy';
+      }
+    } catch {
+      // Never grant new financial permissions if profile lookup fails.
+      // Existing wallet ownership routing remains unchanged.
+    }
+  }
 
   if (countryCode === 'BR') {
     const pixType = normalizedPixType(profile);
