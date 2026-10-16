@@ -20,12 +20,13 @@ const splashPlugin = (app.plugins || []).find(
 );
 assert.ok(splashPlugin, 'Plugin expo-splash-screen não configurado.');
 
+// Expo allows Android to use the app icon when no adaptiveIcon is configured.
+// Validate the declared native release assets without adding native config in an OTA-only patch.
 const assets = [
   requireAsset('Ícone do aplicativo', app.icon),
-  requireAsset(
-    'Ícone adaptativo Android',
-    app.android?.adaptiveIcon?.foregroundImage,
-  ),
+  ...(app.android?.adaptiveIcon?.foregroundImage
+    ? [requireAsset('Ícone adaptativo Android', app.android.adaptiveIcon.foregroundImage)]
+    : []),
   requireAsset('Logo do splash Android', splashPlugin[1]?.image),
 ];
 
