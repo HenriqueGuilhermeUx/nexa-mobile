@@ -184,6 +184,18 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "ios-review-safe": {
+      "distribution": "store",
+      "channel": "ios-review-safe",
+      "autoIncrement": false,
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-p2u0.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
+        "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "ios-review-safe"
+      },
+      "ios": {}
     }
   },
   "submit": {
