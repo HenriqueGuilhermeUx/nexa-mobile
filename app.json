@@ -19,7 +19,8 @@
       "buildNumber": "145",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "A Nexa solicita acesso à biblioteca de fotos apenas quando você escolhe uma imagem para enviar como documento ou comprovante."
       }
     },
     "android": {
