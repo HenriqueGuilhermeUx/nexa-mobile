@@ -10,7 +10,8 @@
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
     "doctor": "expo-doctor",
-    "export:android": "expo export --platform android --output-dir dist-ci"
+    "export:android": "expo export --platform android --output-dir dist-ci",
+    "test:legacy-routing": "node scripts/validate-legacy-wallet-routing.js"
   },
   "dependencies": {
     "@alchemy/wallet-apis": "5.2.7",
