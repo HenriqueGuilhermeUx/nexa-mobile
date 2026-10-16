@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - release/nexa-2.0.43-v148-brasil
   workflow_dispatch:
 
 permissions:
