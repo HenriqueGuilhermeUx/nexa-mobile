@@ -67,4 +67,5 @@ jobs:
           eas whoami --non-interactive
           eas channel:view production --non-interactive
       - name: Publish legacy access OTA for v148
-        run: eas update --channel production --platform android --message "Nexa 2.0.43 v148: restore legacy Beta wallet access" --non-interactive
+        run: |
+          eas update --channel production --platform android --message "Nexa 2.0.43 v148: restore legacy Beta wallet access" --non-interactive
