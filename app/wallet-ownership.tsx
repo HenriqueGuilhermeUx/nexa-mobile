@@ -144,6 +144,12 @@ export default function WalletOwnershipScreen() {
       await walletFirstApi.readiness(session.accessToken).catch(() => null);
       setVerified(true);
     } catch (caught) {
+      // Legacy accounts are intentionally excluded from direct-settlement audit.
+      // This is not a wallet-ownership failure and must not lock them out.
+      if ((caught as { code?: string } | null)?.code === 'LEGACY_BETA_USER') {
+        router.replace('/legacy' as any);
+        return;
+      }
       setError(
         caught instanceof Error
           ? caught.message
