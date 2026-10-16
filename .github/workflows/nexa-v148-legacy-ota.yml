@@ -1,0 +1,70 @@
+name: Nexa v148 Legacy OTA Production
+on:
+  push:
+    branches:
+      - release/nexa-2.0.43-v148-brasil
+    paths:
+      - '.github/workflows/nexa-v148-legacy-ota.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexa-v148-legacy-production-ota
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.2'
+          cache: npm
+      - name: Validate Expo credentials
+        run: |
+          test -n "$EXPO_TOKEN" || { echo 'EXPO_TOKEN unavailable; OTA not published'; exit 1; }
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify exact Play Store v148 boundary
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const app = require('./app.json').expo;
+          const pkg = require('./package.json');
+          const eas = require('./eas.json');
+          assert.equal(app.version, '2.0.43');
+          assert.equal(pkg.version, '2.0.43');
+          assert.equal(app.android.versionCode, 148);
+          assert.equal(app.android.package, 'br.com.trynexa.app');
+          assert.equal(app.runtimeVersion.policy, 'appVersion');
+          assert.equal(app.updates.url, 'https://u.expo.dev/b3faabec-283a-4ba2-88b5-f096304e68aa');
+          assert.equal(app.extra.eas.projectId, 'b3faabec-283a-4ba2-88b5-f096304e68aa');
+          assert.equal(eas.build.production.channel, 'production');
+          assert.equal(eas.build.production.android.buildType, 'app-bundle');
+          NODE
+          npm run test:legacy-routing
+          npm run typecheck
+          npx expo-doctor
+      - name: Confirm Expo account and production channel
+        run: |
+          eas whoami --non-interactive
+          eas channel:view production --non-interactive
+      - name: Publish legacy access OTA for v148
+        run: eas update --channel production --platform android --message "Nexa 2.0.43 v148: restore legacy Beta wallet access" --non-interactive
