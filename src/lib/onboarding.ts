@@ -50,7 +50,6 @@ export async function resolveAuthenticatedRoute(
       // Never grant new financial permissions if profile lookup fails.
       // Existing wallet ownership routing remains unchanged.
     }
-  
   }
 
   if (countryCode === 'BR') {
@@ -68,7 +67,6 @@ export async function resolveAuthenticatedRoute(
   if (!walletAddress(profile)) {
     return '/onboarding-wallet';
   }
-
 
   try {
     const readiness = await walletFirstApi.readiness(accessToken);
