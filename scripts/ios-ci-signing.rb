@@ -21,17 +21,11 @@ File.write(api_key_path, JSON.generate({
 File.chmod(0600, api_key_path)
 
 Dir.chdir(out) do
-  # Apple distribution slots are full; never create or revoke certificates in CI.
-  # Reuse an existing PKCS#12 including its private key, stored as an Actions secret.
+  # Reuse an existing PKCS#12; never issue another certificate automatically.
   b64 = ENV.fetch('IOS_DISTRIBUTION_P12_BASE64', '')
   p12_path = File.join(out, 'distribution.p12')
   if b64.empty?
-    # A slot was explicitly freed. Generate exactly once, and retain the private key.
-    cert_cmd = ['fastlane', 'cert', '--api_key_path', api_key_path, '--output_path', out]
-    raise 'Certificate creation failed' unless system(*cert_cmd)
-    generated = Dir.glob(File.join(out, '*.p12')).find { |p| p != p12_path }
-    raise 'No distribution p12 generated' unless generated
-    FileUtils.cp(generated, p12_path)
+    raise 'No saved distribution p12 available. Recover the encrypted signing backup from the previous workflow run; do not create another Apple certificate.'
   else
     require 'base64'
     File.binwrite(p12_path, Base64.strict_decode64(b64.gsub(/\s+/, '')))
