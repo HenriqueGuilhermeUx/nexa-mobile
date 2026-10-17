@@ -195,7 +195,9 @@
         "EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED": "true",
         "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "ios-review-safe"
       },
-      "ios": {}
+      "ios": {
+        "credentialsSource": "local"
+      }
     }
   },
   "submit": {
