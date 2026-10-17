@@ -31,6 +31,7 @@ jobs:
       IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
       IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
       IOS_SIGNING_BACKUP_PASSPHRASE: ${{ secrets.IOS_SIGNING_BACKUP_PASSPHRASE }}
+      IOS_ALLOW_NEW_CERTIFICATE: ${{ secrets.IOS_ALLOW_NEW_CERTIFICATE }}
     steps:
       - uses: actions/checkout@v4
         with:
