@@ -39,9 +39,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          missing=0
           for key in EXPO_TOKEN APPLE_API_KEY_ID APPLE_API_ISSUER_ID APPLE_API_KEY_P8 APPLE_TEAM_ID; do
-            if [ -z "${!key:-}" ]; then echo "::error::Missing required GitHub secret: $key"; exit 1; fi
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Unavailable in this workflow: $key"
+              missing=1
+            else
+              echo "Available: $key"
+            fi
           done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Check the Actions secrets for this exact repository and whether they are environment-scoped."
+            exit 1
+          fi
           node - <<'NODE'
           const c=require('./app.config.js')({config:require('./app.json').expo});
           if(c.ios?.bundleIdentifier!=='br.com.trynexa.app' || c.ios?.buildNumber!=='149' || c.version!=='2.0.43') throw Error('Unexpected iOS release identity');
