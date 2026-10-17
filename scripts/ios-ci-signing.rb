@@ -1,8 +1,6 @@
 #!/usr/bin/env ruby
 require 'json'
 require 'fileutils'
-require 'securerandom'
-require 'open3'
 
 out = ARGV.fetch(0)
 FileUtils.mkdir_p(out)
@@ -22,9 +20,8 @@ File.write(api_key_path, JSON.generate({
 File.chmod(0600, api_key_path)
 
 Dir.chdir(out) do
-  # fastlane cert creates a new distribution certificate only when needed.
-  # Do not revoke any existing certificates.
-  cert_cmd = ['fastlane', 'cert', '--api_key_path', api_key_path, '--development', 'false', '--output_path', out]
+  # The CI creates a new certificate only if Apple allows it; no revocations.
+  cert_cmd = ['fastlane', 'cert', '--api_key_path', api_key_path, '--output_path', out]
   raise 'Certificate creation failed' unless system(*cert_cmd)
   p12 = Dir.glob(File.join(out, '*.p12')).first
   raise 'No distribution p12 generated' unless p12
