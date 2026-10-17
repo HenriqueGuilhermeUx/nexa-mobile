@@ -13,6 +13,9 @@ jobs:
     timeout-minutes: 45
     env:
       IOS_SIGNING_BACKUP_PASSPHRASE: ${{ secrets.IOS_SIGNING_BACKUP_PASSPHRASE }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
     steps:
       - name: Retrieve encrypted backup from failed run
         uses: actions/download-artifact@v4
@@ -51,7 +54,28 @@ jobs:
             if openssl pkey -in "$p12" -noout >/dev/null 2>&1; then
               echo 'PEM private key: valid'
               openssl pkey -in "$p12" -pubout -outform DER 2>/dev/null | shasum -a 256 | awk '{print "Public-key SHA256:", $1}'
-              echo 'Certificate binding not yet confirmed; no signing bundle will be created.'
+              python3 -m venv "$RUNNER_TEMP/nexa-recovery/venv"
+              source "$RUNNER_TEMP/nexa-recovery/venv/bin/activate"
+              python -m pip install --quiet 'PyJWT[crypto]'
+              export RECOVERY_DIR="$RUNNER_TEMP/nexa-recovery"
+              python3 - <<'PY'
+          import os,time,jwt,json,base64,urllib.request,pathlib
+          token=jwt.encode({'iss':os.environ['APPLE_API_ISSUER_ID'],'iat':int(time.time())-10,'exp':int(time.time())+300,'aud':'appstoreconnect-v1'},os.environ['APPLE_API_KEY_P8'].replace('\\n','\n'),algorithm='ES256',headers={'kid':os.environ['APPLE_API_KEY_ID']})
+          request=urllib.request.Request('https://api.appstoreconnect.apple.com/v1/certificates/9MS57C3J94',headers={'Authorization':'Bearer '+token})
+          with urllib.request.urlopen(request,timeout=30) as response: obj=json.load(response)
+          pathlib.Path(os.environ['RECOVERY_DIR'],'apple-public.cer').write_bytes(base64.b64decode(obj['data']['attributes']['certificateContent']))
+          print('Apple certificate type:',obj['data']['attributes']['certificateType'])
+          PY
+              keyhash="$(openssl pkey -in "$p12" -pubout -outform DER 2>/dev/null | shasum -a 256 | awk '{print $1}')"
+              certhash="$(openssl x509 -inform DER -in "$RUNNER_TEMP/nexa-recovery/apple-public.cer" -pubkey -noout | openssl pkey -pubin -outform DER 2>/dev/null | shasum -a 256 | awk '{print $1}')"
+              test "$keyhash" = "$certhash" || { echo '::error::Certificate and private key mismatch'; exit 1; }
+              echo 'Apple certificate and recovered private key match.'
+              mv "$p12" "$RUNNER_TEMP/nexa-recovery/private-key.pem"
+              openssl x509 -inform DER -in "$RUNNER_TEMP/nexa-recovery/apple-public.cer" -out "$RUNNER_TEMP/nexa-recovery/apple-public.pem"
+              openssl pkcs12 -export -inkey "$RUNNER_TEMP/nexa-recovery/private-key.pem" -in "$RUNNER_TEMP/nexa-recovery/apple-public.pem" -out "$p12" -passout pass:
+              openssl pkcs12 -in "$p12" -passin pass: -info -noout >/dev/null 2>&1
+              printf '' > "$RUNNER_TEMP/nexa-recovery/distribution-password.txt"
+              echo 'Validated PKCS12 generated; no Apple certificate created.'
               exit 0
             else
               echo '::error::PEM private key is unreadable.'
@@ -86,7 +110,6 @@ jobs:
           chmod 600 "$RUNNER_TEMP/nexa-recovery/distribution-password.txt"
           echo 'Verified: PKCS12 includes a certificate and private key. No Apple certificate was created.'
       - name: Re-encrypt validated signing backup
-        if: success() && false
         shell: bash
         run: |
           set -euo pipefail
@@ -94,7 +117,6 @@ jobs:
           tar -C "$RUNNER_TEMP/nexa-recovery" -czf "$RUNNER_TEMP/nexa-recovery/validated.tar.gz" distribution.p12 distribution-password.txt
           openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/nexa-recovery/validated.tar.gz" -out recovered-backup/nexa-validated-signing.enc -pass env:IOS_SIGNING_BACKUP_PASSPHRASE
       - name: Preserve validated encrypted identity
-        if: success() && false
         uses: actions/upload-artifact@v4
         with:
           name: Nexa-iOS-validated-signing-encrypted
