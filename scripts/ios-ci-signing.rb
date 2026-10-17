@@ -24,10 +24,18 @@ Dir.chdir(out) do
   # Apple distribution slots are full; never create or revoke certificates in CI.
   # Reuse an existing PKCS#12 including its private key, stored as an Actions secret.
   b64 = ENV.fetch('IOS_DISTRIBUTION_P12_BASE64', '')
-  raise 'Missing IOS_DISTRIBUTION_P12_BASE64: existing distribution certificate and private key required' if b64.empty?
-  require 'base64'
   p12_path = File.join(out, 'distribution.p12')
-  File.binwrite(p12_path, Base64.strict_decode64(b64.gsub(/\s+/, '')))
+  if b64.empty?
+    # A slot was explicitly freed. Generate exactly once, and retain the private key.
+    cert_cmd = ['fastlane', 'cert', '--api_key_path', api_key_path, '--output_path', out]
+    raise 'Certificate creation failed' unless system(*cert_cmd)
+    generated = Dir.glob(File.join(out, '*.p12')).find { |p| p != p12_path }
+    raise 'No distribution p12 generated' unless generated
+    FileUtils.cp(generated, p12_path)
+  else
+    require 'base64'
+    File.binwrite(p12_path, Base64.strict_decode64(b64.gsub(/\s+/, '')))
+  end
   File.chmod(0600, p12_path)
   pass = ENV.fetch('IOS_DISTRIBUTION_P12_PASSWORD', '')
   raise 'Invalid distribution PKCS#12 or password' unless system('openssl', 'pkcs12', '-in', p12_path, '-passin', "pass:#{pass}", '-info', '-noout', out: File::NULL, err: File::NULL)
