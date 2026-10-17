@@ -104,7 +104,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/nexa-ios-signing"
           chmod 700 "$RUNNER_TEMP/nexa-ios-signing"
-          export IOS_DISTRIBUTION_P12_BASE64="$(base64 < "$RUNNER_TEMP/nexa-ios-signing/distribution.p12" | tr -d '\\n')"
+          export IOS_DISTRIBUTION_P12_BASE64="$(base64 < "$RUNNER_TEMP/nexa-ios-signing/distribution.p12" | tr -d '\n')"
           ruby scripts/ios-ci-signing.rb "$RUNNER_TEMP/nexa-ios-signing"
           test -s "$RUNNER_TEMP/nexa-ios-signing/distribution.p12"
           test -s "$RUNNER_TEMP/nexa-ios-signing/profile.mobileprovision"
