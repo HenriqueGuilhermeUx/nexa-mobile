@@ -22,16 +22,12 @@ File.chmod(0600, api_key_path)
 
 Dir.chdir(out) do
   # The CI creates a new certificate only if Apple allows it; no revocations.
-  p12_password = ''
-  File.write(File.join(out, 'p12-password.txt'), p12_password)
-  File.chmod(0600, File.join(out, 'p12-password.txt'))
-  cert_cmd = ['fastlane', 'cert', '--api_key_path', api_key_path, '--output_path', out,
-              '--p12_password', p12_password]
+  cert_cmd = ['fastlane', 'cert', '--api_key_path', api_key_path, '--output_path', out]
   raise 'Certificate creation failed' unless system(*cert_cmd)
   p12 = Dir.glob(File.join(out, '*.p12')).first
   raise 'No distribution p12 generated' unless p12
   FileUtils.cp(p12, File.join(out, 'distribution.p12')) unless p12 == File.join(out, 'distribution.p12')
-  raise 'Invalid distribution PKCS#12' unless system('openssl', 'pkcs12', '-in', File.join(out, 'distribution.p12'), '-passin', "file:#{File.join(out, 'p12-password.txt')}", '-info', '-noout', out: File::NULL, err: File::NULL)
+  raise 'Invalid distribution PKCS#12' unless system('openssl', 'pkcs12', '-in', File.join(out, 'distribution.p12'), '-passin', 'pass:', '-info', '-noout', out: File::NULL, err: File::NULL)
 
   sigh_cmd = ['fastlane', 'sigh', '--api_key_path', api_key_path,
               '--app_identifier', 'br.com.trynexa.app', '--team_id', ENV.fetch('APPLE_TEAM_ID'),
