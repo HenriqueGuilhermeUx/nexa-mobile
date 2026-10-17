@@ -1,4 +1,5 @@
 name: Nexa iOS signed IPA (Apple API)
+# Signing retry after updating Apple API credentials in repository secrets.
 
 on:
   workflow_dispatch:
