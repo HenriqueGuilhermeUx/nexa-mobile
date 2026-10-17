@@ -15,7 +15,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet --user 'PyJWT[crypto]'
+          python3 -m venv "$RUNNER_TEMP/nexa-cert-venv"
+          source "$RUNNER_TEMP/nexa-cert-venv/bin/activate"
+          python -m pip install --quiet 'PyJWT[crypto]'
           python3 - <<'PY'
           import os,time,jwt,json,base64,urllib.request,pathlib
           token=jwt.encode({'iss':os.environ['APPLE_API_ISSUER_ID'],'iat':int(time.time())-10,'exp':int(time.time())+300,'aud':'appstoreconnect-v1'},os.environ['APPLE_API_KEY_P8'].replace('\\n','\n'),algorithm='ES256',headers={'kid':os.environ['APPLE_API_KEY_ID']})
