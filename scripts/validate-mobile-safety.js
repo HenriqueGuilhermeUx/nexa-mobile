@@ -42,13 +42,13 @@ assert.equal(appConfig.expo.ios.bundleIdentifier, 'br.com.trynexa.app');
 assert.equal(appConfig.expo.scheme, 'nexa');
 // Keep published Android metadata independent from the iOS review candidate.
 assert.equal(appConfig.expo.version, packageJson.version);
-assert.match(appConfig.expo.version, /^2\\.0\\.\\d+$/);
+assert.ok(/^2[.]0[.][0-9]+$/.test(appConfig.expo.version));
 assert.ok(Number.isInteger(appConfig.expo.android.versionCode) && appConfig.expo.android.versionCode > 0);
-assert.match(appConfig.expo.ios.buildNumber, /^\\d+$/);
+assert.ok(/^[0-9]+$/.test(appConfig.expo.ios.buildNumber));
 const appConfigSource = read('app.config.js');
-assert.match(appConfigSource, /version:\\s*'2\\.0\\.43'/);
-assert.match(appConfigSource, /buildNumber:\\s*'149'/);
-assert.match(appConfigSource, /versionCode:\\s*145/);
+assert.ok(appConfigSource.includes("version: '2.0.43'"));
+assert.ok(appConfigSource.includes("buildNumber: '149'"));
+assert.ok(appConfigSource.includes('versionCode: 145'));
 const easConfig = JSON.parse(read('eas.json'));
 assert.equal(easConfig.build['ios-review-safe'].env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false');
 assert.equal(appConfig.expo.extra.androidTargetApi, 36);
