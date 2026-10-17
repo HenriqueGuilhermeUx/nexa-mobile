@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: nexa-ios-apple-signed
@@ -79,12 +80,31 @@ jobs:
         run: |
           gem install fastlane --no-document
           npm install --global eas-cli
+      - name: Download validated encrypted signing bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: Nexa-iOS-validated-signing-encrypted
+          run-id: 39071505139
+          github-token: ${{ github.token }}
+          path: validated-signing
+      - name: Restore validated Apple distribution identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nexa-ios-signing"
+          chmod 700 "$RUNNER_TEMP/nexa-ios-signing"
+          openssl enc -d -aes-256-cbc -pbkdf2 -in validated-signing/nexa-validated-signing.enc -out "$RUNNER_TEMP/nexa-ios-signing/validated.tar.gz" -pass env:IOS_SIGNING_BACKUP_PASSPHRASE
+          tar -xzf "$RUNNER_TEMP/nexa-ios-signing/validated.tar.gz" -C "$RUNNER_TEMP/nexa-ios-signing" distribution.p12 distribution-password.txt
+          rm -f "$RUNNER_TEMP/nexa-ios-signing/validated.tar.gz"
+          openssl pkcs12 -in "$RUNNER_TEMP/nexa-ios-signing/distribution.p12" -passin pass: -info -noout >/dev/null 2>&1
+          echo 'Restored validated Apple distribution identity; certificate issuance is disabled.'
       - name: Generate isolated App Store signing credentials
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/nexa-ios-signing"
           chmod 700 "$RUNNER_TEMP/nexa-ios-signing"
+          export IOS_DISTRIBUTION_P12_BASE64="$(base64 < "$RUNNER_TEMP/nexa-ios-signing/distribution.p12" | tr -d '\\n')"
           ruby scripts/ios-ci-signing.rb "$RUNNER_TEMP/nexa-ios-signing"
           test -s "$RUNNER_TEMP/nexa-ios-signing/distribution.p12"
           test -s "$RUNNER_TEMP/nexa-ios-signing/profile.mobileprovision"
