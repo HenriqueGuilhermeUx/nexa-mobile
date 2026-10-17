@@ -28,6 +28,8 @@ jobs:
       APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
       APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
+      IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,6 +57,10 @@ jobs:
           done
           if [ "$missing" -ne 0 ]; then
             echo "::error::Check the Actions secrets for this exact repository and whether they are environment-scoped."
+            exit 1
+          fi
+          if [ -z "${IOS_DISTRIBUTION_P12_BASE64:-}" ]; then
+            echo '::error::Missing IOS_DISTRIBUTION_P12_BASE64. Apple certificate slots are full; export an existing signing identity with its private key.'
             exit 1
           fi
           node - <<'NODE'
