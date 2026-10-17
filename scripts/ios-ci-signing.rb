@@ -25,17 +25,31 @@ Dir.chdir(out) do
   b64 = ENV.fetch('IOS_DISTRIBUTION_P12_BASE64', '')
   p12_path = File.join(out, 'distribution.p12')
   if b64.empty?
-    raise 'No saved distribution p12 available. Recover the encrypted signing backup from the previous workflow run; do not create another Apple certificate.'
+    # One-time issuance only. A separate explicit secret authorizes replacing the lost identity.
+    raise 'Certificate issuance not authorized' unless ENV['IOS_ALLOW_NEW_CERTIFICATE'] == 'YES'
+    keychain_path = File.join(out, 'nexa-ci.keychain-db')
+    keychain_password = SecureRandom.hex(32)
+    raise 'Keychain creation failed' unless system('security', 'create-keychain', '-p', keychain_password, keychain_path)
+    raise 'Keychain unlock failed' unless system('security', 'unlock-keychain', '-p', keychain_password, keychain_path)
+    system('security', 'set-keychain-settings', '-lut', '21600', keychain_path)
+    cert_cmd = ['fastlane', 'cert', '--api_key_path', api_key_path, '--output_path', out,
+                '--keychain_path', keychain_path, '--keychain_password', keychain_password,
+                '--skip_set_partition_list', 'true']
+    raise 'Certificate issuance failed' unless system(*cert_cmd)
+    generated = Dir.glob(File.join(out, '*.p12')).find { |p| p != p12_path }
+    raise 'Fastlane did not export a p12; stop and inspect before retrying' unless generated
+    FileUtils.cp(generated, p12_path)
+    # fastlane cert exports PKCS#12 with an empty password by default.
+    pass = ''
   else
     require 'base64'
-    File.binwrite(p12_path, Base64.strict_decode64(b64.gsub(/\s+/, '')))
+    File.binwrite(p12_path, Base64.strict_decode64(b64.gsub(/\\s+/, '')))
+    pass = ENV.fetch('IOS_DISTRIBUTION_P12_PASSWORD', '')
   end
   File.chmod(0600, p12_path)
-  pass = ENV.fetch('IOS_DISTRIBUTION_P12_PASSWORD', '')
   raise 'Invalid distribution PKCS#12 or password' unless system('openssl', 'pkcs12', '-in', p12_path, '-passin', "pass:#{pass}", '-info', '-noout', out: File::NULL, err: File::NULL)
   raise 'Distribution PKCS#12 has no private key' unless system('sh', '-c', 'openssl pkcs12 -in "$1" -passin "pass:$2" -nocerts -nodes 2>/dev/null | grep -q "BEGIN .*PRIVATE KEY"', 'sh', p12_path, pass)
-  puts 'Existing signing identity validated; no new Apple certificate issued.'
-
+  puts 'Signing PKCS#12 and private key validated.'
   sigh_cmd = ['fastlane', 'sigh', '--api_key_path', api_key_path,
               '--app_identifier', 'br.com.trynexa.app', '--team_id', ENV.fetch('APPLE_TEAM_ID'),
               '--output_path', out, '--filename', 'profile.mobileprovision']
