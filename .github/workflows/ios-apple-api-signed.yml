@@ -41,7 +41,7 @@ jobs:
           NODE
       - name: Install and validate application
         run: |
-          npm ci --no-audit --no-fund
+          npm install --no-audit --no-fund
           node scripts/validate-mobile-safety.js
           npm run typecheck
           npx expo-doctor
