@@ -14,7 +14,7 @@ api_key_path = File.join(out, 'api-key.json')
 File.write(api_key_path, JSON.generate({
   key_id: ENV.fetch('APPLE_API_KEY_ID'),
   issuer_id: ENV.fetch('APPLE_API_ISSUER_ID'),
-  key_filepath: key_path,
+  key: key,
   in_house: false
 }))
 File.chmod(0600, api_key_path)
