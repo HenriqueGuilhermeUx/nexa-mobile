@@ -22,7 +22,7 @@ File.chmod(0600, api_key_path)
 
 Dir.chdir(out) do
   # The CI creates a new certificate only if Apple allows it; no revocations.
-  p12_password = SecureRandom.hex(24)
+  p12_password = ''
   File.write(File.join(out, 'p12-password.txt'), p12_password)
   File.chmod(0600, File.join(out, 'p12-password.txt'))
   cert_cmd = ['fastlane', 'cert', '--api_key_path', api_key_path, '--output_path', out,
