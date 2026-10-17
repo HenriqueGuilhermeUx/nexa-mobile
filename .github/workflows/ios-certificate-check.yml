@@ -1,0 +1,13 @@
+name: Nexa iOS certificate check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: macos-26
+    steps:
+      - name: Confirm runner
+        run: |
+          openssl version
+          echo 'No certificate issuance is performed by this workflow.'
