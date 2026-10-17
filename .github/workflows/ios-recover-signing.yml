@@ -47,6 +47,18 @@ jobs:
             fi
           done
           if [ "$valid" != yes ]; then
+            echo 'PKCS12 diagnostic (no private material printed):'
+            file "$p12"
+            wc -c < "$p12" | awk '{print "PKCS12 size in bytes:", $1}'
+            openssl asn1parse -inform DER -in "$p12" -noout >/dev/null 2>&1 && echo 'ASN.1 DER parsing: valid' || echo 'ASN.1 DER parsing: invalid'
+            if openssl pkcs12 -legacy -in "$p12" -passin "pass:$password" -info -noout >/dev/null 2>&1; then
+              echo 'PKCS12 opens with OpenSSL legacy provider.'
+              valid=yes
+            else
+              echo 'PKCS12 legacy provider: cannot open'
+            fi
+          fi
+          if [ "$valid" != yes ]; then
             echo '::error::Backup exists but its PKCS12 cannot be opened with known passwords. No Apple certificate was created.'
             exit 1
           fi
