@@ -1,0 +1,80 @@
+name: Nexa iOS recover signing backup
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: nexa-ios-apple-signed
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      IOS_SIGNING_BACKUP_PASSPHRASE: ${{ secrets.IOS_SIGNING_BACKUP_PASSPHRASE }}
+    steps:
+      - name: Retrieve encrypted backup from failed run
+        uses: actions/download-artifact@v4
+        with:
+          name: Nexa-iOS-signing-encrypted
+          run-id: 39057097517
+          github-token: ${{ github.token }}
+          path: encrypted-backup
+      - name: Decrypt and verify private signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${IOS_SIGNING_BACKUP_PASSPHRASE:-}"
+          test -s encrypted-backup/nexa-ios-signing.enc
+          mkdir -p "$RUNNER_TEMP/nexa-recovery"
+          chmod 700 "$RUNNER_TEMP/nexa-recovery"
+          openssl enc -d -aes-256-cbc -pbkdf2 -in encrypted-backup/nexa-ios-signing.enc -out "$RUNNER_TEMP/nexa-recovery/backup.tar.gz" -pass env:IOS_SIGNING_BACKUP_PASSPHRASE
+          tar -tzf "$RUNNER_TEMP/nexa-recovery/backup.tar.gz" | grep -Fx 'distribution.p12'
+          tar -xzf "$RUNNER_TEMP/nexa-recovery/backup.tar.gz" -C "$RUNNER_TEMP/nexa-recovery"
+          test -s "$RUNNER_TEMP/nexa-recovery/distribution.p12"
+          p12="$RUNNER_TEMP/nexa-recovery/distribution.p12"
+          password=""
+          if [ -f "$RUNNER_TEMP/nexa-recovery/distribution-password.txt" ]; then
+            password="$(cat "$RUNNER_TEMP/nexa-recovery/distribution-password.txt")"
+          fi
+          valid=no
+          for candidate in "$password" "" "password"; do
+            if openssl pkcs12 -in "$p12" -passin "pass:$candidate" -info -noout >/dev/null 2>&1; then
+              password="$candidate"
+              valid=yes
+              break
+            fi
+          done
+          if [ "$valid" != yes ]; then
+            echo '::error::Backup exists but its PKCS12 cannot be opened with known passwords. No Apple certificate was created.'
+            exit 1
+          fi
+          if ! openssl pkcs12 -in "$p12" -passin "pass:$password" -nocerts -nodes 2>/dev/null | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            echo '::error::PKCS12 lacks a readable private key.'
+            exit 1
+          fi
+          if ! openssl pkcs12 -in "$p12" -passin "pass:$password" -clcerts -nokeys 2>/dev/null | openssl x509 -noout >/dev/null 2>&1; then
+            echo '::error::PKCS12 lacks a readable signing certificate.'
+            exit 1
+          fi
+          printf '%s' "$password" > "$RUNNER_TEMP/nexa-recovery/distribution-password.txt"
+          chmod 600 "$RUNNER_TEMP/nexa-recovery/distribution-password.txt"
+          echo 'Verified: PKCS12 includes a certificate and private key. No Apple certificate was created.'
+      - name: Re-encrypt validated signing backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p recovered-backup
+          tar -C "$RUNNER_TEMP/nexa-recovery" -czf "$RUNNER_TEMP/nexa-recovery/validated.tar.gz" distribution.p12 distribution-password.txt
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/nexa-recovery/validated.tar.gz" -out recovered-backup/nexa-validated-signing.enc -pass env:IOS_SIGNING_BACKUP_PASSPHRASE
+      - name: Preserve validated encrypted identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-iOS-validated-signing-encrypted
+          path: recovered-backup/nexa-validated-signing.enc
+          if-no-files-found: error
+          retention-days: 90
+      - name: Clean up private material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/nexa-recovery"
