@@ -31,8 +31,6 @@ Dir.chdir(out) do
   File.chmod(0600, p12_path)
   pass = ENV.fetch('IOS_DISTRIBUTION_P12_PASSWORD', '')
   raise 'Invalid distribution PKCS#12 or password' unless system('openssl', 'pkcs12', '-in', p12_path, '-passin', "pass:#{pass}", '-info', '-noout', out: File::NULL, err: File::NULL)
-  File.write(File.join(out, 'p12-password.txt'), pass)
-  File.chmod(0600, File.join(out, 'p12-password.txt'))
 
   sigh_cmd = ['fastlane', 'sigh', '--api_key_path', api_key_path,
               '--app_identifier', 'br.com.trynexa.app', '--team_id', ENV.fetch('APPLE_TEAM_ID'),
