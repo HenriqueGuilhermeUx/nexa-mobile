@@ -53,6 +53,19 @@ Dir.chdir(out) do
   File.chmod(0600, File.join(out, 'distribution-password.txt'))
   raise 'Invalid distribution PKCS#12 or password' unless system('openssl', 'pkcs12', '-in', p12_path, '-passin', "pass:#{pass}", '-info', '-noout', out: File::NULL, err: File::NULL)
   raise 'Distribution PKCS#12 has no private key' unless system('sh', '-c', 'openssl pkcs12 -in "$1" -passin "pass:$2" -nocerts -nodes 2>/dev/null | grep -q "BEGIN .*PRIVATE KEY"', 'sh', p12_path, pass)
+  # Import the recovered identity into a temporary CI keychain before sigh checks local identities.
+  keychain_path = File.join(out, 'nexa-signing.keychain-db')
+  keychain_password = SecureRandom.hex(32)
+  raise 'Keychain creation failed' unless system('security', 'create-keychain', '-p', keychain_password, keychain_path)
+  raise 'Keychain unlock failed' unless system('security', 'unlock-keychain', '-p', keychain_password, keychain_path)
+  system('security', 'set-keychain-settings', '-lut', '21600', keychain_path)
+  raise 'PKCS12 keychain import failed' unless system('security', 'import', p12_path, '-k', keychain_path, '-P', pass, '-T', '/usr/bin/codesign', '-T', '/usr/bin/security')
+  raise 'Key partition permissions failed' unless system('security', 'set-key-partition-list', '-S', 'apple-tool:,apple:,codesign:', '-s', '-k', keychain_password, keychain_path, out: File::NULL)
+  current_keychains = IO.popen(['security', 'list-keychains', '-d', 'user'], &:read).scan(/"([^"]+)"/).flatten
+  raise 'Could not add CI keychain to search list' unless system('security', 'list-keychains', '-d', 'user', '-s', keychain_path, *current_keychains)
+  identities = IO.popen(['security', 'find-identity', '-v', '-p', 'codesigning', keychain_path], &:read)
+  raise 'No valid signing identity found after importing recovered PKCS12' unless identities.match?(/1 valid identities found|[1-9]\d* valid identities found/)
+  puts 'Recovered Apple distribution identity imported into temporary CI keychain.'
   puts 'Signing PKCS#12 and private key validated.'
   sigh_cmd = ['fastlane', 'sigh', '--api_key_path', api_key_path,
               '--app_identifier', 'br.com.trynexa.app', '--team_id', ENV.fetch('APPLE_TEAM_ID'),
