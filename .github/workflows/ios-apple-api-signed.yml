@@ -2,6 +2,11 @@ name: Nexa iOS signed IPA (Apple API)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - fix/ios-review-readiness-20261016
+    paths:
+      - .github/workflows/ios-apple-api-signed.yml
 
 permissions:
   contents: read
