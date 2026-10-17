@@ -12,7 +12,7 @@ const credentials = {
     provisioningProfilePath: profile,
     distributionCertificate: {
       path: p12,
-      password: '',
+      password: process.env.IOS_DISTRIBUTION_P12_PASSWORD || '',
     },
   },
 };
