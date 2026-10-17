@@ -93,12 +93,12 @@ assert.match(api, /X-Nexa-App-Build/);
 assert.match(api, /X-Nexa-Platform/);
 assert.match(api, /Authorization/);
 
-assert.match(welcome, /Sua wallet\\. Seus ativos\\./);
-assert.match(welcome, /router\\.push\\('\/sign-up-country'/);
-assert.match(welcome, /router\\.push\\('\/sign-in'/);
-assert.match(welcome, /resolveAuthenticatedRoute/);
-assert.match(welcome, /loadNexaSession/);
-assert.match(welcome, /nexaApi\\.me/);
+assert.ok(welcome.includes('Sua wallet. Seus ativos.'));
+assert.ok(welcome.includes("router.push('/sign-up-country'"));
+assert.ok(welcome.includes("router.push('/sign-in'"));
+assert.ok(welcome.includes('resolveAuthenticatedRoute'));
+assert.ok(welcome.includes('loadNexaSession'));
+assert.ok(welcome.includes('nexaApi.me'));
 assert.match(welcome, /migrateLegacySession/);
 assert.match(welcome, /nexaApi\.refresh/);
 assert.doesNotMatch(welcome, /Primeiros Nexa|convite|ABERTURA GRADUAL/i);
@@ -231,6 +231,10 @@ for (const forbidden of [
 assert.match(artifactValidator, /\/withdrawal\/pix-request/);
 assert.match(artifactValidator, /\/payment\/pix\/redemption/);
 
+assert.ok(onboarding.includes('useEmbeddedEthereumWallet'));
+assert.ok(onboarding.includes('nexaApi.linkWallet'));
+assert.ok(onboarding.includes('wallet-ownership'));
+assert.ok(onboarding.includes('auditWallet'));
 assert.doesNotMatch(onboarding, /Proteções desta etapa|custódia pendente/i);
 assert.match(legacyPixApp, /function formatInputAmount\(value\)/);
 assert.match(legacyPixApp, /Dep[oó]sito|deposit/i);
