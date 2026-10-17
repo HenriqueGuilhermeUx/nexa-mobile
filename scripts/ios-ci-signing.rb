@@ -62,16 +62,22 @@ Dir.chdir(out) do
   # macOS Security.framework may reject a modern OpenSSL 3 PKCS12 with a misleading MAC error.
   # Re-export the already validated identity using Apple-compatible legacy PKCS12 ciphers.
   require 'tmpdir'
+  # Security.framework does not reliably import passwordless PKCS12 files.
+  # Use a fresh non-empty password only for this ephemeral, re-exported identity.
+  compatible_password = SecureRandom.hex(24)
   Dir.mktmpdir('nexa-p12-compat-', out) do |tmp|
     key_pem = File.join(tmp, 'key.pem')
     cert_pem = File.join(tmp, 'cert.pem')
     compat_p12 = File.join(tmp, 'compatible.p12')
     raise 'Cannot extract private key from validated PKCS12' unless system('openssl', 'pkcs12', '-in', p12_path, '-passin', "pass:#{pass}", '-nocerts', '-nodes', '-out', key_pem, out: File::NULL)
     raise 'Cannot extract certificate from validated PKCS12' unless system('openssl', 'pkcs12', '-in', p12_path, '-passin', "pass:#{pass}", '-clcerts', '-nokeys', '-out', cert_pem, out: File::NULL)
-    raise 'Cannot export Apple-compatible PKCS12' unless system('openssl', 'pkcs12', '-export', '-legacy', '-inkey', key_pem, '-in', cert_pem, '-out', compat_p12, '-passout', "pass:#{pass}", out: File::NULL)
-    raise 'Apple-compatible PKCS12 validation failed' unless system('openssl', 'pkcs12', '-legacy', '-in', compat_p12, '-passin', "pass:#{pass}", '-info', '-noout', out: File::NULL, err: File::NULL)
+    raise 'Cannot export Apple-compatible PKCS12' unless system('openssl', 'pkcs12', '-export', '-legacy', '-inkey', key_pem, '-in', cert_pem, '-out', compat_p12, '-passout', "pass:#{compatible_password}", '-keypbe', 'PBE-SHA1-3DES', '-certpbe', 'PBE-SHA1-3DES', '-macalg', 'sha1', out: File::NULL)
+    raise 'Apple-compatible PKCS12 validation failed' unless system('openssl', 'pkcs12', '-legacy', '-in', compat_p12, '-passin', "pass:#{compatible_password}", '-info', '-noout', out: File::NULL, err: File::NULL)
     FileUtils.cp(compat_p12, p12_path)
   end
+  pass = compatible_password
+  File.write(File.join(out, 'distribution-password.txt'), pass)
+  File.chmod(0600, File.join(out, 'distribution-password.txt'))
   raise 'PKCS12 keychain import failed' unless system('security', 'import', p12_path, '-k', keychain_path, '-P', pass, '-T', '/usr/bin/codesign', '-T', '/usr/bin/security')
   raise 'Key partition permissions failed' unless system('security', 'set-key-partition-list', '-S', 'apple-tool:,apple:,codesign:', '-s', '-k', keychain_password, keychain_path, out: File::NULL)
   current_keychains = IO.popen(['security', 'list-keychains', '-d', 'user'], &:read).scan(/"([^"]+)"/).flatten
