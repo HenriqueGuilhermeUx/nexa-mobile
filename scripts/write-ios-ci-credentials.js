@@ -12,7 +12,7 @@ const credentials = {
     provisioningProfilePath: profile,
     distributionCertificate: {
       path: p12,
-      password: process.env.IOS_DISTRIBUTION_P12_PASSWORD || '',
+      password: fs.existsSync(path.join(dir, 'distribution-password.txt')) ? fs.readFileSync(path.join(dir, 'distribution-password.txt'), 'utf8') : (process.env.IOS_DISTRIBUTION_P12_PASSWORD || ''),
     },
   },
 };
