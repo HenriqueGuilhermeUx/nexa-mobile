@@ -21,13 +21,18 @@ File.write(api_key_path, JSON.generate({
 File.chmod(0600, api_key_path)
 
 Dir.chdir(out) do
-  # The CI creates a new certificate only if Apple allows it; no revocations.
-  cert_cmd = ['fastlane', 'cert', '--api_key_path', api_key_path, '--output_path', out]
-  raise 'Certificate creation failed' unless system(*cert_cmd)
-  p12 = Dir.glob(File.join(out, '*.p12')).first
-  raise 'No distribution p12 generated' unless p12
-  FileUtils.cp(p12, File.join(out, 'distribution.p12')) unless p12 == File.join(out, 'distribution.p12')
-  raise 'Invalid distribution PKCS#12' unless system('openssl', 'pkcs12', '-in', File.join(out, 'distribution.p12'), '-passin', 'pass:', '-info', '-noout', out: File::NULL, err: File::NULL)
+  # Apple distribution slots are full; never create or revoke certificates in CI.
+  # Reuse an existing PKCS#12 including its private key, stored as an Actions secret.
+  b64 = ENV.fetch('IOS_DISTRIBUTION_P12_BASE64', '')
+  raise 'Missing IOS_DISTRIBUTION_P12_BASE64: existing distribution certificate and private key required' if b64.empty?
+  require 'base64'
+  p12_path = File.join(out, 'distribution.p12')
+  File.binwrite(p12_path, Base64.strict_decode64(b64.gsub(/\s+/, '')))
+  File.chmod(0600, p12_path)
+  pass = ENV.fetch('IOS_DISTRIBUTION_P12_PASSWORD', '')
+  raise 'Invalid distribution PKCS#12 or password' unless system('openssl', 'pkcs12', '-in', p12_path, '-passin', "pass:#{pass}", '-info', '-noout', out: File::NULL, err: File::NULL)
+  File.write(File.join(out, 'p12-password.txt'), pass)
+  File.chmod(0600, File.join(out, 'p12-password.txt'))
 
   sigh_cmd = ['fastlane', 'sigh', '--api_key_path', api_key_path,
               '--app_identifier', 'br.com.trynexa.app', '--team_id', ENV.fetch('APPLE_TEAM_ID'),
