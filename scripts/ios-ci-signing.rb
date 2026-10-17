@@ -39,14 +39,18 @@ Dir.chdir(out) do
     generated = Dir.glob(File.join(out, '*.p12')).find { |p| p != p12_path }
     raise 'Fastlane did not export a p12; stop and inspect before retrying' unless generated
     FileUtils.cp(generated, p12_path)
-    # fastlane cert exports PKCS#12 with an empty password by default.
-    pass = ''
+    # Detect the Fastlane PKCS#12 export password before using EAS.
+    candidates = ['', 'password', ENV.fetch('IOS_DISTRIBUTION_P12_PASSWORD', '')].uniq
+    pass = candidates.find { |candidate| system('openssl', 'pkcs12', '-in', p12_path, '-passin', "pass:#{candidate}", '-info', '-noout', out: File::NULL, err: File::NULL) }
+    raise 'Generated PKCS#12 password unknown; encrypted backup will be retained' if pass.nil?
   else
     require 'base64'
     File.binwrite(p12_path, Base64.strict_decode64(b64.gsub(/\\s+/, '')))
     pass = ENV.fetch('IOS_DISTRIBUTION_P12_PASSWORD', '')
   end
   File.chmod(0600, p12_path)
+  File.write(File.join(out, 'distribution-password.txt'), pass)
+  File.chmod(0600, File.join(out, 'distribution-password.txt'))
   raise 'Invalid distribution PKCS#12 or password' unless system('openssl', 'pkcs12', '-in', p12_path, '-passin', "pass:#{pass}", '-info', '-noout', out: File::NULL, err: File::NULL)
   raise 'Distribution PKCS#12 has no private key' unless system('sh', '-c', 'openssl pkcs12 -in "$1" -passin "pass:$2" -nocerts -nodes 2>/dev/null | grep -q "BEGIN .*PRIVATE KEY"', 'sh', p12_path, pass)
   puts 'Signing PKCS#12 and private key validated.'
