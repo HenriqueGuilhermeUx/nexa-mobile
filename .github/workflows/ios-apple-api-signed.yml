@@ -3,6 +3,11 @@ name: Nexa iOS signed IPA (Apple API)
 
 on:
   workflow_dispatch:
+    inputs:
+      issue_new_certificate:
+        description: 'Type ISSUE_ONCE only for a fresh Apple certificate (never on retries)'
+        required: false
+        type: string
   push:
     branches:
       - main
@@ -31,7 +36,7 @@ jobs:
       IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
       IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
       IOS_SIGNING_BACKUP_PASSPHRASE: ${{ secrets.IOS_SIGNING_BACKUP_PASSPHRASE }}
-      IOS_ALLOW_NEW_CERTIFICATE: ${{ secrets.IOS_ALLOW_NEW_CERTIFICATE }}
+      IOS_ALLOW_NEW_CERTIFICATE: ${{ secrets.IOS_ALLOW_NEW_CERTIFICATE == 'YES' && inputs.issue_new_certificate == 'ISSUE_ONCE' && 'YES' || 'NO' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,19 +94,34 @@ jobs:
           test -s "$RUNNER_TEMP/nexa-ios-signing/distribution.p12"
           test -s "$RUNNER_TEMP/nexa-ios-signing/profile.mobileprovision"
       - name: Encrypt signing identity backup
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
+          dir="$RUNNER_TEMP/nexa-ios-signing"
           mkdir -p ios-signing-backup
-          tar -C "$RUNNER_TEMP/nexa-ios-signing" -czf "$RUNNER_TEMP/ios-signing.tar.gz" distribution.p12 profile.mobileprovision
-          openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/ios-signing.tar.gz" -out ios-signing-backup/nexa-ios-signing.enc -pass env:IOS_SIGNING_BACKUP_PASSPHRASE
-          rm -f "$RUNNER_TEMP/ios-signing.tar.gz"
+          if [ ! -s "$dir/distribution.p12" ]; then
+            candidate="$(find "$dir" -maxdepth 1 -name '*.p12' -type f | head -n 1 || true)"
+            if [ -n "$candidate" ]; then cp "$candidate" "$dir/distribution.p12"; fi
+          fi
+          if [ -s "$dir/distribution.p12" ]; then
+            files=(distribution.p12)
+            for optional in distribution-password.txt profile.mobileprovision; do
+              if [ -f "$dir/$optional" ]; then files+=("$optional"); fi
+            done
+            tar -C "$dir" -czf "$RUNNER_TEMP/ios-signing.tar.gz" "${files[@]}"
+            openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/ios-signing.tar.gz" -out ios-signing-backup/nexa-ios-signing.enc -pass env:IOS_SIGNING_BACKUP_PASSPHRASE
+            rm -f "$RUNNER_TEMP/ios-signing.tar.gz"
+          else
+            echo 'No PKCS12 file was produced; nothing to back up.'
+          fi
       - name: Preserve encrypted signing backup
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Nexa-iOS-signing-encrypted
           path: ios-signing-backup/nexa-ios-signing.enc
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 90
       - name: Build signed IPA locally on macOS
         shell: bash
