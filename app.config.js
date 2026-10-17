@@ -1,10 +1,10 @@
-// Nexa v145 Sovereignty store release.
+// iOS App Review release candidate. Keep Android's published version unchanged.
 module.exports = ({ config }) => ({
   ...config,
-  version: '2.0.42',
+  version: '2.0.43',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '145',
+    buildNumber: '149',
   },
   android: {
     ...(config.android || {}),
@@ -12,6 +12,6 @@ module.exports = ({ config }) => ({
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'android16-api36-2.0.42-v145-sovereignty',
+    releaseBuild: 'ios-2.0.43-149-review-candidate',
   },
 });

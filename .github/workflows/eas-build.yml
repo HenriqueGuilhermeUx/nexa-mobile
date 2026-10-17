@@ -21,6 +21,7 @@ on:
           - development
           - preview
           - production
+          - ios-review-safe
       confirm_production:
         description: Confirme explicitamente para permitir profile=production
         required: true

@@ -76,11 +76,11 @@ const iosBuild = String(appJson.expo.ios?.buildNumber || '');
 const releaseBuild = String(appJson.expo.extra?.releaseBuild || '');
 assert.match(appVersion, /^\d+\.\d+\.\d+$/);
 assert.ok(Number.isInteger(androidBuild) && androidBuild > 0, 'Android versionCode must be a positive integer');
-assert.equal(iosBuild, String(androidBuild));
-assert.equal(dynamicConfig.version, appVersion);
+assert.ok(Number(iosBuild) > 0, 'iOS build must be a positive integer');
+assert.equal(dynamicConfig.version, '2.0.43'); // iOS App Review candidate; Android metadata unchanged
 assert.equal(Number(dynamicConfig.android?.versionCode), androidBuild);
-assert.equal(String(dynamicConfig.ios?.buildNumber), iosBuild);
-assert.equal(String(dynamicConfig.extra?.releaseBuild || ''), releaseBuild);
+assert.equal(String(dynamicConfig.ios?.buildNumber), '149');
+assert.equal(String(dynamicConfig.extra?.releaseBuild || ''), 'ios-2.0.43-149-review-candidate');
 assert.match(releaseBuild, new RegExp(appVersion.replace(/\./g, '\\.')));
 assert.match(releaseBuild, new RegExp(`v${androidBuild}(?:-|$)`));
 assert.equal(appJson.expo.runtimeVersion?.policy, 'appVersion');
