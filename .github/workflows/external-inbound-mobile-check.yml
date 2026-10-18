@@ -1,0 +1,26 @@
+name: External USDC inbound mobile typecheck
+on:
+  push:
+    branches:
+      - feat/walletconnect-inbound-br-global-v1
+    paths:
+      - 'src/lib/externalUsdcInboundPreview.ts'
+      - '.github/workflows/external-inbound-mobile-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install without writing lockfile
+        run: npm install --no-package-lock --ignore-scripts --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
