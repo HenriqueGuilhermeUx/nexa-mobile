@@ -4,7 +4,7 @@ module.exports = ({ config }) => ({
   version: '2.0.43',
   ios: {
     ...(config.ios || {}),
-    buildNumber: '149',
+    buildNumber: '150',
   },
   android: {
     ...(config.android || {}),
@@ -12,6 +12,6 @@ module.exports = ({ config }) => ({
   },
   extra: {
     ...(config.extra || {}),
-    releaseBuild: 'ios-2.0.43-149-review-candidate',
+    releaseBuild: 'ios-2.0.43-150-wallet-only-testflight',
   },
 });
