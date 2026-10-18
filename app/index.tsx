@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -40,13 +41,13 @@ const INTRO = [
     symbol: '◎',
     caption: 'A Nexa cuida das etapas técnicas',
   },
-  {
+  ...Platform.OS === 'ios' ? [] : [{
     kicker: 'COMECE PELO FAMILIAR',
     title: 'Comece pelo que você já conhece.',
     text: 'No Brasil, use Pix para iniciar sua experiência com USDC.',
     symbol: 'PIX',
     caption: 'Pix → USDC → sua wallet',
-  },
+  }],
 ];
 
 export default function WelcomeScreen() {
