@@ -7,9 +7,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from 'react-native';
 
 import AlignedLegacyApp from '../src/components/AlignedLegacyApp';
+import IosWalletReview from '../src/components/IosWalletReview';
 import { nexaApi } from '../src/lib/api';
 import {
   clearNexaSession,
@@ -116,6 +118,10 @@ export default function LegacyExperience() {
         <Text style={styles.text}>{error || 'Abrindo sua conta Nexa...'}</Text>
       </View>
     );
+  }
+
+  if (Platform.OS === 'ios') {
+    return <IosWalletReview user={user} onLogout={logout} />;
   }
 
   return (
