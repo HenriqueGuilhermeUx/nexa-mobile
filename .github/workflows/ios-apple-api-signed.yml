@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - fix/ios-review-readiness-20261016
+      - fix/ios-wallet-only-review-20261018
     paths:
       - .github/workflows/ios-apple-api-signed.yml
 
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   ios:
-    name: Sign and build iOS 2.0.43 (149)
+    name: Sign and build iOS 2.0.43 (150)
     runs-on: macos-15
     timeout-minutes: 180
     env:
@@ -42,7 +42,7 @@ jobs:
           done
           node - <<'NODE'
           const c=require('./app.config.js')({config:require('./app.json').expo});
-          if(c.ios?.bundleIdentifier!=='br.com.trynexa.app' || c.ios?.buildNumber!=='149' || c.version!=='2.0.43') throw Error('Unexpected iOS release identity');
+          if(c.ios?.bundleIdentifier!=='br.com.trynexa.app' || c.ios?.buildNumber!=='150' || c.version!=='2.0.43') throw Error('Unexpected iOS release identity');
           NODE
       - name: Install and validate application
         run: |
@@ -73,13 +73,13 @@ jobs:
           export EAS_LOCAL_BUILD_ARTIFACTS_DIR="$GITHUB_WORKSPACE/ios-artifacts"
           mkdir -p "$EAS_LOCAL_BUILD_ARTIFACTS_DIR"
           node scripts/write-ios-ci-credentials.js "$RUNNER_TEMP/nexa-ios-signing" > /dev/null
-          eas build --platform ios --profile ios-review-safe --local --non-interactive --output "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/Nexa-2.0.43-149.ipa"
-          test -s "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/Nexa-2.0.43-149.ipa"
-          shasum -a 256 "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/Nexa-2.0.43-149.ipa" > "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/SHA256SUMS.txt"
+          eas build --platform ios --profile ios-review-safe --local --non-interactive --output "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/Nexa-2.0.43-150.ipa"
+          test -s "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/Nexa-2.0.43-150.ipa"
+          shasum -a 256 "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/Nexa-2.0.43-150.ipa" > "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/SHA256SUMS.txt"
       - name: Upload signed IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Nexa-iOS-2.0.43-149
+          name: Nexa-iOS-2.0.43-150
           path: ios-artifacts/
           if-no-files-found: error
           retention-days: 14
