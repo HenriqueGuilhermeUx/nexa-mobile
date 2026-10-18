@@ -1,0 +1,82 @@
+name: Nexa iOS upload to TestFlight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: nexa-ios-testflight-upload
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Upload signed iOS 2.0.43 (149) to App Store Connect
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+    steps:
+      - name: Validate App Store Connect credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in APPLE_API_KEY_ID APPLE_API_ISSUER_ID APPLE_API_KEY_P8; do
+            if [ -z "${!key:-}" ]; then echo "::error::Missing $key"; exit 1; fi
+          done
+      - name: Download previously signed IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: Nexa-iOS-2.0.43-149
+          run-id: 39102171889
+          github-token: ${{ github.token }}
+          path: ios-artifacts
+      - name: Validate IPA identity and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s ios-artifacts/Nexa-2.0.43-149.ipa
+          cd ios-artifacts
+          shasum -a 256 -c SHA256SUMS.txt
+          /usr/bin/unzip -t Nexa-2.0.43-149.ipa >/dev/null
+          /usr/bin/unzip -p Nexa-2.0.43-149.ipa Payload/Nexa.app/Info.plist > "$RUNNER_TEMP/nexa-info.plist"
+          bundle=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$RUNNER_TEMP/nexa-info.plist")
+          version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$RUNNER_TEMP/nexa-info.plist")
+          build=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$RUNNER_TEMP/nexa-info.plist")
+          if [ "$bundle" != "br.com.trynexa.app" ] || [ "$version" != "2.0.43" ] || [ "$build" != "149" ]; then
+            echo "::error::IPA identity mismatch: $bundle $version ($build)"
+            exit 1
+          fi
+          echo "Validated IPA: $bundle $version ($build)"
+      - name: Install upload tool
+        run: gem install fastlane --no-document
+      - name: Upload IPA to App Store Connect
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/nexa-appstore"
+          trap 'rm -rf "$RUNNER_TEMP/nexa-appstore"' EXIT
+          python3 - <<'PY'
+          import os, pathlib
+          key = os.environ['APPLE_API_KEY_P8'].replace('\\n', '\n')
+          if 'BEGIN PRIVATE KEY' not in key:
+              raise SystemExit('Invalid App Store Connect API key')
+          pathlib.Path(os.environ['RUNNER_TEMP'], 'nexa-appstore', 'AuthKey.p8').write_text(key)
+          PY
+          python3 - <<'PY'
+          import json, os, pathlib
+          p = pathlib.Path(os.environ['RUNNER_TEMP'], 'nexa-appstore')
+          data = {'key_id': os.environ['APPLE_API_KEY_ID'], 'issuer_id': os.environ['APPLE_API_ISSUER_ID'], 'key_filepath': str(p / 'AuthKey.p8'), 'in_house': False}
+          (p / 'api_key.json').write_text(json.dumps(data))
+          PY
+          fastlane pilot upload \
+            --ipa "$GITHUB_WORKSPACE/ios-artifacts/Nexa-2.0.43-149.ipa" \
+            --api_key_path "$RUNNER_TEMP/nexa-appstore/api_key.json" \
+            --skip_waiting_for_build_processing true
+        env:
+          FASTLANE_SKIP_UPDATE_CHECK: '1'
