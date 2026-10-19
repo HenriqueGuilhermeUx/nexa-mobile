@@ -1,4 +1,5 @@
 import type { ExternalEip1193Provider } from './externalWalletProviderProof';
+import { isActiveExternalWalletAccount } from './activeExternalWalletAccount';
 
 /**
  * Bridge for a connection explicitly opened by the Reown UI.
@@ -31,9 +32,7 @@ export async function validateReownExternalConnection(input: {
   ]);
   if (String(chainId).toLowerCase() !== '0x89' &&
       String(chainId) !== '137') throw new Error('POLYGON_REQUIRED');
-  if (!Array.isArray(accounts) ||
-      !accounts.some(a => typeof a === 'string' &&
-        a.toLowerCase() === address.toLowerCase())) {
+  if (!isActiveExternalWalletAccount(accounts, address)) {
     throw new Error('REOWN_CONNECTED_ACCOUNT_MISMATCH');
   }
   return {address, provider};

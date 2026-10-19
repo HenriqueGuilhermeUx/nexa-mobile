@@ -15,6 +15,7 @@ on:
       - 'src/lib/externalWalletOwnership.ts'
       - 'src/lib/externalWalletUsdcBalance.ts'
       - 'src/lib/externalWalletProviderProof.ts'
+      - 'src/lib/activeExternalWalletAccount.ts'
       - 'src/lib/externalWalletConnector.ts'
       - 'src/lib/externalWalletConnectionState.ts'
       - 'src/lib/reownConnectedWalletBridge.ts'

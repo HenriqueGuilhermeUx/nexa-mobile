@@ -1,5 +1,6 @@
 import { requestExternalWalletChallenge, verifyExternalWalletChallenge } from './externalWalletOwnership';
 import { recoverMessageAddress } from 'viem';
+import { isActiveExternalWalletAccount } from './activeExternalWalletAccount';
 
 /** Provider adapter: the UI must obtain it through an explicit user-initiated wallet connection.
  * No private keys, no background sends, and no transfer authorization.
@@ -17,7 +18,7 @@ export async function proveExternalWalletOwnership(input: {
   const chain = String(await input.provider.request({method:'eth_chainId'})).toLowerCase();
   if (chain !== '0x89' && chain !== '137') throw new Error('POLYGON_REQUIRED');
   const accounts = await input.provider.request({method:'eth_accounts'});
-  if (!Array.isArray(accounts) || !accounts.some(a=>String(a).toLowerCase()===input.expectedAddress.toLowerCase())) {
+  if (!isActiveExternalWalletAccount(accounts, input.expectedAddress)) {
     throw new Error('WALLET_ACCOUNT_MISMATCH');
   }
   const challenge = await requestExternalWalletChallenge(input.accessToken,input.expectedAddress,input.market ?? 'BR');
@@ -30,7 +31,7 @@ export async function proveExternalWalletOwnership(input: {
   const afterChain = String(await input.provider.request({method:'eth_chainId'})).toLowerCase();
   const afterAccounts = await input.provider.request({method:'eth_accounts'});
   if ((afterChain !== '0x89' && afterChain !== '137') ||
-      !Array.isArray(afterAccounts) || !afterAccounts.some(a=>String(a).toLowerCase()===input.expectedAddress.toLowerCase())) {
+      !isActiveExternalWalletAccount(afterAccounts, input.expectedAddress)) {
     throw new Error('WALLET_SESSION_CHANGED_DURING_SIGN');
   }
   return verifyExternalWalletChallenge(input.accessToken,challenge.challengeId,signature,input.market ?? 'BR');

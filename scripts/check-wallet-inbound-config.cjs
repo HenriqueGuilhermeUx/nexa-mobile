@@ -47,4 +47,31 @@ assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED === 'true'/);
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE === 'true'/);
 assert.match(route, /projectId: process.env.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID/);
 assert.doesNotMatch(route,/\\n\s*\/\//, 'literal newline escape in route source');
+
+// Behavioral regression: eth_accounts may contain several authorized addresses,
+// but the selected account is the FIRST entry. Reject stale selected accounts.
+const ts = require('typescript');
+const source = fs.readFileSync(path.join(root, 'src/lib/activeExternalWalletAccount.ts'), 'utf8');
+const js = ts.transpileModule(source, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText;
+const testModule = { exports: {} };
+new Function('module', 'exports', js)(testModule, testModule.exports);
+const { isActiveExternalWalletAccount } = testModule.exports;
+const selected = '0x1111111111111111111111111111111111111111';
+const other = '0x2222222222222222222222222222222222222222';
+assert.equal(isActiveExternalWalletAccount([selected], selected), true);
+assert.equal(isActiveExternalWalletAccount([selected.toUpperCase().replace('0X','0x')], selected), true);
+assert.equal(isActiveExternalWalletAccount([other, selected], selected), false, 'stale selected account must be rejected');
+assert.equal(isActiveExternalWalletAccount([selected, other], selected), true);
+assert.equal(isActiveExternalWalletAccount([], selected), false);
+assert.equal(isActiveExternalWalletAccount([null, selected], selected), false);
+assert.equal(isActiveExternalWalletAccount([selected], 'invalid'), false);
+for (const name of ['externalWalletProviderProof.ts','reownConnectedWalletBridge.ts','externalWalletConnectionState.ts']) {
+  const consumer = fs.readFileSync(path.join(root, 'src/lib', name), 'utf8');
+  assert.match(consumer, /isActiveExternalWalletAccount\(/, name + ' must verify selected account');
+  assert.doesNotMatch(consumer, /\.some\(.*[Aa]ccount/, name + ' must not accept an arbitrary authorized account');
+}
+console.log('PASS: selected EIP-1193 account regression tests');
+
 console.log('PASS: Reown staging gates, isolated lab profile and Android/iOS app IDs');
