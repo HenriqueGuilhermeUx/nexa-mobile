@@ -45,6 +45,6 @@ assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_ENABLED === 'true'/);
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED === 'true'/);
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED === 'true'/);
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE === 'true'/);
-assert.match(route, /0d9b915b32c04b058efeba535319dd70/);
+assert.match(route, /projectId: process.env.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID/);
 assert.doesNotMatch(route,/\\n\s*\/\//, 'literal newline escape in route source');
 console.log('PASS: Reown staging gates, isolated lab profile and Android/iOS app IDs');
