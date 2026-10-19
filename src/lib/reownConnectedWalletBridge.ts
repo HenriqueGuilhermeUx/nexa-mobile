@@ -23,6 +23,7 @@ export async function validateReownExternalConnection(input: {
   if (typeof input.address !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(input.address)) {
     throw new Error('REOWN_CONNECTED_ADDRESS_INVALID');
   }
+  const address = input.address as string;
   const provider = asExternalEip1193Provider(input.provider);
   const [chainId, accounts] = await Promise.all([
     provider.request({method:'eth_chainId'}),
@@ -32,8 +33,8 @@ export async function validateReownExternalConnection(input: {
       String(chainId) !== '137') throw new Error('POLYGON_REQUIRED');
   if (!Array.isArray(accounts) ||
       !accounts.some(a => typeof a === 'string' &&
-        a.toLowerCase() === input.address.toLowerCase())) {
+        a.toLowerCase() === address.toLowerCase())) {
     throw new Error('REOWN_CONNECTED_ACCOUNT_MISMATCH');
   }
-  return {address: input.address, provider};
+  return {address, provider};
 }
