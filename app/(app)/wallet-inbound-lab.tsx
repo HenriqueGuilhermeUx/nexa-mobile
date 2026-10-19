@@ -45,10 +45,16 @@ export default function WalletInboundLabRoute() {
         style={{ backgroundColor: '#225eaa', padding: 16, borderRadius: 10 }}>
         <Text style={{ color: '#fff', textAlign: 'center' }}>Receber USDC — QR Code</Text>
       </Pressable>
-      <Pressable accessibilityRole="button" onPress={() => router.push('/(app)/external-wallet-connect' as any)}
+      <Pressable accessibilityRole="button" onPress={() => router.push('/(app)/external-wallet-connect?market=BR' as any)}
         style={{ backgroundColor: '#25384e', padding: 16, borderRadius: 10 }}>
-        <Text style={{ color: '#fff', textAlign: 'center' }}>Conectar carteira — Reown</Text>
+        <Text style={{ color: '#fff', textAlign: 'center' }}>Conectar carteira — Nexa Brasil</Text>
       </Pressable>
+      <Pressable accessibilityRole="button"
+        onPress={() => router.push('/(app)/external-wallet-connect?market=GLOBAL' as any)}
+        style={{ backgroundColor: '#25384e', padding: 16, borderRadius: 10 }}>
+        <Text style={{ color: '#fff', textAlign: 'center' }}>Conectar carteira — Nexa Global</Text>
+      </Pressable>
+      <Text>A assinatura Global exige domínio confiável configurado no backend; se indisponível, falha com segurança.</Text>
       <Text>O recebimento é independente do conector. A conexão Reown continua bloqueada até revisão comercial e teste nativo.</Text>
       <Text>Não faça depósitos reais enquanto o backend de homologação e a conciliação não estiverem aprovados.</Text>
     </ScrollView>
