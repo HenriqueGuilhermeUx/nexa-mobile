@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Redirect } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { StagedExternalWalletConnect } from '@/components/StagedExternalWalletConnect';
@@ -12,6 +12,8 @@ import { loadNexaSession } from '@/lib/session';
  * EXPO_PUBLIC flags are UX controls, never financial authorization.
  */
 export default function ExternalWalletConnectStagingRoute() {
+  const params = useLocalSearchParams<{market?: string}>();
+  const market: 'BR' | 'GLOBAL' = params.market === 'GLOBAL' ? 'GLOBAL' : 'BR';
   const [token, setToken] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     let mounted = true;
@@ -56,5 +58,5 @@ export default function ExternalWalletConnectStagingRoute() {
       </View>
     );
   }
-  return <StagedExternalWalletConnect accessToken={token} instance={result.instance} />;
+  return <StagedExternalWalletConnect accessToken={token} instance={result.instance} market={market} />;
 }
