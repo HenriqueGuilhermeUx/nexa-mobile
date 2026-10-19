@@ -34,21 +34,21 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - name: Select compatible Xcode
+      - name: Verify compatible Xcode
         shell: bash
         run: |
           set -euo pipefail
-          echo 'Installed Xcode versions:'
+          echo "Runner Xcode inventory:"
           ls -d /Applications/Xcode*.app || true
-          CANDIDATE=$(find /Applications -maxdepth 1 -type d -name 'Xcode*.app' | while read -r app; do
-            version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null || true)
-            case "$version" in
-              26.[4-9]*|2[7-9].*) printf '%s\\n' "$app" ;;
-            esac
-          done | head -n 1)
-          if [ -z "$CANDIDATE" ]; then echo '::error::Xcode 26.4+ not installed on this runner'; exit 1; fi
-          echo "DEVELOPER_DIR=$CANDIDATE/Contents/Developer" >> "$GITHUB_ENV"
-          "$CANDIDATE/Contents/Developer/usr/bin/xcodebuild" -version
+          echo "Expo SDK 57 requires Xcode 26.4 or newer."
+          if [ -d /Applications/Xcode_26.4.app ]; then
+            echo "DEVELOPER_DIR=/Applications/Xcode_26.4.app/Contents/Developer" >> "$GITHUB_ENV"
+          elif [ -d /Applications/Xcode_26.4.0.app ]; then
+            echo "DEVELOPER_DIR=/Applications/Xcode_26.4.0.app/Contents/Developer" >> "$GITHUB_ENV"
+          else
+            echo "::error::Runner does not provide Xcode 26.4+. Use a compatible hosted image or EAS remote build."
+            exit 1
+          fi
       - name: Validate signing prerequisites
         shell: bash
         run: |
