@@ -47,7 +47,7 @@ assert.ok(Number.isInteger(appConfig.expo.android.versionCode) && appConfig.expo
 assert.ok(/^[0-9]+$/.test(appConfig.expo.ios.buildNumber));
 const appConfigSource = read('app.config.js');
 assert.ok(appConfigSource.includes("version: '2.0.43'"));
-assert.ok(appConfigSource.includes("buildNumber: '149'"));
+assert.ok(appConfigSource.includes("buildNumber: '150'"));
 assert.ok(appConfigSource.includes('versionCode: 145'));
 const easConfig = JSON.parse(read('eas.json'));
 assert.equal(easConfig.build['ios-review-safe'].env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false');
