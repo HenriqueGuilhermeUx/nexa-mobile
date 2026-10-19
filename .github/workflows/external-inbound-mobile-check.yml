@@ -10,6 +10,7 @@ on:
       - 'src/lib/externalWalletOwnership.ts'
       - 'src/lib/externalWalletProviderProof.ts'
       - 'src/lib/externalWalletConnector.ts'
+      - 'src/lib/reownExternalWalletAppKit.ts'
       - 'src/components/ExternalWalletProofPanel.tsx'
       - 'src/components/ExternalUsdcInboundPreviewPanel.tsx'
       - 'app/(app)/external-usdc-preview.tsx'
