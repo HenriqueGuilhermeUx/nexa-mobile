@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/lib/externalUsdcInboundPreview.ts'
       - 'src/lib/externalWalletOwnership.ts'
+      - 'src/lib/externalWalletProviderProof.ts'
       - 'src/components/ExternalUsdcInboundPreviewPanel.tsx'
       - 'app/(app)/external-usdc-preview.tsx'
       - '.github/workflows/external-inbound-mobile-check.yml'
