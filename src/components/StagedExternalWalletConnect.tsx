@@ -12,10 +12,10 @@ import { readConnectedExternalUsdc } from '../lib/externalWalletUsdcBalance';
  * route after registering a legitimate Reown project. No token transfers.
  */
 type ReownInstance = ReturnType<typeof initializeExternalWalletAppKit>;
-export function StagedExternalWalletConnect(props: { accessToken: string; instance: ReownInstance }) {
+export function StagedExternalWalletConnect(props: { accessToken: string; instance: ReownInstance; market?: 'BR' | 'GLOBAL' }) {
   return (
     <AppKitProvider instance={props.instance}>
-      <ExternalWalletConnectionScreen accessToken={props.accessToken} />
+      <ExternalWalletConnectionScreen accessToken={props.accessToken} market={props.market ?? 'BR'} />
       <View style={{ position: 'absolute', width: '100%', height: '100%' }} pointerEvents="box-none">
         <AppKit />
       </View>
@@ -23,7 +23,7 @@ export function StagedExternalWalletConnect(props: { accessToken: string; instan
   );
 }
 
-function ExternalWalletConnectionScreen({ accessToken }: { accessToken: string }) {
+function ExternalWalletConnectionScreen({ accessToken, market }: { accessToken: string; market: 'BR' | 'GLOBAL' }) {
   const { open, disconnect } = useAppKit();
   const { address, chainId, namespace, isConnected } = useAccount();
   const { provider, providerType } = useProvider();
@@ -91,7 +91,7 @@ function ExternalWalletConnectionScreen({ accessToken }: { accessToken: string }
 
   return (
     <View style={{ flex: 1, padding: 20, gap: 12 }}>
-      <Text style={{ fontSize: 22, fontWeight: '700' }}>Carteira externa — homologação</Text>
+      <Text style={{ fontSize: 22, fontWeight: '700' }}>Carteira externa — Nexa {market === 'GLOBAL' ? 'Global' : 'Brasil'} (homologação)</Text>
       <Text>Conecte MetaMask ou outra carteira WalletConnect. Apenas a assinatura de titularidade será solicitada; nenhuma transferência é executada.</Text>
       <Text>{isConnected ? `Endereço: ${address ?? 'indisponível'}` : 'Carteira não conectada'}</Text>
       {isConnected ? <Text>Rede: {String(chainId)} ({String(namespace)})</Text> : null}
@@ -119,6 +119,7 @@ function ExternalWalletConnectionScreen({ accessToken }: { accessToken: string }
             <Text>Na carteira externa: {balance.balanceUsdc} USDC — não é saldo Nexa.</Text> : null}
           <ExternalWalletProofPanel
           accessToken={accessToken}
+          market={market}
           address={validated.address}
           provider={validated.provider}
           onDisconnect={() => { void disconnectWallet(); }}
