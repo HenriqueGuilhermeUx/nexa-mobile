@@ -17,6 +17,24 @@ assert.equal(app.android.package, 'br.com.trynexa.app', 'Android package id chan
 assert.equal(pkg.dependencies['@reown/appkit-react-native'], '2.0.6');
 assert.equal(pkg.dependencies['@reown/appkit-ethers-react-native'], '2.0.6');
 assert.equal(eas.build.production.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL, 'production');
+const lab = eas.build['wallet-inbound-lab'];
+assert.ok(lab, 'missing isolated EAS lab profile');
+assert.equal(lab.developmentClient, true);
+assert.equal(lab.distribution, 'internal');
+assert.equal(lab.channel, 'wallet-inbound-lab');
+assert.equal(lab.android.buildType, 'apk');
+assert.equal(lab.env.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID, '0d9b915b32c04b058efeba535319dd70');
+assert.equal(lab.env.EXPO_PUBLIC_NEXA_API_URL, 'https://nexa-backend-wallet-v15-staging.onrender.com/api/v1');
+assert.equal(lab.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false');
+assert.equal(lab.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED, 'false');
+assert.equal(lab.env.EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED, 'false');
+assert.equal(lab.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED, 'false');
+for(const [name, profile] of Object.entries(eas.build)) {
+  if(name !== 'wallet-inbound-lab' && profile.env?.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID) {
+    throw new Error('Reown project ID leaked into a non-lab EAS profile: ' + name);
+  }
+}
+
 for(const profile of Object.values(eas.build)) {
  if(profile.env?.EXPO_PUBLIC_NEXA_REOWN_ENABLED === 'true') {
    throw new Error('Reown enabled in a build profile before native/license validation');
@@ -27,4 +45,4 @@ assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED === 'true'/);
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED === 'true'/);
 assert.match(route, /0d9b915b32c04b058efeba535319dd70/);
 assert.doesNotMatch(route,/\\n\s*\/\//, 'literal newline escape in route source');
-console.log('PASS: Reown staging guards and registered Expo iOS/Android identifiers');
+console.log('PASS: Reown staging gates, isolated lab profile and Android/iOS app IDs');
