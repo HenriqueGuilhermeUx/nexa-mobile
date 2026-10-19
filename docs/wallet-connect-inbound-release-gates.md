@@ -45,3 +45,20 @@ Still required in https://dashboard.reown.com: verify this project is not still 
 The receiving screen now allows entering a Polygon transaction hash after sending native USDC. In the backend branch, `GET /api/v1/wallet-connect-inbound/receive/confirm?txHash=...` re-audits the authenticated receiving address with Privy and checks the canonical receipt using server-provided `NEXA_POLYGON_READ_RPC_URL` (HTTPS only, MUST be chain 137). It requires at least 20 confirmations by default, exact native USDC token Transfer events to the verified user and canonical block hash. Before that threshold the UI reports `CONFIRMING`; an unknown hash reports `PENDING`. Noncanonical/reorg or wrong-token receipts fail closed.
 
 **Important:** confirmation means observing a chain event only. It neither updates Nexa balances nor creates spendable funds/ledger credit. The server-side module has **not** been registered in AppModule and production RPC env has not been set. A successful mobile TypeScript check does **not** validate the backend API or real chain E2E. Verify staging backend CI, Privy API, RPC reliability, throttling, iOS and Android physical tests before allowing clients to use this status.
+
+## Internal Android/iOS build — dedicated, disabled-by-default lab
+
+A separate EAS profile `wallet-inbound-lab` now exists in `eas.json`. It uses:
+- Development client, internal distribution, dedicated OTA channel `wallet-inbound-lab`.
+- Staging API, financial execution explicitly false.
+- Existing public Reown project ID `0d9b915b32c04b058efeba535319dd70`.
+- Reown integration **disabled** until license and physical native validation are complete.
+- No production deploy or modification to the old Nexa app profiles.
+
+The hidden `/(app)/wallet-inbound-lab` route (link only through controlled developer navigation/deep-link tests) requires authentication and the `wallet-inbound-lab` release channel. It links to `/(app)/receive-usdc` and `/(app)/external-wallet-connect`. The direct-receive screen fails closed until the backend endpoint exists in staging.
+
+After Metro smoke-test passes, an operator with EAS access may use the repository's existing manual workflow `EAS Native Build` (Actions → Run workflow), selecting **branch** `feat/walletconnect-inbound-br-global-v1`, **profile** `wallet-inbound-lab`, and **platform** `android`. This triggers an **internal** EAS build, not Google Play publication. Do not run this action until Expo credentials/quotas and app identification have been reviewed. Installing it on an ordinary phone may **replace** the installed Nexa production app because the bundle/package IDs match: use a dedicated QA device and keep a tested backup. Do not install on a live customer device.
+
+iOS internal build is blocked until distribution certificate/provisioning validity is rechecked and any revoked signing credentials are regenerated. Never reuse or commit revoked credentials or secrets. Android build success doesn't establish iOS compatibility or a valid wallet deep-link callback.
+
+Only after license review, native build availability and explicit tester approval, enable the Reown lab flags in a **separate non-production test bundle** and test MetaMask and Trust Wallet deep-links. This is a staged testing plan, not a completed end-to-end wallet connection. GitHub Actions Metro export is a JavaScript bundling smoke-test, not a signed APK/IPA.
