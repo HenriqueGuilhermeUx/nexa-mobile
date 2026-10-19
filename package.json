@@ -53,7 +53,11 @@
     "react-native-web": "~0.21.0",
     "react-native-webview": "13.16.1",
     "react-native-worklets": "0.10.1",
-    "viem": "2.55.5"
+    "viem": "2.55.5",
+    "@reown/appkit-react-native": "2.0.6",
+    "@reown/appkit-ethers-react-native": "2.0.6",
+    "@walletconnect/react-native-compat": "^2.21.10",
+    "@react-native-community/netinfo": "^11.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
