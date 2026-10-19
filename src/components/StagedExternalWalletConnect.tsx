@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { AppKit, AppKitProvider, useAccount, useAppKit, useProvider } from '@reown/appkit-react-native';
 
 import { ExternalWalletProofPanel } from './ExternalWalletProofPanel';
 import { validateReownExternalConnection, type ReownExternalConnection } from '../lib/reownConnectedWalletBridge';
 import { initializeExternalWalletAppKit } from '../lib/reownExternalWalletAppKit';
+import { readConnectedExternalUsdc } from '../lib/externalWalletUsdcBalance';
 
 /**
  * Isolated Reown staging UI. ONLY mount from a gated, authenticated testing
@@ -29,6 +30,8 @@ function ExternalWalletConnectionScreen({ accessToken }: { accessToken: string }
   const [validated, setValidated] = useState<ReownExternalConnection | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [balance, setBalance] = useState<{address:string;balanceUsdc:string}|null>(null);
+  const requestEpoch = useRef(0);
 
   const active = Boolean(
     isConnected && validated && typeof address === 'string' &&
@@ -41,6 +44,8 @@ function ExternalWalletConnectionScreen({ accessToken }: { accessToken: string }
   async function checkConnectedWallet() {
     setError('');
     setValidated(null);
+    setBalance(null);
+    requestEpoch.current++;
     if (!isConnected || providerType !== 'eip155' || namespace !== 'eip155' || String(chainId) !== '137') {
       setError('Conecte uma carteira EVM na rede Polygon (137).');
       return;
@@ -56,7 +61,25 @@ function ExternalWalletConnectionScreen({ accessToken }: { accessToken: string }
     }
   }
 
+  async function checkBalance() {
+    if (!active || !validated || busy) return;
+    const epoch = ++requestEpoch.current;
+    setBalance(null);
+    setError('');
+    setBusy(true);
+    try {
+      const value = await readConnectedExternalUsdc(validated);
+      if (epoch === requestEpoch.current) setBalance(value);
+    } catch {
+      if (epoch === requestEpoch.current) setError('Não foi possível consultar o saldo USDC na carteira externa.');
+    } finally {
+      if (epoch === requestEpoch.current) setBusy(false);
+    }
+  }
+
   async function disconnectWallet() {
+    requestEpoch.current++;
+    setBalance(null);
     setValidated(null);
     setError('');
     try {
@@ -73,7 +96,7 @@ function ExternalWalletConnectionScreen({ accessToken }: { accessToken: string }
       <Text>{isConnected ? `Endereço: ${address ?? 'indisponível'}` : 'Carteira não conectada'}</Text>
       {isConnected ? <Text>Rede: {String(chainId)} ({String(namespace)})</Text> : null}
       <Pressable accessibilityRole="button" disabled={busy}
-        onPress={() => { setValidated(null); setError(''); void open({ view: 'Connect' }); }}
+        onPress={() => { requestEpoch.current++; setValidated(null); setBalance(null); setError(''); void open({ view: 'Connect' }); }}
         style={{ backgroundColor: '#263b63', padding: 14, borderRadius: 8 }}>
         <Text style={{ color: 'white' }}>Conectar carteira</Text>
       </Pressable>
@@ -86,12 +109,21 @@ function ExternalWalletConnectionScreen({ accessToken }: { accessToken: string }
       ) : null}
       {busy ? <ActivityIndicator accessibilityLabel="Conferindo carteira" /> : null}
       {active && validated ? (
-        <ExternalWalletProofPanel
+        <>
+          <Pressable accessibilityRole="button" disabled={busy}
+            onPress={() => { void checkBalance(); }}
+            style={{ backgroundColor: '#274d65', padding: 14, borderRadius: 8 }}>
+            <Text style={{ color: '#fff' }}>Consultar saldo USDC externo (somente leitura)</Text>
+          </Pressable>
+          {balance?.address.toLowerCase() === validated.address.toLowerCase() ?
+            <Text>Na carteira externa: {balance.balanceUsdc} USDC — não é saldo Nexa.</Text> : null}
+          <ExternalWalletProofPanel
           accessToken={accessToken}
           address={validated.address}
           provider={validated.provider}
           onDisconnect={() => { void disconnectWallet(); }}
-        />
+          />
+        </>
       ) : null}
       {error ? <Text accessibilityRole="alert">{error}</Text> : null}
     </View>
