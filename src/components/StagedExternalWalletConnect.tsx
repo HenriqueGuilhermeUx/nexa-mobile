@@ -1,0 +1,99 @@
+import React, { useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { AppKit, AppKitProvider, useAccount, useAppKit, useProvider } from '@reown/appkit-react-native';
+
+import { ExternalWalletProofPanel } from './ExternalWalletProofPanel';
+import { validateReownExternalConnection, type ReownExternalConnection } from '../lib/reownConnectedWalletBridge';
+import { initializeExternalWalletAppKit } from '../lib/reownExternalWalletAppKit';
+
+/**
+ * Isolated Reown staging UI. ONLY mount from a gated, authenticated testing
+ * route after registering a legitimate Reown project. No token transfers.
+ */
+type ReownInstance = ReturnType<typeof initializeExternalWalletAppKit>;
+export function StagedExternalWalletConnect(props: { accessToken: string; instance: ReownInstance }) {
+  return (
+    <AppKitProvider instance={props.instance}>
+      <ExternalWalletConnectionScreen accessToken={props.accessToken} />
+      <View style={{ position: 'absolute', width: '100%', height: '100%' }} pointerEvents="box-none">
+        <AppKit />
+      </View>
+    </AppKitProvider>
+  );
+}
+
+function ExternalWalletConnectionScreen({ accessToken }: { accessToken: string }) {
+  const { open, disconnect } = useAppKit();
+  const { address, chainId, namespace, isConnected } = useAccount();
+  const { provider, providerType } = useProvider();
+  const [validated, setValidated] = useState<ReownExternalConnection | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const active = Boolean(
+    isConnected && validated && typeof address === 'string' &&
+    address.toLowerCase() === validated.address.toLowerCase() &&
+    provider === validated.provider &&
+    providerType === 'eip155' && namespace === 'eip155' &&
+    String(chainId) === '137'
+  );
+
+  async function checkConnectedWallet() {
+    setError('');
+    setValidated(null);
+    if (!isConnected || providerType !== 'eip155' || namespace !== 'eip155' || String(chainId) !== '137') {
+      setError('Conecte uma carteira EVM na rede Polygon (137).');
+      return;
+    }
+    setBusy(true);
+    try {
+      const checked = await validateReownExternalConnection({ address, provider });
+      setValidated(checked);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Não foi possível validar a carteira.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnectWallet() {
+    setValidated(null);
+    setError('');
+    try {
+      await disconnect();
+    } catch {
+      setError('Falha ao desconectar. Abra sua carteira e tente novamente.');
+    }
+  }
+
+  return (
+    <View style={{ flex: 1, padding: 20, gap: 12 }}>
+      <Text style={{ fontSize: 22, fontWeight: '700' }}>Carteira externa — homologação</Text>
+      <Text>Conecte MetaMask ou outra carteira WalletConnect. Apenas a assinatura de titularidade será solicitada; nenhuma transferência é executada.</Text>
+      <Text>{isConnected ? `Endereço: ${address ?? 'indisponível'}` : 'Carteira não conectada'}</Text>
+      {isConnected ? <Text>Rede: {String(chainId)} ({String(namespace)})</Text> : null}
+      <Pressable accessibilityRole="button" disabled={busy}
+        onPress={() => { setValidated(null); setError(''); void open({ view: 'Connect' }); }}
+        style={{ backgroundColor: '#263b63', padding: 14, borderRadius: 8 }}>
+        <Text style={{ color: 'white' }}>Conectar carteira</Text>
+      </Pressable>
+      {isConnected ? (
+        <Pressable accessibilityRole="button" disabled={busy}
+          onPress={() => { void checkConnectedWallet(); }}
+          style={{ backgroundColor: '#295e48', padding: 14, borderRadius: 8 }}>
+          <Text style={{ color: 'white' }}>Conferir conta e rede</Text>
+        </Pressable>
+      ) : null}
+      {busy ? <ActivityIndicator accessibilityLabel="Conferindo carteira" /> : null}
+      {active && validated ? (
+        <ExternalWalletProofPanel
+          accessToken={accessToken}
+          address={validated.address}
+          provider={validated.provider}
+          onDisconnect={() => { void disconnectWallet(); }}
+        />
+      ) : null}
+      {error ? <Text accessibilityRole="alert">{error}</Text> : null}
+    </View>
+  );
+}
