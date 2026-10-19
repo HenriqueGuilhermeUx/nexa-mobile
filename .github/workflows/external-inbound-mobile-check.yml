@@ -8,6 +8,7 @@ on:
       - 'app.json'
       - 'eas.json'
       - 'scripts/check-wallet-inbound-config.cjs'
+      - 'scripts/check-direct-usdc-balance.cjs'
       - 'babel.config.js'
       - 'src/lib/externalUsdcInboundPreview.ts'
       - 'src/lib/directUsdcReceive.ts'
@@ -49,5 +50,7 @@ jobs:
         run: npm install --no-package-lock --ignore-scripts --no-audit --no-fund
       - name: Preflight app identifiers and Reown staging gates
         run: node scripts/check-wallet-inbound-config.cjs
+      - name: Test direct Privy onchain balance response contract
+        run: node scripts/check-direct-usdc-balance.cjs
       - name: Typecheck
         run: npm run typecheck
