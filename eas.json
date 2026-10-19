@@ -196,7 +196,7 @@
         "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "ios-review-safe"
       },
       "ios": {
-        "credentialsSource": "remote"
+        "credentialsSource": "local"
       }
     }
   },
