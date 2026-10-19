@@ -15,8 +15,10 @@ on:
       - 'src/lib/reownExternalWalletAppKit.ts'
       - 'src/lib/externalWalletReownGate.ts'
       - 'src/components/ExternalWalletProofPanel.tsx'
+      - 'src/components/StagedExternalWalletConnect.tsx'
       - 'src/components/ExternalUsdcInboundPreviewPanel.tsx'
       - 'app/(app)/external-usdc-preview.tsx'
+      - 'app/(app)/external-wallet-connect.tsx'
       - '.github/workflows/external-inbound-mobile-check.yml'
   workflow_dispatch:
 permissions:
