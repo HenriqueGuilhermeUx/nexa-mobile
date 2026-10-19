@@ -1,4 +1,5 @@
 import { config } from '@/config';
+import { decodeFunctionData, parseUnits } from 'viem';
 
 /** Preview-only mobile integration. No sending, signing, custody or crediting. */
 export type InboundMarket = 'BR' | 'GLOBAL';
@@ -27,6 +28,7 @@ export type ExternalInboundPreview = {
   };
 };
 
+const USDC_TRANSFER_ABI = [{ type: 'function', name: 'transfer', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }], outputs: [{ type: 'bool' }] }] as const;
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 const AMOUNT = /^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/;
 const POLYGON_NATIVE_USDC = '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359';
@@ -57,6 +59,14 @@ export async function previewExternalUsdcInbound(input: {
       data.backendMayBroadcast !== false || data.backendMaySign !== false ||
       data.pricing?.feeBps !== 0 || data.pricing.market !== input.market ||
       data.amount !== input.amount || data.pricing.netUsdc !== input.amount) {
+    throw new Error('UNTRUSTED_INBOUND_PREVIEW');
+  }
+  try {
+    const decoded = decodeFunctionData({ abi: USDC_TRANSFER_ABI, data: data.transactionRequest.data as `0x${string}` });
+    if (decoded.functionName !== 'transfer' ||
+        decoded.args[0].toLowerCase() !== data.recipient.toLowerCase() ||
+        decoded.args[1] !== parseUnits(input.amount, 6)) throw new Error('UNTRUSTED_INBOUND_PREVIEW');
+  } catch {
     throw new Error('UNTRUSTED_INBOUND_PREVIEW');
   }
   return data;
