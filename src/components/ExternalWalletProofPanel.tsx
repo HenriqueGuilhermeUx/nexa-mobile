@@ -10,6 +10,7 @@ import { revokeLinkedExternalWallet } from '../lib/externalWalletOwnership';
  */
 export function ExternalWalletProofPanel(props: {
   accessToken: string;
+  market?: 'BR' | 'GLOBAL';
   provider: ExternalEip1193Provider | null;
   address: string | null;
   onDisconnect: () => void;
@@ -34,6 +35,7 @@ export function ExternalWalletProofPanel(props: {
         provider: props.provider,
         expectedAddress: props.address,
         accessToken: props.accessToken,
+        market: props.market ?? 'BR',
       });
       setVerifiedAddress(result.address);
     } catch (e) {
