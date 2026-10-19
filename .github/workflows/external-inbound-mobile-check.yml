@@ -11,6 +11,7 @@ on:
       - 'babel.config.js'
       - 'src/lib/externalUsdcInboundPreview.ts'
       - 'src/lib/directUsdcReceive.ts'
+      - 'src/lib/directUsdcBalance.ts'
       - 'src/lib/directUsdcReceipt.ts'
       - 'src/lib/externalWalletOwnership.ts'
       - 'src/lib/externalWalletUsdcBalance.ts'
