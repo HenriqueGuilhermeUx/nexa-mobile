@@ -7,6 +7,7 @@ on:
       - 'package.json'
       - 'babel.config.js'
       - 'src/lib/externalUsdcInboundPreview.ts'
+      - 'src/lib/directUsdcReceive.ts'
       - 'src/lib/externalWalletOwnership.ts'
       - 'src/lib/externalWalletProviderProof.ts'
       - 'src/lib/externalWalletConnector.ts'
@@ -17,7 +18,9 @@ on:
       - 'src/components/ExternalWalletProofPanel.tsx'
       - 'src/components/StagedExternalWalletConnect.tsx'
       - 'src/components/ExternalUsdcInboundPreviewPanel.tsx'
+      - 'src/components/DirectUsdcReceivePanel.tsx'
       - 'app/(app)/external-usdc-preview.tsx'
+      - 'app/(app)/receive-usdc.tsx'
       - 'app/(app)/external-wallet-connect.tsx'
       - '.github/workflows/external-inbound-mobile-check.yml'
   workflow_dispatch:
