@@ -34,3 +34,47 @@ export async function verifyExternalWalletChallenge(accessToken: string, challen
   if (result.bound !== true || result.chainId !== 137 || !/^0x[a-fA-F0-9]{40}$/.test(result.address)) throw new Error('INVALID_VERIFICATION_RESPONSE');
   return result;
 }
+
+export type ExternalWalletLink = {
+  address: string;
+  chainId: 137;
+  linkedAt: string;
+  authorizedForTransfers: false;
+};
+
+export async function listLinkedExternalWallets(accessToken: string): Promise<ExternalWalletLink[]> {
+  if (!accessToken) throw new Error('AUTH_REQUIRED');
+  const res = await fetch(`${config.apiUrl}/wallet-connect-inbound/ownership/links`, {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`WALLET_LINK_LIST_UNAVAILABLE_${res.status}`);
+  const result: unknown = await res.json();
+  if (!result || typeof result !== 'object' || !('wallets' in result) ||
+      !Array.isArray(result.wallets) || result.wallets.length > 20) throw new Error('INVALID_LINK_LIST');
+  return result.wallets.map((item: any) => {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(item?.address ?? '') ||
+        item.chainId !== 137 || item.authorizedForTransfers !== false ||
+        !Number.isFinite(Date.parse(item.linkedAt))) throw new Error('INVALID_LINK_LIST');
+    return item as ExternalWalletLink;
+  });
+}
+
+export async function revokeLinkedExternalWallet(input: {
+  accessToken: string;
+  walletAddress: string;
+}): Promise<void> {
+  if (!input.accessToken) throw new Error('AUTH_REQUIRED');
+  if (!/^0x[a-fA-F0-9]{40}$/.test(input.walletAddress)) throw new Error('INVALID_WALLET_ADDRESS');
+  const res = await fetch(`${config.apiUrl}/wallet-connect-inbound/ownership/link`, {
+    method: 'DELETE',
+    headers: {Authorization: `Bearer ${input.accessToken}`, 'Content-Type': 'application/json'},
+    body: JSON.stringify({walletAddress: input.walletAddress}),
+  });
+  if (!res.ok) throw new Error(`WALLET_LINK_REVOKE_FAILED_${res.status}`);
+  const result = await res.json() as {revoked?:boolean;address?:string;chainId?:number;financialAction?:boolean};
+  if (result.revoked !== true || result.chainId !== 137 ||
+      result.financialAction !== false ||
+      result.address?.toLowerCase() !== input.walletAddress.toLowerCase()) {
+    throw new Error('UNTRUSTED_LINK_REVOKE_RESULT');
+  }
+}
