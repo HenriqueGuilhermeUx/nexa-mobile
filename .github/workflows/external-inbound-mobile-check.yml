@@ -5,6 +5,7 @@ on:
       - feat/walletconnect-inbound-br-global-v1
     paths:
       - 'src/lib/externalUsdcInboundPreview.ts'
+      - 'src/lib/externalWalletOwnership.ts'
       - 'src/components/ExternalUsdcInboundPreviewPanel.tsx'
       - 'app/(app)/external-usdc-preview.tsx'
       - '.github/workflows/external-inbound-mobile-check.yml'
