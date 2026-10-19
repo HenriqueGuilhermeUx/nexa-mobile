@@ -1,0 +1,52 @@
+name: Nexa iOS 150 EAS hosted candidate
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/ios-wallet-only-review-20261018
+    paths:
+      - .github/workflows/ios-eas-hosted-candidate.yml
+permissions:
+  contents: read
+concurrency:
+  group: nexa-ios-150-eas-hosted
+  cancel-in-progress: false
+jobs:
+  ios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CI: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Validate candidate
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN"
+          npm ci --no-audit --no-fund
+          node scripts/validate-mobile-safety.js
+          npm run typecheck
+          node - <<'NODE'
+          const app=require('./app.config.js')({config:require('./app.json').expo});
+          const eas=require('./eas.json');
+          if(app.ios?.buildNumber!=='150' || app.ios?.bundleIdentifier!=='br.com.trynexa.app') throw Error('iOS identity mismatch');
+          if(eas.build['ios-review-safe'].ios.credentialsSource!=='remote') throw Error('Expected remote EAS signing');
+          if(eas.build['ios-review-safe'].env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false') throw Error('Financial execution enabled');
+          NODE
+      - name: Start hosted EAS iOS build
+        run: |
+          set -euo pipefail
+          npm install -g eas-cli
+          eas build --platform ios --profile ios-review-safe --non-interactive --wait --json > ios-eas-build.json
+          cat ios-eas-build.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Nexa-iOS-150-EAS-build-report
+          path: ios-eas-build.json
+          if-no-files-found: ignore
