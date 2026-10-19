@@ -34,6 +34,21 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Select compatible Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'Installed Xcode versions:'
+          ls -d /Applications/Xcode*.app || true
+          CANDIDATE=$(find /Applications -maxdepth 1 -type d -name 'Xcode*.app' | while read -r app; do
+            version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null || true)
+            case "$version" in
+              26.[4-9]*|2[7-9].*) printf '%s\\n' "$app" ;;
+            esac
+          done | head -n 1)
+          if [ -z "$CANDIDATE" ]; then echo '::error::Xcode 26.4+ not installed on this runner'; exit 1; fi
+          echo "DEVELOPER_DIR=$CANDIDATE/Contents/Developer" >> "$GITHUB_ENV"
+          "$CANDIDATE/Contents/Developer/usr/bin/xcodebuild" -version
       - name: Validate signing prerequisites
         shell: bash
         run: |
