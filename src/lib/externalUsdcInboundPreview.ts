@@ -12,6 +12,8 @@ export type ExternalInboundPreview = {
   amount: string;
   backendMaySign: false;
   backendMayBroadcast: false;
+  creditsLedger: false;
+  destinationSource: 'LIVE_PRIVY_USER_AND_WALLET_AUDIT';
   pricing: {
     market: InboundMarket;
     feeBps: 0;
@@ -57,6 +59,8 @@ export async function previewExternalUsdcInbound(input: {
       data.transactionRequest?.to?.toLowerCase() !== POLYGON_NATIVE_USDC ||
       data.transactionRequest?.chainId !== 137 || data.transactionRequest.value !== '0x0' ||
       data.backendMayBroadcast !== false || data.backendMaySign !== false ||
+      data.creditsLedger !== false ||
+      data.destinationSource !== 'LIVE_PRIVY_USER_AND_WALLET_AUDIT' ||
       data.pricing?.feeBps !== 0 || data.pricing.market !== input.market ||
       data.amount !== input.amount || data.pricing.netUsdc !== input.amount) {
     throw new Error('UNTRUSTED_INBOUND_PREVIEW');
