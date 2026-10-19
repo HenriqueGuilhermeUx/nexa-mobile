@@ -8,6 +8,7 @@ export function assertReownExternalWalletReady(input: {
   projectId?: string;
   licenseApproved: boolean;
   nativeBuildVerified: boolean;
+  nativeQaMode?: boolean;
   environment: 'development' | 'preview' | 'production';
 }) {
   if (!input.enabled) throw new Error('EXTERNAL_WALLET_CONNECTION_DISABLED');
@@ -16,6 +17,13 @@ export function assertReownExternalWalletReady(input: {
     throw new Error('REOWN_PROJECT_ID_REQUIRED');
   }
   if (!input.licenseApproved) throw new Error('REOWN_LICENSE_REVIEW_REQUIRED');
-  if (!input.nativeBuildVerified) throw new Error('NATIVE_WALLET_BUILD_UNVERIFIED');
-  return { ready: true as const, network: 'polygon' as const, transferEnabled: false as const };
+  if (!input.nativeBuildVerified && !input.nativeQaMode) {
+    throw new Error('NATIVE_WALLET_BUILD_UNVERIFIED');
+  }
+  return {
+    ready: true as const,
+    network: 'polygon' as const,
+    internalQaOnly: !input.nativeBuildVerified,
+    transferEnabled: false as const,
+  };
 }
