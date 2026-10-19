@@ -1,11 +1,6 @@
 name: Nexa iOS 150 EAS hosted candidate
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - fix/ios-wallet-only-review-20261018
-    paths:
-      - .github/workflows/ios-eas-hosted-candidate.yml
 permissions:
   contents: read
 concurrency:
@@ -35,10 +30,11 @@ jobs:
           const app=require('./app.config.js')({config:require('./app.json').expo});
           const eas=require('./eas.json');
           if(app.ios?.buildNumber!=='150' || app.ios?.bundleIdentifier!=='br.com.trynexa.app') throw Error('iOS identity mismatch');
-          if(eas.build['ios-review-safe'].ios.credentialsSource!=='remote') throw Error('Expected remote EAS signing');
+          if(eas.build['ios-review-safe'].ios.credentialsSource!=='local') throw Error('Expected local GitHub signing');
           if(eas.build['ios-review-safe'].env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false') throw Error('Financial execution enabled');
           NODE
       - name: Start hosted EAS iOS build
+        if: ${{ false }}
         run: |
           set -euo pipefail
           npm install -g eas-cli
