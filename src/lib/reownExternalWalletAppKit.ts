@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAppKit } from '@reown/appkit-react-native';
 import { EthersAdapter } from '@reown/appkit-ethers-react-native';
 import { polygon } from 'viem/chains';
+import { assertReownExternalWalletReady } from './externalWalletReownGate';
 
 /**
  * Reown setup for a separately enabled native build.
@@ -10,10 +11,9 @@ import { polygon } from 'viem/chains';
  * Only call after checking license, registering project ID / bundle ID
  * and validating the deep-link callback in an isolated development build.
  */
-export function initializeExternalWalletAppKit(projectId: string) {
-  if (!/^[a-zA-Z0-9]{16,128}$/.test(projectId)) {
-    throw new Error('REOWN_PROJECT_ID_REQUIRED');
-  }
+export function initializeExternalWalletAppKit(options: Parameters<typeof assertReownExternalWalletReady>[0]) {
+  assertReownExternalWalletReady(options);
+  const projectId = options.projectId!;
   return createAppKit({
     projectId,
     storage: {
