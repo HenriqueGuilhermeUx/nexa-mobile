@@ -5,6 +5,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { loadDirectUsdcReceivingDetails, type DirectUsdcReceivingDetails } from '../lib/directUsdcReceive';
 import { checkDirectUsdcReceipt, type DirectUsdcReceipt } from '../lib/directUsdcReceipt';
+import { loadDirectUsdcOnchainBalance } from '../lib/directUsdcBalance';
 
 /**
  * Direct wallet-to-wallet Polygon USDC receive: no Reown, no Privy signing.
@@ -21,12 +22,17 @@ export function DirectUsdcReceivePanel({ accessToken }: { accessToken: string })
   const [receipt, setReceipt] = useState<DirectUsdcReceipt | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState('');
+  const [balanceUsdc, setBalanceUsdc] = useState<string | null>(null);
+  const [balanceBusy, setBalanceBusy] = useState(false);
+  const [balanceError, setBalanceError] = useState('');
 
   const refresh = useCallback(async () => {
     const version = ++requestVersion.current;
     setLoading(true);
     setCopied(false);
     setDetails(null);
+    setBalanceUsdc(null);
+    setBalanceError('');
     setReceipt(null);
     setReceiptError('');
     setError('');
@@ -54,6 +60,25 @@ export function DirectUsdcReceivePanel({ accessToken }: { accessToken: string })
     } catch {
       setCopied(false);
       setError('Não foi possível copiar o endereço.');
+    }
+  }
+
+  async function checkBalance() {
+    if (!details || balanceBusy) return;
+    const version=requestVersion.current;
+    setBalanceBusy(true);
+    setBalanceUsdc(null);
+    setBalanceError('');
+    try {
+      const result=await loadDirectUsdcOnchainBalance({
+        accessToken,
+        verifiedReceivingWallet:details.walletAddress,
+      });
+      if(requestVersion.current===version) setBalanceUsdc(result.balanceUsdc);
+    } catch {
+      if(requestVersion.current===version) setBalanceError('Saldo temporariamente indisponível.');
+    } finally {
+      if(requestVersion.current===version) setBalanceBusy(false);
     }
   }
 
@@ -106,6 +131,18 @@ export function DirectUsdcReceivePanel({ accessToken }: { accessToken: string })
           </Pressable>
           <Text style={{ textAlign: 'center' }}>Na sua carteira de origem, selecione USDC nativo e a rede Polygon. Confira o endereço completo antes de confirmar.</Text>
           <Text style={{ textAlign: 'center' }}>O QR Code representa somente seu endereço. Não é uma cobrança Pix, não assina transações e não confirma saldo recebido.</Text>
+          <View style={{ width: '100%', gap: 8 }}>
+            <Text style={{ fontWeight: '700', fontSize: 16 }}>USDC na Polygon</Text>
+            <Text>Saldo da carteira Privy na blockchain; não é crédito no ledger Nexa.</Text>
+            <Pressable accessibilityRole="button" disabled={balanceBusy}
+              onPress={() => { void checkBalance(); }}
+              style={{ padding: 14, borderRadius: 8, backgroundColor: '#225eaa' }}>
+              <Text style={{ textAlign: 'center', color: '#fff' }}>Consultar saldo USDC</Text>
+            </Pressable>
+            {balanceBusy ? <ActivityIndicator accessibilityLabel="Consultando saldo USDC" /> : null}
+            {balanceError ? <Text accessibilityRole="alert">{balanceError}</Text> : null}
+            {balanceUsdc !== null ? <Text>Saldo on-chain: {balanceUsdc} USDC</Text> : null}
+          </View>
           <View style={{ width: '100%', gap: 9, paddingTop: 15 }}>
             <Text style={{fontWeight:'700', fontSize:16}}>Consultar um envio na Polygon</Text>
             <Text>Se você já enviou USDC, cole o hash da transação para verificar a chegada à sua carteira.</Text>
