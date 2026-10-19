@@ -24,6 +24,8 @@ export default function ExternalWalletConnectStagingRoute() {
   }, []);
 
   const result = useMemo(() => {
+    // Do not initialize third-party wallet SDK before Nexa auth is verified.
+    if (!token) return { instance: null, error: 'AUTH_REQUIRED' };
     try {
       const environment = __DEV__ ? 'development'
         : process.env.EXPO_PUBLIC_NEXA_WALLET_STAGING_BUILD === 'true' ? 'preview' : 'production';
@@ -41,7 +43,7 @@ export default function ExternalWalletConnectStagingRoute() {
     } catch (e) {
       return { instance: null, error: e instanceof Error ? e.message : 'WALLET_CONNECTION_DISABLED' };
     }
-  }, []);
+  }, [token]);
 
   if (token === undefined) return <View style={{padding: 24}}><ActivityIndicator accessibilityLabel="Verificando sessão Nexa" /></View>;
   if (!token) return <Redirect href="/sign-in" />;
