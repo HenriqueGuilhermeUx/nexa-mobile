@@ -21,16 +21,16 @@ export type ExternalWalletChallenge = {
   expiresAt: string;
   chainId: 137;
 };
-export async function requestExternalWalletChallenge(accessToken: string, walletAddress: string) {
+export async function requestExternalWalletChallenge(accessToken: string, walletAddress: string, market: 'BR' | 'GLOBAL' = 'BR') {
   if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) throw new Error('INVALID_WALLET_ADDRESS');
-  const result = await ownershipRequest<ExternalWalletChallenge>(accessToken, 'challenge', { walletAddress });
+  const result = await ownershipRequest<ExternalWalletChallenge>(accessToken, 'challenge', { walletAddress, market });
   if (!result.challengeId || typeof result.message !== 'string' || !result.message.includes('No transfer is authorized.') ||
       result.chainId !== 137 || !Number.isFinite(Date.parse(result.expiresAt))) throw new Error('INVALID_CHALLENGE_RESPONSE');
   return result;
 }
-export async function verifyExternalWalletChallenge(accessToken: string, challengeId: string, signature: string) {
+export async function verifyExternalWalletChallenge(accessToken: string, challengeId: string, signature: string, market: 'BR' | 'GLOBAL' = 'BR') {
   if (!/^[0-9a-f-]{36}$/i.test(challengeId) || !/^0x[a-fA-F0-9]{130}$/.test(signature)) throw new Error('INVALID_SIGNATURE_INPUT');
-  const result = await ownershipRequest<{bound:boolean;address:string;chainId:number}>(accessToken,'verify',{challengeId,signature});
+  const result = await ownershipRequest<{bound:boolean;address:string;chainId:number}>(accessToken,'verify',{challengeId,signature,market});
   if (result.bound !== true || result.chainId !== 137 || !/^0x[a-fA-F0-9]{40}$/.test(result.address)) throw new Error('INVALID_VERIFICATION_RESPONSE');
   return result;
 }
