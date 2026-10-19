@@ -103,7 +103,7 @@ jobs:
           python3 - <<'PY'
           import json, os, pathlib
           p = pathlib.Path(os.environ['RUNNER_TEMP'], 'nexa-appstore')
-          data = {'key_id': os.environ['APPLE_API_KEY_ID'], 'issuer_id': os.environ['APPLE_API_ISSUER_ID'], 'key_filepath': str(p / 'AuthKey.p8'), 'in_house': False}
+          data = {'key_id': os.environ['APPLE_API_KEY_ID'], 'issuer_id': os.environ['APPLE_API_ISSUER_ID'], 'key': (p / 'AuthKey.p8').read_text(), 'in_house': False}
           (p / 'api_key.json').write_text(json.dumps(data))
           PY
           fastlane pilot upload \
