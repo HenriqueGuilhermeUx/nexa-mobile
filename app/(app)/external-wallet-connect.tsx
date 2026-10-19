@@ -29,7 +29,10 @@ export default function ExternalWalletConnectStagingRoute() {
         : process.env.EXPO_PUBLIC_NEXA_WALLET_STAGING_BUILD === 'true' ? 'preview' : 'production';
       const instance = initializeExternalWalletAppKit({
         enabled: process.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED === 'true',
-        // Public legacy Criptozen Reown project ID supplied for Nexa staging only.\n        // Production remains forbidden and the existing project must be relabeled/allowlisted in Dashboard.\n        projectId: process.env.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID ||\n          (environment !== 'production' ? '0d9b915b32c04b058efeba535319dd70' : undefined),
+        // Public legacy Criptozen Reown project ID supplied for Nexa staging only.
+        // Production remains forbidden and the existing project must be relabeled/allowlisted in Dashboard.
+        projectId: process.env.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID ||
+          (environment !== 'production' ? '0d9b915b32c04b058efeba535319dd70' : undefined),
         licenseApproved: process.env.EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED === 'true',
         nativeBuildVerified: process.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED === 'true',
         environment,
