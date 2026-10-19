@@ -5,6 +5,9 @@ on:
       - feat/walletconnect-inbound-br-global-v1
     paths:
       - 'package.json'
+      - 'app.json'
+      - 'eas.json'
+      - 'scripts/check-wallet-inbound-config.cjs'
       - 'babel.config.js'
       - 'src/lib/externalUsdcInboundPreview.ts'
       - 'src/lib/directUsdcReceive.ts'
@@ -40,5 +43,7 @@ jobs:
           node-version: '20'
       - name: Install without writing lockfile
         run: npm install --no-package-lock --ignore-scripts --no-audit --no-fund
+      - name: Preflight app identifiers and Reown staging gates
+        run: node scripts/check-wallet-inbound-config.cjs
       - name: Typecheck
         run: npm run typecheck
