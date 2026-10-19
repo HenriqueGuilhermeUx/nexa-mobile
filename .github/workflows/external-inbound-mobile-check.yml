@@ -4,6 +4,8 @@ on:
     branches:
       - feat/walletconnect-inbound-br-global-v1
     paths:
+      - 'package.json'
+      - 'babel.config.js'
       - 'src/lib/externalUsdcInboundPreview.ts'
       - 'src/lib/externalWalletOwnership.ts'
       - 'src/lib/externalWalletProviderProof.ts'
