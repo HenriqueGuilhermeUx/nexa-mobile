@@ -7,6 +7,7 @@ on:
       - 'src/lib/externalUsdcInboundPreview.ts'
       - 'src/lib/externalWalletOwnership.ts'
       - 'src/lib/externalWalletProviderProof.ts'
+      - 'src/components/ExternalWalletProofPanel.tsx'
       - 'src/components/ExternalUsdcInboundPreviewPanel.tsx'
       - 'app/(app)/external-usdc-preview.tsx'
       - '.github/workflows/external-inbound-mobile-check.yml'
