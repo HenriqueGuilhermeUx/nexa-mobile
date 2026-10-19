@@ -20,6 +20,7 @@ on:
         options:
           - development
           - preview
+          - wallet-inbound-lab
           - production
       confirm_production:
         description: Confirme explicitamente para permitir profile=production
@@ -84,6 +85,10 @@ jobs:
           node scripts/validate-mobile-safety.js
           npm run typecheck
           npx expo-doctor
+          if [ "${{ inputs.profile }}" = "wallet-inbound-lab" ]; then
+            node scripts/check-wallet-inbound-config.cjs
+            echo "Nexa lab only: Reown off by default, financial execution off, staging API."
+          fi
 
       - name: Trigger EAS Build
         env:
