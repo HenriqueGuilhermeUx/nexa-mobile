@@ -93,7 +93,8 @@ jobs:
           tar -xzf "$RUNNER_TEMP/nexa-ios-signing/validated.tar.gz" -C "$RUNNER_TEMP/nexa-ios-signing" distribution.p12 distribution-password.txt
           rm -f "$RUNNER_TEMP/nexa-ios-signing/validated.tar.gz"
           test -s "$RUNNER_TEMP/nexa-ios-signing/distribution.p12"
-          openssl pkcs12 -in "$RUNNER_TEMP/nexa-ios-signing/distribution.p12" -passin "file:$RUNNER_TEMP/nexa-ios-signing/distribution-password.txt" -info -noout >/dev/null 2>&1
+          signing_password="$(cat "$RUNNER_TEMP/nexa-ios-signing/distribution-password.txt")"
+          openssl pkcs12 -in "$RUNNER_TEMP/nexa-ios-signing/distribution.p12" -passin "pass:$signing_password" -info -noout >/dev/null 2>&1
           echo 'Existing encrypted distribution identity restored; no new certificate issued.'
       - name: Generate isolated App Store signing credentials
         shell: bash
