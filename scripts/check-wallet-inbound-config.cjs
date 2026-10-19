@@ -74,4 +74,71 @@ for (const name of ['externalWalletProviderProof.ts','reownConnectedWalletBridge
 }
 console.log('PASS: selected EIP-1193 account regression tests');
 
+
+const balanceSource = fs.readFileSync(path.join(root, 'src/lib/externalWalletUsdcBalance.ts'), 'utf8');
+const balanceJs = ts.transpileModule(balanceSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText;
+const balanceModule = { exports: {} };
+const balanceRequire = (name) => {
+  if (name === './activeExternalWalletAccount') return { isActiveExternalWalletAccount };
+  if (name === 'viem') return {
+    isAddress: address => /^0x[a-fA-F0-9]{40}$/.test(address),
+    encodeFunctionData: () => '0x70a08231',
+    decodeFunctionResult: () => 2500000n,
+    formatUnits: (value, decimals) => (Number(value) / 10 ** decimals).toString(),
+  };
+  throw new Error('UNEXPECTED_TEST_DEPENDENCY:' + name);
+};
+new Function('require', 'module', 'exports', balanceJs)(
+  balanceRequire, balanceModule, balanceModule.exports,
+);
+const { readConnectedExternalUsdc } = balanceModule.exports;
+async function testSelectedAccountBalance() {
+  const selected = '0x1111111111111111111111111111111111111111';
+  const other = '0x2222222222222222222222222222222222222222';
+  const makeProvider = (accountSnapshots, chain = '0x89') => {
+    let accountCalls = 0, ethCalls = 0;
+    const provider = { request: async ({ method }) => {
+      if (method === 'eth_chainId') return chain;
+      if (method === 'eth_accounts') return accountSnapshots[
+        Math.min(accountCalls++, accountSnapshots.length - 1)
+      ];
+      if (method === 'eth_call') { ethCalls++; return '0x' + '0'.repeat(63) + '1'; }
+      throw new Error('UNEXPECTED_PROVIDER_METHOD:' + method);
+    }};
+    return { provider, ethCalls: () => ethCalls };
+  };
+  const staleFirst = makeProvider([[other, selected]]);
+  await assert.rejects(
+    readConnectedExternalUsdc({ provider: staleFirst.provider, address: selected }),
+    /CONNECTED_ACCOUNT_CHANGED/,
+  );
+  assert.equal(staleFirst.ethCalls(), 0, 'do not query a stale selected account');
+  const switchedDuringRpc = makeProvider([[selected, other], [other, selected]]);
+  await assert.rejects(
+    readConnectedExternalUsdc({ provider: switchedDuringRpc.provider, address: selected }),
+    /CONNECTED_ACCOUNT_CHANGED/,
+  );
+  assert.equal(switchedDuringRpc.ethCalls(), 1);
+  const allowed = makeProvider([[selected, other], [selected, other]]);
+  const result = await readConnectedExternalUsdc({ provider: allowed.provider, address: selected });
+  assert.equal(result.balanceUsdc, '2.5');
+  assert.equal(result.ledgerCredited, false);
+  assert.equal(result.financialAction, false);
+  assert.equal(result.walletLocation, 'external');
+  assert.equal(allowed.ethCalls(), 1);
+  const wrongChain = makeProvider([[selected]], '0x1');
+  await assert.rejects(
+    readConnectedExternalUsdc({ provider: wrongChain.provider, address: selected }),
+    /POLYGON_REQUIRED/,
+  );
+  assert.equal(wrongChain.ethCalls(), 0);
+  console.log('PASS: external USDC balance rejects wallet account switching before/after RPC');
+}
+testSelectedAccountBalance().catch(error => {
+  console.error('FAIL: external wallet selected account regression:', error.message);
+  process.exitCode = 1;
+});
+
 console.log('PASS: Reown staging gates, isolated lab profile and Android/iOS app IDs');
