@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 
 import { loadDirectUsdcReceivingDetails, type DirectUsdcReceivingDetails } from '../lib/directUsdcReceive';
+import { checkDirectUsdcReceipt, type DirectUsdcReceipt } from '../lib/directUsdcReceipt';
 
 /**
  * Direct wallet-to-wallet Polygon USDC receive: no Reown, no Privy signing.
@@ -16,12 +17,18 @@ export function DirectUsdcReceivePanel({ accessToken }: { accessToken: string })
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const requestVersion = useRef(0);
+  const [txHash, setTxHash] = useState('');
+  const [receipt, setReceipt] = useState<DirectUsdcReceipt | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
 
   const refresh = useCallback(async () => {
     const version = ++requestVersion.current;
     setLoading(true);
     setCopied(false);
     setDetails(null);
+    setReceipt(null);
+    setReceiptError('');
     setError('');
     try {
       const result = await loadDirectUsdcReceivingDetails(accessToken);
@@ -47,6 +54,28 @@ export function DirectUsdcReceivePanel({ accessToken }: { accessToken: string })
     } catch {
       setCopied(false);
       setError('Não foi possível copiar o endereço.');
+    }
+  }
+
+  async function checkReceipt() {
+    if (!details) return;
+    const version = requestVersion.current;
+    setReceipt(null);
+    setReceiptError('');
+    setReceiptLoading(true);
+    try {
+      const next = await checkDirectUsdcReceipt({
+        accessToken,
+        txHash: txHash.trim(),
+        verifiedReceivingWallet: details.walletAddress,
+      });
+      if (version === requestVersion.current) setReceipt(next);
+    } catch {
+      if (version === requestVersion.current) {
+        setReceiptError('Não foi possível verificar este hash com segurança. Confira a transação, a rede Polygon e tente novamente.');
+      }
+    } finally {
+      if (version === requestVersion.current) setReceiptLoading(false);
     }
   }
 
@@ -77,6 +106,38 @@ export function DirectUsdcReceivePanel({ accessToken }: { accessToken: string })
           </Pressable>
           <Text style={{ textAlign: 'center' }}>Na sua carteira de origem, selecione USDC nativo e a rede Polygon. Confira o endereço completo antes de confirmar.</Text>
           <Text style={{ textAlign: 'center' }}>O QR Code representa somente seu endereço. Não é uma cobrança Pix, não assina transações e não confirma saldo recebido.</Text>
+          <View style={{ width: '100%', gap: 9, paddingTop: 15 }}>
+            <Text style={{fontWeight:'700', fontSize:16}}>Consultar um envio na Polygon</Text>
+            <Text>Se você já enviou USDC, cole o hash da transação para verificar a chegada à sua carteira.</Text>
+            <TextInput accessibilityLabel="Hash da transação Polygon" placeholder="0x... hash da transação"
+              autoCapitalize="none" autoCorrect={false} value={txHash}
+              onChangeText={value=>{setTxHash(value);setReceipt(null);setReceiptError('');}}
+              style={{borderWidth:1,borderColor:'#52627a',padding:12,borderRadius:8}} />
+            <Pressable accessibilityRole="button" disabled={receiptLoading} onPress={()=>{void checkReceipt();}}
+              style={{borderRadius:8,padding:14,backgroundColor:'#225eaa',opacity:receiptLoading?0.5:1}}>
+              <Text style={{color:'white',textAlign:'center'}}>Verificar recebimento</Text>
+            </Pressable>
+            {receiptLoading ? <ActivityIndicator accessibilityLabel="Verificando transação" /> : null}
+            {receiptError ? <Text accessibilityRole="alert">{receiptError}</Text> : null}
+            {receipt ? (
+              <View style={{gap:8}}>
+                <Text style={{fontWeight:'700'}}>
+                  {receipt.status==='PENDING' ? 'Transação ainda não encontrada na Polygon'
+                    : receipt.status==='CONFIRMING' ? 'Recebimento em confirmação'
+                    : 'Transferência observada e confirmada na Polygon'}
+                </Text>
+                {receipt.status!=='PENDING' ? (
+                  <>
+                    <Text>Confirmações: {receipt.confirmations}/{receipt.confirmationsRequired}</Text>
+                    {receipt.events.map(event=>(
+                      <Text key={event.eventId}>USDC recebido: {event.amountUsdc} — origem {event.from}</Text>
+                    ))}
+                    <Text>A blockchain é a fonte do recebimento. Esta consulta não adiciona saldo ao ledger e não garante finalidade absoluta.</Text>
+                  </>
+                ) : <Text>Se o envio acabou de ocorrer, aguarde e consulte novamente.</Text>}
+              </View>
+            ) : null}
+          </View>
         </View>
       ) : null}
       <Pressable accessibilityRole="button" disabled={loading} onPress={() => { void refresh(); }}
