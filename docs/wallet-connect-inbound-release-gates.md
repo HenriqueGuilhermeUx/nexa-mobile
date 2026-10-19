@@ -27,3 +27,15 @@ The `app/(app)/external-wallet-connect.tsx` route requires a valid logged-in Nex
 6. The backend ownership module is not registered and its SQL is review-only, so proof posting will NOT succeed until the backend has a safe staging deployment + migration. Never point staging ownership traffic at production expecting the endpoints to exist.
 
 **Security limitations:** These Expo public feature flags are user-interface switches, not a security perimeter. The backend must independently enforce auth, signature, ownership, one-time nonce, verified Privy destination, and financial operations feature gates. The Reown modal has `swaps=false`, `onramp=false`, `socials=false`, analytics disabled, and supports only Polygon for this release. EIP-1271 contract wallets are excluded by the EOA proof design. No transfer/broadcast/ledger credits permitted.
+
+## Direct USDC receiving without Reown
+
+The isolated authenticated route `/(app)/receive-usdc` renders a QR code of the **full address only** and a copy-address action. Its backend counterpart is `GET /api/v1/wallet-connect-inbound/receive` (backend feature branch only; module is not registered in AppModule). The endpoint must verify the authenticated user's wallet **live through both Privy user and wallet APIs**, refuse inactive/blocked/managed or audit-unready wallets, and never alter balances, ledger, custody or wallet association. The screen must fail closed when this read-only endpoint is absent or fails. There is no fallback to `/user/me`, a profile cache or an address supplied by the client. Manual transfers remain external wallet actions, never authorized by the Nexa screen.
+
+Only native USDC on Polygon chain 137, token `0x3c499c542cef5e3811e1192ce70d8cc03d5c3359`, fee Nexa 0%, sender gas. Do not treat an incoming deposit as spendable ledger balance. The wallet balance and confirmed chain events must be reconciled without double credit, prior to any claim of a fully functioning receive/receipt tracking flow.
+
+## Existing Reown project reused for staging
+
+The user supplied an existing Reown project ID from a former Criptozen project (`0d9b915b32c04b058efeba535319dd70`). A public-ID fallback is staged in the unlinked **development-only** route, not activated in production; a different project ID may always be supplied through `EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID`.
+
+Still required in https://dashboard.reown.com: verify this project is not still used elsewhere; update its branding to Nexa if appropriate; configure the approved domain `trynexa.com.br`, bundle/package `br.com.trynexa.app`, and native scheme `nexa://` in the correct domain/app allowlist settings; confirm current account license and quota. **Never** activate a license-approved or native-verified flag based on the user merely having provided an ID. Do not upgrade the Reown plan without confirmed need.
