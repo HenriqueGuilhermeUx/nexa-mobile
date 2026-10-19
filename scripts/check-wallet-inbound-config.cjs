@@ -29,6 +29,7 @@ assert.equal(lab.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false');
 assert.equal(lab.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED, 'false');
 assert.equal(lab.env.EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED, 'false');
 assert.equal(lab.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED, 'false');
+assert.equal(lab.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE, 'false');
 for(const [name, profile] of Object.entries(eas.build)) {
   if(name !== 'wallet-inbound-lab' && profile.env?.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID) {
     throw new Error('Reown project ID leaked into a non-lab EAS profile: ' + name);
@@ -43,6 +44,7 @@ for(const profile of Object.values(eas.build)) {
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_ENABLED === 'true'/);
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED === 'true'/);
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED === 'true'/);
+assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE === 'true'/);
 assert.match(route, /0d9b915b32c04b058efeba535319dd70/);
 assert.doesNotMatch(route,/\\n\s*\/\//, 'literal newline escape in route source');
 console.log('PASS: Reown staging gates, isolated lab profile and Android/iOS app IDs');
