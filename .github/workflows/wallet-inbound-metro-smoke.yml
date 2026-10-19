@@ -1,0 +1,51 @@
+name: Nexa Wallet inbound Metro smoke (isolated)
+
+on:
+  push:
+    branches:
+      - feat/walletconnect-inbound-br-global-v1
+    paths:
+      - '.github/workflows/wallet-inbound-metro-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wallet-inbound-metro-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'wallet-inbound-lab'
+      EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-wallet-v15-staging.onrender.com/api/v1'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID: '0d9b915b32c04b058efeba535319dd70'
+      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install without modifying lockfile
+        run: npm install --no-package-lock --ignore-scripts --no-audit --no-fund
+      - name: Assert isolated build and typecheck
+        run: |
+          node scripts/check-wallet-inbound-config.cjs
+          npm run typecheck
+      - name: Test Android Metro JS bundle (no app binary)
+        run: npx expo export --platform android --output-dir dist-wallet-lab-android --clear
+      - name: Test iOS Metro JS bundle (no app binary)
+        run: npx expo export --platform ios --output-dir dist-wallet-lab-ios --clear
+      - name: Confirm no production or financial publish
+        run: |
+          echo "Only JS bundling. No APK, IPA, AAB, EAS native build, Play or TestFlight submission."
