@@ -7,6 +7,7 @@ on:
       - fix/ios-wallet-only-review-20261018
     paths:
       - .github/workflows/ios-apple-api-signed.yml
+      - scripts/validate-mobile-safety.js
 
 permissions:
   contents: read
