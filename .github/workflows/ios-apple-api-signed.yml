@@ -19,7 +19,7 @@ concurrency:
 jobs:
   ios:
     name: Sign and build iOS 2.0.43 (150)
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 180
     env:
       CI: '1'
