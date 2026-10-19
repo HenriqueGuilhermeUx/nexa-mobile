@@ -16,6 +16,11 @@ export function initializeExternalWalletAppKit(options: Parameters<typeof assert
   const projectId = options.projectId!;
   return createAppKit({
     projectId,
+    // Ownership proof only. Do not expose third-party swaps, onramps or
+    // social wallet creation beside Nexa's existing Privy login.
+    features: { swaps: false, onramp: false, socials: false },
+    enableAnalytics: false,
+    themeMode: 'dark',
     storage: {
       getItem: async <T = unknown>(key: string) => {
         const data = await AsyncStorage.getItem('nexa.reown.' + key);
