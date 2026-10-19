@@ -26,6 +26,7 @@ on:
       - 'app/(app)/external-usdc-preview.tsx'
       - 'app/(app)/receive-usdc.tsx'
       - 'app/(app)/external-wallet-connect.tsx'
+      - 'app/(app)/wallet-inbound-lab.tsx'
       - '.github/workflows/external-inbound-mobile-check.yml'
   workflow_dispatch:
 permissions:
