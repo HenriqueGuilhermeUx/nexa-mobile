@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
@@ -15,24 +15,29 @@ export function DirectUsdcReceivePanel({ accessToken }: { accessToken: string })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const requestVersion = useRef(0);
 
   const refresh = useCallback(async () => {
+    const version = ++requestVersion.current;
     setLoading(true);
     setCopied(false);
     setDetails(null);
     setError('');
     try {
       const result = await loadDirectUsdcReceivingDetails(accessToken);
-      setDetails(result);
+      if (version === requestVersion.current) setDetails(result);
     } catch {
       // Never suggest a saved, cached or manually pasted fallback address.
-      setError('Não foi possível confirmar sua carteira Privy com segurança. Tente novamente mais tarde.');
+      if (version === requestVersion.current) setError('Não foi possível confirmar sua carteira Privy com segurança. Tente novamente mais tarde.');
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [accessToken]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    void refresh();
+    return () => { requestVersion.current++; };
+  }, [refresh]);
 
   async function copyAddress() {
     if (!details) return;
