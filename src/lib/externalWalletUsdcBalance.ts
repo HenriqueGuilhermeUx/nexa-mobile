@@ -1,5 +1,6 @@
 import { decodeFunctionResult, encodeFunctionData, formatUnits, isAddress } from 'viem';
 import type { ExternalEip1193Provider } from './externalWalletProviderProof';
+import { isActiveExternalWalletAccount } from './activeExternalWalletAccount';
 
 const USDC = '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359';
 const ABI = [{
@@ -22,8 +23,7 @@ export async function readConnectedExternalUsdc(input: {
   const chain = String(await input.provider.request({method:'eth_chainId'})).toLowerCase();
   if (chain !== '0x89' && chain !== '137') throw new Error('POLYGON_REQUIRED');
   const accounts = await input.provider.request({method:'eth_accounts'});
-  if (!Array.isArray(accounts) || !accounts.some(a =>
-    typeof a === 'string' && a.toLowerCase() === input.address.toLowerCase())) {
+  if (!isActiveExternalWalletAccount(accounts, input.address)) {
     throw new Error('CONNECTED_ACCOUNT_CHANGED');
   }
   const calldata = encodeFunctionData({
@@ -45,8 +45,7 @@ export async function readConnectedExternalUsdc(input: {
   const chainAfter = String(await input.provider.request({method:'eth_chainId'})).toLowerCase();
   const accountsAfter = await input.provider.request({method:'eth_accounts'});
   if ((chainAfter !== '0x89' && chainAfter !== '137') ||
-      !Array.isArray(accountsAfter) || !accountsAfter.some(a =>
-        typeof a === 'string' && a.toLowerCase() === input.address.toLowerCase())) {
+      !isActiveExternalWalletAccount(accountsAfter, input.address)) {
     throw new Error('CONNECTED_ACCOUNT_CHANGED');
   }
   return {
