@@ -32,6 +32,7 @@ export function DirectUsdcReceivePanel({ accessToken }: { accessToken: string })
     setCopied(false);
     setDetails(null);
     setBalanceUsdc(null);
+    setBalanceBusy(false);
     setBalanceError('');
     setReceipt(null);
     setReceiptError('');
