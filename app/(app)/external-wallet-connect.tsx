@@ -37,6 +37,8 @@ export default function ExternalWalletConnectStagingRoute() {
           (environment !== 'production' ? '0d9b915b32c04b058efeba535319dd70' : undefined),
         licenseApproved: process.env.EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED === 'true',
         nativeBuildVerified: process.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED === 'true',
+        nativeQaMode: process.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE === 'true' &&
+          process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL === 'wallet-inbound-lab',
         environment,
       });
       return { instance, error: null as string | null };
