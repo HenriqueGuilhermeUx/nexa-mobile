@@ -1,0 +1,40 @@
+name: Nexa PJ Expo lockfile repair
+on:
+  push:
+    branches:
+      - feat/pf-pj-single-app-entry-20261020
+    paths:
+      - package.json
+      - .github/workflows/nexa-pj-expo-lockfile-repair.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  regenerate-lockfile:
+    if: github.repository == 'HenriqueGuilhermeUx/nexa-mobile'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.2'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Regenerate npm lockfile using registry metadata
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Verify lockfile and Expo dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx expo-doctor
+          npm run typecheck
+      - name: Commit reproducible lockfile to this isolated branch
+        run: |
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "fix(mobile): synchronize Expo SDK 57 lockfile"
+            git push origin HEAD:feat/pf-pj-single-app-entry-20261020
+          fi
