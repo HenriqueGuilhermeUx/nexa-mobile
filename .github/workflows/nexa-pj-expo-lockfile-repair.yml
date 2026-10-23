@@ -6,17 +6,24 @@ on:
     paths:
       - package.json
       - .github/workflows/nexa-pj-expo-lockfile-repair.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - package.json
+      - .github/workflows/nexa-pj-expo-lockfile-repair.yml
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   regenerate-lockfile:
-    if: github.repository == 'HenriqueGuilhermeUx/nexa-mobile'
+    if: github.repository == 'HenriqueGuilhermeUx/nexa-mobile' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
+          ref: feat/pf-pj-single-app-entry-20261020
       - uses: actions/setup-node@v4
         with:
           node-version: '20.20.2'
