@@ -4,4 +4,5 @@ package=br.com.trynexa.app
 financialExecutionEnabled=false
 actualSaleRedemptionHistory=true
 strategy=primeiros-nexa
-releaseRun=2026-07-29T11:20:00-03:00
+sourceMain=35a18d507f9821462e77f956e7a8f3593480c44f
+releaseRun=2026-07-29T12:12:00-03:00
