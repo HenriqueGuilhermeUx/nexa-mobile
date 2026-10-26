@@ -1,0 +1,44 @@
+name: Refresh Expo 57 lockfile on legacy fix branch
+# This maintenance workflow is restricted to the legacy access fix branch.
+
+on:
+  push:
+    branches:
+      - fix/legacy-wallet-access-20261015
+    paths:
+      - package.json
+      - .github/workflows/refresh-expo57-lock-legacy.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    if: github.repository == 'HenriqueGuilhermeUx/nexa-mobile'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.20.0'
+      - name: Resolve SDK 57 dependency lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Verify lockfile and versions
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx expo-doctor
+          npm run test:legacy-routing
+      - name: Commit regenerated lockfile to fix branch
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo 'Lockfile already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          git commit -m 'chore(expo): regenerate SDK 57 package lock'
+          git push origin HEAD:fix/legacy-wallet-access-20261015
