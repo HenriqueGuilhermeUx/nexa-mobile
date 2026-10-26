@@ -19,7 +19,8 @@
       "buildNumber": "145",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Permita que a Nexa acesse sua biblioteca de fotos quando você escolher uma imagem para usar no aplicativo."
       }
     },
     "android": {

@@ -160,6 +160,10 @@
         "buildType": "apk"
       }
     },
+    "ios-api-ci": {
+      "extends": "production",
+      "credentialsSource": "local"
+    },
     "sovereignty-pilot": {
       "distribution": "internal",
       "channel": "sovereignty-pilot",
@@ -187,6 +191,17 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleTeamId": "KX826S9GK7",
+        "ascApiKeyIssuerId": "802406ee-f4dc-436f-ad9b-b0d3e447408c",
+        "ascApiKeyId": "Q98GFR6N86",
+        "ascApiKeyPath": "./credentials/AuthKey_Q98GFR6N86.p8",
+        "bundleIdentifier": "br.com.trynexa.app",
+        "appName": "Nexa Wallet",
+        "language": "pt-BR",
+        "ascAppId": "6820200317"
+      }
+    }
   }
 }
