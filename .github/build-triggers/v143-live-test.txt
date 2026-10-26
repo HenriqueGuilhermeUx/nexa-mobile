@@ -1,2 +1,3 @@
 Nexa v143 definitive live-test APK
 retry=2
+retry-validator-fix-apk
