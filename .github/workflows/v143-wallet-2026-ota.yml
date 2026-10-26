@@ -1,0 +1,114 @@
+name: Nexa v143 Wallet 2026 OTA
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/build-triggers/v143-wallet-2026-ota.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-v143-wallet-2026-ota
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Validate and publish v143 visual OTA
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production-safe-preview
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+
+    steps:
+      - name: Checkout validated main
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Set up Expo and EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm install --include=dev --no-audit --no-fund
+
+      - name: Validate v143 OTA boundary
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const app = require('./app.json').expo;
+          const dynamic = require('./app.config.js')({ config: app });
+          const eas = require('./eas.json');
+          const pkg = require('./package.json');
+
+          if (app.version !== '2.0.40' || pkg.version !== '2.0.40') {
+            throw new Error('OTA must remain on app version 2.0.40');
+          }
+          if (Number(app.android?.versionCode) !== 143) {
+            throw new Error('OTA must target Android build 143');
+          }
+          if (Number(dynamic.android?.versionCode) !== 143) {
+            throw new Error('Dynamic config must remain build 143');
+          }
+          if (app.runtimeVersion?.policy !== 'appVersion') {
+            throw new Error('Runtime policy must remain appVersion');
+          }
+          if (eas?.build?.['production-safe-preview']?.channel !== 'production-safe-preview') {
+            throw new Error('Expected production-safe-preview channel');
+          }
+          if (app.android?.package !== 'br.com.trynexa.app') {
+            throw new Error('Unexpected Android package');
+          }
+          console.log('v143 runtime/channel boundary validated');
+          NODE
+
+      - name: Validate Wallet-First contracts
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-quote.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-wallet-cross-device-recovery.js
+          node scripts/validate-biometric-app-lock.js
+          npm run typecheck
+          npx expo-doctor
+          npx expo export --platform android --output-dir dist-ota-preflight
+
+      - name: Verify Expo identity
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN"
+          eas whoami
+
+      - name: Publish Android OTA to v143 pilot
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          eas update \
+            --channel production-safe-preview \
+            --platform android \
+            --message "Nexa Wallet 2026 visual redesign - v143" \
+            --non-interactive
