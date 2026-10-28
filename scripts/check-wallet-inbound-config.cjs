@@ -52,6 +52,18 @@ assert.match(route, /email !== session\.email/, 'reject cross-account session id
 assert.match(route, /mode="view-only"/, 'default native pilot must not request ownership proof');
 assert.doesNotMatch(route,/\\n\s*\/\//, 'literal newline escape in route source');
 
+// The native view-only pilot must discard stale async responses and never
+// mount the ownership-signature component unless explicitly in proof mode.
+const staged = fs.readFileSync(path.join(root, 'src/components/StagedExternalWalletConnect.tsx'), 'utf8');
+assert.match(staged, /props\.mode \?\? 'view-only'/, 'default mode must be read-only');
+assert.match(staged, /mode === 'proof' \? <ExternalWalletProofPanel/, 'ownership proof must be opt-in');
+assert.match(staged, /const epoch = \+\+requestEpoch\.current/, 'track active request generation');
+assert.match(staged, /requestEpoch\.current === epoch/, 'reject stale connection responses');
+assert.match(staged, /\[address, chainId, provider, providerType, namespace, isConnected\]/,
+  'invalidate validated wallets when provider account or network changes');
+assert.doesNotMatch(staged, /eth_sendTransaction|wallet_sendCalls|approve\(/,
+  'connection UI must not send transactions');
+
 // Behavioral regression: eth_accounts may contain several authorized addresses,
 // but the selected account is the FIRST entry. Reject stale selected accounts.
 const ts = require('typescript');
