@@ -40,6 +40,8 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           test -n "$EXPO_TOKEN" || (echo 'EXPO_TOKEN unavailable for status query.' && exit 1)
+      - name: Install Expo config plugins from locked QA dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
