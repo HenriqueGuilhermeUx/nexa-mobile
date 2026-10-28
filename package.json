@@ -56,7 +56,11 @@
     "react-native-worklets": "0.10.1",
     "viem": "2.55.5",
     "expo-camera": "~57.0.6",
-    "expo-image-picker": "~57.0.20"
+    "expo-image-picker": "~57.0.20",
+    "@reown/appkit-react-native": "2.0.6",
+    "@reown/appkit-ethers-react-native": "2.0.6",
+    "@walletconnect/react-native-compat": "2.21.10",
+    "@react-native-community/netinfo": "11.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
