@@ -221,6 +221,15 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "wallet-inbound-lab-v148-standalone": {
+      "extends": "wallet-inbound-lab-v148",
+      "developmentClient": false,
+      "distribution": "internal",
+      "channel": "wallet-inbound-lab-standalone",
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
