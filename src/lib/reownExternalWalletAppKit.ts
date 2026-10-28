@@ -1,5 +1,4 @@
 import '@walletconnect/react-native-compat';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAppKit } from '@reown/appkit-react-native';
 import { EthersAdapter } from '@reown/appkit-ethers-react-native';
 import { polygon } from 'viem/chains';
@@ -14,6 +13,10 @@ import { assertReownExternalWalletReady } from './externalWalletReownGate';
 export function initializeExternalWalletAppKit(options: Parameters<typeof assertReownExternalWalletReady>[0]) {
   assertReownExternalWalletReady(options);
   const projectId = options.projectId!;
+  // View-only QA sessions must not survive sign-out/restart. In particular, a
+  // different Nexa account must never inherit a previous tester's wallet.
+  // Keep Reown's storage adapter in memory; no on-disk nexа.reown keys.
+  const sessionStore = new Map<string, unknown>();
   return createAppKit({
     projectId,
     // Ownership proof only. Do not expose third-party swaps, onramps or
@@ -22,26 +25,17 @@ export function initializeExternalWalletAppKit(options: Parameters<typeof assert
     enableAnalytics: false,
     themeMode: 'dark',
     storage: {
-      getItem: async <T = unknown>(key: string) => {
-        const data = await AsyncStorage.getItem('nexa.reown.' + key);
-        return data === null ? undefined : JSON.parse(data) as T;
-      },
+      getItem: async <T = unknown>(key: string): Promise<T | undefined> =>
+        sessionStore.get(key) as T | undefined,
       setItem: async <T = unknown>(key: string, value: T) => {
-        await AsyncStorage.setItem('nexa.reown.' + key, JSON.stringify(value));
+        sessionStore.set(key, value);
       },
       removeItem: async (key: string) => {
-        await AsyncStorage.removeItem('nexa.reown.' + key);
+        sessionStore.delete(key);
       },
-      getKeys: async () =>
-        (await AsyncStorage.getAllKeys())
-          .filter(key => key.startsWith('nexa.reown.'))
-          .map(key => key.slice('nexa.reown.'.length)),
-      getEntries: async <T = unknown>(): Promise<[string, T][]> => {
-        const keys = (await AsyncStorage.getAllKeys()).filter(k => k.startsWith('nexa.reown.'));
-        const pairs = await AsyncStorage.multiGet(keys);
-        return pairs.filter((p): p is [string, string] => p[1] !== null)
-          .map(([k, value]) => [k.slice('nexa.reown.'.length), JSON.parse(value) as T]);
-      },
+      getKeys: async () => [...sessionStore.keys()],
+      getEntries: async <T = unknown>(): Promise<[string, T][]> =>
+        [...sessionStore.entries()].map(([key, value]) => [key, value as T]),
     },
     networks: [polygon],
     defaultNetwork: polygon,
