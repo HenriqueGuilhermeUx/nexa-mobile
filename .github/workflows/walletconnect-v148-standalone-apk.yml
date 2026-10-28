@@ -58,7 +58,16 @@ jobs:
           assert.equal(test.distribution,'internal');
           assert.equal(test.android.buildType,'apk');
           assert.equal(test.channel,'wallet-inbound-lab-standalone');
-          console.log('PASS standalone isolated QA APK; no Expo Metro, financial operations, or active Reown');
+          const fs=require('node:fs');
+          const entry=fs.readFileSync('app/(app)/external-wallet-connect.tsx','utf8');
+          const appkit=fs.readFileSync('src/lib/reownExternalWalletAppKit.ts','utf8');
+          assert.ok(entry.includes("EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED === 'false'"));
+          assert.ok(entry.includes('nexaApi.me(session.accessToken)'));
+          assert.ok(entry.includes("require('../../src/lib/reownExternalWalletAppKit')"));
+          assert.ok(!entry.includes("import { initializeExternalWalletAppKit }"));
+          assert.ok(appkit.includes('const sessionStore = new Map<string, unknown>()'));
+          assert.ok(!appkit.includes('AsyncStorage'));
+          console.log('PASS standalone v148 QA with deferred Reown loading and memory-only wallet sessions');
           NODE
       - name: Verify committed dependency tree
         run: |
