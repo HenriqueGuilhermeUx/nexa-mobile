@@ -77,22 +77,25 @@ jobs:
             throw Error('CUSTOMER_PRODUCTION_PACKAGE_CHANGED');
           console.log('PASS customer v148 unchanged; Reown QA disabled by default');
           NODE
-      - name: Resolve deterministic QA lockfile without install scripts
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - name: Install exactly resolved dependency tree
+      - name: Install exactly committed v148 QA dependency tree
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assert CI did not regenerate dependency lockfile
+        run: |
+          git diff --exit-code -- package.json package-lock.json
+          node <<'NODE'
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const manifest=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          assert.deepEqual(lock.packages[''].dependencies,manifest.dependencies);
+          assert.deepEqual(lock.packages[''].devDependencies,manifest.devDependencies);
+          console.log('PASS reproducible v148 lockfile');
+          NODE
       - name: Typecheck v148 with staged connector
         run: npm run typecheck
       - name: Android Expo JS bundle
         run: npx expo export --platform android --output-dir dist-walletconnect-v148-android --clear
       - name: iOS Expo JS bundle
         run: npx expo export --platform ios --output-dir dist-walletconnect-v148-ios --clear
-      - name: Upload reviewed dependency lock candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: walletconnect-v148-qa-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 7
       - name: Confirm no store or financial publishing
         run: echo "No native APK, AAB, EAS submission, Play Store, TestFlight or ledger writes."
