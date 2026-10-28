@@ -3,6 +3,8 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
 
 import { StagedExternalWalletConnect } from '@/components/StagedExternalWalletConnect';
+import { nexaApi } from '@/lib/api';
+import { config } from '@/config';
 import { initializeExternalWalletAppKit } from '@/lib/reownExternalWalletAppKit';
 import { loadNexaSession } from '@/lib/session';
 
@@ -15,19 +17,42 @@ export default function ExternalWalletConnectStagingRoute() {
   const params = useLocalSearchParams<{market?: string}>();
   const market: 'BR' | 'GLOBAL' = params.market === 'GLOBAL' ? 'GLOBAL' : 'BR';
   const [token, setToken] = useState<string | null | undefined>(undefined);
+  const [authError, setAuthError] = useState('');
+  const qaChannel = config.releaseChannel === 'wallet-inbound-lab';
   useEffect(() => {
     let mounted = true;
-    loadNexaSession().then(s => {
-      if (mounted) setToken(s?.accessToken ?? null);
-    }).catch(() => {
-      if (mounted) setToken(null);
-    });
+    if (!qaChannel) {
+      setAuthError('Este recurso está desabilitado fora da homologação Nexa.');
+      return () => { mounted = false; };
+    }
+    void (async () => {
+      try {
+        const session = await loadNexaSession();
+        if (!mounted) return;
+        if (!session?.accessToken || !session.email) {
+          setToken(null);
+          return;
+        }
+        // A local token alone is insufficient: verify its Nexa identity
+        // against the authenticated backend before initializing Reown.
+        const profile = await nexaApi.me(session.accessToken);
+        if (!mounted) return;
+        const user = profile?.user || profile;
+        const email = String(user?.email || '').trim().toLowerCase();
+        if (!email || email !== session.email.trim().toLowerCase()) {
+          throw new Error('A identidade da sessão Nexa não pôde ser confirmada.');
+        }
+        setToken(session.accessToken);
+      } catch (error) {
+        if (mounted) setAuthError(error instanceof Error ? error.message : 'Não foi possível validar o login Nexa.');
+      }
+    })();
     return () => { mounted = false; };
-  }, []);
+  }, [qaChannel]);
 
   const result = useMemo(() => {
     // Do not initialize third-party wallet SDK before Nexa auth is verified.
-    if (!token) return { instance: null, error: 'AUTH_REQUIRED' };
+    if (!token || !qaChannel) return { instance: null, error: 'QA_AUTH_REQUIRED' };
     try {
       const environment = __DEV__ ? 'development'
         : process.env.EXPO_PUBLIC_NEXA_WALLET_STAGING_BUILD === 'true' ? 'preview' : 'production';
@@ -45,8 +70,9 @@ export default function ExternalWalletConnectStagingRoute() {
     } catch (e) {
       return { instance: null, error: e instanceof Error ? e.message : 'WALLET_CONNECTION_DISABLED' };
     }
-  }, [token]);
+  }, [token, qaChannel]);
 
+  if (authError) return <View style={{padding: 24}}><Text>{authError}</Text></View>;
   if (token === undefined) return <View style={{padding: 24}}><ActivityIndicator accessibilityLabel="Verificando sessão Nexa" /></View>;
   if (!token) return <Redirect href="/sign-in" />;
   if (!result.instance) {
@@ -58,5 +84,5 @@ export default function ExternalWalletConnectStagingRoute() {
       </View>
     );
   }
-  return <StagedExternalWalletConnect accessToken={token} instance={result.instance} market={market} />;
+  return <StagedExternalWalletConnect accessToken={token} instance={result.instance} market={market} mode="view-only" />;
 }
