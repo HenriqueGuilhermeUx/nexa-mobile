@@ -63,6 +63,9 @@ jobs:
           const artifactPresent = Boolean(x.artifacts?.buildUrl || x.artifacts?.applicationArchiveUrl);
           const buildId = String(x.id || '');
           if(buildId !== 'a84e0eed-5a14-4c3c-86ae-3d2bcd16be95') throw Error('EAS_BUILD_ID_MISMATCH');
+          if(platform !== 'ANDROID' || profile !== 'wallet-inbound-lab-v148' ||
+             applicationId !== 'br.com.trynexa.walletconnectqa')
+            throw Error('EAS_BUILD_IS_NOT_THE_ISOLATED_NEXA_QA_PACKAGE');
           const sanitized = {id:buildId, status, platform, profile, applicationId, apkAvailable:artifactPresent, finishedAt:x.completedAt || x.finishedAt || null, errorCode:x.error?.errorCode || null};
           console.log('EAS_BUILD_STATUS ' + JSON.stringify(sanitized));
           if(process.env.GITHUB_STEP_SUMMARY) {
