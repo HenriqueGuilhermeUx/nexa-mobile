@@ -56,6 +56,9 @@ jobs:
           const appKit=fs.readFileSync('src/lib/reownExternalWalletAppKit.ts','utf8');
           if(!appKit.includes("redirect: { native: 'nexa-walletconnect-qa://' }"))
             throw Error('REOWN_QA_DEEPLINK_MISMATCH');
+          if(!appKit.includes('const sessionStore = new Map<string, unknown>()')||
+             appKit.includes('AsyncStorage'))
+            throw Error('QA_WALLET_SESSION_MUST_NOT_PERSIST_ON_DEVICE');
           if(!qa||qa.distribution!=='internal'||qa.android.buildType!=='apk'||
              qa.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false'||
              qa.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED!=='false'||
@@ -66,9 +69,16 @@ jobs:
             throw Error('PRODUCTION_PROFILE_CHANGED');
           const route=fs.readFileSync('app/(app)/external-wallet-connect.tsx','utf8');
           if(!route.includes("config.releaseChannel === 'wallet-inbound-lab'")||
+             !route.includes("EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED === 'false'")||
              !route.includes('nexaApi.me(session.accessToken)')||
              !route.includes('mode="view-only"'))
             throw Error('WALLETCONNECT_QA_AUTH_OR_VIEWONLY_GATE_MISSING');
+          const authGate=route.indexOf('if (!token || !qaChannel) return');
+          const lazySdk=route.indexOf("require('../../src/lib/reownExternalWalletAppKit')");
+          if(authGate<0 || lazySdk<authGate ||
+             route.includes("import { initializeExternalWalletAppKit }") ||
+             route.includes("import { StagedExternalWalletConnect }"))
+            throw Error('REOWN_SDK_LOADED_BEFORE_QA_AUTH');
           const priorChannel=process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL;
           delete process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL;
           const prod=require('./app.config.js')({config:customer});
