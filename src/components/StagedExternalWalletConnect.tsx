@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { AppKit, AppKitProvider, useAccount, useAppKit, useProvider } from '@reown/appkit-react-native';
 
@@ -32,6 +32,15 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
   const [error, setError] = useState('');
   const [balance, setBalance] = useState<{address:string;balanceUsdc:string}|null>(null);
   const requestEpoch = useRef(0);
+
+  // Disconnects, account switches and network switches invalidate prior
+  // read-only confirmations, even if the provider object is reused.
+  useEffect(() => {
+    requestEpoch.current++;
+    setBusy(false);
+    setValidated(null);
+    setBalance(null);
+  }, [address, chainId, provider, providerType, namespace, isConnected]);
 
   const active = Boolean(
     isConnected && validated && typeof address === 'string' &&
