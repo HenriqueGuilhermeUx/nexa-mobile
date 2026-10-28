@@ -47,40 +47,39 @@ jobs:
           eas-version: latest
           packager: npm
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Query previously submitted APK — no new build
+      - name: Query existing QA APKs only — no new builds
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          eas build:view a84e0eed-5a14-4c3c-86ae-3d2bcd16be95 --json > /tmp/walletconnect-eas-build.json
+          eas build:view a84e0eed-5a14-4c3c-86ae-3d2bcd16be95 --json > /tmp/nexa-wc-dev.json
+          eas build:view e584fff1-6781-492e-abbe-e30744429df1 --json > /tmp/nexa-wc-standalone.json
           node <<'NODE'
-          const fs = require('node:fs');
-          const x = JSON.parse(fs.readFileSync('/tmp/walletconnect-eas-build.json', 'utf8'));
-          const status = String(x.status || 'UNKNOWN').toUpperCase();
-          const profile = x.buildProfile || x.metadata?.buildProfile || '';
-          const platform = x.platform || '';
-          const applicationId = x.applicationId || x.appIdentifier || x.metadata?.appIdentifier || '';
-          const artifactPresent = Boolean(x.artifacts?.buildUrl || x.artifacts?.applicationArchiveUrl);
-          const buildId = String(x.id || '');
-          if(buildId !== 'a84e0eed-5a14-4c3c-86ae-3d2bcd16be95') throw Error('EAS_BUILD_ID_MISMATCH');
-          if(platform !== 'ANDROID' || profile !== 'wallet-inbound-lab-v148' ||
-             applicationId !== 'br.com.trynexa.walletconnectqa')
-            throw Error('EAS_BUILD_IS_NOT_THE_ISOLATED_NEXA_QA_PACKAGE');
-          const sanitized = {id:buildId, status, platform, profile, applicationId, apkAvailable:artifactPresent, finishedAt:x.completedAt || x.finishedAt || null, errorCode:x.error?.errorCode || null};
-          console.log('EAS_BUILD_STATUS ' + JSON.stringify(sanitized));
-          if(process.env.GITHUB_STEP_SUMMARY) {
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-              '## Nexa Wallet Connect QA — EAS Build\n\n' +
-              '| Campo | Resultado |\n|---|---|\n' +
-              '| Build | `' + buildId + '` |\n' +
-              '| Estado | **' + status + '** |\n' +
-              '| Arquivo instalável | ' + (artifactPresent ? 'presente' : 'ainda não confirmado') + ' |\n' +
-              '| Perfil | `' + String(profile) + '` |\n' +
-              '| Pacote | `' + String(applicationId) + '` |\n' +
-              '\nNenhuma publicação Play Store, OTA ou movimentação financeira foi solicitada.\n');
+          const fs=require('node:fs');
+          const expectations=[
+            {file:'/tmp/nexa-wc-dev.json',id:'a84e0eed-5a14-4c3c-86ae-3d2bcd16be95',profile:'wallet-inbound-lab-v148'},
+            {file:'/tmp/nexa-wc-standalone.json',id:'e584fff1-6781-492e-abbe-e30744429df1',profile:'wallet-inbound-lab-v148-standalone'},
+          ];
+          let report='## Nexa Wallet Connect — APKs internos (somente consulta)\n\n';
+          report+='| Build | Perfil | Status | APK disponível |\n|---|---|---|---|\n';
+          let failed=false;
+          for(const expected of expectations){
+            const x=JSON.parse(fs.readFileSync(expected.file,'utf8'));
+            const id=String(x.id||'');
+            const status=String(x.status||'UNKNOWN').toUpperCase();
+            const profile=String(x.buildProfile||x.metadata?.buildProfile||'');
+            const applicationId=String(x.applicationId||x.appIdentifier||x.metadata?.appIdentifier||'');
+            const apk=Boolean(x.artifacts?.buildUrl || x.artifacts?.applicationArchiveUrl);
+            if(id!==expected.id || x.platform!=='ANDROID' || profile!==expected.profile ||
+               applicationId!=='br.com.trynexa.walletconnectqa')
+              throw Error('UNEXPECTED_EAS_BUILD_IDENTITY:'+expected.profile);
+            console.log('EAS_BUILD_STATUS '+JSON.stringify({id,status,profile,applicationId,apkAvailable:apk,errorCode:x.error?.errorCode||null}));
+            report+='| '+id+' | '+profile+' | '+status+' | '+(apk?'sim':'ainda não')+' |\n';
+            if(['ERRORED','CANCELED'].includes(status) || (status==='FINISHED'&&!apk)) failed=true;
           }
-          if(status === 'ERRORED' || status === 'CANCELED') process.exitCode=1;
-          if(status === 'FINISHED' && !artifactPresent) process.exitCode=1;
+          report+='\nConsulta somente leitura; sem build novo, Play Store, OTA, Pix ou transações.\n';
+          if(process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,report);
+          if(failed) process.exitCode=1;
           NODE
       - name: No mutation boundary
         if: always()
