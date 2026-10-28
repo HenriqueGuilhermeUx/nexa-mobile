@@ -6,6 +6,12 @@ on:
       - feat/walletconnect-inbound-br-global-v1
     paths:
       - '.github/workflows/wallet-inbound-metro-smoke.yml'
+      - 'app/(app)/external-wallet-connect.tsx'
+      - 'app/(app)/wallet-inbound-lab.tsx'
+      - 'src/components/StagedExternalWalletConnect.tsx'
+      - 'src/lib/reownExternalWalletAppKit.ts'
+      - 'src/lib/externalWalletReownGate.ts'
+      - 'scripts/check-wallet-inbound-config.cjs'
   workflow_dispatch:
 
 permissions:
