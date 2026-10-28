@@ -12,10 +12,10 @@ import { readConnectedExternalUsdc } from '../lib/externalWalletUsdcBalance';
  * route after registering a legitimate Reown project. No token transfers.
  */
 type ReownInstance = ReturnType<typeof initializeExternalWalletAppKit>;
-export function StagedExternalWalletConnect(props: { accessToken: string; instance: ReownInstance; market?: 'BR' | 'GLOBAL' }) {
+export function StagedExternalWalletConnect(props: { accessToken: string; instance: ReownInstance; market?: 'BR' | 'GLOBAL'; mode?: 'proof' | 'view-only' }) {
   return (
     <AppKitProvider instance={props.instance}>
-      <ExternalWalletConnectionScreen accessToken={props.accessToken} market={props.market ?? 'BR'} />
+      <ExternalWalletConnectionScreen accessToken={props.accessToken} market={props.market ?? 'BR'} mode={props.mode ?? 'view-only'} />
       <View style={{ position: 'absolute', width: '100%', height: '100%' }} pointerEvents="box-none">
         <AppKit />
       </View>
@@ -23,7 +23,7 @@ export function StagedExternalWalletConnect(props: { accessToken: string; instan
   );
 }
 
-function ExternalWalletConnectionScreen({ accessToken, market }: { accessToken: string; market: 'BR' | 'GLOBAL' }) {
+function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessToken: string; market: 'BR' | 'GLOBAL'; mode: 'proof' | 'view-only' }) {
   const { open, disconnect } = useAppKit();
   const { address, chainId, namespace, isConnected } = useAccount();
   const { provider, providerType } = useProvider();
@@ -92,7 +92,7 @@ function ExternalWalletConnectionScreen({ accessToken, market }: { accessToken: 
   return (
     <View style={{ flex: 1, padding: 20, gap: 12 }}>
       <Text style={{ fontSize: 22, fontWeight: '700' }}>Carteira externa — Nexa {market === 'GLOBAL' ? 'Global' : 'Brasil'} (homologação)</Text>
-      <Text>Conecte MetaMask ou outra carteira WalletConnect. Apenas a assinatura de titularidade será solicitada; nenhuma transferência é executada.</Text>
+      <Text>{mode === 'view-only' ? 'Conecte MetaMask ou outra carteira WalletConnect para consultar seu endereço e saldo externo. Nenhuma assinatura, transferência, Pix ou vínculo permanente é solicitado neste piloto.' : 'Conecte MetaMask ou outra carteira WalletConnect. Apenas a assinatura de titularidade será solicitada; nenhuma transferência é executada.'}</Text>
       <Text>{isConnected ? `Endereço: ${address ?? 'indisponível'}` : 'Carteira não conectada'}</Text>
       {isConnected ? <Text>Rede: {String(chainId)} ({String(namespace)})</Text> : null}
       <Pressable accessibilityRole="button" disabled={busy}
@@ -117,13 +117,13 @@ function ExternalWalletConnectionScreen({ accessToken, market }: { accessToken: 
           </Pressable>
           {balance?.address.toLowerCase() === validated.address.toLowerCase() ?
             <Text>Na carteira externa: {balance.balanceUsdc} USDC — não é saldo Nexa.</Text> : null}
-          <ExternalWalletProofPanel
-          accessToken={accessToken}
-          market={market}
-          address={validated.address}
-          provider={validated.provider}
-          onDisconnect={() => { void disconnectWallet(); }}
-          />
+          {mode === 'proof' ? <ExternalWalletProofPanel
+            accessToken={accessToken}
+            market={market}
+            address={validated.address}
+            provider={validated.provider}
+            onDisconnect={() => { void disconnectWallet(); }}
+          /> : <Text>Piloto de visualização: a Nexa não vincula, movimenta ou recebe USDC por esta tela.</Text>}
         </>
       ) : null}
       {error ? <Text accessibilityRole="alert">{error}</Text> : null}
