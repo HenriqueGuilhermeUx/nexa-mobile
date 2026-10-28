@@ -17,6 +17,7 @@ import {
   saveNexaSession,
 } from '../src/lib/session';
 import { colors, spacing } from '../src/theme';
+import { config } from '../src/config';
 
 export default function LegacyExperience() {
   const params = useLocalSearchParams();
@@ -126,6 +127,16 @@ export default function LegacyExperience() {
         onLogout={logout}
         initialPage={requestedPage || 'home'}
       />
+      {config.releaseChannel === 'wallet-inbound-lab' ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Abrir laboratório de carteiras externas"
+          onPress={() => router.push('/(app)/wallet-inbound-lab')}
+          style={styles.walletQaEntry}
+        >
+          <Text style={styles.walletQaText}>Carteiras externas (QA)</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -133,6 +144,23 @@ export default function LegacyExperience() {
 const styles = StyleSheet.create({
   appShell: {
     flex: 1,
+  },
+  walletQaEntry: {
+    position: 'absolute',
+    bottom: 20,
+    right: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 11,
+    backgroundColor: '#294e7e',
+    borderWidth: 1,
+    borderColor: '#6ca2d8',
+    zIndex: 20,
+  },
+  walletQaText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   loader: {
     flex: 1,
