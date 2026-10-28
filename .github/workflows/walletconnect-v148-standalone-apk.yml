@@ -1,0 +1,81 @@
+name: Nexa Connect v148 standalone Android QA APK
+
+on:
+  push:
+    branches:
+      - feat/walletconnect-viewonly-v148-forwardport-20261028
+    paths:
+      - .github/workflows/walletconnect-v148-standalone-apk.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: wallet-inbound-lab
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-wallet-v15-staging.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Assert standalone package and no financial or wallet operations
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const config = require('./app.json').expo;
+          const eas = require('./eas.json').build;
+          const base = eas['wallet-inbound-lab-v148'];
+          const test = eas['wallet-inbound-lab-v148-standalone'];
+          const app = require('./app.config.js')({config});
+          assert.equal(config.android.package,'br.com.trynexa.app');
+          assert.equal(config.android.versionCode,148);
+          assert.equal(app.android.package,'br.com.trynexa.walletconnectqa');
+          assert.equal(app.scheme,'nexa-walletconnect-qa');
+          assert.equal(app.updates.enabled,false);
+          assert.equal(app.extra.financialExecutionEnabled,false);
+          assert.equal(app.extra.ledgerOperationsEnabled,false);
+          assert.equal(base.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED,'false');
+          assert.equal(base.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED,'false');
+          assert.equal(base.env.EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED,'false');
+          assert.equal(base.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED,'false');
+          assert.equal(base.env.EXPO_PUBLIC_NEXA_API_URL,'https://nexa-backend-wallet-v15-staging.onrender.com/api/v1');
+          assert.equal(test.extends,'wallet-inbound-lab-v148');
+          assert.equal(test.developmentClient,false);
+          assert.equal(test.distribution,'internal');
+          assert.equal(test.android.buildType,'apk');
+          assert.equal(test.channel,'wallet-inbound-lab-standalone');
+          console.log('PASS standalone isolated QA APK; no Expo Metro, financial operations, or active Reown');
+          NODE
+      - name: Verify committed dependency tree
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npx --yes expo-doctor
+          git diff --exit-code -- package.json package-lock.json
+      - name: Require existing Expo credentials
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN"
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Queue standalone QA APK only, no app store
+        run: eas build --platform android --profile wallet-inbound-lab-v148-standalone --non-interactive --no-wait
+      - name: Production safety boundary
+        run: echo 'Internal QA APK only. No Play Store, OTA, USDC, Pix, live wallet link or ledger mutations.'
