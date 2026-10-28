@@ -2,10 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
 
-import { StagedExternalWalletConnect } from '@/components/StagedExternalWalletConnect';
 import { nexaApi } from '@/lib/api';
 import { config } from '@/config';
-import { initializeExternalWalletAppKit } from '@/lib/reownExternalWalletAppKit';
 import { loadNexaSession } from '@/lib/session';
 
 /**
@@ -18,7 +16,8 @@ export default function ExternalWalletConnectStagingRoute() {
   const market: 'BR' | 'GLOBAL' = params.market === 'GLOBAL' ? 'GLOBAL' : 'BR';
   const [token, setToken] = useState<string | null | undefined>(undefined);
   const [authError, setAuthError] = useState('');
-  const qaChannel = config.releaseChannel === 'wallet-inbound-lab';
+  const qaChannel = config.releaseChannel === 'wallet-inbound-lab' &&
+    process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED === 'false';
   useEffect(() => {
     let mounted = true;
     if (!qaChannel) {
@@ -52,8 +51,14 @@ export default function ExternalWalletConnectStagingRoute() {
 
   const result = useMemo(() => {
     // Do not initialize third-party wallet SDK before Nexa auth is verified.
-    if (!token || !qaChannel) return { instance: null, error: 'QA_AUTH_REQUIRED' };
+    if (!token || !qaChannel) return { instance: null, Component: null, error: 'QA_AUTH_REQUIRED' };
     try {
+      // The EVM SDK is never evaluated before Nexa authenticates the session
+      // and the non-financial QA channel is explicitly active.
+      const { initializeExternalWalletAppKit } =
+        require('../../src/lib/reownExternalWalletAppKit') as typeof import('@/lib/reownExternalWalletAppKit');
+      const { StagedExternalWalletConnect } =
+        require('../../src/components/StagedExternalWalletConnect') as typeof import('@/components/StagedExternalWalletConnect');
       const environment = __DEV__ ? 'development'
         : process.env.EXPO_PUBLIC_NEXA_WALLET_STAGING_BUILD === 'true' ? 'preview' : 'production';
       const instance = initializeExternalWalletAppKit({
@@ -66,16 +71,16 @@ export default function ExternalWalletConnectStagingRoute() {
           process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL === 'wallet-inbound-lab',
         environment,
       });
-      return { instance, error: null as string | null };
+      return { instance, Component: StagedExternalWalletConnect, error: null as string | null };
     } catch (e) {
-      return { instance: null, error: e instanceof Error ? e.message : 'WALLET_CONNECTION_DISABLED' };
+      return { instance: null, Component: null, error: e instanceof Error ? e.message : 'WALLET_CONNECTION_DISABLED' };
     }
   }, [token, qaChannel]);
 
   if (authError) return <View style={{padding: 24}}><Text>{authError}</Text></View>;
   if (token === undefined) return <View style={{padding: 24}}><ActivityIndicator accessibilityLabel="Verificando sessão Nexa" /></View>;
   if (!token) return <Redirect href="/sign-in" />;
-  if (!result.instance) {
+  if (!result.instance || !result.Component) {
     return (
       <View style={{padding: 24, gap: 12}}>
         <Text style={{fontSize: 20, fontWeight: '700'}}>Conexão externa — homologação</Text>
@@ -84,5 +89,6 @@ export default function ExternalWalletConnectStagingRoute() {
       </View>
     );
   }
-  return <StagedExternalWalletConnect accessToken={token} instance={result.instance} market={market} mode="view-only" />;
+  const ConnectedWallet = result.Component;
+  return <ConnectedWallet accessToken={token} instance={result.instance} market={market} mode="view-only" />;
 }
