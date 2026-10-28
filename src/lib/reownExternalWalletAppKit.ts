@@ -51,7 +51,7 @@ export function initializeExternalWalletAppKit(options: Parameters<typeof assert
       description: 'Conectar carteira externa à Nexa',
       url: 'https://trynexa.com.br',
       icons: ['https://trynexa.com.br/favicon.ico'],
-      redirect: { native: 'nexa://' },
+      redirect: { native: 'nexa-walletconnect-qa://' },
     },
   });
 }
