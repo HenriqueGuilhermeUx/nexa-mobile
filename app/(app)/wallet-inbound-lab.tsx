@@ -39,12 +39,9 @@ export default function WalletInboundLabRoute() {
       <View style={{ gap: 5, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#77818e' }}>
         <Text>Rede suportada: Polygon (137)</Text>
         <Text>Ativo: USDC nativo • tarifa de entrada Nexa 0%</Text>
-        <Text>O endereço de recebimento só é exibido após confirmação da Privy.</Text>
+        <Text>O endereço externo só aparece após confirmação local da carteira. Nenhum endereço de recebimento Nexa é gerado aqui.</Text>
       </View>
-      <Pressable accessibilityRole="button" onPress={() => router.push('/(app)/receive-usdc' as any)}
-        style={{ backgroundColor: '#225eaa', padding: 16, borderRadius: 10 }}>
-        <Text style={{ color: '#fff', textAlign: 'center' }}>Receber USDC — QR Code</Text>
-      </Pressable>
+      <Text>Conexão de visualização apenas. Recebimento por USDC e Pix Pay não fazem parte deste piloto.</Text>
       <Pressable accessibilityRole="button" onPress={() => router.push('/(app)/external-wallet-connect?market=BR' as any)}
         style={{ backgroundColor: '#25384e', padding: 16, borderRadius: 10 }}>
         <Text style={{ color: '#fff', textAlign: 'center' }}>Conectar carteira — Nexa Brasil</Text>
@@ -54,8 +51,8 @@ export default function WalletInboundLabRoute() {
         style={{ backgroundColor: '#25384e', padding: 16, borderRadius: 10 }}>
         <Text style={{ color: '#fff', textAlign: 'center' }}>Conectar carteira — Nexa Global</Text>
       </Pressable>
-      <Text>A assinatura Global exige domínio confiável configurado no backend; se indisponível, falha com segurança.</Text>
-      <Text>O recebimento é independente do conector. A conexão Reown continua bloqueada até revisão comercial e teste nativo.</Text>
+      <Text>Brasil e Global usam apenas conexão local e consulta de saldo externo neste piloto. Nenhuma assinatura ou vínculo é solicitado.</Text>
+      <Text>O conector Reown permanece bloqueado até revisão comercial, configuração e teste nativo. Não envie fundos a este piloto.</Text>
       <Text>Não faça depósitos reais enquanto o backend de homologação e a conciliação não estiverem aprovados.</Text>
     </ScrollView>
   );
