@@ -46,6 +46,10 @@ assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED === 'true'/);
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED === 'true'/);
 assert.match(route, /EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE === 'true'/);
 assert.match(route, /projectId: process.env.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID/);
+assert.match(route, /config\.releaseChannel === 'wallet-inbound-lab'/, 'QA route must remain lab-only');
+assert.match(route, /nexaApi\.me\(session\.accessToken\)/, 'verify Nexa token against backend before connecting');
+assert.match(route, /email !== session\.email/, 'reject cross-account session identity');
+assert.match(route, /mode="view-only"/, 'default native pilot must not request ownership proof');
 assert.doesNotMatch(route,/\\n\s*\/\//, 'literal newline escape in route source');
 
 // Behavioral regression: eth_accounts may contain several authorized addresses,
