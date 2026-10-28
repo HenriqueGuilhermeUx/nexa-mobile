@@ -42,10 +42,10 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
   );
 
   async function checkConnectedWallet() {
+    const epoch = ++requestEpoch.current;
     setError('');
     setValidated(null);
     setBalance(null);
-    requestEpoch.current++;
     if (!isConnected || providerType !== 'eip155' || namespace !== 'eip155' || String(chainId) !== '137') {
       setError('Conecte uma carteira EVM na rede Polygon (137).');
       return;
@@ -53,11 +53,11 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
     setBusy(true);
     try {
       const checked = await validateReownExternalConnection({ address, provider });
-      setValidated(checked);
+      if (requestEpoch.current === epoch) setValidated(checked);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Não foi possível validar a carteira.');
+      if (requestEpoch.current === epoch) setError(e instanceof Error ? e.message : 'Não foi possível validar a carteira.');
     } finally {
-      setBusy(false);
+      if (requestEpoch.current === epoch) setBusy(false);
     }
   }
 
@@ -69,7 +69,9 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
     setBusy(true);
     try {
       const value = await readConnectedExternalUsdc(validated);
-      if (epoch === requestEpoch.current) setBalance(value);
+      if (epoch === requestEpoch.current && value.address.toLowerCase() === validated.address.toLowerCase()) {
+        setBalance(value);
+      }
     } catch {
       if (epoch === requestEpoch.current) setError('Não foi possível consultar o saldo USDC na carteira externa.');
     } finally {
@@ -79,6 +81,7 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
 
   async function disconnectWallet() {
     requestEpoch.current++;
+    setBusy(false);
     setBalance(null);
     setValidated(null);
     setError('');
@@ -96,7 +99,7 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
       <Text>{isConnected ? `Endereço: ${address ?? 'indisponível'}` : 'Carteira não conectada'}</Text>
       {isConnected ? <Text>Rede: {String(chainId)} ({String(namespace)})</Text> : null}
       <Pressable accessibilityRole="button" disabled={busy}
-        onPress={() => { requestEpoch.current++; setValidated(null); setBalance(null); setError(''); void open({ view: 'Connect' }); }}
+        onPress={() => { requestEpoch.current++; setBusy(false); setValidated(null); setBalance(null); setError(''); void open({ view: 'Connect' }); }}
         style={{ backgroundColor: '#263b63', padding: 14, borderRadius: 8 }}>
         <Text style={{ color: 'white' }}>Conectar carteira</Text>
       </Pressable>
