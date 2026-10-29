@@ -23,6 +23,7 @@ export function ExternalUsdcReceiveReviewPanel(props: {
     setReview(null);
     setError('');
     setAmount('');
+    setBusy(false);
     return ()=>{epoch.current++;};
   },[props.accessToken,props.address,props.provider,props.market]);
   async function requestPreview() {
@@ -68,6 +69,7 @@ export function ExternalUsdcReceiveReviewPanel(props: {
       </Text>
       <TextInput accessibilityLabel="Quantidade USDC para revisão"
         keyboardType="decimal-pad" placeholder="Ex.: 2,50 USDC"
+        editable={!busy}
         placeholderTextColor={colors.mutedStrong}
         value={amount} onChangeText={v=>{epoch.current++;setAmount(v);setReview(null);setError('');}}
         style={{borderRadius:9,borderWidth:1,borderColor:colors.border,
