@@ -368,7 +368,7 @@ function BottomNav({ page, onNavigate }: any) {
   );
 }
 
-export default function AlignedLegacyApp({ initialUser, token, onLogout, initialPage = 'home' }: any) {
+export default function AlignedLegacyApp({ initialUser, token, onLogout, initialPage = 'home', initialExternalRecipient = '' }: any) {
   const insets = useSafeAreaInsets();
   const privy = usePrivy() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
@@ -2431,6 +2431,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
         onBack={() => setPage('wallet')}
         onBalanceRefresh={loadAll}
         onSendExternalUsdc={sendExternalPrivyUsdc}
+        initialExternalRecipient={initialExternalRecipient}
         clientHeaders={clientHeaders}
         privyWalletReady={Boolean(
           embeddedWallet?.address &&
