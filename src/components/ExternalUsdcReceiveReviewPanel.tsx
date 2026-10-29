@@ -74,7 +74,8 @@ export function ExternalUsdcReceiveReviewPanel(props: {
       if (result.status !== 'PENDING') {
         const destination=await getVerifiedNexaReceiveDestination(props.accessToken);
         const matched=result.events?.some(event =>
-          event.recipient.toLowerCase() === destination.walletAddress.toLowerCase());
+          event.recipient.toLowerCase() === destination.walletAddress.toLowerCase() &&
+          event.from.toLowerCase() === props.address.toLowerCase());
         if (!matched) throw Error('RECEIPT_NOT_FOR_YOUR_NEXA_WALLET');
       }
       if(request===epoch.current) setReceipt(result);
