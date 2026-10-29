@@ -2128,6 +2128,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             </View>
             <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
+          {walletConnectProductPreviewEnabled ? (
+            <TouchableOpacity style={styles.profileMenuRow} onPress={openWalletConnectHub}>
+              <View>
+                <Text style={styles.profileMenuTitle}>WalletConnect</Text>
+                <Text style={styles.profileMenuText}>Carteiras externas · conexão e consulta em teste</Text>
+              </View>
+              <Text style={styles.profileMenuArrow}>›</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={styles.profileMenuRow} onPress={() => router.push('/security')}>
             <View>
               <Text style={styles.profileMenuTitle}>Segurança</Text>
