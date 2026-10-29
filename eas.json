@@ -216,7 +216,8 @@
         "EXPO_PUBLIC_NEXA_REOWN_ENABLED": "false",
         "EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED": "false",
         "EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED": "false",
-        "EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE": "false"
+        "EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE": "false",
+        "EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED": "true"
       },
       "android": {
         "buildType": "apk"
