@@ -17,6 +17,10 @@ export function assertReownExternalWalletReady(input: {
     throw new Error('REOWN_PROJECT_ID_REQUIRED');
   }
   if (!input.licenseApproved) throw new Error('REOWN_LICENSE_REVIEW_REQUIRED');
+  // An unverified native build may only enter a specifically approved preview QA session.
+  if (input.nativeQaMode && input.environment !== 'preview') {
+    throw new Error('REOWN_NATIVE_QA_PREVIEW_ONLY');
+  }
   if (!input.nativeBuildVerified && !input.nativeQaMode) {
     throw new Error('NATIVE_WALLET_BUILD_UNVERIFIED');
   }
