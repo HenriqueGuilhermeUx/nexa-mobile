@@ -40,7 +40,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # GitHub ubuntu-latest already ships Android cmdline-tools. Avoid
+      # setup-android@v3, which attempts the removed legacy SDK package 'tools'.
+      - name: Use runner Android SDK and install required packages
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --version
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
       - name: Verify production isolation and QA-only app identity
         run: |
           node <<'NODE'
