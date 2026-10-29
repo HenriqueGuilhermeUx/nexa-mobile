@@ -6,6 +6,13 @@ on:
       - feat/walletconnect-viewonly-v148-forwardport-20261028
     paths:
       - .github/workflows/walletconnect-v148-standalone-apk.yml
+      - app/(app)/wallet-connect.tsx
+      - app/(app)/new-order.tsx
+      - app/(app)/_layout.tsx
+      - src/components/AlignedLegacyApp.tsx
+      - src/components/WalletConnectEntry.tsx
+      - src/lib/walletConnectProductGate.ts
+      - scripts/check-walletconnect-current-wallet-integration.cjs
   workflow_dispatch:
 
 permissions:
@@ -50,6 +57,7 @@ jobs:
           assert.equal(app.extra.ledgerOperationsEnabled,false);
           assert.equal(base.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED,'false');
           assert.equal(base.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED,'false');
+          assert.equal(base.env.EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED,'true');
           assert.equal(base.env.EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED,'false');
           assert.equal(base.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED,'false');
           assert.equal(base.env.EXPO_PUBLIC_NEXA_API_URL,'https://nexa-backend-wallet-v15-staging.onrender.com/api/v1');
@@ -73,6 +81,7 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           npm run typecheck
+          node scripts/check-walletconnect-current-wallet-integration.cjs
           npx --yes expo-doctor
           git diff --exit-code -- package.json package-lock.json
       - name: Require existing Expo credentials
