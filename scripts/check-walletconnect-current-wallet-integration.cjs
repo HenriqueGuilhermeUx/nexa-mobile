@@ -46,6 +46,7 @@ for (const [tag,regex] of Object.entries({
 assert.match(main,/WalletConnectEntry context="home"/);
 assert.match(main,/WalletConnectEntry context="receive"/);
 assert.match(main,/title="WalletConnect"/);
+assert.match(main,/<Text style={styles.profileMenuTitle}>WalletConnect<\/Text>/, 'WalletConnect must appear in the actual Profile menu');
 assert.match(main,/function openWalletConnectHub\(\)/);
 assert.match(layout,/name="wallet-connect"/);
 assert.match(card,/if \(!walletConnectProductPreviewEnabled\) return null/);
