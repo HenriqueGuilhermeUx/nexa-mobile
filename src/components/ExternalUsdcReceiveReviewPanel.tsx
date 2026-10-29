@@ -71,6 +71,12 @@ export function ExternalUsdcReceiveReviewPanel(props: {
     setReceipt(null);setReceiptError('');setReceiptBusy(true);
     try {
       const result=await observeExternalUsdcReceipt(props.accessToken,txHash);
+      if (result.status !== 'PENDING') {
+        const destination=await getVerifiedNexaReceiveDestination(props.accessToken);
+        const matched=result.events?.some(event =>
+          event.recipient.toLowerCase() === destination.walletAddress.toLowerCase());
+        if (!matched) throw Error('RECEIPT_NOT_FOR_YOUR_NEXA_WALLET');
+      }
       if(request===epoch.current) setReceipt(result);
     } catch(e) {
       if(request===epoch.current) setReceiptError(e instanceof Error && e.message==='RECEIVE_PILOT_UNAVAILABLE'
