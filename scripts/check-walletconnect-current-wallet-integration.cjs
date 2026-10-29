@@ -104,6 +104,19 @@ assert.match(main, /initialExternalRecipient=\{initialExternalRecipient\}/, 'kee
 assert.match(custody, /const \[externalToAddress, setExternalToAddress\] = useState\(reviewedRecipient\)/);
 assert.match(custody, /onSendExternalUsdc/, 'existing outgoing Privy signer must remain wired');
 assert.match(custody, /financialExecutionEnabled/, 'financial execution check must remain');
+const receiptClient = read('src/lib/externalUsdcReceiptObservation.ts');
+const receiptPanel = read('src/components/ExternalUsdcReceiveReviewPanel.tsx');
+assert.match(receiptClient, /receive\/confirm\?txHash=/, 'receipt must use authenticated backend read-only endpoint');
+assert.match(receiptClient, /method:'GET'/, 'receipt lookup must be non-mutating');
+assert.match(receiptClient, /ledgerCredited!==false/, 'receipt must reject purported ledger credits');
+assert.match(receiptClient, /confirmationsRequired<12/, 'receipt must require minimum confirmation policy');
+assert.match(receiptPanel, /observeExternalUsdcReceipt\(props.accessToken,txHash\)/);
+assert.match(receiptPanel, /Não significa crédito em ledger Nexa/);
+for(const prohibited of ['eth_sendTransaction','wallet_sendCalls','eth_signTransaction',
+  'eth_sendRawTransaction','approve(','/transfer/onchain-direct/confirm']) {
+  assert.ok(!receiptClient.includes(prohibited) && !receiptPanel.includes(prohibited),
+    'receipt observation must never submit transactions: '+prohibited);
+}
 console.log('PASS: v148 intact; Pix, wallet, send, cash-out, history and existing profile preserved');
 console.log('PASS: WalletConnect entry in funding, wallet, home, move and menu; QA-only view mode');
 console.log('PASS: no real transfers, custody changes or ledger credits from new UI');
