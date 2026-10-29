@@ -1,6 +1,13 @@
 name: Nexa Wallet Connect — manual Reown device QA APK (no funds)
 
+# The manual dispatch button is visible only when this workflow is on the
+# default branch. Branch push provides visibility without merging the app.
 on:
+  push:
+    branches:
+      - feat/walletconnect-viewonly-v148-forwardport-20261028
+    paths:
+      - .github/workflows/walletconnect-v148-reown-manual-device-apk.yml
   workflow_dispatch:
     inputs:
       reown_terms_reviewed:
@@ -41,11 +48,11 @@ jobs:
           node-version: '20.19.4'
       - name: Require explicit third-party and callback approvals
         env:
-          TERMS: ${{ inputs.reown_terms_reviewed }}
-          CALLBACK: ${{ inputs.android_callback_verified }}
+          TERMS: ${{ github.event_name == 'workflow_dispatch' && inputs.reown_terms_reviewed || secrets.NEXA_REOWN_TERMS_REVIEWED }}
+          CALLBACK: ${{ github.event_name == 'workflow_dispatch' && inputs.android_callback_verified || secrets.NEXA_REOWN_QA_CALLBACK_VERIFIED }}
         run: |
-          test "$TERMS" = REVIEWED || { echo 'Reown terms not confirmed'; exit 1; }
-          test "$CALLBACK" = VERIFIED || { echo 'QA callback not confirmed'; exit 1; }
+          test "$TERMS" = REVIEWED || { echo 'Reown review not confirmed. Set NEXA_REOWN_TERMS_REVIEWED=REVIEWED after actual provider review.'; exit 1; }
+          test "$CALLBACK" = VERIFIED || { echo 'QA callback not confirmed. Set NEXA_REOWN_QA_CALLBACK_VERIFIED=VERIFIED after native callback validation.'; exit 1; }
       - name: Verify isolation and create temporary EAS config
         run: |
           node <<'NODE'
