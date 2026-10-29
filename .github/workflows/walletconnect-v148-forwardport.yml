@@ -101,6 +101,8 @@ jobs:
           assert.deepEqual(lock.packages[''].devDependencies,manifest.devDependencies);
           console.log('PASS reproducible v148 lockfile');
           NODE
+      - name: Verify complete Wallet, Pix and WalletConnect product integration
+        run: node scripts/check-walletconnect-current-wallet-integration.cjs
       - name: Typecheck v148 with staged connector
         run: npm run typecheck
       - name: Android Expo JS bundle
