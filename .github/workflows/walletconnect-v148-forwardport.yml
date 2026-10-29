@@ -107,6 +107,8 @@ jobs:
         run: node scripts/walletconnect-v148-inbound-preview-contract.test.cjs
       - name: Validate read-only Polygon USDC receipt observations with hostile fixtures
         run: node scripts/walletconnect-v148-receipt-observation.test.cjs
+      - name: Verify Reown native QA activation and financial isolation fail closed
+        run: node scripts/walletconnect-v148-reown-qa-gate.test.cjs
       - name: Typecheck v148 with staged connector
         run: npm run typecheck
       - name: Android Expo JS bundle
