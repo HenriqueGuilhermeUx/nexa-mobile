@@ -105,6 +105,8 @@ jobs:
         run: node scripts/check-walletconnect-current-wallet-integration.cjs
       - name: Exercise authenticated USDC inbound preview with malicious-response fixtures
         run: node scripts/walletconnect-v148-inbound-preview-contract.test.cjs
+      - name: Validate read-only Polygon USDC receipt observations with hostile fixtures
+        run: node scripts/walletconnect-v148-receipt-observation.test.cjs
       - name: Typecheck v148 with staged connector
         run: npm run typecheck
       - name: Android Expo JS bundle
