@@ -65,7 +65,7 @@ async function main(){
   assert.equal(audit.length,2);
   for(const changed of [
     {contractAddress:SOURCE},
-    {walletAddress:SOURCE},
+    {walletAddress:'not-an-eip55-address'},
     {source:'SELF_REPORTED'},
     {ledgerCredited:true},
     {financialAction:true},
