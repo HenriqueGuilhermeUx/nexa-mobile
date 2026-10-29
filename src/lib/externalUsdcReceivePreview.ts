@@ -34,7 +34,7 @@ function assertAccount(value: unknown): string {
   return getAddress(value);
 }
 function assertUsdcAmount(value: string) {
-  if (!/^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,6})?$/.test(value) ||
+  if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/.test(value) ||
       parseUnits(value, 6) <= 0n) throw Error('USDC_AMOUNT_MUST_HAVE_AT_MOST_SIX_DECIMALS');
   return value;
 }
