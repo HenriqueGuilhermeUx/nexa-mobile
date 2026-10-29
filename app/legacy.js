@@ -17,10 +17,17 @@ import {
   saveNexaSession,
 } from '../src/lib/session';
 import { colors, spacing } from '../src/theme';
+import { walletConnectProductPreviewEnabled } from '../src/lib/walletConnectProductGate';
 
 export default function LegacyExperience() {
   const params = useLocalSearchParams();
   const requestedPage = String(params?.open || '').trim();
+  // Address is untrusted navigation data, never a transfer instruction.
+  // Accept only on the isolated nonfinancial WalletConnect lab.
+  const recipientParam = String(params?.externalRecipient || '').trim();
+  const externalRecipient = walletConnectProductPreviewEnabled &&
+    requestedPage === 'custody' &&
+    /^0x[a-fA-F0-9]{40}$/.test(recipientParam) ? recipientParam : '';
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [user, setUser] = useState(null);
@@ -125,6 +132,7 @@ export default function LegacyExperience() {
         token={token}
         onLogout={logout}
         initialPage={requestedPage || 'home'}
+        initialExternalRecipient={externalRecipient}
       />
     </View>
   );
