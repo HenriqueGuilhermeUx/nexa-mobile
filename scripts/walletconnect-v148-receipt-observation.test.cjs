@@ -41,6 +41,11 @@ async function reject(changed,pattern=/UNTRUSTED/){
   await reject({events:[{...event,eventId:`137:${hash}:0:extra`}]});
   await reject({events:[{...event,eventId:`137:${hash}:00`},{...event,eventId:`137:${hash}:0`}]});
   await reject({events:[{...event,amountUsdc:'0'}]});
+  await reject({events:[{...event,amountUsdc:'0.000000'}]});
+  await reject({events:[{...event,amountUsdc:'0.0000001'}]});
+  await reject({events:[{...event,amountUsdc:'1e10'}]});
+  payload={...good,events:[{...event,amountUsdc:'999999999999999999999999999999.999999'}]};
+  assert.equal((await observe('qa-token',hash)).events[0].amountUsdc,'999999999999999999999999999999.999999');
   await reject({events:[{...event,recipient:'not-address'}]});
   await reject({events:Array(101).fill(event)});
   await reject({confirmations:-1});
