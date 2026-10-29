@@ -114,6 +114,7 @@ assert.match(receiptPanel, /observeExternalUsdcReceipt\(props.accessToken,txHash
 assert.match(receiptPanel, /Não significa crédito em ledger Nexa/);
 assert.match(receiptPanel, /getVerifiedNexaReceiveDestination\(props.accessToken\)/, 'receipt must re-verify the current Privy address');
 assert.match(receiptPanel, /RECEIPT_NOT_FOR_YOUR_NEXA_WALLET/, 'unrelated blockchain transaction must never look like Nexa receipt');
+assert.match(receiptPanel, /event.from.toLowerCase\(\) === props.address.toLowerCase\(\)/, 'receipt must originate from currently connected external wallet');
 for(const prohibited of ['eth_sendTransaction','wallet_sendCalls','eth_signTransaction',
   'eth_sendRawTransaction','approve(','/transfer/onchain-direct/confirm']) {
   assert.ok(!receiptClient.includes(prohibited) && !receiptPanel.includes(prohibited),
