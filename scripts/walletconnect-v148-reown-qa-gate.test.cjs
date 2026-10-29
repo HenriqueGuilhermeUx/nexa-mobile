@@ -14,6 +14,7 @@ for(const bad of [
   {enabled:false},{projectId:''},{projectId:'xyz'},{projectId:'*'.repeat(32)},
   {licenseApproved:false},{nativeBuildVerified:false,nativeQaMode:false},
   {environment:'production'},{environment:'production',nativeBuildVerified:true},
+  {environment:'development',nativeQaMode:true,nativeBuildVerified:false},
 ]) assert.throws(()=>gate({...valid,...bad}),/DISABLED|REQUIRED|REVIEW|UNVERIFIED|ROLLOUT/);
 const app=fs.readFileSync('src/lib/reownExternalWalletAppKit.ts','utf8');
 assert.match(app,/enableAnalytics: false/);
