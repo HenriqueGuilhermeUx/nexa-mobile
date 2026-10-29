@@ -112,6 +112,8 @@ assert.match(receiptClient, /ledgerCredited!==false/, 'receipt must reject purpo
 assert.match(receiptClient, /confirmationsRequired<12/, 'receipt must require minimum confirmation policy');
 assert.match(receiptPanel, /observeExternalUsdcReceipt\(props.accessToken,txHash\)/);
 assert.match(receiptPanel, /Não significa crédito em ledger Nexa/);
+assert.match(receiptPanel, /getVerifiedNexaReceiveDestination\(props.accessToken\)/, 'receipt must re-verify the current Privy address');
+assert.match(receiptPanel, /RECEIPT_NOT_FOR_YOUR_NEXA_WALLET/, 'unrelated blockchain transaction must never look like Nexa receipt');
 for(const prohibited of ['eth_sendTransaction','wallet_sendCalls','eth_signTransaction',
   'eth_sendRawTransaction','approve(','/transfer/onchain-direct/confirm']) {
   assert.ok(!receiptClient.includes(prohibited) && !receiptPanel.includes(prohibited),
