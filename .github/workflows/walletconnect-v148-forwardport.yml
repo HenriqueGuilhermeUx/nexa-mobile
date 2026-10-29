@@ -103,6 +103,8 @@ jobs:
           NODE
       - name: Verify complete Wallet, Pix and WalletConnect product integration
         run: node scripts/check-walletconnect-current-wallet-integration.cjs
+      - name: Exercise authenticated USDC inbound preview with malicious-response fixtures
+        run: node scripts/walletconnect-v148-inbound-preview-contract.test.cjs
       - name: Typecheck v148 with staged connector
         run: npm run typecheck
       - name: Android Expo JS bundle
