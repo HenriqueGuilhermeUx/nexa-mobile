@@ -93,6 +93,17 @@ for(const filename of [
     assert.ok(!contents.includes(prohibited),filename+' must not execute transfers or mutate balances: '+prohibited);
   }
 }
+const custody=read('nexa-mobile/nexa-mobile/CustodyScreen.js');
+const legacyRouter=read('app/legacy.js');
+assert.match(staging, /reviewNexaExternalWithdrawalDestination/, 'Reown QA must offer outbound review navigation');
+assert.match(staging, /validateReownExternalConnection/, 'Reown outbound address must be checked before prefill');
+assert.match(staging, /open:'custody',externalRecipient:current.address/, 'reuse custody rather than add new transfer code');
+assert.match(legacyRouter, /walletConnectProductPreviewEnabled/, 'restrict external destination routing to QA');
+assert.match(legacyRouter, /requestedPage === 'custody'/, 'never prefill unrelated screens');
+assert.match(main, /initialExternalRecipient=\\{initialExternalRecipient\\}/, 'keep main Wallet custody callback');
+assert.match(custody, /const \[externalToAddress, setExternalToAddress\] = useState\\(reviewedRecipient\\)/);
+assert.match(custody, /onSendExternalUsdc/, 'existing outgoing Privy signer must remain wired');
+assert.match(custody, /financialExecutionEnabled/, 'financial execution check must remain');
 console.log('PASS: v148 intact; Pix, wallet, send, cash-out, history and existing profile preserved');
 console.log('PASS: WalletConnect entry in funding, wallet, home, move and menu; QA-only view mode');
 console.log('PASS: no real transfers, custody changes or ledger credits from new UI');
