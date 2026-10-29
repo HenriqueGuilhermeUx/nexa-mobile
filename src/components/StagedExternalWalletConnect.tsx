@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { AppKit, AppKitProvider, useAccount, useAppKit, useProvider } from '@reown/appkit-react-native';
 
@@ -89,6 +90,33 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
     }
   }
 
+  async function reviewNexaExternalWithdrawalDestination() {
+    if (!active || !validated || busy || mode !== 'view-only') return;
+    const epoch = ++requestEpoch.current;
+    setError('');
+    setBusy(true);
+    try {
+      const current = await validateReownExternalConnection({
+        address:validated.address,provider:validated.provider,
+      });
+      if (requestEpoch.current !== epoch ||
+          current.address.toLowerCase() !== validated.address.toLowerCase()) return;
+      // No transfer; route data can only prefill the existing Privy custody
+      // screen in isolated QA. The existing send still requires user review
+      // and remains disabled while financialExecutionEnabled=false.
+      router.push({
+        pathname:'/legacy',
+        params:{open:'custody',externalRecipient:current.address},
+      } as any);
+    } catch {
+      if (requestEpoch.current === epoch) {
+        setError('A carteira mudou. Reconecte e confira o endereço antes de continuar.');
+      }
+    } finally {
+      if (requestEpoch.current === epoch) setBusy(false);
+    }
+  }
+
   async function disconnectWallet() {
     requestEpoch.current++;
     setBusy(false);
@@ -138,6 +166,15 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
               provider={validated.provider}
               market={market}
             />
+          ) : null}
+          {mode === 'view-only' ? (
+            <Pressable accessibilityRole="button" disabled={busy}
+              onPress={()=>{void reviewNexaExternalWithdrawalDestination();}}
+              style={{padding:14,borderRadius:8,backgroundColor:'#274d65'}}>
+              <Text style={{color:'#fff',fontWeight:'700'}}>
+                Preparar envio da Nexa para esta carteira (somente prévia QA)
+              </Text>
+            </Pressable>
           ) : null}
           {mode === 'proof' ? <ExternalWalletProofPanel
             accessToken={accessToken}
