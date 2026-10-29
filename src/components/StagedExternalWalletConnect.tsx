@@ -6,6 +6,7 @@ import { ExternalWalletProofPanel } from './ExternalWalletProofPanel';
 import { validateReownExternalConnection, type ReownExternalConnection } from '../lib/reownConnectedWalletBridge';
 import { initializeExternalWalletAppKit } from '../lib/reownExternalWalletAppKit';
 import { readConnectedExternalUsdc } from '../lib/externalWalletUsdcBalance';
+import { ExternalUsdcReceiveReviewPanel } from './ExternalUsdcReceiveReviewPanel';
 
 /**
  * Isolated Reown staging UI. ONLY mount from a gated, authenticated testing
@@ -129,13 +130,22 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
           </Pressable>
           {balance?.address.toLowerCase() === validated.address.toLowerCase() ?
             <Text>Na carteira externa: {balance.balanceUsdc} USDC — não é saldo Nexa.</Text> : null}
+          {mode === 'view-only' && validated ? (
+            <ExternalUsdcReceiveReviewPanel
+              key={validated.address.toLowerCase() + ':' + String(chainId) + ':' + market}
+              accessToken={accessToken}
+              address={validated.address}
+              provider={validated.provider}
+              market={market}
+            />
+          ) : null}
           {mode === 'proof' ? <ExternalWalletProofPanel
             accessToken={accessToken}
             market={market}
             address={validated.address}
             provider={validated.provider}
             onDisconnect={() => { void disconnectWallet(); }}
-          /> : <Text>Piloto de visualização: a Nexa não vincula, movimenta ou recebe USDC por esta tela.</Text>}
+          /> : <Text>Revisão de recebimento disponível somente em QA; nenhuma transferência, crédito ou assinatura é executada nesta tela.</Text>}
         </>
       ) : null}
       {error ? <Text accessibilityRole="alert">{error}</Text> : null}
