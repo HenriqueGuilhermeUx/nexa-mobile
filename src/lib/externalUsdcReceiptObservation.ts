@@ -47,7 +47,7 @@ export async function observeExternalUsdcReceipt(accessToken:string, txHash:stri
         eventId !== `137:${hash.toLowerCase()}:${logIndex}` ||
         !/^\d+$/.test(logIndex||'') || !Number.isSafeInteger(Number(logIndex)) ||
         String(Number(logIndex)) !== logIndex ||
-        Number(item.amountUsdc)<=0 || seenEventIds.has(eventId))
+        !/[^0.]/.test(String(item.amountUsdc)) || seenEventIds.has(eventId))
       throw Error('UNTRUSTED_RECEIPT_EVENT');
     seenEventIds.add(eventId);
     return {from:getAddress(item.from),recipient:getAddress(item.recipient),
