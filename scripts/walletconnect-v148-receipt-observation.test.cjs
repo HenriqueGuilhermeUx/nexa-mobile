@@ -38,6 +38,8 @@ async function reject(changed,pattern=/UNTRUSTED/){
   assert.equal(ok.ledgerCredited,false);
   await reject({events:[event,event]});
   await reject({events:[{...event,eventId:`137:${hash}:bogus`}]});
+  await reject({events:[{...event,eventId:`137:${hash}:0:extra`}]});
+  await reject({events:[{...event,eventId:`137:${hash}:00`},{...event,eventId:`137:${hash}:0`}]});
   await reject({events:[{...event,amountUsdc:'0'}]});
   await reject({events:[{...event,recipient:'not-address'}]});
   await reject({events:Array(101).fill(event)});
