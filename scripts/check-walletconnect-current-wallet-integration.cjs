@@ -60,6 +60,24 @@ assert.equal(eas['wallet-inbound-lab-v148'].env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECU
 assert.notEqual(eas.production.env.EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED,'true');
 assert.match(route,/mode="view-only"/);
 assert.match(route,/nexaApi.me\(session.accessToken\)/);
+
+const receiveApi=read('src/lib/externalUsdcReceivePreview.ts');
+const receiveReview=read('src/components/ExternalUsdcReceiveReviewPanel.tsx');
+const staging=read('src/components/StagedExternalWalletConnect.tsx');
+assert.match(staging, /ExternalUsdcReceiveReviewPanel/, 'connected wallet must expose reviewed inbound USDC');
+assert.match(receiveReview, /getVerifiedNexaReceiveDestination/, 'Privy-verified receiver must be fetched');
+assert.match(receiveReview, /validateReownExternalConnection/, 'EVM account must be checked before and after review');
+assert.match(receiveApi, /LIVE_PRIVY_USER_AND_WALLET_AUDIT/, 'never accept cached receiving address');
+assert.match(receiveApi, /decodeFunctionData/, 'decode and validate ERC20 calldata');
+assert.match(receiveApi, /creditsLedger !== false/, 'read-only preview must never claim ledger credit');
+assert.match(receiveApi, /backendMayBroadcast !== false/, 'the preview must not allow broadcasting');
+assert.match(receiveApi, /getAddress\\(NATIVE_POLYGON_USDC\\)/, 'native Polygon USDC is mandatory');
+for(const content of [receiveApi,receiveReview]) {
+  for(const forbidden of ['eth_sendTransaction','wallet_sendCalls','eth_signTransaction',
+    'wallet_switchEthereumChain','/wallet/my-privy/journal-usdc-send']) {
+    assert.ok(!content.includes(forbidden),'the inbound review must remain financially inert: '+forbidden);
+  }
+}
 assert.match(hub,/Transferência guiada e conciliação WalletConnect: em homologação/);
 assert.match(hub,/Envio para carteira externa conectada: indisponível neste piloto/);
 assert.match(hub,/O saldo da carteira externa não é saldo Nexa/);
