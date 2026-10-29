@@ -71,7 +71,7 @@ assert.match(receiveApi, /LIVE_PRIVY_USER_AND_WALLET_AUDIT/, 'never accept cache
 assert.match(receiveApi, /decodeFunctionData/, 'decode and validate ERC20 calldata');
 assert.match(receiveApi, /creditsLedger !== false/, 'read-only preview must never claim ledger credit');
 assert.match(receiveApi, /backendMayBroadcast !== false/, 'the preview must not allow broadcasting');
-assert.match(receiveApi, /getAddress\\(NATIVE_POLYGON_USDC\\)/, 'native Polygon USDC is mandatory');
+assert.match(receiveApi, /getAddress\(NATIVE_POLYGON_USDC\)/, 'native Polygon USDC is mandatory');
 for(const content of [receiveApi,receiveReview]) {
   for(const forbidden of ['eth_sendTransaction','wallet_sendCalls','eth_signTransaction',
     'wallet_switchEthereumChain','/wallet/my-privy/journal-usdc-send']) {
@@ -100,8 +100,8 @@ assert.match(staging, /validateReownExternalConnection/, 'Reown outbound address
 assert.match(staging, /open:'custody',externalRecipient:current.address/, 'reuse custody rather than add new transfer code');
 assert.match(legacyRouter, /walletConnectProductPreviewEnabled/, 'restrict external destination routing to QA');
 assert.match(legacyRouter, /requestedPage === 'custody'/, 'never prefill unrelated screens');
-assert.match(main, /initialExternalRecipient=\\{initialExternalRecipient\\}/, 'keep main Wallet custody callback');
-assert.match(custody, /const \[externalToAddress, setExternalToAddress\] = useState\\(reviewedRecipient\\)/);
+assert.match(main, /initialExternalRecipient=\{initialExternalRecipient\}/, 'keep main Wallet custody callback');
+assert.match(custody, /const \[externalToAddress, setExternalToAddress\] = useState\(reviewedRecipient\)/);
 assert.match(custody, /onSendExternalUsdc/, 'existing outgoing Privy signer must remain wired');
 assert.match(custody, /financialExecutionEnabled/, 'financial execution check must remain');
 console.log('PASS: v148 intact; Pix, wallet, send, cash-out, history and existing profile preserved');
