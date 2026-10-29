@@ -34,10 +34,10 @@ jobs:
       EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-wallet-v15-staging.onrender.com/api/v1
       EXPO_PUBLIC_NEXA_WALLET_STAGING_BUILD: 'true'
       EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
-      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'true'
-      EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED: 'true'
+      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED: 'false'
       EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED: 'false'
-      EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'true'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'false'
       EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED: 'true'
     steps:
       - uses: actions/checkout@v5
@@ -46,13 +46,18 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '20.19.4'
-      - name: Require explicit third-party and callback approvals
+      - name: Classify connector activation approvals
         env:
           TERMS: ${{ github.event_name == 'workflow_dispatch' && inputs.reown_terms_reviewed || secrets.NEXA_REOWN_TERMS_REVIEWED }}
           CALLBACK: ${{ github.event_name == 'workflow_dispatch' && inputs.android_callback_verified || secrets.NEXA_REOWN_QA_CALLBACK_VERIFIED }}
         run: |
-          test "$TERMS" = REVIEWED || { echo 'Reown review not confirmed. Set NEXA_REOWN_TERMS_REVIEWED=REVIEWED after actual provider review.'; exit 1; }
-          test "$CALLBACK" = VERIFIED || { echo 'QA callback not confirmed. Set NEXA_REOWN_QA_CALLBACK_VERIFIED=VERIFIED after native callback validation.'; exit 1; }
+          if [[ "$TERMS" == "REVIEWED" && "$CALLBACK" == "VERIFIED" ]]; then
+            echo "APPROVED_REOWN_QA=true" >> "$GITHUB_ENV"
+            echo 'Reown native QA review explicitly approved.'
+          else
+            echo "APPROVED_REOWN_QA=false" >> "$GITHUB_ENV"
+            echo 'No external wallet activation approval: build only an isolated, connector-disabled smoke APK.'
+          fi
       - name: Verify isolation and create temporary EAS config
         run: |
           node <<'NODE'
@@ -72,9 +77,9 @@ jobs:
           const newProfile={...profile,env:{
             ...original.build['wallet-inbound-lab-v148'].env,
             ...profile.env,
-            EXPO_PUBLIC_NEXA_REOWN_ENABLED:'true',
-            EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED:'true',
-            EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE:'true',
+            EXPO_PUBLIC_NEXA_REOWN_ENABLED:process.env.APPROVED_REOWN_QA==='true'?'true':'false',
+            EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED:process.env.APPROVED_REOWN_QA==='true'?'true':'false',
+            EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE:process.env.APPROVED_REOWN_QA==='true'?'true':'false',
             EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED:'false',
             EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED:'false',
             EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED:'true',
@@ -85,7 +90,7 @@ jobs:
             ...newProfile,extends:undefined,channel:'wallet-inbound-lab-reown-device-manual'
           };
           fs.writeFileSync('eas.json',JSON.stringify(original,null,2)+'\n');
-          console.log('Manual QA profile only; financial execution remains disabled.');
+          console.log('Manual QA profile only; Reown enabled='+newProfile.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED+'; financial execution disabled.');
           NODE
       - name: Install and run static gates
         run: |
@@ -102,7 +107,7 @@ jobs:
           eas-version: latest
           packager: npm
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Submit manual standalone QA APK only
+      - name: Submit manual standalone QA APK (Reown only after approvals)
         run: eas build --platform android --profile wallet-inbound-lab-reown-device-manual --non-interactive --no-wait
       - name: No production mutations
         run: echo 'NO MERGE, NO PLAY, NO OTA, NO TRANSFERS; device testing only.'
