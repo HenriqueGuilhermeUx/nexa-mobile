@@ -40,10 +40,10 @@ jobs:
       EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'true'
       EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED: 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '20.19.4'
       - name: Require explicit third-party and callback approvals
