@@ -44,7 +44,7 @@ export async function observeExternalUsdcReceipt(accessToken:string, txHash:stri
     const logIndex=eventId.split(':')[2];
     if (!isAddress(item?.from)||!isAddress(item?.recipient)||
         !/^\d+(?:\.\d{1,6})?$/.test(String(item?.amountUsdc||''))||
-        !eventId.startsWith(`137:${hash.toLowerCase()}:`) ||
+        eventId !== `137:${hash.toLowerCase()}:${logIndex}` ||
         !/^\d+$/.test(logIndex||'') || !Number.isSafeInteger(Number(logIndex)) ||
         Number(item.amountUsdc)<=0 || seenEventIds.has(eventId))
       throw Error('UNTRUSTED_RECEIPT_EVENT');
