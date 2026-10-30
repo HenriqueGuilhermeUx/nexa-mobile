@@ -1,0 +1,113 @@
+name: Nexa Wallet Connect — manual Reown device QA APK (no funds)
+
+# The manual dispatch button is visible only when this workflow is on the
+# default branch. Branch push provides visibility without merging the app.
+on:
+  push:
+    branches:
+      - feat/walletconnect-viewonly-v148-forwardport-20261028
+    paths:
+      - .github/workflows/walletconnect-v148-reown-manual-device-apk.yml
+  workflow_dispatch:
+    inputs:
+      reown_terms_reviewed:
+        description: 'Confirm Reown terms/project/domain review is complete (type REVIEWED)'
+        required: true
+        type: string
+      android_callback_verified:
+        description: 'Confirm QA package + deep-link callback registered (type VERIFIED)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/feat/walletconnect-viewonly-v148-forwardport-20261028'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: wallet-inbound-lab
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-wallet-v15-staging.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_WALLET_STAGING_BUILD: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'false'
+      EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.19.4'
+      - name: Classify connector activation approvals
+        env:
+          TERMS: ${{ github.event_name == 'workflow_dispatch' && inputs.reown_terms_reviewed || secrets.NEXA_REOWN_TERMS_REVIEWED }}
+          CALLBACK: ${{ github.event_name == 'workflow_dispatch' && inputs.android_callback_verified || secrets.NEXA_REOWN_QA_CALLBACK_VERIFIED }}
+        run: |
+          if [[ "$TERMS" == "REVIEWED" && "$CALLBACK" == "VERIFIED" ]]; then
+            echo "APPROVED_REOWN_QA=true" >> "$GITHUB_ENV"
+            echo 'Reown native QA review explicitly approved.'
+          else
+            echo "APPROVED_REOWN_QA=false" >> "$GITHUB_ENV"
+            echo 'No external wallet activation approval: build only an isolated, connector-disabled smoke APK.'
+          fi
+      - name: Verify isolation and create temporary EAS config
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const original=JSON.parse(fs.readFileSync('eas.json','utf8'));
+          const main=require('./app.json').expo;
+          const qa=require('./app.config.js')({config:main});
+          if(main.android.package!=='br.com.trynexa.app'||main.android.versionCode!==148||
+             qa.android.package!=='br.com.trynexa.walletconnectqa'||
+             qa.scheme!=='nexa-walletconnect-qa'||qa.updates.enabled!==false||
+             qa.extra.financialExecutionEnabled!==false||qa.extra.ledgerOperationsEnabled!==false)
+            throw Error('QA_PRODUCTION_ISOLATION_FAILED');
+          const profile=original.build['wallet-inbound-lab-v148-standalone'];
+          if(profile.developmentClient!==false||profile.distribution!=='internal'||
+             profile.android.buildType!=='apk')
+            throw Error('NOT_AN_INTERNAL_STANDALONE_APK');
+          const newProfile={...profile,env:{
+            ...original.build['wallet-inbound-lab-v148'].env,
+            ...profile.env,
+            EXPO_PUBLIC_NEXA_REOWN_ENABLED:process.env.APPROVED_REOWN_QA==='true'?'true':'false',
+            EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED:process.env.APPROVED_REOWN_QA==='true'?'true':'false',
+            EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE:process.env.APPROVED_REOWN_QA==='true'?'true':'false',
+            EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED:'false',
+            EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED:'false',
+            EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED:'true',
+          }};
+          if(!/^[a-f0-9]{32}$/i.test(newProfile.env.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID||''))
+            throw Error('REOWN_PROJECT_NOT_CONFIGURED');
+          original.build['wallet-inbound-lab-reown-device-manual']={
+            ...newProfile,extends:undefined,channel:'wallet-inbound-lab-reown-device-manual'
+          };
+          fs.writeFileSync('eas.json',JSON.stringify(original,null,2)+'\n');
+          console.log('Manual QA profile only; Reown enabled='+newProfile.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED+'; financial execution disabled.');
+          NODE
+      - name: Install and run static gates
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node scripts/walletconnect-v148-reown-qa-gate.test.cjs
+          node scripts/check-walletconnect-current-wallet-integration.cjs
+          npm run typecheck
+      - name: Require Expo token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN"
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Submit manual standalone QA APK (Reown only after approvals)
+        run: eas build --platform android --profile wallet-inbound-lab-reown-device-manual --non-interactive --no-wait
+      - name: No production mutations
+        run: echo 'NO MERGE, NO PLAY, NO OTA, NO TRANSFERS; device testing only.'

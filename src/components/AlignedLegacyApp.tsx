@@ -30,6 +30,8 @@ import {
   shouldShowEcosystemProfileIntro,
 } from '@/lib/ecosystemOnboarding';
 import { BrandMark } from '@/components/ui';
+import { WalletConnectEntry } from '@/components/WalletConnectEntry';
+import { walletConnectProductPreviewEnabled } from '@/lib/walletConnectProductGate';
 import CustodyScreen from '../../nexa-mobile/nexa-mobile/CustodyScreen';
 
 const API = config.apiUrl.replace(/\/$/, '');
@@ -366,7 +368,7 @@ function BottomNav({ page, onNavigate }: any) {
   );
 }
 
-export default function AlignedLegacyApp({ initialUser, token, onLogout, initialPage = 'home' }: any) {
+export default function AlignedLegacyApp({ initialUser, token, onLogout, initialPage = 'home', initialExternalRecipient = '' }: any) {
   const insets = useSafeAreaInsets();
   const privy = usePrivy() as any;
   const embedded = useEmbeddedEthereumWallet() as any;
@@ -1163,6 +1165,12 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
     router.push('/(app)/buy-crypto' as any);
   }
 
+  function openWalletConnectHub() {
+    // Navigation only. Actual transfer/signature endpoints remain untouched.
+    if (!walletConnectProductPreviewEnabled) return;
+    router.push('/(app)/wallet-connect' as any);
+  }
+
   function openUsdcSubscription() {
     router.push('/open-finance-recurring' as any);
   }
@@ -1274,6 +1282,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           <QuickAction icon="send" title="Enviar" onPress={openWalletFirstSend} />
           <QuickAction icon="withdraw" title="Sacar" onPress={openWalletFirstWithdraw} />
         </View>
+        <WalletConnectEntry context="home" onPress={openWalletConnectHub} />
 
         {config.assistantEnabled ? (
           <TouchableOpacity
@@ -1451,6 +1460,8 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             <PrimaryButton title="Copiar endereço" onPress={copyWalletAddress} secondary />
           </Card>
         ) : null}
+        {/* Additive entry: existing wallet address, QR and Pix paths stay intact. */}
+        <WalletConnectEntry context="receive" onPress={openWalletConnectHub} />
 
         <View style={styles.quickActionsRow}>
           <QuickAction icon="plus" title="Adicionar" onPress={openWalletFirstDeposit} primary />
@@ -1618,6 +1629,13 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             <Text style={styles.moveTitle}>Receber</Text>
             <Text style={styles.moveText}>Veja endereço e informações da sua wallet.</Text>
           </TouchableOpacity>
+          {walletConnectProductPreviewEnabled ? (
+            <TouchableOpacity style={styles.moveCard} onPress={openWalletConnectHub} activeOpacity={0.82}>
+              <View style={styles.moveIcon}><NexaIcon name="move" color="#31D7FF" size={24} /></View>
+              <Text style={styles.moveTitle}>WalletConnect</Text>
+              <Text style={styles.moveText}>Carteiras externas · entrada e saída em homologação.</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={[styles.moveCard, styles.moveCardWide]} onPress={openWalletFirstWithdraw} activeOpacity={0.82}>
             <View style={styles.moveIcon}><NexaIcon name="withdraw" color="#31D7FF" size={24} /></View>
             <Text style={styles.moveTitle}>Sacar</Text>
@@ -1765,6 +1783,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           <MenuTile icon="↕" title="Movimentações" subtitle="Histórico" onPress={() => setPage('history')} />
           <MenuTile icon="ID" title="Nexa ID" subtitle={nexaId || handle} onPress={() => setPage('nexaId')} />
           <MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage('wallet')} />
+          {walletConnectProductPreviewEnabled ? (
+            <MenuTile icon="↔" title="WalletConnect" subtitle="Conectar carteira externa · QA" onPress={openWalletConnectHub} />
+          ) : null}
         </View>
 
         <Text style={styles.menuSectionLabel}>MOVIMENTAR</Text>
@@ -2107,6 +2128,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             </View>
             <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
+          {walletConnectProductPreviewEnabled ? (
+            <TouchableOpacity style={styles.profileMenuRow} onPress={openWalletConnectHub}>
+              <View>
+                <Text style={styles.profileMenuTitle}>WalletConnect</Text>
+                <Text style={styles.profileMenuText}>Carteiras externas · conexão e consulta em teste</Text>
+              </View>
+              <Text style={styles.profileMenuArrow}>›</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={styles.profileMenuRow} onPress={() => router.push('/security')}>
             <View>
               <Text style={styles.profileMenuTitle}>Segurança</Text>
@@ -2401,6 +2431,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
         onBack={() => setPage('wallet')}
         onBalanceRefresh={loadAll}
         onSendExternalUsdc={sendExternalPrivyUsdc}
+        initialExternalRecipient={initialExternalRecipient}
         clientHeaders={clientHeaders}
         privyWalletReady={Boolean(
           embeddedWallet?.address &&

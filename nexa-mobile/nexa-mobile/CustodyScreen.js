@@ -85,6 +85,7 @@ export default function CustodyScreen({
   onSendExternalUsdc,
   clientHeaders = {},
   privyWalletReady = false,
+  initialExternalRecipient = '',
 }) {
   const API = String(apiUrl || DEFAULT_API).replace(/\/$/, '');
   const [overview, setOverview] = useState(null);
@@ -94,8 +95,12 @@ export default function CustodyScreen({
   const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [selectedMode, setSelectedMode] = useState('nexa');
-  const [externalToAddress, setExternalToAddress] = useState('');
+  const reviewedRecipient = /^0x[a-fA-F0-9]{40}$/.test(initialExternalRecipient)
+    ? initialExternalRecipient : '';
+  const [selectedMode, setSelectedMode] = useState(
+    reviewedRecipient ? 'own_wallet' : 'nexa',
+  );
+  const [externalToAddress, setExternalToAddress] = useState(reviewedRecipient);
   const [externalAmountUsdc, setExternalAmountUsdc] = useState('');
   const [externalTxHash, setExternalTxHash] = useState('');
   const [externalSending, setExternalSending] = useState(false);

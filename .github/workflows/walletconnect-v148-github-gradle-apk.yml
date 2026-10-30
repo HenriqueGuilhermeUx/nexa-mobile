@@ -1,0 +1,103 @@
+name: Nexa Wallet Connect QA APK — GitHub Gradle (no EAS)
+
+on:
+  push:
+    branches:
+      - feat/walletconnect-viewonly-v148-forwardport-20261028
+    paths:
+      - .github/workflows/walletconnect-v148-github-gradle-apk.yml
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - release/nexa-2.0.43-v148-brasil
+    paths:
+      - .github/workflows/walletconnect-v148-github-gradle-apk.yml
+
+permissions:
+  contents: read
+
+jobs:
+  android-qa-apk:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/feat/walletconnect-viewonly-v148-forwardport-20261028'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: wallet-inbound-lab
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-wallet-v15-staging.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_WALLET_STAGING_BUILD: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'false'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.19.4'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # GitHub ubuntu-latest already ships Android cmdline-tools. Avoid
+      # setup-android@v3, which attempts the removed legacy SDK package 'tools'.
+      - name: Use runner Android SDK and install required packages
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          SDKMANAGER="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" --version
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Verify production isolation and QA-only app identity
+        run: |
+          node <<'NODE'
+          const config=require('./app.json').expo;
+          const qa=require('./app.config.js')({config});
+          if(config.android.package!=='br.com.trynexa.app'||config.android.versionCode!==148||
+             qa.android.package!=='br.com.trynexa.walletconnectqa'||
+             qa.scheme!=='nexa-walletconnect-qa'||qa.updates.enabled!==false||
+             qa.extra.financialExecutionEnabled!==false||qa.extra.ledgerOperationsEnabled!==false)
+            throw Error('UNSAFE_QA_IDENTITY');
+          if(process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false'||
+             process.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED!=='false')
+            throw Error('UNAUTHORIZED_CONNECTION_OR_FINANCIAL_EXECUTION');
+          console.log('PASS isolated QA package; no financial transactions and Reown is disabled pending review.');
+          NODE
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run Wallet Connect isolation tests
+        run: |
+          node scripts/check-walletconnect-current-wallet-integration.cjs
+          node scripts/walletconnect-v148-reown-qa-gate.test.cjs
+          node scripts/walletconnect-v148-receipt-observation.test.cjs
+          npm run typecheck
+      - name: Generate native Android Gradle project locally (not EAS)
+        run: npx expo prebuild --platform android --no-install --clean
+      - name: Ensure only internal QA package is compiled
+        run: |
+          grep -R 'br.com.trynexa.walletconnectqa' android/app/build.gradle
+          test -f android/gradlew
+          chmod +x android/gradlew
+      - name: Build standalone release APK using Gradle
+        run: |
+          cd android
+          # Prevent Kotlin/KSP Metaspace OOM on GitHub's shared runner.
+          printf '\\norg.gradle.jvmargs=-Xmx2304m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\\norg.gradle.workers.max=2\\norg.gradle.parallel=false\\nkotlin.compiler.execution.strategy=in-process\\n' >> gradle.properties
+          ./gradlew :app:assembleRelease --no-daemon --max-workers=2 --stacktrace
+      - name: Inspect release APK and publish GitHub artifact
+        run: |
+          ls -lh android/app/build/outputs/apk/release/*.apk
+          sha256sum android/app/build/outputs/apk/release/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexa-walletconnect-v148-qa-gradle-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
