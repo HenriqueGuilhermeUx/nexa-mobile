@@ -20,7 +20,7 @@ jobs:
   android-qa-apk:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/feat/walletconnect-viewonly-v148-forwardport-20261028'
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 55
     env:
       CI: 'true'
       EXPO_NO_TELEMETRY: '1'
@@ -88,7 +88,9 @@ jobs:
       - name: Build standalone release APK using Gradle
         run: |
           cd android
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+          # Prevent Kotlin/KSP Metaspace OOM on GitHub's shared runner.
+          printf '\\norg.gradle.jvmargs=-Xmx2304m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\\norg.gradle.workers.max=2\\norg.gradle.parallel=false\\nkotlin.compiler.execution.strategy=in-process\\n' >> gradle.properties
+          ./gradlew :app:assembleRelease --no-daemon --max-workers=2 --stacktrace
       - name: Inspect release APK and publish GitHub artifact
         run: |
           ls -lh android/app/build/outputs/apk/release/*.apk
