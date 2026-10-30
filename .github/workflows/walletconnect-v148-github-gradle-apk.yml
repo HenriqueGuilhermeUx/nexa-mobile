@@ -7,13 +7,18 @@ on:
     paths:
       - .github/workflows/walletconnect-v148-github-gradle-apk.yml
   workflow_dispatch:
+  pull_request:
+    branches:
+      - release/nexa-2.0.43-v148-brasil
+    paths:
+      - .github/workflows/walletconnect-v148-github-gradle-apk.yml
 
 permissions:
   contents: read
 
 jobs:
   android-qa-apk:
-    if: github.ref == 'refs/heads/feat/walletconnect-viewonly-v148-forwardport-20261028'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/feat/walletconnect-viewonly-v148-forwardport-20261028'
     runs-on: ubuntu-latest
     timeout-minutes: 65
     env:
