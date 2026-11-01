@@ -89,14 +89,16 @@ jobs:
         run: |
           cd android
           # Prevent Kotlin/KSP Metaspace OOM on GitHub's shared runner.
+          # Replace prebuild defaults (Gradle uses the first duplicate property).
+          sed -i '/^org\\.gradle\\.jvmargs=/d; /^org\\.gradle\\.workers\\.max=/d; /^org\\.gradle\\.parallel=/d; /^kotlin\\.compiler\\.execution\\.strategy=/d' gradle.properties
           cat >> gradle.properties <<'GRADLE_QA'
           org.gradle.jvmargs=-Xmx2304m -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8
           org.gradle.workers.max=1
           org.gradle.parallel=false
           kotlin.compiler.execution.strategy=in-process
           GRADLE_QA
-          grep '^org.gradle.jvmargs=' gradle.properties | tail -1
-          grep '^org.gradle.workers.max=' gradle.properties | tail -1
+          test "$(grep -c '^org.gradle.jvmargs=' gradle.properties)" -eq 1
+          grep '^org.gradle.jvmargs=' gradle.properties
           ./gradlew :app:assembleRelease --no-daemon --max-workers=1 --stacktrace
       - name: Inspect release APK and publish GitHub artifact
         run: |
