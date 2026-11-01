@@ -89,7 +89,14 @@ jobs:
         run: |
           cd android
           # Prevent Kotlin/KSP Metaspace OOM on GitHub's shared runner.
-          printf '\\norg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=2048m -Dfile.encoding=UTF-8\\norg.gradle.workers.max=1\\norg.gradle.parallel=false\\nkotlin.compiler.execution.strategy=in-process\\n' >> gradle.properties
+          cat >> gradle.properties <<'GRADLE_QA'
+          org.gradle.jvmargs=-Xmx2304m -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8
+          org.gradle.workers.max=1
+          org.gradle.parallel=false
+          kotlin.compiler.execution.strategy=in-process
+          GRADLE_QA
+          grep '^org.gradle.jvmargs=' gradle.properties | tail -1
+          grep '^org.gradle.workers.max=' gradle.properties | tail -1
           ./gradlew :app:assembleRelease --no-daemon --max-workers=1 --stacktrace
       - name: Inspect release APK and publish GitHub artifact
         run: |
