@@ -26,6 +26,8 @@ jobs:
             echo "::error::EXPO_TOKEN not configured. APK build cannot run."
             exit 1
           fi
+      - name: Align Expo patch lockfile for isolated APK build
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
       - uses: expo/expo-github-action@v8
