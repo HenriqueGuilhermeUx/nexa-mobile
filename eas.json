@@ -184,6 +184,19 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "maya-premium-preview": {
+      "distribution": "internal",
+      "channel": "nexa-maya-premium-preview",
+      "env": {
+        "EXPO_PUBLIC_NEXA_API_URL": "https://nexa-backend-wallet-v15-staging.onrender.com/api/v1",
+        "EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED": "false",
+        "EXPO_PUBLIC_NEXA_RELEASE_CHANNEL": "preview",
+        "EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED": "true"
+      },
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
