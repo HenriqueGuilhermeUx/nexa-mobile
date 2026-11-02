@@ -91,15 +91,23 @@ jobs:
           # Prevent Kotlin/KSP Metaspace OOM on GitHub's shared runner.
           # Replace prebuild defaults (Gradle uses the first duplicate property).
           # Recreate each setting (never append duplicate Gradle properties).
-          sed -i '/^[[:space:]]*org[.]gradle[.]jvmargs[[:space:]]*=/d; /^[[:space:]]*org[.]gradle[.]workers[.]max[[:space:]]*=/d; /^[[:space:]]*org[.]gradle[.]parallel[[:space:]]*=/d; /^[[:space:]]*kotlin[.]compiler[.]execution[.]strategy[[:space:]]*=/d' gradle.properties
-          cat >> gradle.properties <<'GRADLE_QA'
-          org.gradle.jvmargs=-Xmx2304m -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8
-          org.gradle.workers.max=1
-          org.gradle.parallel=false
-          kotlin.compiler.execution.strategy=in-process
-          GRADLE_QA
-          test "$(grep -c '^org.gradle.jvmargs=' gradle.properties)" -eq 1
-          grep '^org.gradle.jvmargs=' gradle.properties
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('gradle.properties')
+          keys = {'org.gradle.jvmargs', 'org.gradle.workers.max', 'org.gradle.parallel', 'kotlin.compiler.execution.strategy'}
+          kept = [line for line in path.read_text().splitlines() if line.split('=', 1)[0].strip() not in keys]
+          overrides = [
+              'org.gradle.jvmargs=-Xmx2304m -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8',
+              'org.gradle.workers.max=1',
+              'org.gradle.parallel=false',
+              'kotlin.compiler.execution.strategy=in-process',
+          ]
+          path.write_text('\\n'.join([*kept, *overrides]) + '\\n')
+          for key in keys:
+              matching = [line for line in path.read_text().splitlines() if line.split('=', 1)[0].strip() == key]
+              assert len(matching) == 1, f'{key}: expected one value, got {matching}'
+              print(matching[0])
+          PY
           # Enforce the JVM args via the command line, overriding plugin defaults.
           # Internal QA APK: skip expensive release-only Android lint; all JS safety tests still run.
           ./gradlew :app:assembleRelease -x lintVitalAnalyzeRelease \
