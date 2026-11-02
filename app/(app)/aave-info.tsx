@@ -58,6 +58,20 @@ export default function AaveInfoScreen() {
       <Text style={styles.eyebrow}>NEXA INVEST & CREDIT</Text>
       <Text style={styles.heading}>Aave</Text>
       <Text style={styles.body}>Acompanhe a preparação das aplicações e empréstimos com ativos digitais.</Text>
+      <View style={styles.options}>
+        {[
+          {title: 'Fazer render', description: 'Explore formas de aplicar seus ativos.'},
+          {title: 'Obter crédito', description: 'Entenda as possibilidades de usar cripto como garantia.'},
+          {title: 'Movimentar', description: 'Acompanhe aplicações, amortizações e retiradas.'},
+          {title: 'Acompanhar', description: 'Consulte informações de posições, custos e riscos.'},
+        ].map((option) => (
+          <View key={option.title} style={styles.option}>
+            <Text style={styles.optionTitle}>{option.title}</Text>
+            <Text style={styles.optionText}>{option.description}</Text>
+            <Text style={styles.optionStatus}>Em preparação</Text>
+          </View>
+        ))}
+      </View>
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Disponibilidade</Text>
         {!status && <ActivityIndicator color={colors.cyan} />}
@@ -74,6 +88,11 @@ const styles = StyleSheet.create({
   eyebrow: { color: colors.cyan, fontSize: 12, letterSpacing: 1.5, fontWeight: '700' },
   heading: { color: colors.text, fontSize: 36, fontWeight: '800' },
   body: { color: colors.text, fontSize: 16, lineHeight: 24 },
+  options: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  option: { width: '47%', minWidth: 130, flexGrow: 1, backgroundColor: '#0B2539', borderRadius: 14, padding: 16, gap: 8, borderWidth: 1, borderColor: '#23435D' },
+  optionTitle: { color: colors.text, fontWeight: '700', fontSize: 17 },
+  optionText: { color: colors.text, opacity: 0.8, fontSize: 13, lineHeight: 19 },
+  optionStatus: { color: colors.cyan, fontSize: 12, fontWeight: '700' },
   panel: { borderWidth: 1, borderColor: '#334155', borderRadius: 16, padding: 20, gap: 12 },
   panelTitle: { color: colors.text, fontSize: 20, fontWeight: '700' },
   detail: { color: colors.text, fontSize: 14 },
