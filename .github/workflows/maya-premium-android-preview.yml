@@ -35,4 +35,4 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Build internal APK without Play Store submission
-        run: eas build --platform android --profile preview --non-interactive --wait
+        run: eas build --platform android --profile maya-premium-preview --non-interactive --wait
