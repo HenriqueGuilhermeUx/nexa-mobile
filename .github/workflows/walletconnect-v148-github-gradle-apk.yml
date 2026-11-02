@@ -102,7 +102,7 @@ jobs:
               'org.gradle.parallel=false',
               'kotlin.compiler.execution.strategy=in-process',
           ]
-          path.write_text('\\n'.join([*kept, *overrides]) + '\\n')
+          path.write_text(chr(10).join([*kept, *overrides]) + chr(10))
           for key in keys:
               matching = [line for line in path.read_text().splitlines() if line.split('=', 1)[0].strip() == key]
               assert len(matching) == 1, f'{key}: expected one value, got {matching}'
