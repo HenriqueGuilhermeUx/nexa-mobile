@@ -9,7 +9,7 @@ permissions:
 jobs:
   preview-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 60
     steps:
       - name: Check out isolated v148 Aave QA branch
         uses: actions/checkout@v4
