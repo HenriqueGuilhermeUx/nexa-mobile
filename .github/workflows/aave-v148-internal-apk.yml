@@ -1,0 +1,70 @@
+name: Build Nexa Aave v148 isolated APK
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/aave-v148-internal-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preview-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Check out isolated v148 Aave QA branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/aave-v148-internal-apk-20261102
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install v148 dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate TypeScript
+        run: npm run typecheck
+      - name: Isolate APK identity from installed Nexa Play app
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = 'app.json';
+          const doc = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (doc.expo.version !== '2.0.43' || doc.expo.android.versionCode !== 148) throw Error('Wrong released baseline');
+          doc.expo.name = 'Nexa Aave QA';
+          doc.expo.slug = 'nexa-aave-internal';
+          doc.expo.scheme = 'nexa-aave-internal';
+          doc.expo.android.package = 'br.com.trynexa.aavepreview';
+          doc.expo.android.versionCode = 1;
+          doc.expo.extra.financialExecutionEnabled = false;
+          doc.expo.extra.releaseChannel = 'internal-aave-qa';
+          delete doc.expo.updates;
+          fs.writeFileSync(path, JSON.stringify(doc, null, 2) + '\n');
+          NODE
+      - name: Generate Android native project
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+        run: npx expo prebuild --platform android --clean --no-install
+      - name: Assemble standalone release-mode APK (test signing only)
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Upload APK to GitHub Actions for internal test
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexa-aave-v148-standalone-qa-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
