@@ -1,0 +1,86 @@
+name: Nexa Connect v148 — EAS internal build status (read-only)
+
+on:
+  push:
+    branches:
+      - feat/walletconnect-viewonly-v148-forwardport-20261028
+    paths:
+      - .github/workflows/walletconnect-v148-eas-build-status.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ensure this is isolated QA and not a release submission
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const a = require('./app.json').expo;
+          const qa = require('./eas.json').build['wallet-inbound-lab-v148'];
+          assert.equal(a.android.versionCode, 148);
+          assert.equal(a.android.package, 'br.com.trynexa.app');
+          assert.equal(qa.distribution, 'internal');
+          assert.equal(qa.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED, 'false');
+          assert.equal(qa.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED, 'false');
+          console.log('Checking existing isolated build only.');
+          NODE
+      - name: Authenticate read-only EAS query
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          test -n "$EXPO_TOKEN" || (echo 'EXPO_TOKEN unavailable for status query.' && exit 1)
+      - name: Install Expo config plugins from locked QA dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Query existing QA APKs only — no new builds
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          eas build:view a84e0eed-5a14-4c3c-86ae-3d2bcd16be95 --json > /tmp/nexa-wc-dev.json
+          eas build:view e584fff1-6781-492e-abbe-e30744429df1 --json > /tmp/nexa-wc-standalone.json
+          node <<'NODE'
+          const fs=require('node:fs');
+          const expectations=[
+            {file:'/tmp/nexa-wc-dev.json',id:'a84e0eed-5a14-4c3c-86ae-3d2bcd16be95',profile:'wallet-inbound-lab-v148'},
+            {file:'/tmp/nexa-wc-standalone.json',id:'e584fff1-6781-492e-abbe-e30744429df1',profile:'wallet-inbound-lab-v148-standalone'},
+          ];
+          let report='## Nexa Wallet Connect — APKs internos (somente consulta)\n\n';
+          report+='| Build | Perfil | Status | APK disponível |\n|---|---|---|---|\n';
+          let failed=false;
+          for(const expected of expectations){
+            const x=JSON.parse(fs.readFileSync(expected.file,'utf8'));
+            const id=String(x.id||'');
+            const status=String(x.status||'UNKNOWN').toUpperCase();
+            const profile=String(x.buildProfile||x.metadata?.buildProfile||'');
+            const applicationId=String(x.applicationId||x.appIdentifier||x.metadata?.appIdentifier||'');
+            const apk=Boolean(x.artifacts?.buildUrl || x.artifacts?.applicationArchiveUrl);
+            if(id!==expected.id || x.platform!=='ANDROID' || profile!==expected.profile ||
+               applicationId!=='br.com.trynexa.walletconnectqa')
+              throw Error('UNEXPECTED_EAS_BUILD_IDENTITY:'+expected.profile);
+            console.log('EAS_BUILD_STATUS '+JSON.stringify({id,status,profile,applicationId,apkAvailable:apk,errorCode:x.error?.errorCode||null}));
+            report+='| '+id+' | '+profile+' | '+status+' | '+(apk?'sim':'ainda não')+' |\n';
+            if(['ERRORED','CANCELED'].includes(status) || (status==='FINISHED'&&!apk)) failed=true;
+          }
+          report+='\nConsulta somente leitura; sem build novo, Play Store, OTA, Pix ou transações.\n';
+          if(process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,report);
+          if(failed) process.exitCode=1;
+          NODE
+      - name: No mutation boundary
+        if: always()
+        run: echo 'This workflow only queries an existing EAS build; does not submit, download, publish or update apps.'

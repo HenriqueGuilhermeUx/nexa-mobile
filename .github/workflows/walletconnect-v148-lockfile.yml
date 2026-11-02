@@ -1,0 +1,93 @@
+name: Nexa Wallet Connect v148 lockfile (isolated)
+
+on:
+  push:
+    branches:
+      - feat/walletconnect-viewonly-v148-forwardport-20261028
+    paths:
+      - .github/workflows/walletconnect-v148-lockfile.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.4'
+      - name: Resolve lockfile without package lifecycle scripts
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+      - name: Verify unchanged v148 baseline and exact dependency contract
+        run: |
+          node <<'NODE'
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const p=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const l=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          assert.equal(p.version,'2.0.43');
+          assert.equal(l.version,p.version);
+          assert.deepEqual(l.packages[''].dependencies,p.dependencies);
+          assert.deepEqual(l.packages[''].devDependencies,p.devDependencies);
+          for (const key of ['@reown/appkit-react-native','@reown/appkit-ethers-react-native','@walletconnect/react-native-compat']) {
+            assert.equal(l.packages[''].dependencies[key],p.dependencies[key]);
+          }
+          console.log('PASS isolated v148 lockfile matches declared dependencies');
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: walletconnect-v148-resolved-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 7
+
+  commit-lockfile:
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: walletconnect-v148-resolved-lock
+          path: .walletconnect-artifact
+      - name: Only update lockfile on dedicated isolated branch
+        env:
+          EXPECTED_REF: refs/heads/feat/walletconnect-viewonly-v148-forwardport-20261028
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "$EXPECTED_REF"
+          node <<'NODE'
+          const fs=require('node:fs');
+          const assert=require('node:assert/strict');
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const lock=JSON.parse(fs.readFileSync('.walletconnect-artifact/package-lock.json','utf8'));
+          assert.equal(pkg.version,'2.0.43');
+          assert.equal(lock.version,'2.0.43');
+          assert.deepEqual(lock.packages[''].dependencies,pkg.dependencies);
+          assert.deepEqual(lock.packages[''].devDependencies,pkg.devDependencies);
+          NODE
+          cp .walletconnect-artifact/package-lock.json package-lock.json
+          git add -- package-lock.json
+          if git diff --cached --quiet; then
+            echo "Already up to date."
+            exit 0
+          fi
+          test "$(git diff --cached --name-only)" = "package-lock.json"
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m 'chore(walletconnect): lock verified v148 QA dependencies'
+          git push origin HEAD:refs/heads/feat/walletconnect-viewonly-v148-forwardport-20261028

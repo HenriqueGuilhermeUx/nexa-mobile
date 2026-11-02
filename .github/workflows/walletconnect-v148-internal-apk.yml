@@ -1,0 +1,78 @@
+name: Nexa Wallet Connect v148 internal APK (connection disabled)
+
+on:
+  push:
+    branches:
+      - feat/walletconnect-viewonly-v148-forwardport-20261028
+    paths:
+      - .github/workflows/walletconnect-v148-internal-apk.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: wallet-inbound-lab
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-wallet-v15-staging.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.4'
+      - name: Verify build is only an isolated smoke APK
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs');
+          const pkg=require('./package.json');
+          const manifest=require('./app.json').expo;
+          const eas=require('./eas.json').build['wallet-inbound-lab-v148'];
+          const qa=require('./app.config.js')({config:manifest});
+          if(pkg.version!=='2.0.43'||manifest.android.package!=='br.com.trynexa.app'||manifest.android.versionCode!==148)
+            throw Error('CUSTOMER_V148_BASELINE_MISMATCH');
+          if(!eas||eas.distribution!=='internal'||eas.android.buildType!=='apk'||
+             eas.env.EXPO_PUBLIC_NEXA_API_URL!=='https://nexa-backend-wallet-v15-staging.onrender.com/api/v1'||
+             eas.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false'||
+             eas.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED!=='false'||
+             eas.env.EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED!=='false'||
+             eas.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED!=='false')
+            throw Error('ISOLATED_QA_PROFILE_INVALID');
+          if(qa.android.package!=='br.com.trynexa.walletconnectqa'||
+             qa.scheme!=='nexa-walletconnect-qa'||qa.updates.enabled!==false||
+             qa.extra.financialExecutionEnabled!==false||qa.extra.ledgerOperationsEnabled!==false)
+            throw Error('QA_PACKAGE_NOT_ISOLATED');
+          console.log('PASS dedicated QA package / no financial execution / Reown disabled');
+          NODE
+      - name: Install committed dependency lock
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check TypeScript and Expo native dependencies
+        run: |
+          npm run typecheck
+          npx --yes expo-doctor
+      - name: Require scoped Expo authorization
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          test -n "$EXPO_TOKEN" || (echo 'EXPO_TOKEN missing; safe no-build.' && exit 1)
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Submit isolated, disabled-connector APK to Expo EAS
+        run: eas build --platform android --profile wallet-inbound-lab-v148 --non-interactive --no-wait
+      - name: Explicit non-release boundary
+        run: echo 'Internal APK smoke only. No Play, TestFlight, OTA, funding, transfers, Pix or ledger changes.'

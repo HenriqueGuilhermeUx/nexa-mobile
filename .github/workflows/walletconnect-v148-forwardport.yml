@@ -1,0 +1,119 @@
+name: Nexa Wallet Connect v148 forward-port QA
+
+on:
+  push:
+    branches:
+      - feat/walletconnect-viewonly-v148-forwardport-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-walletconnect-v148-forwardport-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: wallet-inbound-lab
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-wallet-v15-staging.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.4'
+      - name: Verify v148 preserved and QA disabled until native approval
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs');
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const eas=JSON.parse(fs.readFileSync('eas.json','utf8'));
+          const customer=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const app=require('./app.config.js')({config:customer});
+          const qa=eas.build['wallet-inbound-lab-v148'];
+          if(pkg.version!=='2.0.43'||Number(customer.android.versionCode)!==148||
+             customer.android.package!=='br.com.trynexa.app')
+            throw Error('CUSTOMER_V148_BASELINE_CHANGED');
+          if(app.android.package!=='br.com.trynexa.walletconnectqa'||
+             app.android.versionCode!==149||
+             app.scheme!=='nexa-walletconnect-qa'||
+             app.updates.enabled!==false||
+             app.extra.financialExecutionEnabled!==false||
+             app.extra.ledgerOperationsEnabled!==false)
+            throw Error('QA_PACKAGE_OR_FINANCIAL_ISOLATION_FAILED');
+          const appKit=fs.readFileSync('src/lib/reownExternalWalletAppKit.ts','utf8');
+          if(!appKit.includes("redirect: { native: 'nexa-walletconnect-qa://' }"))
+            throw Error('REOWN_QA_DEEPLINK_MISMATCH');
+          if(!appKit.includes('const sessionStore = new Map<string, unknown>()')||
+             appKit.includes('AsyncStorage'))
+            throw Error('QA_WALLET_SESSION_MUST_NOT_PERSIST_ON_DEVICE');
+          if(!qa||qa.distribution!=='internal'||qa.android.buildType!=='apk'||
+             qa.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false'||
+             qa.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED!=='false'||
+             qa.env.EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED!=='false'||
+             qa.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED!=='false')
+            throw Error('WALLETCONNECT_QA_PRODUCTION_ISOLATION_FAILURE');
+          if(eas.build.production.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL!=='production')
+            throw Error('PRODUCTION_PROFILE_CHANGED');
+          const route=fs.readFileSync('app/(app)/external-wallet-connect.tsx','utf8');
+          if(!route.includes("config.releaseChannel === 'wallet-inbound-lab'")||
+             !route.includes("EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED === 'false'")||
+             !route.includes('nexaApi.me(session.accessToken)')||
+             !route.includes('mode="view-only"'))
+            throw Error('WALLETCONNECT_QA_AUTH_OR_VIEWONLY_GATE_MISSING');
+          const authGate=route.indexOf('if (!token || !qaChannel) return');
+          const lazySdk=route.indexOf("require('../../src/lib/reownExternalWalletAppKit')");
+          if(authGate<0 || lazySdk<authGate ||
+             route.includes("import { initializeExternalWalletAppKit }") ||
+             route.includes("import { StagedExternalWalletConnect }"))
+            throw Error('REOWN_SDK_LOADED_BEFORE_QA_AUTH');
+          const priorChannel=process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL;
+          delete process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL;
+          const prod=require('./app.config.js')({config:customer});
+          process.env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL=priorChannel;
+          if(prod.android.package!=='br.com.trynexa.app'||prod.android.versionCode!==148)
+            throw Error('CUSTOMER_PRODUCTION_PACKAGE_CHANGED');
+          console.log('PASS customer v148 unchanged; Reown QA disabled by default');
+          NODE
+      - name: Install exactly committed v148 QA dependency tree
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assert CI did not regenerate dependency lockfile
+        run: |
+          git diff --exit-code -- package.json package-lock.json
+          node <<'NODE'
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const manifest=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          assert.deepEqual(lock.packages[''].dependencies,manifest.dependencies);
+          assert.deepEqual(lock.packages[''].devDependencies,manifest.devDependencies);
+          console.log('PASS reproducible v148 lockfile');
+          NODE
+      - name: Verify complete Wallet, Pix and WalletConnect product integration
+        run: node scripts/check-walletconnect-current-wallet-integration.cjs
+      - name: Exercise authenticated USDC inbound preview with malicious-response fixtures
+        run: node scripts/walletconnect-v148-inbound-preview-contract.test.cjs
+      - name: Validate read-only Polygon USDC receipt observations with hostile fixtures
+        run: node scripts/walletconnect-v148-receipt-observation.test.cjs
+      - name: Verify Reown native QA activation and financial isolation fail closed
+        run: node scripts/walletconnect-v148-reown-qa-gate.test.cjs
+      - name: Typecheck v148 with staged connector
+        run: npm run typecheck
+      - name: Android Expo JS bundle
+        run: npx expo export --platform android --output-dir dist-walletconnect-v148-android --clear
+      - name: iOS Expo JS bundle
+        run: npx expo export --platform ios --output-dir dist-walletconnect-v148-ios --clear
+      - name: Confirm no store or financial publishing
+        run: echo "No native APK, AAB, EAS submission, Play Store, TestFlight or ledger writes."

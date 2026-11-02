@@ -15,6 +15,7 @@ import {
   Title,
 } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
+import { WalletConnectEntry } from '@/components/WalletConnectEntry';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -411,6 +412,8 @@ export default function NewOrderScreen() {
           />
         </Card>
       )}
+      {/* New funding option, without changing existing Pix or Open Finance flows. */}
+      <WalletConnectEntry context="receive" onPress={() => router.push('/(app)/wallet-connect' as any)} />
       <ActionButton
         label="Trazer dinheiro via Open Finance"
         variant="secondary"
