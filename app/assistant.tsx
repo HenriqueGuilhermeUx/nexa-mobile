@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import NexaAssistantOpenFinance from '@/components/NexaAssistantOpenFinance';
 import { nexaApi } from '@/lib/api';
@@ -71,6 +71,7 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.screen}>
+      {process.env.EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED === 'true' && <Pressable onPress={() => router.push('/maya-premium' as any)} style={{padding: 14, marginBottom: 12, borderRadius: 10, backgroundColor: '#2777CC'}}><Text style={{color: '#FFFFFF', fontWeight: '700', textAlign: 'center'}}>Maya Consultora Premium · minhas finanças</Text></Pressable>}
       <NexaAssistantOpenFinance token={token} firstName={firstName} />
     </View>
   );
