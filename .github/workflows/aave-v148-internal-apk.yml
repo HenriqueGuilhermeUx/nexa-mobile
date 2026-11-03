@@ -9,7 +9,7 @@ permissions:
 jobs:
   preview-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Check out isolated v148 Aave QA branch
         uses: actions/checkout@v4
@@ -51,6 +51,14 @@ jobs:
           EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
         run: npx expo prebuild --platform android --clean --no-install
+      - name: Configure bounded Gradle memory and arm64-only internal QA
+        run: |
+          cat >> android/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
+          org.gradle.workers.max=2
+          org.gradle.parallel=false
+          reactNativeArchitectures=arm64-v8a
+          EOF
       - name: Assemble standalone release-mode APK (test signing only)
         env:
           CI: '1'
@@ -60,7 +68,7 @@ jobs:
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon --max-workers=2 --no-parallel --no-configuration-cache -PreactNativeArchitectures=arm64-v8a
       - name: Upload APK to GitHub Actions for internal test
         uses: actions/upload-artifact@v4
         with:
