@@ -5,6 +5,8 @@ import {loadNexaSession} from '@/lib/session';
 import {config} from '@/config';
 
 type Availability={available:boolean;reason?:string};
+const isAvailability=(value:any):value is Availability=>Boolean(value)&&typeof value.available==='boolean';
+const isConsent=(value:any):value is Consent=>Boolean(value)&&typeof value.granted==='boolean'&&value.scope==='nexa.agentic.accounts.read';
 type Consent={granted:boolean;version?:number};
 type Report={kind:string;mode:string;financialExecutionEnabled:boolean;investmentAdviceEnabled:boolean;combinedValue:null;observations?:Array<{message?:string}|string>;warnings?:string[]};
 const enabled=process.env.EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED==='true';
@@ -36,7 +38,7 @@ export default function MayaPremiumScreen(){
   Promise.all([
    fetch(base+'/agentic/accounts/availability',{headers:{Authorization:'Bearer '+token},signal:abort.signal,cache:'no-store'}).then(r=>{if(!r.ok)throw Error('API indisponível');return r.json();}),
    fetch(base+'/agentic/accounts/consent',{headers:{Authorization:'Bearer '+token},signal:abort.signal,cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Consentimento indisponível');return r.json();})
-  ]).then(([a,c])=>{if(!abort.signal.aborted){setAvailability(a);setConsent(c);}}).catch(()=>{if(!abort.signal.aborted)setError('Maya Premium ainda não disponível neste ambiente.');});
+  ]).then(([a,c])=>{if(!isAvailability(a)||!isConsent(c))throw Error('Resposta de autorização inválida');if(!abort.signal.aborted){setAvailability(a);setConsent(c);}}).catch(()=>{if(!abort.signal.aborted)setError('Maya Premium ainda não disponível neste ambiente.');});
   return ()=>abort.abort();
  },[token]);
  async function change(grant:boolean){
@@ -44,8 +46,10 @@ export default function MayaPremiumScreen(){
   setBusy(true);setError('');setReport(null);
   try{
    const c=await request('/agentic/accounts/consent',grant?'POST':'DELETE');
-   if(c.granted!==grant)throw Error('Autorização não confirmada.');
-   setConsent(c);setAvailability(await request('/agentic/accounts/availability'));
+   if(!isConsent(c)||c.granted!==grant)throw Error('Autorização não confirmada.');
+   const a=await request('/agentic/accounts/availability');
+   if(!isAvailability(a))throw Error('Disponibilidade não confirmada.');
+   setConsent(c);setAvailability(a);
   }catch(e:any){setError(e.message);}finally{setBusy(false);}
  }
  async function consult(){
@@ -53,7 +57,7 @@ export default function MayaPremiumScreen(){
   setBusy(true);setError('');setReport(null);
   try{
    const r:Report=await request('/agentic/consultant-review/my-finances');
-   if(r.kind!=='NEXA_AGENTICS_CONSULTANT_REVIEW'||r.financialExecutionEnabled!==false||r.investmentAdviceEnabled!==false||r.combinedValue!==null)
+   if(r.kind!=='NEXA_AGENTICS_CONSULTANT_REVIEW'||!['isolated_staging_read_only','production_invite_only_read_only'].includes(r.mode)||r.financialExecutionEnabled!==false||r.investmentAdviceEnabled!==false||r.combinedValue!==null||!Array.isArray(r.observations))
     throw Error('Resposta inválida da consulta.');
    setReport(r);
   }catch(e:any){setError(e.message);}finally{setBusy(false);}
