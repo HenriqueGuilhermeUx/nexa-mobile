@@ -71,6 +71,10 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.screen}>
+      <View style={styles.mayaHeader}>
+        <Text style={styles.mayaTitle}>Maya</Text>
+        <Text style={styles.mayaSubtitle}>Sua assistente inteligente</Text>
+      </View>
       <NexaAssistantOpenFinance token={token} firstName={firstName} />
     </View>
   );
@@ -82,6 +86,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
+  mayaHeader: { marginBottom: spacing.md },
+  mayaTitle: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  mayaSubtitle: { color: colors.muted, marginTop: 3 },
   loader: {
     flex: 1,
     alignItems: 'center',
