@@ -75,7 +75,7 @@ jobs:
           node <<'NODE'
           const cp=require('child_process');const out=cp.execSync('git status --porcelain',{encoding:'utf8'});
           const allowed=new Set(['app/index.tsx','app/kyc.tsx','app/assistant.tsx','app/_layout.tsx','app/sign-in.tsx','app/sign-up-country.tsx','app/(app)/_layout.tsx','app/(app)/pj-entry.tsx','app/(app)/pj-wallet.tsx','src/components/AlignedLegacyApp.tsx']);
-          for(const line of out.trim().split('\n').filter(Boolean)){
+          for(const line of out.split('\n').filter(Boolean)){
             const path=line.slice(3);
             if(!allowed.has(path))throw Error('Unexpected modification: '+path);
           }
