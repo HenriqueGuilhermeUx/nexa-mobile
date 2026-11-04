@@ -1,0 +1,32 @@
+name: Repair Expo patch lockfile (activation branch)
+on:
+  push:
+    branches:
+      - feat/activation-copy-kyc-20261103
+    paths:
+      - .github/workflows/repair-expo-patches.yml
+permissions:
+  contents: write
+jobs:
+  repair-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/activation-copy-kyc-20261103
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Update Expo patch dependencies and lockfile
+        run: npm install --package-lock-only --save-exact expo-crypto@57.0.4 expo-dev-client@57.0.20 expo-splash-screen@57.0.10
+      - name: Verify lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Commit lockfile if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(expo): align SDK 57 patch dependencies and lockfile"
+            git push origin HEAD:feat/activation-copy-kyc-20261103
+          fi
