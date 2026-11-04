@@ -1,0 +1,81 @@
+import React,{useEffect,useState} from 'react';
+import {ActivityIndicator,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {router} from 'expo-router';
+import {loadNexaSession} from '@/lib/session';
+import {config} from '@/config';
+
+type Availability={available:boolean;reason?:string};
+const isAvailability=(value:any):value is Availability=>Boolean(value)&&typeof value.available==='boolean';
+const isConsent=(value:any):value is Consent=>Boolean(value)&&typeof value.granted==='boolean'&&value.scope==='nexa.agentic.accounts.read';
+type Consent={granted:boolean;version?:number};
+type Report={transactionInsights?:{status:string;sampleSize:number;completedOnrampsBrl:number|null;completedOfframpsBrl:number|null;pendingCount:number|null;oldestRecordAt?:string|null;newestRecordAt?:string|null;sampleLimitReached?:boolean};kind:string;mode:string;financialExecutionEnabled:boolean;investmentAdviceEnabled:boolean;combinedValue:null;observations?:Array<{message?:string}|string>;warnings?:string[];priorities?:Array<{level:string;title:string;explanation:string}>;coverage?:{brlLedger:boolean;operationalUsdc:boolean;polygonWallet:boolean;transactionHistory:boolean;externalBanks:boolean;spendingTrendsAvailable:boolean}};
+const enabled=process.env.EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED==='true';
+export default function MayaPremiumScreen(){
+ const [token,setToken]=useState('');
+ const [availability,setAvailability]=useState<Availability|null>(null);
+ const [consent,setConsent]=useState<Consent|null>(null);
+ const [report,setReport]=useState<Report|null>(null);
+ const [busy,setBusy]=useState(false);
+ const [error,setError]=useState('');
+ const base=config.apiUrl.replace(/\/$/,'');
+ async function request(path:string,method='GET',signal?:AbortSignal){
+  const response=await fetch(base+path,{method,signal,headers:{Authorization:'Bearer '+token,Accept:'application/json','Cache-Control':'no-store'}});
+  if(!response.ok)throw new Error(response.status===401?'Sua sessão expirou. Entre novamente.':'Serviço indisponível ou acesso não autorizado.');
+  return response.json();
+ }
+ useEffect(()=>{
+  let alive=true;
+  loadNexaSession().then(session=>{
+   if(!alive)return;
+   if(!session){router.replace('/sign-in');return;}
+   setToken(session.accessToken);
+  }).catch(()=>{if(alive)setError('Não foi possível verificar a sessão.');});
+  return ()=>{alive=false;};
+ },[]);
+ useEffect(()=>{
+  if(!token||!enabled)return;
+  const abort=new AbortController();
+  Promise.all([
+   fetch(base+'/agentic/accounts/availability',{headers:{Authorization:'Bearer '+token},signal:abort.signal,cache:'no-store'}).then(r=>{if(!r.ok)throw Error('API indisponível');return r.json();}),
+   fetch(base+'/agentic/accounts/consent',{headers:{Authorization:'Bearer '+token},signal:abort.signal,cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Consentimento indisponível');return r.json();})
+  ]).then(([a,c])=>{if(!isAvailability(a)||!isConsent(c))throw Error('Resposta de autorização inválida');if(!abort.signal.aborted){setAvailability(a);setConsent(c);}}).catch(()=>{if(!abort.signal.aborted)setError('Maya Premium ainda não disponível neste ambiente.');});
+  return ()=>abort.abort();
+ },[token]);
+ async function change(grant:boolean){
+  if(!availability?.available||!consent)return;
+  setBusy(true);setError('');setReport(null);
+  try{
+   const c=await request('/agentic/accounts/consent',grant?'POST':'DELETE');
+   if(!isConsent(c)||c.granted!==grant)throw Error('Autorização não confirmada.');
+   const a=await request('/agentic/accounts/availability');
+   if(!isAvailability(a))throw Error('Disponibilidade não confirmada.');
+   setConsent(c);setAvailability(a);
+  }catch(e:any){setError(e.message);}finally{setBusy(false);}
+ }
+ async function consult(){
+  if(!availability?.available||!consent?.granted)return;
+  setBusy(true);setError('');setReport(null);
+  try{
+   const r:Report=await request('/agentic/consultant-review/my-finances');
+   if(r.kind!=='NEXA_AGENTICS_CONSULTANT_REVIEW'||!['isolated_staging_read_only','production_invite_only_read_only'].includes(r.mode)||r.financialExecutionEnabled!==false||r.investmentAdviceEnabled!==false||r.combinedValue!==null||!Array.isArray(r.observations))
+    throw Error('Resposta inválida da consulta.');
+   setReport(r);
+  }catch(e:any){setError(e.message);}finally{setBusy(false);}
+ }
+ return <ScrollView contentContainerStyle={styles.page}>
+  <Text style={styles.title}>Maya · Consultora Premium</Text>
+  <Text style={styles.text}>Análises informativas da sua conta Nexa. Sem pagamentos, transferências ou recomendações de investimento.</Text>
+  {!enabled?<Text style={styles.text}>Disponível em breve para clientes Premium convidados.</Text>:null}
+  {enabled&&!consent&&!error?<ActivityIndicator/>:null}
+  {availability?.available&&consent?<View>
+   <Text style={styles.text}>{consent.granted?'Consultas autorizadas. Você pode revogar a qualquer momento.':'Autorize explicitamente para permitir consultas aos seus dados financeiros.'}</Text>
+   <Pressable disabled={busy} style={styles.button} onPress={()=>change(!consent.granted)}><Text style={styles.buttonText}>{consent.granted?'Revogar autorização':'Autorizar consultas'}</Text></Pressable>
+  </View>:null}
+  {availability?.available&&consent?.granted?<Pressable disabled={busy} style={styles.button} onPress={consult}><Text style={styles.buttonText}>Consultar minhas finanças</Text></Pressable>:null}
+  {availability&&!availability.available?<Text style={styles.text}>Acesso ainda não liberado para esta conta Premium. Nenhuma autorização pode ser concedida por esta tela enquanto o acesso estiver indisponível.</Text>:null}
+  {busy?<ActivityIndicator/>:null}
+  {error?<Text style={styles.error}>{error}</Text>:null}
+  {report?<View><Text style={styles.title}>Resumo informativo</Text>{(report.observations||[]).map((o,i)=><Text key={i} style={styles.text}>• {typeof o==='string'?o:o.message||'Observação disponível'}</Text>)}{Array.isArray(report.priorities)&&report.priorities.length>0?<View><Text style={styles.title}>Pontos de atenção</Text>{report.priorities.map((p,i)=><Text key={i} style={styles.text}>• {p.title}: {p.explanation}</Text>)}</View>:null}{report.transactionInsights?.status==='available'?<View><Text style={styles.title}>Movimentações Nexa</Text><Text style={styles.text}>Últimos {report.transactionInsights.sampleSize} registros analisados (máximo 50). Conversões BRL → USDC concluídas: R$ {report.transactionInsights.completedOnrampsBrl?.toFixed(2)}. Conversões USDC → BRL concluídas: R$ {report.transactionInsights.completedOfframpsBrl?.toFixed(2)}.</Text><Text style={styles.text}>Operações pendentes ou em processamento: {report.transactionInsights.pendingCount}. Conversões não representam necessariamente receitas ou despesas pessoais.</Text><Text style={styles.text}>{report.transactionInsights.sampleLimitReached?'Limite de 50 registros atingido: os totais podem não representar todo o histórico.':'Análise limitada aos registros retornados pela Nexa.'}{report.transactionInsights.oldestRecordAt&&report.transactionInsights.newestRecordAt?' Período observado: '+new Date(report.transactionInsights.oldestRecordAt).toLocaleDateString('pt-BR')+' a '+new Date(report.transactionInsights.newestRecordAt).toLocaleDateString('pt-BR')+'.':''}</Text></View>:null}{report.coverage?<View><Text style={styles.title}>Cobertura da análise</Text><Text style={styles.text}>Ledger BRL: {report.coverage.brlLedger?'consultado':'indisponível'} · USDC operacional: {report.coverage.operationalUsdc?'consultado':'indisponível'} · Polygon: {report.coverage.polygonWallet?'consultada':'indisponível'}</Text><Text style={styles.text}>Histórico de despesas e bancos externos: {report.coverage.transactionHistory&&report.coverage.externalBanks?'conectados':'ainda não conectados nesta análise'}. A Maya não inventa tendências sem histórico verificado.</Text></View>:null}<Text style={styles.text}>Fontes podem se sobrepor. Nenhum saldo é somado ou tratado como disponível para saque.</Text></View>:null}
+ </ScrollView>;
+}
+const styles=StyleSheet.create({page:{flexGrow:1,padding:24,backgroundColor:'#06111F',gap:18},title:{color:'#FFFFFF',fontSize:23,fontWeight:'700'},text:{color:'#D5E1EE',fontSize:15,lineHeight:23},error:{color:'#FFB0B0'},button:{backgroundColor:'#2777CC',padding:15,borderRadius:12},buttonText:{color:'#FFFFFF',fontWeight:'700',textAlign:'center'}});
