@@ -15,6 +15,7 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="new-order" options={{ title: 'Adicionar com Pix' }} />
       <Stack.Screen name="activity" options={{ title: 'Histórico' }} />
+      <Stack.Screen name="pj-wallet" options={{ title: 'Nexa PJ · Carteira empresarial' }} />
       <Stack.Screen name="rewards" options={{ title: 'Rewards' }} />
     </Stack>
   );
