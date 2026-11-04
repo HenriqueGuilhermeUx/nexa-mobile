@@ -40,6 +40,7 @@ export default function MayaPremiumScreen(){
   return ()=>abort.abort();
  },[token]);
  async function change(grant:boolean){
+  if(!availability?.available||!consent)return;
   setBusy(true);setError('');setReport(null);
   try{
    const c=await request('/agentic/accounts/consent',grant?'POST':'DELETE');
@@ -62,12 +63,12 @@ export default function MayaPremiumScreen(){
   <Text style={styles.text}>Análises informativas da sua conta Nexa. Sem pagamentos, transferências ou recomendações de investimento.</Text>
   {!enabled?<Text style={styles.text}>Disponível em breve para clientes Premium convidados.</Text>:null}
   {enabled&&!consent&&!error?<ActivityIndicator/>:null}
-  {consent?<View>
+  {availability?.available&&consent?<View>
    <Text style={styles.text}>{consent.granted?'Consultas autorizadas. Você pode revogar a qualquer momento.':'Autorize explicitamente para permitir consultas aos seus dados financeiros.'}</Text>
    <Pressable disabled={busy} style={styles.button} onPress={()=>change(!consent.granted)}><Text style={styles.buttonText}>{consent.granted?'Revogar autorização':'Autorizar consultas'}</Text></Pressable>
   </View>:null}
   {availability?.available&&consent?.granted?<Pressable disabled={busy} style={styles.button} onPress={consult}><Text style={styles.buttonText}>Consultar minhas finanças</Text></Pressable>:null}
-  {availability&&!availability.available?<Text style={styles.text}>Acesso ainda não liberado para esta conta Premium.</Text>:null}
+  {availability&&!availability.available?<Text style={styles.text}>Acesso ainda não liberado para esta conta Premium. Nenhuma autorização pode ser concedida por esta tela enquanto o acesso estiver indisponível.</Text>:null}
   {busy?<ActivityIndicator/>:null}
   {error?<Text style={styles.error}>{error}</Text>:null}
   {report?<View><Text style={styles.title}>Resumo informativo</Text>{(report.observations||[]).map((o,i)=><Text key={i} style={styles.text}>• {typeof o==='string'?o:o.message||'Observação disponível'}</Text>)}<Text style={styles.text}>Fontes podem se sobrepor. Nenhum saldo é somado ou tratado como disponível para saque.</Text></View>:null}
