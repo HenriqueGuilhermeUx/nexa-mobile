@@ -1,7 +1,7 @@
 name: Nexa Maya v148 OTA - preserve activation
 on:
   push:
-    branches: [feat/maya-v148-ota-compatible-20261104]
+    branches: [release/nexa-2.0.43-v148-brasil]
     paths: ['.github/workflows/maya-v148-production-ota.yml']
   workflow_dispatch:
 permissions:
