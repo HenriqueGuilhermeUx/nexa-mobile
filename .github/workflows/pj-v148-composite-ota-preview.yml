@@ -54,15 +54,15 @@ jobs:
             if(count!==expectedCount)throw Error(path+' unexpected anchors '+count);
             fs.writeFileSync(path,s.split(oldText).join(newText));
           }
-          const marker="              onPress={() => router.push('/sign-in')}\\n            />";
-          const pjAction='\\n            <ActionButton\\n              label="Nexa Empresa · Acessar ou criar CNPJ"\\n              variant="secondary"\\n              onPress={() => router.push({pathname:\'/sign-in\',params:{mode:\'pj\'}} as any)}\\n            />';
+          const marker="              onPress={() => router.push('/sign-in')}\n            />";
+          const pjAction='\n            <ActionButton\n              label="Nexa Empresa · Acessar ou criar CNPJ"\n              variant="secondary"\n              onPress={() => router.push({pathname:\'/sign-in\',params:{mode:\'pj\'}} as any)}\n            />';
           patch('app/index.tsx',marker,marker+pjAction,2);
           patch('app/(app)/_layout.tsx',
             '<Stack.Screen name="rewards" options={{ title: \'Rewards\' }} />',
-            '<Stack.Screen name="rewards" options={{ title: \'Rewards\' }} />\\n      <Stack.Screen name="pj-entry" options={{ title: \'Nexa PJ · CNPJ\' }} />\\n      <Stack.Screen name="pj-wallet" options={{ title: \'Nexa PJ · Carteira empresarial\' }} />',1);
+            '<Stack.Screen name="rewards" options={{ title: \'Rewards\' }} />\n      <Stack.Screen name="pj-entry" options={{ title: \'Nexa PJ · CNPJ\' }} />\n      <Stack.Screen name="pj-wallet" options={{ title: \'Nexa PJ · Carteira empresarial\' }} />',1);
           patch('src/components/AlignedLegacyApp.tsx',
             '<MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage(\'wallet\')} />',
-            '<MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage(\'wallet\')} />\\n          <MenuTile icon="PJ" title="Nexa Empresa" subtitle="Acessar ou cadastrar CNPJ" onPress={() => router.push(\'/(app)/pj-entry\' as any)} />',1);
+            '<MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage(\'wallet\')} />\n          <MenuTile icon="PJ" title="Nexa Empresa" subtitle="Acessar ou cadastrar CNPJ" onPress={() => router.push(\'/(app)/pj-entry\' as any)} />',1);
           if(!fs.readFileSync('app/index.tsx','utf8').includes('sem precisar depositar agora'))throw Error('Prior activation copy lost');
           if(!fs.readFileSync('app/sign-in.tsx','utf8').includes('companyMode'))throw Error('PJ login missing');
           if(!fs.readFileSync('app/assistant.tsx','utf8').includes('Maya'))throw Error('Prior Maya assistant lost');
@@ -75,7 +75,7 @@ jobs:
           node <<'NODE'
           const cp=require('child_process');const out=cp.execSync('git status --porcelain',{encoding:'utf8'});
           const allowed=new Set(['app/index.tsx','app/kyc.tsx','app/assistant.tsx','app/_layout.tsx','app/sign-in.tsx','app/sign-up-country.tsx','app/(app)/_layout.tsx','app/(app)/pj-entry.tsx','app/(app)/pj-wallet.tsx','src/components/AlignedLegacyApp.tsx']);
-          for(const line of out.trim().split('\\n').filter(Boolean)){
+          for(const line of out.trim().split('\n').filter(Boolean)){
             const path=line.slice(3);
             if(!allowed.has(path))throw Error('Unexpected modification: '+path);
           }
