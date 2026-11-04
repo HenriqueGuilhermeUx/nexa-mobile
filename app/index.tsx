@@ -29,23 +29,23 @@ const INTRO = [
   {
     kicker: 'NEXA WALLET',
     title: 'Sua wallet. Seus ativos.',
-    text: 'Uma forma mais simples de acessar e usar ativos digitais.',
+    text: 'Conheça sua conta, sua carteira digital e as opções disponíveis. Você pode começar entendendo como tudo funciona, sem precisar depositar agora.',
     symbol: 'N',
     caption: 'Controle com experiência de fintech',
   },
   {
     kicker: 'SIMPLES POR FORA',
     title: 'A tecnologia fica por trás.',
-    text: 'Você não precisa dominar redes, bridges ou gas para começar.',
+    text: 'Crie sua conta, confirme sua identidade com segurança e acompanhe cada etapa no aplicativo. A verificação ajuda a prevenir fraudes.',
     symbol: '◎',
     caption: 'A Nexa cuida das etapas técnicas',
   },
   {
     kicker: 'COMECE PELO FAMILIAR',
     title: 'Comece pelo que você já conhece.',
-    text: 'No Brasil, use Pix para iniciar sua experiência com USDC.',
+    text: 'Após a aprovação da identidade, conheça as opções de depósito por Pix e Open Finance. Confira os valores e as condições antes de confirmar.',
     symbol: 'PIX',
-    caption: 'Pix → USDC → sua wallet',
+    caption: 'Identidade verificada → escolha como começar',
   },
 ];
 
