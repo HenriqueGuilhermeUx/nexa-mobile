@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text } from 'react-native';
 
 import {
@@ -23,6 +23,8 @@ const countries = [
 ] as const;
 
 export default function SignUpCountryScreen() {
+  const params=useLocalSearchParams<{mode?:string}>();
+  const pj=String(params.mode||'')==='pj';
   const [loadingCountry, setLoadingCountry] = useState('');
   const [message, setMessage] = useState('');
 
@@ -39,7 +41,7 @@ export default function SignUpCountryScreen() {
       ) {
         router.push({
           pathname: '/sign-up',
-          params: { countryCode },
+          params: { countryCode, mode:pj?'pj':'pf' },
         } as any);
         return;
       }
@@ -61,10 +63,9 @@ export default function SignUpCountryScreen() {
   return (
     <Screen>
       <Brand />
-      <Title>Onde você mora?</Title>
+      <Title>{pj?'Nexa Empresa: comece por você':'Onde você mora?'}</Title>
       <Paragraph>
-        A Nexa adapta verificação de identidade, formas de adicionar dinheiro e
-        saques ao país de residência. O Brasil continua disponível normalmente.
+        {pj?'Para criar a conta da empresa, o responsável inicia com seus dados pessoais, conclui a identidade e depois cadastra o CNPJ para análise.':'A Nexa adapta verificação de identidade, formas de adicionar dinheiro e saques ao país de residência. O Brasil continua disponível normalmente.'}
       </Paragraph>
 
       <Card>
