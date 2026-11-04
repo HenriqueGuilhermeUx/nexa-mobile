@@ -1,0 +1,99 @@
+name: Nexa PJ v148 composite OTA preview preserving Maya and activation
+on:
+  push:
+    branches:
+      - release/nexa-2.0.43-v148-brasil
+    paths:
+      - '.github/workflows/pj-v148-composite-ota-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexa-pj-v148-composite-preview
+  cancel-in-progress: false
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: nexa-pj-v148-composite-qa
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_URL: https://trydocwallet.com
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_URL: https://mydatamed.com/healthwallet
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Construct exact production v148 lineage plus CNPJ navigation
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/aave-v148-internal-apk-20261102 feat/maya-v148-ota-compatible-20261104 release/nexa-2.0.43-v148-brasil
+          git switch --detach origin/feat/aave-v148-internal-apk-20261102
+          git show origin/main:app/index.tsx > app/index.tsx
+          git show origin/main:app/kyc.tsx > app/kyc.tsx
+          git show origin/feat/maya-v148-ota-compatible-20261104:app/assistant.tsx > app/assistant.tsx
+          git show origin/feat/maya-v148-ota-compatible-20261104:app/_layout.tsx > app/_layout.tsx
+          for path in 'app/sign-in.tsx' 'app/sign-up-country.tsx' 'app/(app)/pj-entry.tsx' 'app/(app)/pj-wallet.tsx'; do
+            git show "origin/release/nexa-2.0.43-v148-brasil:$path" > "$path"
+          done
+          node <<'NODE'
+          const fs=require('fs');
+          function patch(path,oldText,newText,expectedCount){
+            let s=fs.readFileSync(path,'utf8');const count=s.split(oldText).length-1;
+            if(count!==expectedCount)throw Error(path+' unexpected anchors '+count);
+            fs.writeFileSync(path,s.split(oldText).join(newText));
+          }
+          const marker="              onPress={() => router.push('/sign-in')}\\n            />";
+          const pjAction='\\n            <ActionButton\\n              label="Nexa Empresa · Acessar ou criar CNPJ"\\n              variant="secondary"\\n              onPress={() => router.push({pathname:\'/sign-in\',params:{mode:\'pj\'}} as any)}\\n            />';
+          patch('app/index.tsx',marker,marker+pjAction,2);
+          patch('app/(app)/_layout.tsx',
+            '<Stack.Screen name="rewards" options={{ title: \'Rewards\' }} />',
+            '<Stack.Screen name="rewards" options={{ title: \'Rewards\' }} />\\n      <Stack.Screen name="pj-entry" options={{ title: \'Nexa PJ · CNPJ\' }} />\\n      <Stack.Screen name="pj-wallet" options={{ title: \'Nexa PJ · Carteira empresarial\' }} />',1);
+          patch('src/components/AlignedLegacyApp.tsx',
+            '<MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage(\'wallet\')} />',
+            '<MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage(\'wallet\')} />\\n          <MenuTile icon="PJ" title="Nexa Empresa" subtitle="Acessar ou cadastrar CNPJ" onPress={() => router.push(\'/(app)/pj-entry\' as any)} />',1);
+          if(!fs.readFileSync('app/index.tsx','utf8').includes('sem precisar depositar agora'))throw Error('Prior activation copy lost');
+          if(!fs.readFileSync('app/sign-in.tsx','utf8').includes('companyMode'))throw Error('PJ login missing');
+          if(!fs.readFileSync('app/assistant.tsx','utf8').includes('Maya'))throw Error('Prior Maya assistant lost');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const dynamic=require('./app.config.js')({config:app});
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||pkg.version!=='2.0.43')throw Error('Wrong Android baseline');
+          if(dynamic.version!=='2.0.43'||dynamic.android.versionCode!==148||app.runtimeVersion?.policy!=='appVersion'||app.android.package!=='br.com.trynexa.app')throw Error('Runtime/package drift');
+          NODE
+          node <<'NODE'
+          const cp=require('child_process');const out=cp.execSync('git status --porcelain',{encoding:'utf8'});
+          const allowed=new Set(['app/index.tsx','app/kyc.tsx','app/assistant.tsx','app/_layout.tsx','app/sign-in.tsx','app/sign-up-country.tsx','app/(app)/_layout.tsx','app/(app)/pj-entry.tsx','app/(app)/pj-wallet.tsx','src/components/AlignedLegacyApp.tsx']);
+          for(const line of out.trim().split('\\n').filter(Boolean)){
+            const path=line.slice(3);
+            if(!allowed.has(path))throw Error('Unexpected modification: '+path);
+          }
+          console.log('Only allowlisted JS/TS files changed; financial/native configuration unchanged');
+          NODE
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: node scripts/validate-wallet-first-exit-flow.js
+      - run: node scripts/validate-wallet-first-user-actions.js
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Publish isolated composite preview only
+        run: eas update --branch nexa-pj-v148-composite-qa --platform android --message "Nexa PJ v148 + existing Maya and activation; QA only" --non-interactive
