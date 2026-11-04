@@ -23,6 +23,14 @@ jobs:
       EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: feat/aave-v148-internal-apk-20261102
+          fetch-depth: 0
+      - name: Apply approved text screens only
+        run: |
+          git fetch origin main --depth=1
+          git show origin/main:app/index.tsx > app/index.tsx
+          git show origin/main:app/kyc.tsx > app/kyc.tsx
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -30,30 +38,25 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
       - run: node scripts/validate-mobile-safety-v123.js
-      - name: Prepare OTA runtime identity only (no native binary)
+      - name: Verify production v148 OTA target
         run: |
           node <<'NODE'
           const fs = require('fs');
-          const app = JSON.parse(fs.readFileSync('app.json','utf8'));
+          const app = JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
           const eas = JSON.parse(fs.readFileSync('eas.json','utf8'));
-          if (app.expo.runtimeVersion?.policy !== 'appVersion' || eas.build.production.channel !== 'production') throw Error('OTA policy mismatch');
-          if (app.expo.android.package !== 'br.com.trynexa.app') throw Error('Unexpected Android package');
-          if (app.expo.version !== '2.0.42' || app.expo.android.versionCode !== 145) throw Error('Unexpected source version: review before publishing');
+          const dynamic = require('./app.config.js')({config:app});
+          if (app.version !== '2.0.43' || app.android.versionCode !== 148 || pkg.version !== '2.0.43') throw Error('Unexpected v148 baseline');
+          if (dynamic.version !== '2.0.43' || dynamic.android.versionCode !== 148) throw Error('Dynamic config mismatch');
+          if (app.runtimeVersion?.policy !== 'appVersion' || eas.build.production.channel !== 'production') throw Error('Wrong OTA runtime or channel');
+          if (app.android.package !== 'br.com.trynexa.app') throw Error('Wrong Android package');
           if (!fs.readFileSync('app/index.tsx','utf8').includes('sem precisar depositar agora')) throw Error('Activation copy missing');
-          app.expo.version = '2.0.43';
-          app.expo.android.versionCode = 148;
-          fs.writeFileSync('app.json',JSON.stringify(app,null,2)+'\n');
-          const configPath='app.config.js';
-          const config=fs.readFileSync(configPath,'utf8')
-            .replace("version: '2.0.42'","version: '2.0.43'")
-            .replace('versionCode: 145','versionCode: 148');
-          fs.writeFileSync(configPath,config);
-          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
-          pkg.version='2.0.43';
-          fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');
-          const dynamic=require('./app.config.js')({config:app.expo});
-          if (dynamic.version !== '2.0.43' || dynamic.android.versionCode !== 148) throw Error('Runtime override failed');
           NODE
+      - name: Confirm only two text screens changed
+        run: |
+          git diff --name-only | sort > /tmp/changed-files
+          printf 'app/index.tsx\napp/kyc.tsx\n' | sort > /tmp/allowed-files
+          diff -u /tmp/allowed-files /tmp/changed-files
       - uses: expo/expo-github-action@v8
         with:
           eas-version: 24.8.0
