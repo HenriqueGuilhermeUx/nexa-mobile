@@ -1,6 +1,10 @@
 name: Nexa activation copy OTA - Android 2.0.43
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/activation-v148-ota.yml'
 permissions:
   contents: read
 concurrency:
