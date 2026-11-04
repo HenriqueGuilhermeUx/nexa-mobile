@@ -225,6 +225,11 @@ export default function WelcomeScreen() {
               variant="secondary"
               onPress={() => router.push('/sign-in')}
             />
+            <ActionButton
+              label="Nexa Empresa · Acessar ou criar CNPJ"
+              variant="secondary"
+              onPress={() => router.push({pathname:'/sign-in',params:{mode:'pj'}} as any)}
+            />
           </>
         ) : (
           <>
@@ -238,6 +243,11 @@ export default function WelcomeScreen() {
               label="Já tenho uma conta"
               variant="secondary"
               onPress={() => router.push('/sign-in')}
+            />
+            <ActionButton
+              label="Nexa Empresa · Acessar ou criar CNPJ"
+              variant="secondary"
+              onPress={() => router.push({pathname:'/sign-in',params:{mode:'pj'}} as any)}
             />
           </>
         )}
