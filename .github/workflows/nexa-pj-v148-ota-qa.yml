@@ -1,0 +1,76 @@
+name: Nexa PJ v148 isolated OTA QA
+
+on:
+  push:
+    branches:
+      - feat/nexa-pj-login-v148-release-safe-20261104
+    paths:
+      - '.github/workflows/nexa-pj-v148-ota-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-pj-v148-qa-only
+  cancel-in-progress: false
+
+jobs:
+  validate-and-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'nexa-pj-v148-qa'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Enforce exact v148 runtime and unchanged Android identity
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const dynamic=require('./app.config.js')({config:app});
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||pkg.version!=='2.0.43') throw Error('Wrong v148 release baseline');
+          if(dynamic.version!=='2.0.43'||dynamic.android.versionCode!==148) throw Error('Unexpected native runtime');
+          if(app.runtimeVersion?.policy!=='appVersion'||app.android.package!=='br.com.trynexa.app') throw Error('Unsafe OTA identity');
+          if(!app.updates?.url?.startsWith('https://u.expo.dev/')) throw Error('OTA URL missing');
+          console.log('v148 2.0.43 runtime and native identity preserved');
+          NODE
+      - name: Install release dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify TypeScript
+        run: npm run typecheck
+      - name: Keep existing wallet safety contracts
+        run: |
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-quote.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+          node scripts/validate-wallet-cross-device-recovery.js
+          node scripts/validate-biometric-app-lock.js
+      - name: Export Android JS bundle without native build
+        run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Publish only isolated QA OTA branch, never production
+        run: |
+          test -n "$EXPO_TOKEN"
+          eas update --branch nexa-pj-v148-qa --platform android --message "Nexa PJ CNPJ entry QA on official v148 release baseline; financial execution off" --non-interactive
