@@ -71,6 +71,10 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.screen}>
+      <View style={{marginBottom: 12}}>
+        <Text style={{color: colors.text, fontSize: 24, fontWeight: '800'}}>Maya</Text>
+        <Text style={{color: colors.muted, marginTop: 3}}>Sua assistente inteligente</Text>
+      </View>
       {process.env.EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED === 'true' && (
         <Pressable accessibilityRole="button" accessibilityLabel="Abrir consultoria financeira da Maya" onPress={() => router.push('/maya-premium' as any)} style={{padding: 14, marginBottom: 12, borderRadius: 10, backgroundColor: '#2777CC'}}>
           <Text style={{color: '#FFFFFF', fontWeight: '700', textAlign: 'center'}}>Maya · Consultoria financeira Premium</Text>
