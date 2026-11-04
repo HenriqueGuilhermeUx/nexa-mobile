@@ -1749,6 +1749,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           <MenuTile icon="↕" title="Movimentações" subtitle="Histórico" onPress={() => setPage('history')} />
           <MenuTile icon="ID" title="Nexa ID" subtitle={nexaId || handle} onPress={() => setPage('nexaId')} />
           <MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage('wallet')} />
+          <MenuTile icon="PJ" title="Nexa PJ" subtitle="Conta e USDC empresarial" onPress={() => router.push('/(app)/pj-wallet' as any)} />
         </View>
 
         <Text style={styles.menuSectionLabel}>MOVIMENTAR</Text>
