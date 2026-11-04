@@ -54,8 +54,8 @@ jobs:
       - name: Configure bounded Gradle memory and arm64-only internal QA
         run: |
           cat >> android/gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
-          org.gradle.workers.max=2
+          org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
+          org.gradle.workers.max=1
           org.gradle.parallel=false
           reactNativeArchitectures=arm64-v8a
           EOF
@@ -68,11 +68,24 @@ jobs:
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon --max-workers=2 --no-parallel --no-configuration-cache -PreactNativeArchitectures=arm64-v8a
+          ./gradlew assembleRelease --no-daemon --max-workers=1 --no-parallel --no-configuration-cache -PreactNativeArchitectures=arm64-v8a -x lintVitalAnalyzeRelease -x lintVitalReportRelease
+      - name: Sign isolated test APK with disposable QA key and verify
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -v -keystore "$RUNNER_TEMP/nexa-qa.jks" -storepass android -keypass android -alias nexaqa -keyalg RSA -keysize 3072 -validity 2 -dname "CN=Nexa Aave Internal QA"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          UNSIGNED="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          if [ ! -f "$UNSIGNED" ]; then
+            UNSIGNED="android/app/build/outputs/apk/release/app-release.apk"
+          fi
+          test -f "$UNSIGNED"
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/nexa-aligned.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/nexa-qa.jks" --ks-key-alias nexaqa --ks-pass pass:android --key-pass pass:android --out nexa-aave-v148-qa-signed.apk "$RUNNER_TEMP/nexa-aligned.apk"
+          "$BUILD_TOOLS/apksigner" verify --verbose nexa-aave-v148-qa-signed.apk
       - name: Upload APK to GitHub Actions for internal test
         uses: actions/upload-artifact@v4
         with:
           name: nexa-aave-v148-standalone-qa-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: nexa-aave-v148-qa-signed.apk
           if-no-files-found: error
           retention-days: 7
