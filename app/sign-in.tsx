@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -25,6 +25,9 @@ import {
 import { colors, radius, spacing } from '@/theme';
 
 export default function SignInScreen() {
+  const params = useLocalSearchParams<{ mode?: string; cnpj?: string }>();
+  const [companyMode, setCompanyMode] = useState(String(params.mode||'') === 'pj');
+  const [cnpj,setCnpj] = useState(String(params.cnpj||'').replace(/\D/g,'').slice(0,14));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -45,7 +48,11 @@ export default function SignInScreen() {
     accessToken: string,
   ) {
     const target = await resolveAuthenticatedRoute(profile, accessToken);
-    router.replace(target as any);
+    if(companyMode && String(profile?.kycStatus||'').toLowerCase()==='approved'){
+      router.replace({pathname:'/(app)/pj-entry',params:{cnpj}} as any);
+    } else {
+      router.replace(target as any);
+    }
   }
 
   async function maybeOfferDeviceProtection(
@@ -94,6 +101,7 @@ export default function SignInScreen() {
   async function authenticateNexa() {
     const normalizedEmail = email.trim().toLowerCase();
     setError('');
+    if (companyMode && cnpj && cnpj.length!==14){setError('Informe um CNPJ com 14 números ou deixe em branco para selecionar após entrar.');return;}
     if (!normalizedEmail || !password) {
       setError('Informe seu e-mail e sua senha.');
       return;
@@ -138,9 +146,14 @@ export default function SignInScreen() {
     <Screen>
       <Brand />
       <View style={styles.topSpace} />
-      <Title>Bem-vindo de volta</Title>
+      <Title>{companyMode?'Nexa Empresa':'Bem-vindo de volta'}</Title>
+      <View style={styles.accountChoice}>
+        <Text style={styles.accountChoiceTitle}>Como deseja entrar?</Text>
+        <ActionButton label={companyMode?'Pessoa Física':'✓ Pessoa Física'} variant="secondary" disabled={loading} onPress={()=>{setCompanyMode(false);setError('')}} />
+        <ActionButton label={companyMode?'✓ Empresa (CNPJ)':'Empresa (CNPJ)'} variant="secondary" disabled={loading} onPress={()=>{setCompanyMode(true);setError('')}} />
+      </View>
       <Paragraph>
-        Acesse sua Nexa Wallet. Sua senha não é armazenada neste aparelho.
+        {companyMode?'Entre com seu e-mail e senha Nexa. O CNPJ identifica a empresa; o acesso depende da aprovação PJ.':'Acesse sua Nexa Wallet. Sua senha não é armazenada neste aparelho.'}
       </Paragraph>
 
       <Field
@@ -153,6 +166,7 @@ export default function SignInScreen() {
         keyboardType="email-address"
         placeholder="voce@email.com"
       />
+      {companyMode?<Field label="CNPJ da empresa (opcional)" value={cnpj} onChangeText={v=>setCnpj(v.replace(/\D/g,'').slice(0,14))} keyboardType="numeric" placeholder="14 números" />:null}
       <Field
         label="Senha"
         value={password}
@@ -173,10 +187,10 @@ export default function SignInScreen() {
         onPress={openPasswordRecovery}
       />
       <ActionButton
-        label="Criar conta"
+        label={companyMode?"Criar conta e solicitar Nexa PJ":"Criar conta"}
         variant="secondary"
         disabled={loading}
-        onPress={() => router.push('/sign-up-country' as any)}
+        onPress={() => router.push({pathname:'/sign-up-country',params:{mode:companyMode?'pj':'pf'}} as any)}
       />
 
       <Text style={styles.securityNote}>Biometria pode proteger o acesso depois do primeiro login neste aparelho.</Text>
@@ -188,6 +202,8 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
+  accountChoice: { marginVertical:spacing.md, gap:spacing.sm },
+  accountChoiceTitle: { color:colors.text, fontSize:14, fontWeight:'700' },
   securityNote: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: spacing.md },
   error: {
     color: colors.danger,
