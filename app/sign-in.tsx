@@ -147,7 +147,11 @@ export default function SignInScreen() {
       <Brand />
       <View style={styles.topSpace} />
       <Title>{companyMode?'Nexa Empresa':'Bem-vindo de volta'}</Title>
-      <ActionButton label={companyMode?'✓ Empresa (CNPJ)':'Pessoa Física'} variant="secondary" disabled={loading} onPress={()=>{setCompanyMode(!companyMode);setError('')}} />
+      <View style={styles.accountChoice}>
+        <Text style={styles.accountChoiceTitle}>Como deseja entrar?</Text>
+        <ActionButton label={companyMode?'Pessoa Física':'✓ Pessoa Física'} variant="secondary" disabled={loading} onPress={()=>{setCompanyMode(false);setError('')}} />
+        <ActionButton label={companyMode?'✓ Empresa (CNPJ)':'Empresa (CNPJ)'} variant="secondary" disabled={loading} onPress={()=>{setCompanyMode(true);setError('')}} />
+      </View>
       <Paragraph>
         {companyMode?'Entre com seu e-mail e senha Nexa. O CNPJ identifica a empresa; o acesso depende da aprovação PJ.':'Acesse sua Nexa Wallet. Sua senha não é armazenada neste aparelho.'}
       </Paragraph>
@@ -198,6 +202,8 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
+  accountChoice: { marginVertical:spacing.md, gap:spacing.sm },
+  accountChoiceTitle: { color:colors.text, fontSize:14, fontWeight:'700' },
   securityNote: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: spacing.md },
   error: {
     color: colors.danger,
