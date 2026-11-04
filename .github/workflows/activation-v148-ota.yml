@@ -1,4 +1,4 @@
-name: Nexa activation copy OTA - Android 2.0.43
+name: Nexa activation and Maya OTA - Android 2.0.43
 on:
   workflow_dispatch:
   push:
@@ -22,6 +22,7 @@ jobs:
       EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
       EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
       EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
       EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
       EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
       EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
@@ -30,11 +31,13 @@ jobs:
         with:
           ref: feat/aave-v148-internal-apk-20261102
           fetch-depth: 0
-      - name: Apply approved text screens only
+      - name: Preserve activation and apply Maya UI only
         run: |
-          git fetch origin main --depth=1
+          git fetch origin main feat/maya-v148-ota-compatible-20261104 --depth=1
           git show origin/main:app/index.tsx > app/index.tsx
           git show origin/main:app/kyc.tsx > app/kyc.tsx
+          git show origin/feat/maya-v148-ota-compatible-20261104:app/assistant.tsx > app/assistant.tsx
+          git show origin/feat/maya-v148-ota-compatible-20261104:app/_layout.tsx > app/_layout.tsx
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -55,16 +58,18 @@ jobs:
           if (app.runtimeVersion?.policy !== 'appVersion' || eas.build.production.channel !== 'production') throw Error('Wrong OTA runtime or channel');
           if (app.android.package !== 'br.com.trynexa.app') throw Error('Wrong Android package');
           if (!fs.readFileSync('app/index.tsx','utf8').includes('sem precisar depositar agora')) throw Error('Activation copy missing');
+          if (!fs.readFileSync('app/assistant.tsx','utf8').includes('Sua assistente inteligente')) throw Error('Maya UI missing');
+          if (process.env.EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED !== 'false') throw Error('Premium must remain disabled');
           NODE
-      - name: Confirm only two text screens changed
+      - name: Confirm only four approved UI screens changed
         run: |
           git diff --name-only | sort > /tmp/changed-files
-          printf 'app/index.tsx\napp/kyc.tsx\n' | sort > /tmp/allowed-files
+          printf 'app/_layout.tsx\napp/assistant.tsx\napp/index.tsx\napp/kyc.tsx\n' | sort > /tmp/allowed-files
           diff -u /tmp/allowed-files /tmp/changed-files
       - uses: expo/expo-github-action@v8
         with:
           eas-version: 24.8.0
           token: ${{ secrets.EXPO_TOKEN }}
       - run: eas whoami
-      - name: Publish JS-only Android activation OTA
-        run: eas update --channel production --platform android --message "Nexa 2.0.43 onboarding and Didit activation guidance" --non-interactive
+      - name: Publish JS-only Android activation and Maya OTA
+        run: eas update --channel production --platform android --message "Nexa 2.0.43 Maya assistant plus onboarding and Didit activation guidance" --non-interactive
