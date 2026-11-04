@@ -1,0 +1,51 @@
+name: Nexa Maya Premium OTA (isolated PR)
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/maya-premium-ota-preview.yml'
+permissions:
+  contents: read
+concurrency:
+  group: maya-premium-ota-preview
+  cancel-in-progress: false
+jobs:
+  publish-isolated-ota:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.number == 108
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-wallet-v15-staging.onrender.com/api/v1'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'preview'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Check Expo credentials
+        run: test -n "$EXPO_TOKEN"
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Validate isolated OTA target
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const eas=JSON.parse(fs.readFileSync('eas.json','utf8'));
+          if(app.runtimeVersion?.policy!=='appVersion'||app.version!=='2.0.42') throw Error('Runtime changed: do not publish OTA');
+          if(eas.build['maya-premium-preview']?.channel!=='nexa-maya-premium-preview') throw Error('Wrong OTA channel');
+          if(process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false') throw Error('Financial execution cannot be enabled');
+          NODE
+      - name: Publish Android OTA only to Maya preview
+        run: eas update --channel nexa-maya-premium-preview --platform android --message "Maya Premium read-only gated preview" --non-interactive
