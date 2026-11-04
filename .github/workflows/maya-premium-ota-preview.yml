@@ -48,3 +48,5 @@ jobs:
           NODE
       - name: Publish Android OTA only to Maya preview
         run: eas update --channel nexa-maya-premium-preview --platform android --message "Maya Premium read-only gated preview" --non-interactive
+
+# Preview-only OTA; production channel must never be targeted by this workflow.
