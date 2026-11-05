@@ -116,7 +116,7 @@ export default function MayaPlanningScreen() {
           <View style={styles.section} key={goal.id}>
             <Text style={styles.headingSmall}>{goal.title}</Text>
             <Text style={styles.secondary}>{money(goal.savedCents)} de {money(goal.targetCents)} · {percent}%</Text>
-            <View style={styles.bar}><View style={[styles.progress, { width: Math.min(100, percent) + '%' }]} /></View>
+            <View style={styles.bar}><View style={[styles.progress, { width: `${Math.min(100, percent)}%` as `${number}%` }]} /></View>
             <Pressable accessibilityRole="button" disabled={busy}
               onPress={() => { setContributionFor(goal.id); setContribution(''); }}
               style={styles.secondaryButton}><Text style={styles.actionText}>Registrar progresso manual</Text></Pressable>
