@@ -47,6 +47,8 @@ jobs:
           if [ -e scripts/validate-maya-planning-v1.js ]; then
             node scripts/validate-maya-planning-v1.js
           fi
+      - name: Run QA A evidence validator unit tests
+        run: node --test scripts/validate-maya-qa-a-evidence.test.js
       - name: Validate app safety
         run: node scripts/validate-mobile-safety-v123.js
       - run: npm run typecheck
