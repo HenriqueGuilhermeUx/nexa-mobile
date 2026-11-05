@@ -102,3 +102,16 @@ test('Windows-style evidence paths are rejected by metadata and disk gates',()=>
   assert.match(validate(e).join(' '),/unsafe evidence reference/);
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unsafe evidence reference/);
 });
+
+test('artifact gate rejects hard-linked duplicate captures',()=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+  try {
+    const e=valid(); e.cases=e.cases.slice(0,2);
+    const first=path.join(root,e.cases[0].evidenceRef);
+    const second=path.join(root,e.cases[1].evidenceRef);
+    fs.mkdirSync(path.dirname(first),{recursive:true});
+    fs.writeFileSync(first,'capture');
+    fs.linkSync(first,second);
+    assert.match(verifyEvidenceFiles(e,root).join(' '),/duplicate physical evidence artifact/);
+  } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
