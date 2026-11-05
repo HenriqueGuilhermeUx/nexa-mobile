@@ -52,6 +52,11 @@ jobs:
           if [ -e scripts/validate-maya-shopping-v1.js ]; then
             node scripts/validate-maya-shopping-v1.js
           fi
+      - name: Validate Maya chat intent routing and financial precedence
+        run: |
+          if [ -e scripts/validate-maya-chat-routing-v1.js ]; then
+            node scripts/validate-maya-chat-routing-v1.js
+          fi
       - name: Validate app safety
         run: node scripts/validate-mobile-safety-v123.js
       - run: npm run typecheck
