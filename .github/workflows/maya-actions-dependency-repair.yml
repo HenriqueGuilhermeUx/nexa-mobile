@@ -1,0 +1,35 @@
+name: Maya Actions — repair Expo dependency lockfile
+on:
+  push:
+    branches: [feat/maya-actions-v1-20261104]
+    paths:
+      - '.github/workflows/maya-actions-dependency-repair.yml'
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Update only Expo patch dependencies and lockfile
+        run: |
+          npm install --save-exact expo@57.0.31 expo-router@57.0.29 --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx expo-doctor
+          npm run typecheck
+          node scripts/validate-maya-actions-v1.js
+      - name: Commit reviewed dependency repair on feature branch only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(maya): align Expo SDK 57 patch dependencies and lockfile"
+            git push origin HEAD:feat/maya-actions-v1-20261104
+          fi
