@@ -58,34 +58,34 @@ jobs:
           # native dependency graph. This is NOT a production release exception.
           if ! npx expo-doctor > /tmp/maya-qa-expo-doctor.txt 2>&1; then
             cat /tmp/maya-qa-expo-doctor.txt
-            node <<'NODE'
-            const fs = require('fs');
-            const log = fs.readFileSync('/tmp/maya-qa-expo-doctor.txt','utf8').replace(/\x1b\[[0-9;]*m/g,'');
-            if (!log.includes('20/21 checks passed. 1 checks failed.') ||
-                !log.includes('Check that packages match versions required by installed Expo SDK') ||
-                !log.includes('Patch version mismatches') ||
-                /Major version mismatches|Minor version mismatches|Other issues/i.test(log)) {
-              throw Error('Unrecognized Expo Doctor failure. Refusing QA build.');
-            }
-            const match = log.match(/package\s+expected\s+found([\s\S]*?)Changelogs:/);
-            if (!match) throw Error('Missing Expo Doctor version table.');
-            const rows = match[1].trim().split(/\r?\n/)
-              .map(x => x.trim().split(/\s+/).join(' ')).filter(Boolean);
-            const allowed = [
-              'expo ~57.0.32 57.0.31',
-              'expo-build-properties ~57.0.23 57.0.22',
-              'expo-constants ~57.0.23 57.0.22',
-              'expo-dev-client ~57.0.21 57.0.20',
-              'expo-image-picker ~57.0.21 57.0.20',
-              'expo-router ~57.0.30 57.0.29',
-              'expo-splash-screen ~57.0.11 57.0.10',
-              'expo-updates ~57.0.27 57.0.26'
-            ];
-            if (JSON.stringify(rows) !== JSON.stringify(allowed)) {
-              throw Error('Expo patch drift differs from reviewed set: '+JSON.stringify(rows));
-            }
-            console.log('QA ONLY: 20/21 Expo Doctor checks passed. Eight exact SDK57 patch drifts independently reviewed; production Doctor gate remains strict.');
-            NODE
+          node <<'NODE'
+          const fs = require('fs');
+          const log = fs.readFileSync('/tmp/maya-qa-expo-doctor.txt','utf8').replace(/\x1b\[[0-9;]*m/g,'');
+          if (!log.includes('20/21 checks passed. 1 checks failed.') ||
+              !log.includes('Check that packages match versions required by installed Expo SDK') ||
+              !log.includes('Patch version mismatches') ||
+              /Major version mismatches|Minor version mismatches|Other issues/i.test(log)) {
+            throw Error('Unrecognized Expo Doctor failure. Refusing QA build.');
+          }
+          const match = log.match(/package\s+expected\s+found([\s\S]*?)Changelogs:/);
+          if (!match) throw Error('Missing Expo Doctor version table.');
+          const rows = match[1].trim().split(/\r?\n/)
+            .map(x => x.trim().split(/\s+/).join(' ')).filter(Boolean);
+          const allowed = [
+            'expo ~57.0.32 57.0.31',
+            'expo-build-properties ~57.0.23 57.0.22',
+            'expo-constants ~57.0.23 57.0.22',
+            'expo-dev-client ~57.0.21 57.0.20',
+            'expo-image-picker ~57.0.21 57.0.20',
+            'expo-router ~57.0.30 57.0.29',
+            'expo-splash-screen ~57.0.11 57.0.10',
+            'expo-updates ~57.0.27 57.0.26'
+          ];
+          if (JSON.stringify(rows) !== JSON.stringify(allowed)) {
+            throw Error('Expo patch drift differs from reviewed set: '+JSON.stringify(rows));
+          }
+          console.log('QA ONLY: 20/21 Expo Doctor checks passed. Eight exact SDK57 patch drifts independently reviewed; production Doctor gate remains strict.');
+          NODE
           fi
           npm run export:android
       - name: Generate QA-only internal build profile without touching repo files
