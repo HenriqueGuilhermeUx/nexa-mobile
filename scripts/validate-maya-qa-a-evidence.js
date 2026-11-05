@@ -25,7 +25,7 @@ function validate(e) {
     if (typeof c.evidenceRef === 'string' && c.evidenceRef.trim()) {
       const ref = c.evidenceRef.trim();
       // Canonicalize harmless path aliases so one artifact cannot satisfy multiple cases.
-      const canonicalRef = path.posix.normalize(ref.replace(/\\\\/g, '/')).toLowerCase();
+      const canonicalRef = path.posix.normalize(ref.split(String.fromCharCode(92)).join('/')).toLowerCase();
       if (evidenceRefs.has(canonicalRef)) errors.push('duplicate evidence reference: ' + c.id);
       evidenceRefs.add(canonicalRef);
       // Evidence must be a local, reviewable artifact path, never a remote URL or traversal.
