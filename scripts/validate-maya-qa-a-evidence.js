@@ -10,10 +10,11 @@ function validate(e) {
   if (e.releaseSha !== '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e') errors.push('QA A SHA mismatch');
   if (e.updateId !== '01a1a975-d85f-794f-9d67-cf2ac961fbb7') errors.push('QA A update mismatch');
   if (![e.deviceModel, e.androidVersion, e.testedAt].every(v => typeof v === 'string' && v.trim())) errors.push('device metadata missing');
-  if (typeof e.testedAt !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/.test(e.testedAt) || !Number.isFinite(Date.parse(e.testedAt))) errors.push('testedAt must be an ISO timestamp with timezone');
+  if (typeof e.testedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(e.testedAt) || !Number.isFinite(Date.parse(e.testedAt))) errors.push('testedAt must be an ISO timestamp with timezone');
   if (!Array.isArray(e.cases)) errors.push('cases missing');
   const seen = new Set();
   for (const c of Array.isArray(e.cases) ? e.cases : []) {
+    if (!c || typeof c !== 'object' || Array.isArray(c)) { errors.push('invalid case object'); continue; }
     if (!required.includes(c.id) || seen.has(c.id)) errors.push('unknown or duplicate case: ' + c.id);
     seen.add(c.id);
     if (c.status !== 'PASS') errors.push('not PASS: ' + c.id);
