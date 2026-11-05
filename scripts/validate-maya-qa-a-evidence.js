@@ -24,8 +24,10 @@ function validate(e) {
     seen.add(c.id);
     if (typeof c.evidenceRef === 'string' && c.evidenceRef.trim()) {
       const ref = c.evidenceRef.trim();
-      if (evidenceRefs.has(ref)) errors.push('duplicate evidence reference: ' + c.id);
-      evidenceRefs.add(ref);
+      // Canonicalize harmless path aliases so one artifact cannot satisfy multiple cases.
+      const canonicalRef = path.posix.normalize(ref.replace(/\\\\/g, '/')).toLowerCase();
+      if (evidenceRefs.has(canonicalRef)) errors.push('duplicate evidence reference: ' + c.id);
+      evidenceRefs.add(canonicalRef);
       // Evidence must be a local, reviewable artifact path, never a remote URL or traversal.
       if (/^(?:[a-z][a-z0-9+.-]*:|\/|\\\\)/i.test(ref) || /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(ref) || /[?#\x00-\x1f]/.test(ref) || !/\.(?:png|jpe?g|webp|pdf|mp4)$/i.test(ref)) errors.push('unsafe evidence reference: ' + c.id);
     }
