@@ -140,3 +140,8 @@ test('standalone artifact gate rejects repeated paths even without metadata vali
     assert.match(verifyEvidenceFiles(e,root).join(' '),/duplicate evidence reference/);
   } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('standalone artifact gate fails closed on malformed case records',()=>{
+  const e=valid(); e.cases=[null,{},'invalid',...e.cases.slice(0,1)];
+  assert.equal(verifyEvidenceFiles(e,os.tmpdir()).filter(x=>x.includes('invalid case object')).length,3);
+});
