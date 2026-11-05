@@ -1,0 +1,26 @@
+name: Maya Actions — Web Forms contracts CI
+on:
+  pull_request:
+    branches: [integration/maya-actions-v148]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Review-only form contract
+        run: node scripts/validate-maya-web-forms-v1.js
+      - name: Validate Android types
+        run: npm run typecheck
