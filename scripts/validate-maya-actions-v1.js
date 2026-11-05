@@ -1,0 +1,15 @@
+const fs = require('fs');
+const assert = require('assert');
+const source = fs.readFileSync('app/maya-actions.tsx', 'utf8');
+const assistant = fs.readFileSync('app/assistant.tsx', 'utf8');
+const layout = fs.readFileSync('app/_layout.tsx', 'utf8');
+assert(source.includes('AsyncStorage.setItem'), 'Tasks must persist');
+assert(source.includes('loadNexaSession()') && source.includes('nexaApi.me('), 'Require user session');
+assert(source.includes("const key = 'maya-actions-v1:' + userId.toLowerCase()"), 'Account-scoped local storage');
+assert(source.includes('Confirmar e salvar tarefa'), 'Require explicit save');
+assert(source.includes('Marcar como concluída'), 'Completion action missing');
+assert(source.includes('Excluir tarefa'), 'Deletion action missing');
+assert(!/eas update|fetch\(|axios\.|executePayment|sendPix|sendTransaction/.test(source), 'No remote or financial execution in v1');
+assert(assistant.includes("router.push('/maya-actions'"), 'Assistant must link to Actions');
+assert(layout.includes('name="maya-actions"'), 'Actions route missing');
+console.log('PASS Maya Actions V1 local-only execution safety contracts');
