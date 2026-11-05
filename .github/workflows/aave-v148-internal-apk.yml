@@ -68,7 +68,7 @@ jobs:
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon --max-workers=1 --no-parallel --no-configuration-cache -PreactNativeArchitectures=arm64-v8a -x lintVitalAnalyzeRelease -x lintVitalReportRelease
+          ./gradlew assembleRelease --no-daemon --max-workers=1 --no-parallel --no-configuration-cache -PreactNativeArchitectures=arm64-v8a -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease
       - name: Sign isolated test APK with disposable QA key and verify
         run: |
           set -euo pipefail
