@@ -71,6 +71,19 @@ async function request<T>(
   }
 
   if (!response.ok) {
+    // The standalone Wallet Connect QA APK uses an isolated staging identity
+    // store; production account passwords must never be copied into staging.
+    if (
+      path === '/auth/login' &&
+      response.status === 401 &&
+      config.releaseChannel === 'wallet-inbound-lab'
+    ) {
+      throw new ApiError(
+        'Este APK de homologação utiliza o ambiente de testes da Nexa, separado das contas do aplicativo oficial. Uma conta de produção pode não estar cadastrada aqui. Use apenas um usuário de teste autorizado; não altere nem compartilhe sua senha de produção.',
+        response.status,
+        'QA_STAGING_LOGIN_REQUIRED',
+      );
+    }
     if (
       !config.pilotBuild &&
       response.status === 426 &&
