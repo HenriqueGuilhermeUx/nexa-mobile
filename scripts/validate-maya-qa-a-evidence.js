@@ -46,6 +46,7 @@ function verifyEvidenceFiles(e, root) {
   if (!e || !Array.isArray(e.cases)) return ['cases missing for artifact verification'];
   if (typeof root !== 'string' || !root.trim()) return ['evidence root missing'];
   const base = path.resolve(root);
+  const physicalArtifacts = new Set();
   for (const c of e.cases) {
     if (!c || typeof c.evidenceRef !== 'string') continue;
     const ref = c.evidenceRef.trim();
@@ -67,6 +68,12 @@ function verifyEvidenceFiles(e, root) {
         errors.push('artifact not a nonempty regular file: ' + c.id);
       else if (fs.realpathSync(target) !== target)
         errors.push('artifact path contains symlink: ' + c.id);
+      else {
+        // Hard links have distinct paths but reference the same underlying capture.
+        const identity = `${stat.dev}:${stat.ino}`;
+        if (physicalArtifacts.has(identity)) errors.push('duplicate physical evidence artifact: ' + c.id);
+        physicalArtifacts.add(identity);
+      }
     } catch {
       errors.push('artifact missing/unreadable: ' + c.id);
     }
