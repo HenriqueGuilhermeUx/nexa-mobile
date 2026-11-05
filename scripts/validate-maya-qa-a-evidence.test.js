@@ -128,3 +128,15 @@ test('artifact gate rejects evidence under a symlinked parent directory',()=>{
     assert.match(verifyEvidenceFiles(e,root).join(' '),/artifact path contains symlink/);
   } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('standalone artifact gate rejects repeated paths even without metadata validation',()=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+  try {
+    const e=valid();
+    e.cases=[e.cases[0],{...e.cases[1],evidenceRef:e.cases[0].evidenceRef}];
+    const target=path.join(root,e.cases[0].evidenceRef);
+    fs.mkdirSync(path.dirname(target),{recursive:true});
+    fs.writeFileSync(target,'capture');
+    assert.match(verifyEvidenceFiles(e,root).join(' '),/duplicate evidence reference/);
+  } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
