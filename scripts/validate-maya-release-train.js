@@ -18,7 +18,7 @@ const output = execFileSync('git',['diff','--name-only',base+'...HEAD'],{encodin
 const allowed = [
   /^app\/index\.tsx$/, /^app\/kyc\.tsx$/, /^app\/assistant\.tsx$/, /^app\/_layout\.tsx$/,
   /^app\/maya-actions(?:-[a-z0-9-]+)?\.tsx$/, /^components\/maya-actions\//,
-  /^lib\/maya-actions\//, /^src\/maya-actions\//,
+  /^lib\/maya-actions\//, /^src\/maya-actions\//, /^src\/lib\/mayaWebActionContracts\.ts$/,
   /^scripts\/validate-maya-[a-z0-9-]+\.js$/, /^docs\/maya-actions-[a-z0-9-]+\.md$/,
   /^\.github\/workflows\/maya-actions-[a-z0-9-]+\.yml$/, /^package(?:-lock)?\.json$/,
 ];
