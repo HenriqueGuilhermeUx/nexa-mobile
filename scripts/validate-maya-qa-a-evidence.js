@@ -47,6 +47,7 @@ function verifyEvidenceFiles(e, root) {
   if (typeof root !== 'string' || !root.trim()) return ['evidence root missing'];
   const base = path.resolve(root);
   const physicalArtifacts = new Set();
+  const canonicalArtifacts = new Set();
   for (const c of e.cases) {
     if (!c || typeof c.evidenceRef !== 'string') continue;
     const ref = c.evidenceRef.trim();
@@ -57,6 +58,12 @@ function verifyEvidenceFiles(e, root) {
       errors.push('unsafe evidence reference: ' + c.id);
       continue;
     }
+    const canonicalRef = path.posix.normalize(ref).toLowerCase();
+    if (canonicalArtifacts.has(canonicalRef)) {
+      errors.push('duplicate evidence reference: ' + c.id);
+      continue;
+    }
+    canonicalArtifacts.add(canonicalRef);
     const target = path.resolve(base, ref);
     if (!target.startsWith(base + path.sep)) {
       errors.push('artifact outside evidence root: ' + c.id);
