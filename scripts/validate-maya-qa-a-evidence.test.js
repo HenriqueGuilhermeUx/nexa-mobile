@@ -1,6 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { validate } = require('./validate-maya-qa-a-evidence');
+const { validate, verifyEvidenceFiles } = require('./validate-maya-qa-a-evidence');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const ids = ['A01','A02','A03','A04','A05','A06','P01','P02','P03','P04','P05','R01','R02','R03','R04','R05'];
 const valid = () => ({
  runtime:'2.0.43', versionCode:148,
@@ -36,3 +39,33 @@ test('embedded TODO in an observation blocks QA approval',()=>{const e=valid();e
 test('embedded fixture marker in evidence path blocks QA approval',()=>{const e=valid();e.cases[0].evidenceRef='qa-a/fixture-capture/A01.png';assert.match(validate(e).join(' '),/synthetic\/placeholder/);});
 
 test('future-dated QA capture is rejected',()=>{const e=valid();e.testedAt='2099-01-01T00:00:00Z';assert.match(validate(e).join(' '),/future/);});
+
+test('artifact gate rejects missing files even when metadata passes',()=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+  try { assert.match(verifyEvidenceFiles(valid(),root).join(' '),/artifact missing\/unreadable/); }
+  finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
+test('artifact gate accepts existing nonempty regular files',()=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+  try {
+    const e=valid();
+    for (const c of e.cases) {
+      const target=path.join(root,c.evidenceRef);
+      fs.mkdirSync(path.dirname(target),{recursive:true});
+      fs.writeFileSync(target,Buffer.from('test artifact'));
+    }
+    assert.deepEqual(verifyEvidenceFiles(e,root),[]);
+    fs.writeFileSync(path.join(root,e.cases[0].evidenceRef),'');
+    assert.match(verifyEvidenceFiles(e,root).join(' '),/nonempty regular file/);
+  } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
+test('artifact gate rejects symlinks',()=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+  try {
+    const e=valid();e.cases=[e.cases[0]];
+    const target=path.join(root,e.cases[0].evidenceRef);
+    fs.mkdirSync(path.dirname(target),{recursive:true});
+    fs.symlinkSync(__filename,target);
+    assert.match(verifyEvidenceFiles(e,root).join(' '),/nonempty regular file/);
+  } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
