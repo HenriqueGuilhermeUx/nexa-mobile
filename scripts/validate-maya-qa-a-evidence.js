@@ -1,0 +1,32 @@
+#!/usr/bin/env node
+// QA A evidence gate: offline only. Does not install, publish or call an API.
+const fs = require('node:fs');
+const required = ['A01','A02','A03','A04','A05','A06','P01','P02','P03','P04','P05','R01','R02','R03','R04','R05'];
+function validate(e) {
+  const errors = [];
+  if (e.runtime !== '2.0.43') errors.push('runtime mismatch');
+  if (e.versionCode !== 148) errors.push('versionCode mismatch');
+  if (e.releaseSha !== '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e') errors.push('QA A SHA mismatch');
+  if (e.updateId !== '01a1a975-d85f-794f-9d67-cf2ac961fbb7') errors.push('QA A update mismatch');
+  if (!e.deviceModel || !e.androidVersion || !e.testedAt) errors.push('device metadata missing');
+  if (!Array.isArray(e.cases)) errors.push('cases missing');
+  const seen = new Set();
+  for (const c of Array.isArray(e.cases) ? e.cases : []) {
+    if (!required.includes(c.id) || seen.has(c.id)) errors.push('unknown or duplicate case: ' + c.id);
+    seen.add(c.id);
+    if (c.status !== 'PASS') errors.push('not PASS: ' + c.id);
+    if (!c.observed || !c.evidenceRef) errors.push('missing observation/evidence: ' + c.id);
+  }
+  for (const id of required) if (!seen.has(id)) errors.push('missing case: ' + id);
+  if (e.ci !== 'success' || e.explicitApproval !== true) errors.push('CI/approval missing');
+  return errors;
+}
+if (require.main === module) {
+  let data;
+  try { data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')); }
+  catch (err) { console.error('NO-GO: invalid/missing evidence JSON:', err.message); process.exit(2); }
+  const errors = validate(data);
+  if (errors.length) { console.error('NO-GO:\n' + errors.join('\n')); process.exit(1); }
+  console.log('Evidence structurally complete; human review and runtime verification still required. NO AUTOMATIC PROMOTION.');
+}
+module.exports = { validate };
