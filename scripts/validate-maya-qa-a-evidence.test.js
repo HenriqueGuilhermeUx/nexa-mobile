@@ -69,3 +69,16 @@ test('artifact gate rejects symlinks',()=>{
     assert.match(verifyEvidenceFiles(e,root).join(' '),/nonempty regular file/);
   } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('artifact gate rejects traversal directly, without metadata validation',()=>{
+  const e=valid(); e.cases=[{...e.cases[0],evidenceRef:'../outside.png'}];
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unsafe evidence reference/);
+});
+test('artifact gate rejects remote references directly',()=>{
+  const e=valid(); e.cases=[{...e.cases[0],evidenceRef:'https://example.org/proof.png'}];
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unsafe evidence reference/);
+});
+test('artifact gate rejects unsupported file types directly',()=>{
+  const e=valid(); e.cases=[{...e.cases[0],evidenceRef:'qa-a/result.exe'}];
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unsafe evidence reference/);
+});
