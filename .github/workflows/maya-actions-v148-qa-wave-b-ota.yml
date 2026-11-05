@@ -1,0 +1,79 @@
+name: Maya Actions Wave B — Android QA OTA (not production)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/maya-actions-v148-qa-wave-b-ota.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: maya-actions-v148-qa-wave-b-ota
+  cancel-in-progress: false
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: qa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/maya-actions-v148-wave-b-20261104
+          fetch-depth: 0
+      - name: Verify SHA and unchanged native binary configuration
+        run: |
+          test "$(git rev-parse HEAD)" = '3d785dee73b5b2d1e100d9efd531c1c855e0fa97'
+          git fetch origin feat/aave-v148-internal-apk-20261102:refs/remotes/origin/feat/aave-v148-internal-apk-20261102
+          for path in app.json app.config.js eas.json; do
+            git show "origin/feat/aave-v148-internal-apk-20261102:$path" | cmp - "$path"
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node scripts/validate-maya-release-train.js
+      - run: node scripts/validate-maya-actions-v1.js
+      - run: node scripts/validate-maya-actions-agenda-v1.js
+      - run: node scripts/validate-maya-planning-v1.js
+      - run: node scripts/validate-maya-web-quotes-v1.js
+      - run: node scripts/validate-maya-web-forms-v1.js
+      - run: node scripts/validate-maya-shopping-v1.js
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run typecheck
+      - run: npx expo-doctor
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: eas whoami
+      - name: Publish QA Wave B only, leave Wave A and production untouched
+        id: publish_qa
+        run: eas update --branch maya-actions-v148-qa-wave-b --platform android --message "Maya Actions Wave B QA v148 sha 3d785dee73b5b2d1e100d9efd531c1c855e0fa97" --non-interactive
+      - name: Report Wave B run outcome to release issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QA_PUBLISH_OUTCOME: ${{ steps.publish_qa.outcome }}
+          QA_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$QA_PUBLISH_OUTCOME" = "success" ]; then
+            result="QA Wave B OTA publication command succeeded. Verify the EAS group / Android ID in logs and test a QA-channel Android v148 device before production."
+          else
+            result="QA Wave B OTA NOT confirmed: publishing step $QA_PUBLISH_OUTCOME. Inspect workflow errors; no claim of successful release."
+          fi
+          printf '%s\n\n- Workflow: %s\n- Candidate: `3d785dee73b5b2d1e100d9efd531c1c855e0fa97`\n- QA-only branch: `maya-actions-v148-qa-wave-b`\n- Runtime: Android 2.0.43 (v148)\n- Production channel and QA A: unchanged by this workflow.\n' "$result" "$QA_RUN_URL" > /tmp/maya-qa-wave-b.md
+          gh issue comment 128 --repo "${{ github.repository }}" --body-file /tmp/maya-qa-wave-b.md
