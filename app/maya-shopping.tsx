@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { loadNexaSession } from '@/lib/session';
 import { nexaApi } from '@/lib/api';
@@ -8,8 +8,11 @@ import { buildPublicShoppingSearchUrl } from '@/maya-actions/shoppingSearch';
 import { colors, spacing } from '@/theme';
 
 export default function MayaShoppingSearchScreen() {
+  const params = useLocalSearchParams<{ query?: string }>();
   const [ready, setReady] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(
+    typeof params.query === 'string' ? params.query.slice(0, 240) : ''
+  );
   const [budget, setBudget] = useState('');
   const [opening, setOpening] = useState(false);
   const [notice, setNotice] = useState('Entre na Nexa para pesquisar ofertas.');

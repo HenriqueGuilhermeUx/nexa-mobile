@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
@@ -27,6 +27,7 @@ const choices: { key: ActionKind; title: string; description: string }[] = [
 ];
 
 export default function MayaActionsScreen() {
+  const params = useLocalSearchParams<{ task?: string }>();
   const [kind, setKind] = useState<ActionKind>('reminder');
   const [description, setDescription] = useState('');
   const [remindAt, setRemindAt] = useState('');
@@ -116,6 +117,13 @@ export default function MayaActionsScreen() {
     } catch { setStatus('Tarefa excluída, mas a notificação pode continuar ativa.'); }
     finally { setBusy(false); }
   }
+  useEffect(() => {
+    if (typeof params.task !== 'string' || !params.task.trim()) return;
+    setKind('reminder');
+    setDescription(params.task.slice(0, 500));
+    setDraft(null);
+  }, [params.task]);
+
   const selected = choices.find(item => item.key === kind)!;
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
