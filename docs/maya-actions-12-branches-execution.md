@@ -15,7 +15,7 @@
 | 06 | `feat/maya-actions-06-wallet-execucao-v148` | Movimentar capital nas funcionalidades ja suportadas | Fluxo nativo seguro, autenticaçao forte, aprovacao, antifraude, idempotencia e comprovante | Branch criada; bloqueada ate controles 05 |
 | 07 | `feat/maya-actions-07-automacoes-v148` | Rotinas e gatilhos em segundo plano com opt-in | Backend de fila/scheduler, escopos, limites, cancelamento, auditoria | Branch criada |
 | 08 | `feat/maya-actions-08-integracoes-v148` | DocWallet, Health Wallet, SmartBots, NexOffices e parceiros | Contratos autenticados, controles de dados e fronteiras entre produtos | Branch criada |
-| 09 | `feat/maya-actions-09-pesquisa-cotacoes-v148` | Comparar ofertas por preco final, frete, estoque, prazo e fonte | Backend web seguro e ofertas atuais; rejeitar total incompleto e fontes vencidas | PR #123 merged: contrato e CI somente leitura, sem busca ao vivo |
+| 09 | `feat/maya-actions-09-pesquisa-cotacoes-v148` | Comparar ofertas por preco final, frete, estoque, prazo e fonte | Backend web seguro e ofertas atuais; rejeitar total incompleto e fontes vencidas | PR #123 contrato de cotacoes e PR #127 pesquisa externa com toque do usuario merged; sem coleta automatica de precos |
 | 10 | `feat/maya-actions-10-formularios-inscricoes-v148` | Preparar e submeter inscricoes/cadastros autorizados | Revisao dos campos, CAPTCHA/MFA manual, termos, protocolo e evidencias | PR #125 merged: contratos para revisao sem envio real; backend ainda nao conectado |
 | 11 | `feat/maya-actions-11-compras-checkout-v148` | Montar carrinho e, com aprovacao, finalizar compra suportada | Merchant/PSP real, preco congelado, impostos, entrega, 3DS, idempotencia e recibo | Branch criada |
 | 12 | `feat/maya-actions-12-reservas-servicos-v148` | Buscar e preparar reservas e contratacao de servicos | Disponibilidade do provedor, politica de cancelamento, confirmacao e comprovante | Branch criada |
@@ -59,3 +59,11 @@ A pesquisa read-only pode ocorrer sem login. Para formularios, cada site, campos
 - Workflow QA em `main`: `.github/workflows/maya-actions-v148-qa-ota.yml`, publica **somente** na branch EAS `maya-actions-v148-qa` se todas as verificacoes passarem. Nao modifica o canal `production`.
 - Antes de promover para clientes: verificar resultado EAS QA, compatibilidade do binario no aparelho de teste, permissions de notificacao, fluxo de lembretes e metas, regressao em Wallet/Didit/Staff/OTA e confirmar canal de producao via publicador manual com SHA imutavel.
 - Status: candidato gerado; workflow QA instalado. Nao presumir sucesso da publicacao ate confirmar logs e ID do EAS Update.
+
+## Resultado confirmado da OTA QA A
+- Workflow [run #41952793942](https://github.com/HenriqueGuilhermeUx/nexa-mobile/actions/runs/41952793942) concluiu **success**, inclusive `eas update`.
+- EAS update group `1cd78cdf-0535-4a79-b0dc-ff65ffe46178`; Android update `01a1a975-d85f-794f-9d67-cf2ac961fbb7`.
+- Branch EAS `maya-actions-v148-qa`; runtime `2.0.43` e SHA `096c9fd619a551f23ba8c7d9e3e72a7e01605a6e`.
+- Dashboard: https://expo.dev/accounts/henrriquenexa/projects/nexa/updates/1cd78cdf-0535-4a79-b0dc-ff65ffe46178.
+- QA em dispositivo permanece pendente; app de canal production nao recebe automaticamente a branch QA.
+- Proxima candidata Wave B inclui PR #127: tela de pesquisa externa iniciada pelo usuario, com URLs controladas de buscas de ofertas; nao apresenta comparacoes automatizadas, disponibilidade ou checkout.
