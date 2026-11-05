@@ -115,3 +115,16 @@ test('artifact gate rejects hard-linked duplicate captures',()=>{
     assert.match(verifyEvidenceFiles(e,root).join(' '),/duplicate physical evidence artifact/);
   } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('artifact gate rejects evidence under a symlinked parent directory',()=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+  try {
+    const e=valid(); e.cases=[e.cases[0]];
+    const actual=path.join(root,'actual');
+    fs.mkdirSync(actual);
+    fs.writeFileSync(path.join(actual,'A01.png'),'capture');
+    fs.mkdirSync(path.join(root,'qa-a'));
+    fs.symlinkSync(actual,path.join(root,'qa-a','device-01'),'dir');
+    assert.match(verifyEvidenceFiles(e,root).join(' '),/artifact path contains symlink/);
+  } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
