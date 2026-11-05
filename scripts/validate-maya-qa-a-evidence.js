@@ -23,6 +23,8 @@ function validate(e) {
       const ref = c.evidenceRef.trim();
       if (evidenceRefs.has(ref)) errors.push('duplicate evidence reference: ' + c.id);
       evidenceRefs.add(ref);
+      // Evidence must be a local, reviewable artifact path, never a remote URL or traversal.
+      if (/^(?:[a-z][a-z0-9+.-]*:|\/|\\\\)/i.test(ref) || /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(ref) || /[?#\x00-\x1f]/.test(ref) || !/\.(?:png|jpe?g|webp|pdf|mp4)$/i.test(ref)) errors.push('unsafe evidence reference: ' + c.id);
     }
     if (c.status !== 'PASS') errors.push('not PASS: ' + c.id);
     if (![c.observed, c.evidenceRef].every(v => typeof v === 'string' && v.trim())) errors.push('missing observation/evidence: ' + c.id);
