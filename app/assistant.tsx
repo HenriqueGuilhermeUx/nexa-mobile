@@ -78,6 +78,9 @@ export default function AssistantScreen() {
       <Pressable accessibilityRole="button" onPress={() => router.push('/maya-actions' as any)} style={{ padding: 12, borderRadius: 10, backgroundColor: '#16456C', marginBottom: 10 }}>
         <Text style={{ color: '#FFFFFF', textAlign: 'center', fontWeight: '700' }}>Maya Actions · Preparar tarefas</Text>
       </Pressable>
+      <Pressable accessibilityRole="button" onPress={() => router.push('/maya-planning' as any)} style={{ padding: 12, borderRadius: 10, backgroundColor: '#16456C', marginBottom: 10 }}>
+        <Text style={{ color: '#FFFFFF', textAlign: 'center', fontWeight: '700' }}>Maya · Planejar metas e economizar</Text>
+      </Pressable>
       <NexaAssistantOpenFinance token={token} firstName={firstName} />
     </View>
   );
