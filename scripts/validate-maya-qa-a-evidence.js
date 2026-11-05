@@ -42,20 +42,32 @@ function validate(e) {
 function verifyEvidenceFiles(e, root) {
   const errors = [];
   if (!e || !Array.isArray(e.cases)) return ['cases missing for artifact verification'];
+  if (typeof root !== 'string' || !root.trim()) return ['evidence root missing'];
   const base = path.resolve(root);
   for (const c of e.cases) {
     if (!c || typeof c.evidenceRef !== 'string') continue;
     const ref = c.evidenceRef.trim();
-    if (!ref || /^(?:[a-z][a-z0-9+.-]*:|\\/|\\\\\\\\)/i.test(ref) ||
-        /(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)/.test(ref) ||
-        /[?#\\x00-\\x1f]/.test(ref) || !/\\.(?:png|jpe?g|webp|pdf|mp4)$/i.test(ref)) continue;
+    // Repeat the metadata gate here: this function can also be called directly.
+    if (!ref || /^(?:[a-z][a-z0-9+.-]*:|\/|\\\\)/i.test(ref) ||
+        /(?:^|[\\/])\\.\\.(?:[\\/]|$)/.test(ref) ||
+        /[?#\\x00-\\x1f]/.test(ref) || !/\\.(?:png|jpe?g|webp|pdf|mp4)$/i.test(ref)) {
+      errors.push('unsafe evidence reference: ' + c.id);
+      continue;
+    }
     const target = path.resolve(base, ref);
-    if (!target.startsWith(base + path.sep)) { errors.push('artifact outside evidence root: ' + c.id); continue; }
+    if (!target.startsWith(base + path.sep)) {
+      errors.push('artifact outside evidence root: ' + c.id);
+      continue;
+    }
     try {
       const stat = fs.lstatSync(target);
-      if (!stat.isFile() || stat.isSymbolicLink() || stat.size === 0) errors.push('artifact not a nonempty regular file: ' + c.id);
-      else if (fs.realpathSync(target) !== target) errors.push('artifact path contains symlink: ' + c.id);
-    } catch { errors.push('artifact missing/unreadable: ' + c.id); }
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size === 0)
+        errors.push('artifact not a nonempty regular file: ' + c.id);
+      else if (fs.realpathSync(target) !== target)
+        errors.push('artifact path contains symlink: ' + c.id);
+    } catch {
+      errors.push('artifact missing/unreadable: ' + c.id);
+    }
   }
   return errors;
 }
