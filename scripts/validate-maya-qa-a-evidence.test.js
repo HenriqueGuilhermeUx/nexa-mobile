@@ -6,9 +6,9 @@ const valid = () => ({
  runtime:'2.0.43', versionCode:148,
  releaseSha:'096c9fd619a551f23ba8c7d9e3e72a7e01605a6e',
  updateId:'01a1a975-d85f-794f-9d67-cf2ac961fbb7',
- deviceModel:'QA test fixture', androidVersion:'14', testedAt:'2026-11-05T10:00:00-03:00',
+ deviceModel:'Pixel 7', androidVersion:'14', testedAt:'2026-11-05T10:00:00-03:00',
  ci:'success', explicitApproval:true,
- cases:ids.map(id=>({id,status:'PASS',observed:'Notificação apareceu no horário configurado',evidenceRef:'qa-a/device-01/A01.png'}))
+ cases:ids.map(id=>({id,status:'PASS',observed:'Notificação apareceu no horário configurado',evidenceRef:`qa-a/device-01/${id}.png`}))
 });
 test('complete synthetic fixture passes structural validation only',()=>assert.deepEqual(validate(valid()),[]));
 test('missing device evidence is blocked',()=>{const e=valid();e.cases[0].evidenceRef='';assert.ok(validate(e).length);});
@@ -24,3 +24,6 @@ test('invalid top-level payload is rejected without crashing',()=>assert.ok(vali
 test('valid ISO timestamp with timezone is accepted',()=>{const e=valid();assert.deepEqual(validate(e),[]);});
 test('malformed case object is rejected without crashing',()=>{const e=valid();e.cases[0]=null;assert.match(validate(e).join(' '),/invalid case object/);});
 test('impossible calendar date is rejected',()=>{const e=valid();e.testedAt='2026-13-40T10:00:00-03:00';assert.match(validate(e).join(' '),/timezone/);});
+
+test('same evidence reference across cases is blocked',()=>{const e=valid();e.cases[1].evidenceRef=e.cases[0].evidenceRef;assert.match(validate(e).join(' '),/duplicate evidence reference/);});
+test('synthetic device metadata is blocked',()=>{const e=valid();e.deviceModel='Android emulator fixture';assert.match(validate(e).join(' '),/device metadata appears synthetic/);});
