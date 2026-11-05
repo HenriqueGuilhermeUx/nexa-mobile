@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
@@ -120,6 +121,10 @@ export default function MayaActionsScreen() {
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.heading}>Maya · Actions</Text>
       <Text style={styles.description}>Crie tarefas ou agende lembretes locais com confirmação. Tudo permanece neste dispositivo; não há sincronização nem pagamentos automáticos.</Text>
+      <Pressable accessibilityRole="button" onPress={() => router.push('/maya-shopping' as any)} style={styles.choice}>
+        <Text style={styles.title}>Pesquisar preços na web</Text>
+        <Text style={styles.description}>Abrir ofertas em lojas para comparar com sua revisão. Sem compras automáticas.</Text>
+      </Pressable>
       {choices.map(item => (
         <Pressable key={item.key} accessibilityRole="radio" accessibilityState={{ selected: kind === item.key }} onPress={() => { setKind(item.key); setDraft(null); }} style={[styles.choice, kind === item.key && styles.active]}>
           <Text style={styles.title}>{item.title}</Text>
