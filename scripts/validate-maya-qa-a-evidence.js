@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // QA A evidence gate: offline only. Does not install, publish or call an API.
 const fs = require('node:fs');
+const path = require('node:path');
 const required = ['A01','A02','A03','A04','A05','A06','P01','P02','P03','P04','P05','R01','R02','R03','R04','R05'];
 function validate(e) {
   const errors = [];
@@ -37,12 +38,34 @@ function validate(e) {
   if (e.ci !== 'success' || e.explicitApproval !== true) errors.push('CI/approval missing');
   return errors;
 }
+// Verify artifacts on disk as well as their metadata. No network access or writes.
+function verifyEvidenceFiles(e, root) {
+  const errors = [];
+  if (!e || !Array.isArray(e.cases)) return ['cases missing for artifact verification'];
+  const base = path.resolve(root);
+  for (const c of e.cases) {
+    if (!c || typeof c.evidenceRef !== 'string') continue;
+    const ref = c.evidenceRef.trim();
+    if (!ref || /^(?:[a-z][a-z0-9+.-]*:|\\/|\\\\\\\\)/i.test(ref) ||
+        /(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)/.test(ref) ||
+        /[?#\\x00-\\x1f]/.test(ref) || !/\\.(?:png|jpe?g|webp|pdf|mp4)$/i.test(ref)) continue;
+    const target = path.resolve(base, ref);
+    if (!target.startsWith(base + path.sep)) { errors.push('artifact outside evidence root: ' + c.id); continue; }
+    try {
+      const stat = fs.lstatSync(target);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size === 0) errors.push('artifact not a nonempty regular file: ' + c.id);
+      else if (fs.realpathSync(target) !== target) errors.push('artifact path contains symlink: ' + c.id);
+    } catch { errors.push('artifact missing/unreadable: ' + c.id); }
+  }
+  return errors;
+}
 if (require.main === module) {
   let data;
   try { data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')); }
   catch (err) { console.error('NO-GO: invalid/missing evidence JSON:', err.message); process.exit(2); }
   const errors = validate(data);
+  if (!errors.length) errors.push(...verifyEvidenceFiles(data, process.argv[3] || process.cwd()));
   if (errors.length) { console.error('NO-GO:\n' + errors.join('\n')); process.exit(1); }
   console.log('Evidence structurally complete; human review and runtime verification still required. NO AUTOMATIC PROMOTION.');
 }
-module.exports = { validate };
+module.exports = { validate, verifyEvidenceFiles };
