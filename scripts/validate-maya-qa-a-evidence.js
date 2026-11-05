@@ -49,8 +49,8 @@ function verifyEvidenceFiles(e, root) {
     const ref = c.evidenceRef.trim();
     // Repeat the metadata gate here: this function can also be called directly.
     if (!ref || /^(?:[a-z][a-z0-9+.-]*:|\/|\\\\)/i.test(ref) ||
-        /(?:^|[\\/])\\.\\.(?:[\\/]|$)/.test(ref) ||
-        /[?#\\x00-\\x1f]/.test(ref) || !/\\.(?:png|jpe?g|webp|pdf|mp4)$/i.test(ref)) {
+        /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(ref) ||
+        /[?#\x00-\x1f]/.test(ref) || !/\.(?:png|jpe?g|webp|pdf|mp4)$/i.test(ref)) {
       errors.push('unsafe evidence reference: ' + c.id);
       continue;
     }
