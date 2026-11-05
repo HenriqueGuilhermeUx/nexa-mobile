@@ -1,0 +1,61 @@
+name: Maya Actions Wave A — Android QA OTA (not production)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/maya-actions-v148-qa-ota.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: maya-actions-v148-qa-ota
+  cancel-in-progress: false
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: qa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/maya-actions-v148-wave-a-20261104
+          fetch-depth: 0
+      - name: Verify immutable candidate and binary compatibility
+        run: |
+          test "$(git rev-parse HEAD)" = '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e'
+          git fetch origin feat/aave-v148-internal-apk-20261102:refs/remotes/origin/feat/aave-v148-internal-apk-20261102
+          for path in app.json app.config.js eas.json; do
+            git show "origin/feat/aave-v148-internal-apk-20261102:$path" | cmp - "$path"
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node scripts/validate-maya-release-train.js
+      - run: node scripts/validate-maya-actions-v1.js
+      - run: node scripts/validate-maya-actions-agenda-v1.js
+      - run: node scripts/validate-maya-planning-v1.js
+      - run: node scripts/validate-maya-web-quotes-v1.js
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run typecheck
+      - run: npx expo-doctor
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: eas whoami
+      - name: Publish QA-only update (NOT production channel)
+        run: eas update --branch maya-actions-v148-qa --platform android --message "Maya Actions Wave A QA v148 sha 096c9fd619a551f23ba8c7d9e3e72a7e01605a6e" --non-interactive
