@@ -159,9 +159,9 @@ export default function KycScreen() {
     <Screen>
       <Brand />
       <Badge tone="info">PASSO 1 DE 4</Badge>
-      <Title>Vamos confirmar que é você</Title>
+      <Title>Sua conta Nexa está quase pronta</Title>
       <Paragraph>
-        A verificação ajuda a proteger sua conta e libera as funcionalidades da Nexa. A etapa é feita em ambiente seguro do provedor de identidade.
+        Para começar a usar os serviços financeiros da Nexa, precisamos confirmar sua identidade. Isso ajuda a prevenir fraudes e proteger sua conta. A verificação é realizada pela Didit, nossa parceira de identidade.
       </Paragraph>
 
       <Card>
@@ -192,7 +192,7 @@ export default function KycScreen() {
                 {countryCode === 'BR' ? 'Selfie e documento quando necessário' : 'Documento e prova de vida'}
               </Text>
               <Text style={styles.step}>
-                O provedor solicita apenas o necessário para validar sua identidade.
+                Siga as instruções na tela da Didit. Dependendo do resultado, poderá ser necessário apresentar um documento.
               </Text>
             </View>
           </View>
@@ -200,7 +200,7 @@ export default function KycScreen() {
             <Text style={styles.stepIndex}>3</Text>
             <View style={styles.stepBody}>
               <Text style={styles.stepTitle}>Validação</Text>
-              <Text style={styles.step}>A Nexa continua o onboarding somente depois da aprovação.</Text>
+              <Text style={styles.step}>Depois da aprovação, você poderá conhecer as opções de depósito disponíveis na Nexa.</Text>
             </View>
           </View>
         </View>
@@ -220,7 +220,10 @@ export default function KycScreen() {
         </Card>
       ) : (
         <Card>
-          <Text style={styles.consentTitle}>Antes de continuar</Text>
+          <Text style={styles.consentTitle}>Como funciona e por que é necessário?</Text>
+          <Text style={styles.helper}>
+            Você será direcionado à Didit para concluir a identificação. Use apenas o aplicativo e os links oficiais. A Nexa nunca pede senhas ou códigos de acesso pelo WhatsApp.
+          </Text>
           <Text style={styles.helper}>
             Ao tocar em “{actionLabel(status)}”, você autoriza o tratamento dos dados necessários para confirmar sua identidade e prova de vida. A Nexa usa o fluxo hospedado do provedor para manter essa etapa separada da experiência financeira sempre que possível.
           </Text>
