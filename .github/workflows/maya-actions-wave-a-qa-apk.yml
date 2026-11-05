@@ -1,0 +1,131 @@
+name: Maya Actions Wave A — isolated Android QA APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/maya-actions-wave-a-qa-apk.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: maya-actions-v148-qa-apk
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: maya-actions-qa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/maya-actions-v148-wave-a-20261104
+          fetch-depth: 0
+      - name: Pin exact previously approved QA A source
+        run: |
+          test "$(git rev-parse HEAD)" = '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e'
+          git fetch origin feat/aave-v148-internal-apk-20261102:refs/remotes/origin/feat/aave-v148-internal-apk-20261102
+          for path in app.json app.config.js eas.json; do
+            git show "origin/feat/aave-v148-internal-apk-20261102:$path" | cmp - "$path"
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Validate frozen Android safety and OTA compatibility
+        run: |
+          node scripts/validate-maya-release-train.js
+          node scripts/validate-maya-actions-v1.js
+          node scripts/validate-maya-actions-agenda-v1.js
+          node scripts/validate-maya-planning-v1.js
+          node scripts/validate-maya-web-quotes-v1.js
+          node scripts/validate-mobile-safety-v123.js
+          npm run typecheck
+          npx expo-doctor
+          npm run export:android
+      - name: Generate QA-only internal build profile without touching repo files
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const eas = JSON.parse(fs.readFileSync('eas.json','utf8'));
+          const app = JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          if (app.version !== '2.0.43' || app.android.versionCode !== 148 ||
+              app.android.package !== 'br.com.trynexa.app' ||
+              app.runtimeVersion?.policy !== 'appVersion') throw Error('Unexpected Android v148 runtime');
+          if (eas.build.production?.channel !== 'production') throw Error('Production baseline mismatch');
+          eas.build['maya-actions-qa-apk'] = {
+            distribution: 'internal',
+            autoIncrement: false,
+            channel: 'maya-actions-v148-qa',
+            env: {
+              ...eas.build.production.env,
+              EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: 'maya-actions-qa',
+              EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false',
+              EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+            },
+            android: { buildType: 'apk' }
+          };
+          fs.writeFileSync('eas.json',JSON.stringify(eas,null,2)+'\n');
+          if (JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.channel !== 'production') throw Error('Production changed');
+          NODE
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: eas whoami
+      - name: Ensure isolated QA channel points only to published QA A branch
+        run: |
+          if ! eas channel:view maya-actions-v148-qa --json --non-interactive >/tmp/maya-qa-channel.json 2>/tmp/maya-channel-error.txt; then
+            eas channel:create maya-actions-v148-qa --non-interactive
+          fi
+          eas channel:edit maya-actions-v148-qa --branch maya-actions-v148-qa --non-interactive
+          eas channel:view maya-actions-v148-qa --json --non-interactive > /tmp/maya-qa-channel.json
+          node <<'NODE'
+          const fs = require('fs');
+          const data=JSON.parse(fs.readFileSync('/tmp/maya-qa-channel.json','utf8'));
+          const blob=JSON.stringify(data);
+          if (!blob.includes('maya-actions-v148-qa')) throw Error('Unexpected QA channel mapping');
+          if (blob.includes('"name":"production"')) throw Error('Refuse production channel');
+          NODE
+      - name: Queue internal APK for dedicated test device (never Play Store)
+        id: queue_build
+        run: |
+          eas build --platform android --profile maya-actions-qa-apk --non-interactive --no-wait --json > /tmp/maya-qa-build.json
+          node <<'NODE'
+          const fs = require('fs');
+          const raw=JSON.parse(fs.readFileSync('/tmp/maya-qa-build.json','utf8'));
+          const build=Array.isArray(raw)?raw[0]:raw;
+          if (!build || !build.id) throw Error('EAS did not return an Android QA build ID');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'build_id='+build.id+'\n');
+          const url=build.buildDetailsPageUrl || 'https://expo.dev/accounts/henrriquenexa/projects/nexa/builds/'+build.id;
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'build_url='+url+'\n');
+          console.log('QA APK build queued:',build.id,url);
+          NODE
+      - name: Record verifiable QA-build request in issue 126
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QUEUE_RESULT: ${{ steps.queue_build.outcome }}
+          BUILD_ID: ${{ steps.queue_build.outputs.build_id }}
+          BUILD_URL: ${{ steps.queue_build.outputs.build_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$QUEUE_RESULT" = "success" ] && [ -n "$BUILD_ID" ]; then
+            printf '%s\n' "QA APK build **queued**, not yet completed: $BUILD_ID" "Build: $BUILD_URL" > /tmp/qa-result.md
+          else
+            printf '%s\n' "QA APK build NOT confirmed (queue step: $QUEUE_RESULT). See workflow logs; do not declare QA approved." > /tmp/qa-result.md
+          fi
+          printf '%s\n' "" "Workflow: $RUN_URL" "Frozen source SHA: \`096c9fd619a551f23ba8c7d9e3e72a7e01605a6e\`" "Internal APK only. QA channel \`maya-actions-v148-qa\`, release code 148/runtime 2.0.43." "**Never install over the live Play app on a customer device. Use a dedicated QA phone. No production OTA or financial execution performed.**" >> /tmp/qa-result.md
+          gh issue comment 126 --repo "${{ github.repository }}" --body-file /tmp/qa-result.md
