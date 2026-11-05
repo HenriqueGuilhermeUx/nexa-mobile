@@ -1,0 +1,37 @@
+name: Maya Actions v148 — integrated Android QA
+on:
+  push:
+    branches: [integration/maya-actions-v148]
+  pull_request:
+    branches: [integration/maya-actions-v148]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: maya-actions-integrated-qa-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Validate OTA v148 scope
+        run: node scripts/validate-maya-release-train.js
+      - name: Validate Actions V1
+        run: node scripts/validate-maya-actions-v1.js
+      - name: Validate app safety
+        run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run typecheck
+      - run: npx expo-doctor
+      - run: npm run export:android
