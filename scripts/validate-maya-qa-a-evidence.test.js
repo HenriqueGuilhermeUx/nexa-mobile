@@ -8,10 +8,15 @@ const valid = () => ({
  updateId:'01a1a975-d85f-794f-9d67-cf2ac961fbb7',
  deviceModel:'QA test fixture', androidVersion:'14', testedAt:'2026-11-05T10:00:00-03:00',
  ci:'success', explicitApproval:true,
- cases:ids.map(id=>({id,status:'PASS',observed:'fixture only',evidenceRef:'fixture'}))
+ cases:ids.map(id=>({id,status:'PASS',observed:'Notificação apareceu no horário configurado',evidenceRef:'qa-a/device-01/A01.png'}))
 });
 test('complete synthetic fixture passes structural validation only',()=>assert.deepEqual(validate(valid()),[]));
 test('missing device evidence is blocked',()=>{const e=valid();e.cases[0].evidenceRef='';assert.ok(validate(e).length);});
 test('missing or duplicate case is blocked',()=>{const e=valid();e.cases[1]=e.cases[0];assert.ok(validate(e).length);});
 test('wrong runtime or update is blocked',()=>{const e=valid();e.runtime='2.0.44';e.updateId='wrong';assert.ok(validate(e).length);});
 test('without explicit approval is blocked',()=>{const e=valid();e.explicitApproval=false;assert.ok(validate(e).length);});
+
+test('placeholder observations cannot approve QA A',()=>{const e=valid();e.cases[0].observed='fixture only';assert.match(validate(e).join(' '),/synthetic\/placeholder/);});
+test('placeholder evidence reference cannot approve QA A',()=>{const e=valid();e.cases[0].evidenceRef='TODO';assert.match(validate(e).join(' '),/synthetic\/placeholder/);});
+test('timezone-less timestamp is rejected',()=>{const e=valid();e.testedAt='2026-11-05T10:00:00';assert.match(validate(e).join(' '),/timezone/);});
+test('invalid top-level payload is rejected without crashing',()=>assert.ok(validate(null).length));
