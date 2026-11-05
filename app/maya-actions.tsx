@@ -72,7 +72,7 @@ export default function MayaActionsScreen() {
         if (!permission.granted) { setStatus('Permissão negada. Não foi criado nenhum lembrete.'); return; }
         notificationId = await scheduleNexaReminder({
           title: 'Lembrete da Maya',
-          body: draft.description,
+          body: 'Abra a Nexa para consultar seu lembrete.',
           at: scheduled,
           data: { source: 'maya_actions', taskType: 'reminder' },
         });
