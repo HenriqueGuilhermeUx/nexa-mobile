@@ -31,5 +31,13 @@ App `br.com.trynexa.app`, Android `versionCode=148`, app/runtime `2.0.43`, EAS p
 5. Registrar EAS update id, SHA, mensagem, runtime e etapa; confirmar recebimento em dispositivo; medir erros e ter plano de rollback do bundle anterior.
 6. Somente um publicador central e manual, serializado, para `production`; nunca automatizar a publicacao em push de uma feature.
 
+## Status real da trilha (04/11/2026, horario Brasil)
+- Base `integration/maya-actions-v148`: criada do codigo que sustentou a ultima OTA Android v148, com composicao de ativacao + identidade Maya + Actions V1.
+- Onda 01 (agenda): PR #122, CI `Nexa Assistant + Open Finance Release CI` e `Maya Actions v148 — integrated Android QA` aprovados; merge no branch de integracao: `eb3997cae0c3c569b8faf6da269b3ca9c11dac3e`.
+- PR #120: encerrada sem merge; seu conteudo util de V1 foi absorvido na branch de integracao para evitar regresso na release legada.
+- Publicacao OTA Maya Actions: **NAO EXECUTADA**. A ultima OTA de producao continua sendo a publicacao anterior da Maya + ativacao.
+- Workflow manual e central de promocao: `.github/workflows/maya-actions-v148-ota-promotion.yml` na branch `main`; requer SHA exato, confirmacao textual e validacao v148 completa, nao roda em push de feature.
+- Proximo gate: validar CI do commit resultante na integracao, testar data/hora, agendamento, exclusao e permissao de notificacao no Android real 2.0.43 (v148); somente entao aprovar o proximo bundle de producao.
+
 ## Estado inicial
 O branch de integracao esta **em construcao/homologacao**. A PR #120 fornece apenas Actions V1 locais. Nao confundir criacao de branch ou CI com release publicado. O workflow de producao existente, `.github/workflows/activation-v148-ota.yml`, foi a ultima fonte conhecida da composicao da OTA; nao substitui o novo processo de promocao ate validacao.
