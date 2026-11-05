@@ -82,3 +82,12 @@ test('artifact gate rejects unsupported file types directly',()=>{
   const e=valid(); e.cases=[{...e.cases[0],evidenceRef:'qa-a/result.exe'}];
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unsafe evidence reference/);
 });
+
+test('equivalent relative paths cannot reuse one evidence artifact',()=>{
+  const e=valid(); e.cases[1].evidenceRef='qa-a/device-01/./A01.png';
+  assert.match(validate(e).join(' '),/duplicate evidence reference/);
+});
+test('case-only path aliases cannot reuse one evidence artifact',()=>{
+  const e=valid(); e.cases[1].evidenceRef='QA-A/DEVICE-01/a01.PNG';
+  assert.match(validate(e).join(' '),/duplicate evidence reference/);
+});
