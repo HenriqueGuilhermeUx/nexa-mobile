@@ -6,7 +6,7 @@ const valid = () => ({
  runtime:'2.0.43', versionCode:148,
  releaseSha:'096c9fd619a551f23ba8c7d9e3e72a7e01605a6e',
  updateId:'01a1a975-d85f-794f-9d67-cf2ac961fbb7',
- deviceModel:'Pixel 7', androidVersion:'14', testedAt:'2026-11-05T10:00:00-03:00',
+ deviceModel:'Pixel 7', androidVersion:'14', testedAt:'2026-11-04T10:00:00-03:00',
  ci:'success', explicitApproval:true,
  cases:ids.map(id=>({id,status:'PASS',observed:'Notificação apareceu no horário configurado',evidenceRef:`qa-a/device-01/${id}.png`}))
 });
@@ -34,3 +34,5 @@ test('unsupported artifact extension is rejected',()=>{const e=valid();e.cases[0
 
 test('embedded TODO in an observation blocks QA approval',()=>{const e=valid();e.cases[0].observed='Notificação OK; TODO confirmar no aparelho';assert.match(validate(e).join(' '),/synthetic\/placeholder/);});
 test('embedded fixture marker in evidence path blocks QA approval',()=>{const e=valid();e.cases[0].evidenceRef='qa-a/fixture-capture/A01.png';assert.match(validate(e).join(' '),/synthetic\/placeholder/);});
+
+test('future-dated QA capture is rejected',()=>{const e=valid();e.testedAt='2099-01-01T00:00:00Z';assert.match(validate(e).join(' '),/future/);});
