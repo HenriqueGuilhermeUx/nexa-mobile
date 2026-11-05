@@ -67,3 +67,11 @@ A pesquisa read-only pode ocorrer sem login. Para formularios, cada site, campos
 - Dashboard: https://expo.dev/accounts/henrriquenexa/projects/nexa/updates/1cd78cdf-0535-4a79-b0dc-ff65ffe46178.
 - QA em dispositivo permanece pendente; app de canal production nao recebe automaticamente a branch QA.
 - Proxima candidata Wave B inclui PR #127: tela de pesquisa externa iniciada pelo usuario, com URLs controladas de buscas de ofertas; nao apresenta comparacoes automatizadas, disponibilidade ou checkout.
+
+## Segunda OTA QA e roteamento pela conversa
+- Wave B QA publicada com sucesso em `maya-actions-v148-qa-wave-b` pelo [run #41953717166](https://github.com/HenriqueGuilhermeUx/nexa-mobile/actions/runs/41953717166).
+- Update group: `50890af6-e7ba-4f98-8fa7-1b3068c18fd4`; Android update: `01a1a97d-d9f7-7be1-aed3-229ce41d2128`; runtime `2.0.43`.
+- SHA cumulativo B: `3d785dee73b5b2d1e100d9efd531c1c855e0fa97`, branch release `release/maya-actions-v148-wave-b-20261104`.
+- Wave B acrescenta pesquisa de precos **iniciada manualmente** por botao e navegador externo, sem coleta automatica, compra, envio de dados de conta ou checkout.
+- PR #129 (commit merge `af5475cd4aa4eea53801b0fb5d96a14af100adc7`) passou em 3 validacoes e foi incorporada a integracao: comandos explicitos na conversa `me lembre...` e `pesquise precos...` levam a telas de revisao. **Esse roteamento ainda NAO esta na OTA QA B** pois foi integrado depois do SHA congelado.
+- Proximos passos: homologar Wave A/B em dispositivo apropriado e preparar Wave C cumulativa com roteamento de chat, mantendo QA e production separados ate evidencia de compatibilidade real.
