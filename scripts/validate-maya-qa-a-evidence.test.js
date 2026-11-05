@@ -96,3 +96,9 @@ test('Windows-style separator alias cannot reuse an evidence artifact',()=>{
   const e=valid(); e.cases[1].evidenceRef=['qa-a','device-01','A01.png'].join(String.fromCharCode(92));
   assert.match(validate(e).join(' '),/duplicate evidence reference/);
 });
+
+test('Windows-style evidence paths are rejected by metadata and disk gates',()=>{
+  const e=valid(); e.cases[0].evidenceRef=['qa-a','device-01','A01.png'].join(String.fromCharCode(92));
+  assert.match(validate(e).join(' '),/unsafe evidence reference/);
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unsafe evidence reference/);
+});
