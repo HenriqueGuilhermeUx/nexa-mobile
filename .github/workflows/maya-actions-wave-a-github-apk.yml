@@ -100,12 +100,20 @@ jobs:
           test -f "$UNSIGNED"
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/nexa-aligned.apk"
           "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/nexa-qa.jks" --ks-key-alias nexaqa --ks-pass pass:android --key-pass pass:android --out nexa-maya-wave-a-v148-build148-qa-signed.apk "$RUNNER_TEMP/nexa-aligned.apk"
-          "$BUILD_TOOLS/apksigner" verify --verbose nexa-maya-wave-a-v148-qa-signed.apk
+          APK="nexa-maya-wave-a-v148-build148-qa-signed.apk"
+          test -s "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          # Inspect the *actual* signed APK manifest, not just app.json.
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK" | head -n 1)"
+          printf '%s\n' "$BADGING"
+          [[ "$BADGING" == *"name='br.com.trynexa.mayaqa'"* ]] || { echo 'Wrong QA package in APK'; exit 1; }
+          [[ "$BADGING" == *"versionCode='148'"* ]] || { echo 'Wrong APK build; server requires 144+'; exit 1; }
+          [[ "$BADGING" == *"versionName='2.0.43'"* ]] || { echo 'Wrong APK version'; exit 1; }
       - name: Upload APK to GitHub Actions for internal test
         uses: actions/upload-artifact@v4
         with:
           name: nexa-maya-actions-wave-a-v148-build148-standalone-qa-apk
-          path: nexa-maya-wave-a-v148-qa-signed.apk
+          path: nexa-maya-wave-a-v148-build148-qa-signed.apk
           if-no-files-found: error
           retention-days: 7
       - name: Record QA artifact result in issue 126
@@ -115,5 +123,5 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
-          printf '%s\n' "**Maya Actions Wave A — GitHub standalone QA APK build: $JOB_STATUS**" "" "Workflow: $RUN_URL" "Artifact name (only if successful): nexa-maya-actions-wave-a-v148-standalone-qa-apk" "Standalone package: br.com.trynexa.mayaqa; test signing only; no EAS cloud build quota used." "This APK bundles the Wave A screens but does not test EAS OTA delivery and may require Privy login configuration for the QA package." "Do not confuse with the Play production app or use live financial transactions." > /tmp/maya-standalone-result.md
+          printf '%s\n' "**Maya Actions Wave A — GitHub standalone QA APK build: $JOB_STATUS**" "" "Workflow: $RUN_URL" "Artifact name (only if successful): nexa-maya-actions-wave-a-v148-build148-standalone-qa-apk" "Standalone package: br.com.trynexa.mayaqa; test signing only; no EAS cloud build quota used." "This APK bundles the Wave A screens but does not test EAS OTA delivery and may require Privy login configuration for the QA package." "Do not confuse with the Play production app or use live financial transactions." > /tmp/maya-standalone-result.md
           gh issue comment 126 --repo "${{ github.repository }}" --body-file /tmp/maya-standalone-result.md
