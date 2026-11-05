@@ -42,6 +42,11 @@ jobs:
           if [ -e scripts/validate-maya-web-quotes-v1.js ]; then
             node scripts/validate-maya-web-quotes-v1.js
           fi
+      - name: Validate planning goals
+        run: |
+          if [ -e scripts/validate-maya-planning-v1.js ]; then
+            node scripts/validate-maya-planning-v1.js
+          fi
       - name: Validate app safety
         run: node scripts/validate-mobile-safety-v123.js
       - run: npm run typecheck
