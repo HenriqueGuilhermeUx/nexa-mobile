@@ -91,3 +91,8 @@ test('case-only path aliases cannot reuse one evidence artifact',()=>{
   const e=valid(); e.cases[1].evidenceRef='QA-A/DEVICE-01/a01.PNG';
   assert.match(validate(e).join(' '),/duplicate evidence reference/);
 });
+
+test('Windows-style separator alias cannot reuse an evidence artifact',()=>{
+  const e=valid(); e.cases[1].evidenceRef=['qa-a','device-01','A01.png'].join(String.fromCharCode(92));
+  assert.match(validate(e).join(' '),/duplicate evidence reference/);
+});
