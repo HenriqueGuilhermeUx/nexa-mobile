@@ -26,6 +26,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Fetch proven Android v148 OTA baseline
+        run: git fetch origin feat/aave-v148-internal-apk-20261102:refs/remotes/origin/feat/aave-v148-internal-apk-20261102
       - name: Validate OTA v148 scope
         run: node scripts/validate-maya-release-train.js
       - name: Validate Actions V1
