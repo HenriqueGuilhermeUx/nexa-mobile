@@ -16,7 +16,7 @@
 | 07 | `feat/maya-actions-07-automacoes-v148` | Rotinas e gatilhos em segundo plano com opt-in | Backend de fila/scheduler, escopos, limites, cancelamento, auditoria | Branch criada |
 | 08 | `feat/maya-actions-08-integracoes-v148` | DocWallet, Health Wallet, SmartBots, NexOffices e parceiros | Contratos autenticados, controles de dados e fronteiras entre produtos | Branch criada |
 | 09 | `feat/maya-actions-09-pesquisa-cotacoes-v148` | Comparar ofertas por preco final, frete, estoque, prazo e fonte | Backend web seguro e ofertas atuais; rejeitar total incompleto e fontes vencidas | PR #123 merged: contrato e CI somente leitura, sem busca ao vivo |
-| 10 | `feat/maya-actions-10-formularios-inscricoes-v148` | Preparar e submeter inscricoes/cadastros autorizados | Revisao dos campos, CAPTCHA/MFA manual, termos, protocolo e evidencias | PR #125 draft; contratos de revisao sem envio real |
+| 10 | `feat/maya-actions-10-formularios-inscricoes-v148` | Preparar e submeter inscricoes/cadastros autorizados | Revisao dos campos, CAPTCHA/MFA manual, termos, protocolo e evidencias | PR #125 merged: contratos para revisao sem envio real; backend ainda nao conectado |
 | 11 | `feat/maya-actions-11-compras-checkout-v148` | Montar carrinho e, com aprovacao, finalizar compra suportada | Merchant/PSP real, preco congelado, impostos, entrega, 3DS, idempotencia e recibo | Branch criada |
 | 12 | `feat/maya-actions-12-reservas-servicos-v148` | Buscar e preparar reservas e contratacao de servicos | Disponibilidade do provedor, politica de cancelamento, confirmacao e comprovante | Branch criada |
 
