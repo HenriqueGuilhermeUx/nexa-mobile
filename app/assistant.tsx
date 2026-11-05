@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import NexaAssistantOpenFinance from '@/components/NexaAssistantOpenFinance';
 import { nexaApi } from '@/lib/api';
@@ -71,6 +71,13 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.screen}>
+      <View style={styles.mayaHeader}>
+        <Text style={styles.mayaTitle}>Maya</Text>
+        <Text style={styles.mayaSubtitle}>Sua assistente inteligente</Text>
+      </View>
+      <Pressable accessibilityRole="button" onPress={() => router.push('/maya-actions' as any)} style={{ padding: 12, borderRadius: 10, backgroundColor: '#16456C', marginBottom: 10 }}>
+        <Text style={{ color: '#FFFFFF', textAlign: 'center', fontWeight: '700' }}>Maya Actions · Preparar tarefas</Text>
+      </Pressable>
       <NexaAssistantOpenFinance token={token} firstName={firstName} />
     </View>
   );
@@ -82,6 +89,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
+  mayaHeader: { marginBottom: spacing.md },
+  mayaTitle: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  mayaSubtitle: { color: colors.muted, marginTop: 3 },
   loader: {
     flex: 1,
     alignItems: 'center',
