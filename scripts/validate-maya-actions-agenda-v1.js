@@ -1,0 +1,16 @@
+const fs = require('fs');
+const assert = require('assert');
+const src = fs.readFileSync('app/maya-actions.tsx', 'utf8');
+const notifications = fs.readFileSync('src/lib/nexaNotifications.ts','utf8');
+assert(src.includes('parseBrazilianReminder'), 'No strict local-time parser');
+assert(src.includes('ensureNexaNotificationPermission()'), 'Explicit permissions required');
+assert(src.includes('scheduleNexaReminder({'), 'No scheduling action');
+assert(src.includes('notificationId = await scheduleNexaReminder'), 'Persist notification IDs to support cancellation');
+assert(src.includes('cancelNexaReminder(task.notificationId)'), 'Must cancel on completion and deletion');
+assert(src.includes("body: 'Abra a Nexa para consultar seu lembrete.'"), 'No sensitive reminder text in locked-screen notifications');
+assert(src.includes("const saved = await persist([task, ...tasks])"), 'Schedule only on explicit persistent confirmation');
+assert(src.includes('if (!saved)') && src.includes('if (notificationId) await cancelNexaReminder(notificationId)'), 'Rollback orphan notifications if persistence fails');
+assert(src.includes('setTaskDone(task)') && src.includes('removeTask(task)'), 'Completion/deletion must handle notifications');
+assert(notifications.includes('SchedulableTriggerInputTypes.DATE'), 'Existing SDK local scheduler unavailable');
+assert(notifications.includes('REMINDERS_CHANNEL'), 'Existing Android reminders channel unavailable');
+console.log('PASS: reminder permission, scheduling, privacy, completion, cancel and failure rollback');

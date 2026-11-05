@@ -32,6 +32,11 @@ jobs:
         run: node scripts/validate-maya-release-train.js
       - name: Validate Actions V1
         run: node scripts/validate-maya-actions-v1.js
+      - name: Validate agenda local notifications
+        run: |
+          if [ -e scripts/validate-maya-actions-agenda-v1.js ]; then
+            node scripts/validate-maya-actions-agenda-v1.js
+          fi
       - name: Validate app safety
         run: node scripts/validate-mobile-safety-v123.js
       - run: npm run typecheck

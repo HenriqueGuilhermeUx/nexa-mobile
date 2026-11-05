@@ -2,11 +2,23 @@ import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
+import { ensureNexaNotificationPermission, scheduleNexaReminder, cancelNexaReminder } from '@/lib/nexaNotifications';
 import { ScrollView, StyleSheet, Text, TextInput, Pressable, View } from 'react-native';
 import { colors, spacing } from '@/theme';
 
 type ActionKind = 'reminder' | 'budget' | 'report';
-type SavedTask = { id: string; kind: ActionKind; description: string; done: boolean };
+type SavedTask = { id: string; kind: ActionKind; description: string; done: boolean; remindAt?: string; notificationId?: string };
+
+function parseBrazilianReminder(value: string): Date | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const [, day, month, year, hour, minute] = match;
+  const at = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+  if (at.getFullYear() !== Number(year) || at.getMonth() !== Number(month) - 1 ||
+      at.getDate() !== Number(day) || at.getHours() !== Number(hour) ||
+      at.getMinutes() !== Number(minute) || at.getTime() <= Date.now() + 60_000) return null;
+  return at;
+}
 const choices: { key: ActionKind; title: string; description: string }[] = [
   { key: 'reminder', title: 'Lembrete', description: 'Preparar um lembrete para uma conta ou compromisso.' },
   { key: 'budget', title: 'Orçamento', description: 'Organizar uma meta de gastos para revisar.' },
@@ -16,7 +28,9 @@ const choices: { key: ActionKind; title: string; description: string }[] = [
 export default function MayaActionsScreen() {
   const [kind, setKind] = useState<ActionKind>('reminder');
   const [description, setDescription] = useState('');
-  const [draft, setDraft] = useState<{ kind: ActionKind; description: string } | null>(null);
+  const [remindAt, setRemindAt] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState<{ kind: ActionKind; description: string; remindAt?: string } | null>(null);
   const [storageKey, setStorageKey] = useState('');
   const [tasks, setTasks] = useState<SavedTask[]>([]);
   const [status, setStatus] = useState('');
@@ -40,16 +54,72 @@ export default function MayaActionsScreen() {
     })();
     return () => { active = false; };
   }, []);
-  async function persist(next: SavedTask[]) {
-    if (!storageKey) return;
-    try { await AsyncStorage.setItem(storageKey, JSON.stringify(next)); setTasks(next); setStatus('Tarefas salvas neste dispositivo.'); }
-    catch { setStatus('Falha ao salvar. Tente novamente.'); }
+  async function persist(next: SavedTask[]): Promise<boolean> {
+    if (!storageKey) return false;
+    try { await AsyncStorage.setItem(storageKey, JSON.stringify(next)); setTasks(next); setStatus('Tarefas salvas neste dispositivo.'); return true; }
+    catch { setStatus('Falha ao salvar. Tente novamente.'); return false; }
+  }
+  async function confirmDraft() {
+    if (!draft || !storageKey || busy || tasks.length >= 50) return;
+    setBusy(true);
+    let notificationId: string | undefined;
+    try {
+      let scheduled: Date | null = null;
+      if (draft.kind === 'reminder') {
+        scheduled = parseBrazilianReminder(draft.remindAt || '');
+        if (!scheduled) { setStatus('Informe uma data futura válida (DD/MM/AAAA HH:mm).'); return; }
+        const permission = await ensureNexaNotificationPermission();
+        if (!permission.granted) { setStatus('Permissão negada. Não foi criado nenhum lembrete.'); return; }
+        notificationId = await scheduleNexaReminder({
+          title: 'Lembrete da Maya',
+          body: 'Abra a Nexa para consultar seu lembrete.',
+          at: scheduled,
+          data: { source: 'maya_actions', taskType: 'reminder' },
+        });
+      }
+      const task: SavedTask = {
+        id: String(Date.now()) + '-' + Math.random().toString(36).slice(2),
+        kind: draft.kind, description: draft.description, done: false,
+        ...(scheduled ? { remindAt: scheduled.toISOString(), notificationId } : {}),
+      };
+      const saved = await persist([task, ...tasks]);
+      if (!saved) {
+        if (notificationId) await cancelNexaReminder(notificationId);
+        return;
+      }
+      setDraft(null); setDescription(''); setRemindAt('');
+      setStatus(scheduled ? 'Lembrete agendado neste aparelho.' : 'Tarefa salva neste aparelho.');
+    } catch {
+      if (notificationId) await cancelNexaReminder(notificationId).catch(() => undefined);
+      setStatus('Não foi possível agendar. Nenhum lembrete foi salvo.');
+    } finally { setBusy(false); }
+  }
+  async function setTaskDone(task: SavedTask) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const done = !task.done;
+      const next = tasks.map(item => item.id === task.id ? { ...item, done } : item);
+      const saved = await persist(next);
+      if (saved && done && task.notificationId) await cancelNexaReminder(task.notificationId);
+      if (saved && !done && task.notificationId) setStatus('Tarefa reaberta. O lembrete cancelado não é reagendado automaticamente.');
+    } catch { setStatus('Tarefa atualizada, mas a notificação pode continuar ativa.'); }
+    finally { setBusy(false); }
+  }
+  async function removeTask(task: SavedTask) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const saved = await persist(tasks.filter(item => item.id !== task.id));
+      if (saved && task.notificationId) await cancelNexaReminder(task.notificationId);
+    } catch { setStatus('Tarefa excluída, mas a notificação pode continuar ativa.'); }
+    finally { setBusy(false); }
   }
   const selected = choices.find(item => item.key === kind)!;
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.heading}>Maya · Actions</Text>
-      <Text style={styles.description}>Prepare uma tarefa com a Maya. Salve e conclua tarefas neste dispositivo. Não há sincronização, envio externo ou agendamento automático.</Text>
+      <Text style={styles.description}>Crie tarefas ou agende lembretes locais com confirmação. Tudo permanece neste dispositivo; não há sincronização nem pagamentos automáticos.</Text>
       {choices.map(item => (
         <Pressable key={item.key} accessibilityRole="radio" accessibilityState={{ selected: kind === item.key }} onPress={() => { setKind(item.key); setDraft(null); }} style={[styles.choice, kind === item.key && styles.active]}>
           <Text style={styles.title}>{item.title}</Text>
@@ -58,7 +128,14 @@ export default function MayaActionsScreen() {
       ))}
       <Text style={styles.title}>O que você precisa?</Text>
       <TextInput accessibilityLabel="Descrição da tarefa" placeholder="Ex.: lembrar de pagar a internet dia 10" placeholderTextColor={colors.muted} value={description} onChangeText={value => { setDescription(value); setDraft(null); }} multiline maxLength={500} style={styles.input} />
-      <Pressable accessibilityRole="button" disabled={!description.trim()} onPress={() => setDraft({ kind, description: description.trim() })} style={[styles.button, !description.trim() && styles.disabled]}>
+      {kind === 'reminder' && (
+        <View style={{ gap: 6 }}>
+          <Text style={styles.title}>Quando devo lembrar?</Text>
+          <TextInput accessibilityLabel="Data e hora do lembrete" placeholder="DD/MM/AAAA HH:mm" placeholderTextColor={colors.muted} value={remindAt} onChangeText={value => { setRemindAt(value); setDraft(null); }} keyboardType="numbers-and-punctuation" maxLength={16} style={styles.input} />
+          <Text style={styles.description}>Data e hora locais; um lembrete futuro. Será necessário permitir notificações.</Text>
+        </View>
+      )}
+      <Pressable accessibilityRole="button" disabled={!description.trim() || (kind === 'reminder' && !parseBrazilianReminder(remindAt))} onPress={() => setDraft({ kind, description: description.trim(), remindAt: kind === 'reminder' ? remindAt : undefined })} style={[styles.button, !description.trim() && styles.disabled]}>
         <Text style={styles.buttonText}>Preparar tarefa para revisão</Text>
       </Pressable>
       {!!status && <Text accessibilityRole="alert" style={styles.notice}>{status}</Text>}
@@ -66,8 +143,9 @@ export default function MayaActionsScreen() {
         <View key={task.id} style={styles.preview}>
           <Text style={styles.title}>{task.done ? 'Concluída' : 'Pendente'} · {choices.find(item => item.key === task.kind)?.title}</Text>
           <Text style={styles.description}>{task.description}</Text>
-          <Pressable accessibilityRole="button" onPress={() => { void persist(tasks.map(item => item.id === task.id ? { ...item, done: !item.done } : item)); }}><Text style={styles.cancel}>{task.done ? 'Reabrir' : 'Marcar como concluída'}</Text></Pressable>
-          <Pressable accessibilityRole="button" onPress={() => { void persist(tasks.filter(item => item.id !== task.id)); }}><Text style={styles.cancel}>Excluir tarefa</Text></Pressable>
+          {task.remindAt && <Text style={styles.description}>Lembrete: {new Date(task.remindAt).toLocaleString('pt-BR')}</Text>}
+          <Pressable accessibilityRole="button" onPress={() => { void setTaskDone(task); }}><Text style={styles.cancel}>{task.done ? 'Reabrir' : 'Marcar como concluída'}</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => { void removeTask(task); }}><Text style={styles.cancel}>Excluir tarefa</Text></Pressable>
         </View>
       ))}
       {draft && (
@@ -75,8 +153,9 @@ export default function MayaActionsScreen() {
           <Text style={styles.title}>Rascunho — não executado</Text>
           <Text style={styles.description}>Tipo: {selected.title}</Text>
           <Text style={styles.description}>{draft.description}</Text>
-          <Text style={styles.notice}>A tarefa será salva apenas neste dispositivo. Não gera notificações, pagamentos nem ações externas.</Text>
-          <Pressable accessibilityRole="button" disabled={!storageKey || tasks.length >= 50} onPress={() => { void persist([{ id: String(Date.now()) + '-' + Math.random().toString(36).slice(2), kind: draft.kind, description: draft.description, done: false }, ...tasks]); setDraft(null); setDescription(''); }} style={[styles.button, !storageKey && styles.disabled]}><Text style={styles.buttonText}>Confirmar e salvar tarefa</Text></Pressable>
+          {draft.kind === 'reminder' && <Text style={styles.description}>Data e hora: {draft.remindAt}</Text>}
+          <Text style={styles.notice}>{draft.kind === 'reminder' ? 'Após sua confirmação, será agendada uma notificação local no aparelho.' : 'A tarefa será salva apenas neste dispositivo.'} Não executa pagamentos ou ações externas.</Text>
+          <Pressable accessibilityRole="button" disabled={!storageKey || tasks.length >= 50 || busy} onPress={() => { void confirmDraft(); }} style={[styles.button, !storageKey && styles.disabled]}><Text style={styles.buttonText}>Confirmar e salvar tarefa</Text></Pressable>
           <Pressable accessibilityRole="button" onPress={() => setDraft(null)}><Text style={styles.cancel}>Descartar rascunho</Text></Pressable>
         </View>
       )}
