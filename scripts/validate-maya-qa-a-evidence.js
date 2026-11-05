@@ -28,8 +28,8 @@ function validate(e) {
     }
     if (c.status !== 'PASS') errors.push('not PASS: ' + c.id);
     if (![c.observed, c.evidenceRef].every(v => typeof v === 'string' && v.trim())) errors.push('missing observation/evidence: ' + c.id);
-    if (['fixture', 'fixture only', 'todo', 'tbd', 'placeholder', 'n/a'].includes(String(c.observed).trim().toLowerCase()) ||
-        ['fixture', 'todo', 'tbd', 'placeholder', 'n/a'].includes(String(c.evidenceRef).trim().toLowerCase())) errors.push('synthetic/placeholder evidence: ' + c.id);
+    if (/\b(?:fixture|placeholder|todo|tbd|n\/a|simulated|synthetic)\b/i.test(String(c.observed)) ||
+        /\b(?:fixture|placeholder|todo|tbd|n\/a|simulated|synthetic)\b/i.test(String(c.evidenceRef))) errors.push('synthetic/placeholder evidence: ' + c.id);
   }
   for (const id of required) if (!seen.has(id)) errors.push('missing case: ' + id);
   if (e.ci !== 'success' || e.explicitApproval !== true) errors.push('CI/approval missing');
