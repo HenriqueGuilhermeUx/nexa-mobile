@@ -49,7 +49,10 @@ function verifyEvidenceFiles(e, root) {
   const physicalArtifacts = new Set();
   const canonicalArtifacts = new Set();
   for (const c of e.cases) {
-    if (!c || typeof c.evidenceRef !== 'string') continue;
+    if (!c || typeof c !== 'object' || Array.isArray(c) || typeof c.evidenceRef !== 'string') {
+      errors.push('invalid case object for artifact verification');
+      continue;
+    }
     const ref = c.evidenceRef.trim();
     // Repeat the metadata gate here: this function can also be called directly.
     if (!ref || /^(?:[a-z][a-z0-9+.-]*:|\/|\\\\)/i.test(ref) ||
