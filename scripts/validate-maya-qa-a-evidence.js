@@ -13,10 +13,17 @@ function validate(e) {
   if (typeof e.testedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(e.testedAt) || !Number.isFinite(Date.parse(e.testedAt))) errors.push('testedAt must be an ISO timestamp with timezone');
   if (!Array.isArray(e.cases)) errors.push('cases missing');
   const seen = new Set();
+  const evidenceRefs = new Set();
+  if (/fixture|placeholder|simulat|emulat|test data/i.test(String(e.deviceModel))) errors.push('device metadata appears synthetic');
   for (const c of Array.isArray(e.cases) ? e.cases : []) {
     if (!c || typeof c !== 'object' || Array.isArray(c)) { errors.push('invalid case object'); continue; }
     if (!required.includes(c.id) || seen.has(c.id)) errors.push('unknown or duplicate case: ' + c.id);
     seen.add(c.id);
+    if (typeof c.evidenceRef === 'string' && c.evidenceRef.trim()) {
+      const ref = c.evidenceRef.trim();
+      if (evidenceRefs.has(ref)) errors.push('duplicate evidence reference: ' + c.id);
+      evidenceRefs.add(ref);
+    }
     if (c.status !== 'PASS') errors.push('not PASS: ' + c.id);
     if (![c.observed, c.evidenceRef].every(v => typeof v === 'string' && v.trim())) errors.push('missing observation/evidence: ' + c.id);
     if (['fixture', 'fixture only', 'todo', 'tbd', 'placeholder', 'n/a'].includes(String(c.observed).trim().toLowerCase()) ||
