@@ -1,0 +1,29 @@
+name: Maya Actions V1 — isolated validation
+on:
+  pull_request:
+    branches: [release/nexa-2.0.43-v148-brasil]
+    paths:
+      - 'app/maya-actions.tsx'
+      - 'app/assistant.tsx'
+      - 'app/_layout.tsx'
+      - 'scripts/validate-maya-actions-v1.js'
+      - '.github/workflows/maya-actions-v1-ci.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node scripts/validate-maya-actions-v1.js
+      - run: npm run typecheck
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run export:android
+        env:
+          CI: 'true'
