@@ -48,7 +48,9 @@ jobs:
           doc.expo.slug = 'nexa-maya-actions-qa';
           doc.expo.scheme = 'nexa-maya-actions-qa';
           doc.expo.android.package = 'br.com.trynexa.mayaqa';
-          doc.expo.android.versionCode = 1;
+          // The backend version gate enforces min build 144 even on the isolated QA package.
+          // Keep the Play baseline's build code without changing its applicationId or signing.
+          doc.expo.android.versionCode = 148;
           doc.expo.extra.financialExecutionEnabled = false;
           doc.expo.extra.releaseChannel = 'internal-maya-qa';
           delete doc.expo.updates;
@@ -59,7 +61,7 @@ jobs:
           node <<'NODE'
           const app=require('./app.json').expo;
           if (app.android.package !== 'br.com.trynexa.mayaqa' || app.updates) throw Error('QA app must not share production package or live OTA');
-          if (app.version !== '2.0.43' || app.android.versionCode !== 1) throw Error('Wrong QA identity');
+          if (app.version !== '2.0.43' || app.android.versionCode !== 148) throw Error('Wrong QA identity or build below min 144');
           NODE
       - name: Generate Android native project
         env:
@@ -97,12 +99,12 @@ jobs:
           fi
           test -f "$UNSIGNED"
           "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/nexa-aligned.apk"
-          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/nexa-qa.jks" --ks-key-alias nexaqa --ks-pass pass:android --key-pass pass:android --out nexa-maya-wave-a-v148-qa-signed.apk "$RUNNER_TEMP/nexa-aligned.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/nexa-qa.jks" --ks-key-alias nexaqa --ks-pass pass:android --key-pass pass:android --out nexa-maya-wave-a-v148-build148-qa-signed.apk "$RUNNER_TEMP/nexa-aligned.apk"
           "$BUILD_TOOLS/apksigner" verify --verbose nexa-maya-wave-a-v148-qa-signed.apk
       - name: Upload APK to GitHub Actions for internal test
         uses: actions/upload-artifact@v4
         with:
-          name: nexa-maya-actions-wave-a-v148-standalone-qa-apk
+          name: nexa-maya-actions-wave-a-v148-build148-standalone-qa-apk
           path: nexa-maya-wave-a-v148-qa-signed.apk
           if-no-files-found: error
           retention-days: 7
