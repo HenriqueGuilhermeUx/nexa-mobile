@@ -31,3 +31,6 @@ test('synthetic device metadata is blocked',()=>{const e=valid();e.deviceModel='
 test('remote URL is not an acceptable evidence artifact',()=>{const e=valid();e.cases[0].evidenceRef='https://example.com/proof.png';assert.match(validate(e).join(' '),/unsafe evidence reference/);});
 test('path traversal is rejected',()=>{const e=valid();e.cases[0].evidenceRef='../private/proof.png';assert.match(validate(e).join(' '),/unsafe evidence reference/);});
 test('unsupported artifact extension is rejected',()=>{const e=valid();e.cases[0].evidenceRef='qa-a/device-01/result.txt';assert.match(validate(e).join(' '),/unsafe evidence reference/);});
+
+test('embedded TODO in an observation blocks QA approval',()=>{const e=valid();e.cases[0].observed='Notificação OK; TODO confirmar no aparelho';assert.match(validate(e).join(' '),/synthetic\/placeholder/);});
+test('embedded fixture marker in evidence path blocks QA approval',()=>{const e=valid();e.cases[0].evidenceRef='qa-a/fixture-capture/A01.png';assert.match(validate(e).join(' '),/synthetic\/placeholder/);});
