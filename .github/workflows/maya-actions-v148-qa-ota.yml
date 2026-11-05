@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  issues: write
 concurrency:
   group: maya-actions-v148-qa-ota
   cancel-in-progress: false
@@ -58,4 +59,19 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
       - run: eas whoami
       - name: Publish QA-only update (NOT production channel)
+        id: publish_qa
         run: eas update --branch maya-actions-v148-qa --platform android --message "Maya Actions Wave A QA v148 sha 096c9fd619a551f23ba8c7d9e3e72a7e01605a6e" --non-interactive
+      - name: Report actual QA result to GitHub issue 126
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          QA_PUBLISH_OUTCOME: ${{ steps.publish_qa.outcome }}
+          QA_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$QA_PUBLISH_OUTCOME" = "success" ]; then
+            result="QA OTA publication command succeeded. Confirm the EAS update ID in the linked logs and test an Android v148 device before any production release."
+          else
+            result="QA OTA NOT confirmed. Publish outcome: $QA_PUBLISH_OUTCOME. Inspect the linked logs, correct the blocker, and rerun QA only."
+          fi
+          printf '%s\n\n- Workflow: %s\n- Frozen candidate: `096c9fd619a551f23ba8c7d9e3e72a7e01605a6e`\n- Target EAS branch: `maya-actions-v148-qa` (NOT production)\n- Android runtime: 2.0.43 / v148\n' "$result" "$QA_RUN_URL" > /tmp/maya-qa-status.md
+          gh issue comment 126 --repo "${{ github.repository }}" --body-file /tmp/maya-qa-status.md
