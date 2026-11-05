@@ -1,0 +1,84 @@
+name: Maya Actions v148 — promote verified integration OTA
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: 'Exact tested SHA (40 hex) from integration/maya-actions-v148'
+        type: string
+        required: true
+      wave:
+        description: 'Cumulative wave (00-v1, 01-agenda, 02-planning...)'
+        type: string
+        required: true
+      confirmation:
+        description: 'Type RELEASE-MAYA-ANDROID-V148 to publish to production'
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: nexa-activation-ota-production
+  cancel-in-progress: false
+jobs:
+  promote:
+    if: inputs.confirmation == 'RELEASE-MAYA-ANDROID-V148'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+    steps:
+      - name: Validate immutable SHA and wave
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          WAVE: ${{ inputs.wave }}
+        run: |
+          [[ "$RELEASE_SHA" =~ ^[a-fA-F0-9]{40}$ ]] || exit 1
+          [[ "$WAVE" =~ ^[0-9]{2}-[a-z0-9-]+$ ]] || exit 1
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/maya-actions-v148
+          fetch-depth: 0
+      - name: Freeze exact code review target
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch origin feat/aave-v148-internal-apk-20261102:refs/remotes/origin/feat/aave-v148-internal-apk-20261102
+          for path in app.json app.config.js eas.json; do
+            git show "origin/feat/aave-v148-internal-apk-20261102:$path" | cmp - "$path"
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node scripts/validate-maya-release-train.js
+      - run: node scripts/validate-maya-actions-v1.js
+      - run: |
+          if [ -e scripts/validate-maya-actions-agenda-v1.js ]; then
+            node scripts/validate-maya-actions-agenda-v1.js
+          fi
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run typecheck
+      - run: npx expo-doctor
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: eas whoami
+      - name: Publish one cumulative production OTA
+        env:
+          WAVE: ${{ inputs.wave }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: eas update --channel production --platform android --message "Maya Actions $WAVE cumulative Android 2.0.43 sha $RELEASE_SHA" --non-interactive
