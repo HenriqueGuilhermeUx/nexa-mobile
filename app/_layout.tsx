@@ -53,6 +53,7 @@ export default function RootLayout() {
             <Stack.Screen name="sign-in" options={{ headerShown: false }} />
             <Stack.Screen name="sign-up" options={{ title: 'Crie sua Nexa' }} />
             <Stack.Screen name="legacy" options={{ headerShown: false }} />
+            <Stack.Screen name="maya-planning" options={{ title: 'Maya · Planejamento' }} />
             <Stack.Screen name="maya-actions" options={{ title: "Maya · Actions" }} />
             <Stack.Screen name="assistant" options={{ title: 'Maya · Assistente Nexa' }} />
             <Stack.Screen name="rewards-info" options={{ title: 'Sobre o Rewards' }} />
