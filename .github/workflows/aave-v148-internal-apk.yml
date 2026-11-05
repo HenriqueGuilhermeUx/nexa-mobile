@@ -38,7 +38,7 @@ jobs:
           doc.expo.slug = 'nexa-aave-internal';
           doc.expo.scheme = 'nexa-aave-internal';
           doc.expo.android.package = 'br.com.trynexa.aavepreview';
-          doc.expo.android.versionCode = 1;
+          doc.expo.android.versionCode = 149; // Internal QA must pass server minimum build 144
           doc.expo.extra.financialExecutionEnabled = false;
           doc.expo.extra.releaseChannel = 'internal-aave-qa';
           delete doc.expo.updates;
