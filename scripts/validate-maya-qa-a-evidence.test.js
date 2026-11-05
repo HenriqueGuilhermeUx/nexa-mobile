@@ -20,3 +20,7 @@ test('placeholder observations cannot approve QA A',()=>{const e=valid();e.cases
 test('placeholder evidence reference cannot approve QA A',()=>{const e=valid();e.cases[0].evidenceRef='TODO';assert.match(validate(e).join(' '),/synthetic\/placeholder/);});
 test('timezone-less timestamp is rejected',()=>{const e=valid();e.testedAt='2026-11-05T10:00:00';assert.match(validate(e).join(' '),/timezone/);});
 test('invalid top-level payload is rejected without crashing',()=>assert.ok(validate(null).length));
+
+test('valid ISO timestamp with timezone is accepted',()=>{const e=valid();assert.deepEqual(validate(e),[]);});
+test('malformed case object is rejected without crashing',()=>{const e=valid();e.cases[0]=null;assert.match(validate(e).join(' '),/invalid case object/);});
+test('impossible calendar date is rejected',()=>{const e=valid();e.testedAt='2026-13-40T10:00:00-03:00';assert.match(validate(e).join(' '),/timezone/);});
