@@ -44,6 +44,10 @@ function validate(e) {
 function verifyEvidenceFiles(e, root) {
   const errors = [];
   if (!e || !Array.isArray(e.cases)) return ['cases missing for artifact verification'];
+  // A standalone artifact check must never pass an empty or partial QA matrix.
+  const suppliedIds = new Set(e.cases.filter(c => c && typeof c === 'object').map(c => c.id));
+  const missingIds = required.filter(id => !suppliedIds.has(id));
+  if (missingIds.length) errors.push('missing case(s) for artifact verification: ' + missingIds.join(', '));
   if (typeof root !== 'string' || !root.trim()) return ['evidence root missing'];
   const base = path.resolve(root);
   const physicalArtifacts = new Set();
