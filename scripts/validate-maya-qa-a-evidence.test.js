@@ -200,3 +200,13 @@ test('April 31 is rejected even when timestamp parser normalizes the day',()=>{
   const e=valid(); e.testedAt='2026-04-31T10:00:00-03:00';
   assert.match(validate(e).join(' '),/impossible calendar date/);
 });
+
+// A colon inside a relative path can select a Windows NTFS alternate data stream.
+test('metadata gate rejects NTFS alternate data stream evidence path',()=>{
+  const e=valid(); e.cases[0].evidenceRef='qa-a/device-01/A01.png:payload.png';
+  assert.match(validate(e).join(' '),/unsafe evidence reference/);
+});
+test('standalone artifact gate rejects NTFS alternate data stream evidence path',()=>{
+  const e=valid(); e.cases[0].evidenceRef='qa-a/device-01/A01.png:payload.png';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unsafe evidence reference/);
+});
