@@ -154,3 +154,13 @@ test('standalone artifact gate rejects unknown case IDs',()=>{
   const e=valid(); e.cases=[{...e.cases[0],id:'UNKNOWN'}];
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unknown or duplicate case/);
 });
+
+
+test('standalone artifact gate rejects empty QA matrix',()=>{
+  const e=valid(); e.cases=[];
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/missing case\(s\) for artifact verification/);
+});
+test('standalone artifact gate rejects partial QA matrix',()=>{
+  const e=valid(); e.cases=[e.cases[0]];
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/missing case\(s\) for artifact verification/);
+});
