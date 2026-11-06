@@ -63,6 +63,17 @@ function verifyEvidenceFiles(e, root) {
   if (typeof e.testedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(e.testedAt) ||
       !Number.isFinite(Date.parse(e.testedAt)) || Date.parse(e.testedAt) > Date.now() + 5 * 60 * 1000)
     errors.push('invalid QA session timestamp for artifact verification');
+  // Date.parse may normalize impossible calendar days; reject those in the standalone gate too.
+  if (typeof e.testedAt === 'string') {
+    const parts = /^(\\d{4})-(\\d{2})-(\\d{2})T/.exec(e.testedAt);
+    if (parts) {
+      const year = Number(parts[1]), month = Number(parts[2]), day = Number(parts[3]);
+      const calendarDate = new Date(0);
+      calendarDate.setUTCFullYear(year, month - 1, day);
+      if (calendarDate.getUTCFullYear() !== year || calendarDate.getUTCMonth() + 1 !== month || calendarDate.getUTCDate() !== day)
+        errors.push('impossible QA session calendar date for artifact verification');
+    }
+  }
   // Standalone verification must bind artifacts to the exact QA A binary/update,
   // not merely to a caller-provided success/approval flag.
   if (e.runtime !== '2.0.43' || e.versionCode !== 148 ||
