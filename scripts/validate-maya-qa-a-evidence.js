@@ -56,6 +56,8 @@ function validate(e) {
 function verifyEvidenceFiles(e, root) {
   const errors = [];
   if (!e || !Array.isArray(e.cases)) return ['cases missing for artifact verification'];
+  // Direct callers must not treat disk artifacts as approved QA without CI and human sign-off.
+  if (e.ci !== 'success' || e.explicitApproval !== true) errors.push('CI/approval missing for artifact verification');
   // A standalone artifact check must never pass an empty or partial QA matrix.
   const suppliedIds = new Set(e.cases.filter(c => c && typeof c === 'object').map(c => c.id));
   const missingIds = required.filter(id => !suppliedIds.has(id));
