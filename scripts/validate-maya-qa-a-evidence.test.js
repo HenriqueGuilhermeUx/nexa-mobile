@@ -173,3 +173,12 @@ test('valid leap day passes calendar validation',()=>{
   const e=valid(); e.testedAt='2024-02-29T10:00:00-03:00';
   assert.deepEqual(validate(e),[]);
 });
+
+test('century year 1900 is not a leap year',()=>{
+  const e=valid(); e.testedAt='1900-02-29T10:00:00Z';
+  assert.match(validate(e).join(' '),/impossible calendar date/);
+});
+test('century year 2000 is a leap year',()=>{
+  const e=valid(); e.testedAt='2000-02-29T10:00:00Z';
+  assert.deepEqual(validate(e),[]);
+});
