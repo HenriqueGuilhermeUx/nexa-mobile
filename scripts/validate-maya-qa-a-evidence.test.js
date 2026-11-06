@@ -164,3 +164,12 @@ test('standalone artifact gate rejects partial QA matrix',()=>{
   const e=valid(); e.cases=[e.cases[0]];
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/missing case\(s\) for artifact verification/);
 });
+
+test('impossible February day is rejected even if Date.parse normalizes it',()=>{
+  const e=valid(); e.testedAt='2026-02-30T10:00:00-03:00';
+  assert.match(validate(e).join(' '),/impossible calendar date/);
+});
+test('valid leap day passes calendar validation',()=>{
+  const e=valid(); e.testedAt='2024-02-29T10:00:00-03:00';
+  assert.deepEqual(validate(e),[]);
+});
