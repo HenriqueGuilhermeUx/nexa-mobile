@@ -17,7 +17,7 @@ const base = 'origin/feat/aave-v148-internal-apk-20261102';
 const output = execFileSync('git',['diff','--name-only',base+'...HEAD'],{encoding:'utf8'});
 const allowed = [
   /^app\/index\.tsx$/, /^app\/kyc\.tsx$/, /^app\/assistant\.tsx$/, /^app\/_layout\.tsx$/,
-  /^app\/maya-actions(?:-[a-z0-9-]+)?\.tsx$/, /^app\/maya-planning\.tsx$/, /^app\/maya-shopping\.tsx$/, /^components\/maya-actions\//,
+  /^app\/maya-actions(?:-[a-z0-9-]+)?\.tsx$/, /^app\/maya-planning\.tsx$/, /^app\/maya-shopping\.tsx$/, /^app\/maya-comunicacao\.tsx$/, /^components\/maya-actions\//,
   /^lib\/maya-actions\//, /^src\/maya-actions\//, /^src\/components\/NexaAssistantOpenFinance\.tsx$/, /^src\/lib\/mayaWebActionContracts\.ts$/,
   /^scripts\/validate-maya-[a-z0-9-]+\.js$/, /^docs\/maya-actions-[a-z0-9-]+\.md$/,
   /^\.github\/workflows\/maya-actions-[a-z0-9-]+\.yml$/, /^package(?:-lock)?\.json$/,
