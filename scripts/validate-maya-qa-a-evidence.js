@@ -75,6 +75,11 @@ function verifyEvidenceFiles(e, root) {
       continue;
     }
     caseIds.add(c.id);
+    // This standalone gate must not accept failed or unobserved cases.
+    if (c.status !== 'PASS' || typeof c.observed !== 'string' || !c.observed.trim()) {
+      errors.push('case not approved for artifact verification: ' + c.id);
+      continue;
+    }
     const ref = c.evidenceRef.trim();
     // Repeat the metadata gate here: this function can also be called directly.
     if (!ref || /^(?:[a-z][a-z0-9+.-]*:|\/|\\\\)/i.test(ref) ||
