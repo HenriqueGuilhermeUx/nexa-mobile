@@ -133,6 +133,10 @@ export default function MayaActionsScreen() {
         <Text style={styles.title}>Pesquisar preços na web</Text>
         <Text style={styles.description}>Abrir ofertas em lojas para comparar com sua revisão. Sem compras automáticas.</Text>
       </Pressable>
+      <Pressable accessibilityRole="button" onPress={() => router.push('/maya-comunicacao' as any)} style={styles.choice}>
+        <Text style={styles.title}>Preparar mensagem ou e-mail</Text>
+        <Text style={styles.description}>Escreva, revise e compartilhe você mesmo. Sem envios automáticos.</Text>
+      </Pressable>
       {choices.map(item => (
         <Pressable key={item.key} accessibilityRole="radio" accessibilityState={{ selected: kind === item.key }} onPress={() => { setKind(item.key); setDraft(null); }} style={[styles.choice, kind === item.key && styles.active]}>
           <Text style={styles.title}>{item.title}</Text>

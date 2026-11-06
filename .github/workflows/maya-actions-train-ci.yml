@@ -57,8 +57,14 @@ jobs:
           if [ -e scripts/validate-maya-chat-routing-v1.js ]; then
             node scripts/validate-maya-chat-routing-v1.js
           fi
+      - name: Validate communication drafts and native share safety
+        run: |
+          if [ -e scripts/validate-maya-comunicacao-v1.js ]; then
+            node scripts/validate-maya-comunicacao-v1.js
+          fi
       - name: Validate app safety
         run: node scripts/validate-mobile-safety-v123.js
       - run: npm run typecheck
-      - run: npx expo-doctor
+      - name: Validate frozen SDK 57 Expo patch drift (QA only)
+        run: node scripts/validate-maya-expo-qa-drift.js
       - run: npm run export:android

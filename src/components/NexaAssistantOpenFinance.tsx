@@ -258,7 +258,9 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
     if (action) {
       const response = action.kind === 'shopping_search'
         ? 'Vou abrir uma pesquisa de preços para você revisar. A busca externa só abre quando você confirmar; nenhuma compra será realizada.'
-        : 'Vou preparar seu lembrete. Você escolhe a data e confirma antes de qualquer agendamento.';
+        : action.kind === 'communication_draft'
+          ? 'Vou abrir um rascunho para você escrever e revisar. A Maya não envia mensagens automaticamente.'
+          : 'Vou preparar seu lembrete. Você escolhe a data e confirma antes de qualquer agendamento.';
       setMessages((current) => [
         ...current,
         { role: 'assistant', content: response },
@@ -266,6 +268,8 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
       if (autoSpeak || fromVoice) await speak(response);
       if (action.kind === 'shopping_search') {
         router.push({ pathname: '/maya-shopping', params: { query: action.query } });
+      } else if (action.kind === 'communication_draft') {
+        router.push({ pathname: '/maya-comunicacao', params: { request: action.request } });
       } else {
         router.push({ pathname: '/maya-actions', params: { task: action.description } });
       }
