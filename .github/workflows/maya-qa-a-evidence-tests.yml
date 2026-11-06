@@ -7,6 +7,13 @@ on:
       - 'scripts/validate-maya-qa-a-evidence.js'
       - 'scripts/validate-maya-qa-a-evidence.test.js'
       - '.github/workflows/maya-qa-a-evidence-tests.yml'
+  pull_request:
+    branches:
+      - integration/maya-actions-v148
+    paths:
+      - 'scripts/validate-maya-qa-a-evidence.js'
+      - 'scripts/validate-maya-qa-a-evidence.test.js'
+      - '.github/workflows/maya-qa-a-evidence-tests.yml'
   workflow_dispatch:
 permissions:
   contents: read
