@@ -261,3 +261,12 @@ test('standalone artifact gate rejects future QA session timestamp',()=>{
   const e=valid(); e.testedAt='2099-01-01T00:00:00Z';
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/invalid QA session timestamp/);
 });
+
+test('standalone artifact gate rejects impossible February 30 without metadata validation',()=>{
+  const e=valid(); e.testedAt='2026-02-30T10:00:00-03:00';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/impossible QA session calendar date/);
+});
+test('standalone artifact gate accepts valid leap-day calendar metadata',()=>{
+  const e=valid(); e.testedAt='2024-02-29T10:00:00-03:00';
+  assert.doesNotMatch(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/impossible QA session calendar date/);
+});
