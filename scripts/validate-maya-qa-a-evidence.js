@@ -17,7 +17,9 @@ function validate(e) {
     const dateParts = /^(\d{4})-(\d{2})-(\d{2})T/.exec(e.testedAt);
     if (dateParts) {
       const year = Number(dateParts[1]), month = Number(dateParts[2]), day = Number(dateParts[3]);
-      const calendarDate = new Date(Date.UTC(year, month - 1, day));
+      const calendarDate = new Date(0);
+      // Date.UTC maps years 00–99 to 1900–1999; set the literal Gregorian year.
+      calendarDate.setUTCFullYear(year, month - 1, day);
       if (calendarDate.getUTCFullYear() !== year || calendarDate.getUTCMonth() + 1 !== month || calendarDate.getUTCDate() !== day)
         errors.push('testedAt has an impossible calendar date');
     }
