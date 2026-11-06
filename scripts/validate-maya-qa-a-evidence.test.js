@@ -307,3 +307,22 @@ test('artifact gate rejects a PNG signature without complete chunks',()=>{
  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension/);
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('artifact gate rejects PNG with an empty IDAT chunk',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid();
+  const good=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64');
+  for(const c of e.cases) {
+   const target=path.join(root,c.evidenceRef);
+   fs.mkdirSync(path.dirname(target),{recursive:true});
+   fs.writeFileSync(target,good);
+  }
+  // The parser must reject a structurally present IDAT that contains no image bytes.
+  const ihdr=good.subarray(0,33);
+  const emptyIdat=Buffer.concat([Buffer.alloc(4),Buffer.from('IDAT'),Buffer.alloc(4)]);
+  const iend=Buffer.concat([Buffer.alloc(4),Buffer.from('IEND'),Buffer.alloc(4)]);
+  fs.writeFileSync(path.join(root,e.cases[0].evidenceRef),Buffer.concat([ihdr,emptyIdat,iend]));
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
