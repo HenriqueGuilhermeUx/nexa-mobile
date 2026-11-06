@@ -62,6 +62,11 @@ jobs:
           if [ -e scripts/validate-maya-comunicacao-v1.js ]; then
             node scripts/validate-maya-comunicacao-v1.js
           fi
+      - name: Validate read-only Nexa financial activity
+        run: |
+          if [ -e scripts/validate-maya-financas-leitura-v1.js ]; then
+            node scripts/validate-maya-financas-leitura-v1.js
+          fi
       - name: Validate app safety
         run: node scripts/validate-mobile-safety-v123.js
       - run: npm run typecheck
