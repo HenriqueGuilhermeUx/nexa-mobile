@@ -56,6 +56,13 @@ function validate(e) {
 function verifyEvidenceFiles(e, root) {
   const errors = [];
   if (!e || !Array.isArray(e.cases)) return ['cases missing for artifact verification'];
+  // Standalone callers must enforce device/session metadata as well as disk checks.
+  if (![e.deviceModel, e.androidVersion, e.testedAt].every(v => typeof v === 'string' && v.trim()) ||
+      /fixture|placeholder|simulat|emulat|test data/i.test(String(e.deviceModel)))
+    errors.push('device metadata missing or synthetic for artifact verification');
+  if (typeof e.testedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(e.testedAt) ||
+      !Number.isFinite(Date.parse(e.testedAt)) || Date.parse(e.testedAt) > Date.now() + 5 * 60 * 1000)
+    errors.push('invalid QA session timestamp for artifact verification');
   // Standalone verification must bind artifacts to the exact QA A binary/update,
   // not merely to a caller-provided success/approval flag.
   if (e.runtime !== '2.0.43' || e.versionCode !== 148 ||
