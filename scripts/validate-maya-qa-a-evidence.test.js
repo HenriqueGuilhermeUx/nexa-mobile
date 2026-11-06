@@ -182,3 +182,12 @@ test('century year 2000 is a leap year',()=>{
   const e=valid(); e.testedAt='2000-02-29T10:00:00Z';
   assert.deepEqual(validate(e),[]);
 });
+
+test('literal ISO year 0096 is a leap year, not year 1996',()=>{
+  const e=valid(); e.testedAt='0096-02-29T10:00:00Z';
+  assert.deepEqual(validate(e),[]);
+});
+test('literal ISO year 0099 rejects February 29',()=>{
+  const e=valid(); e.testedAt='0099-02-29T10:00:00Z';
+  assert.match(validate(e).join(' '),/impossible calendar date/);
+});
