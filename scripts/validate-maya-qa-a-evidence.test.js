@@ -210,3 +210,12 @@ test('standalone artifact gate rejects NTFS alternate data stream evidence path'
   const e=valid(); e.cases[0].evidenceRef='qa-a/device-01/A01.png:payload.png';
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unsafe evidence reference/);
 });
+
+test('standalone artifact gate rejects FAIL case even with existing artifact',()=>{
+  const e=valid(); e.cases[0].status='FAIL';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/case not approved for artifact verification/);
+});
+test('standalone artifact gate rejects missing observation',()=>{
+  const e=valid(); e.cases[0].observed='  ';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/case not approved for artifact verification/);
+});
