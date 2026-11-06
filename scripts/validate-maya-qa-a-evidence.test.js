@@ -237,3 +237,17 @@ test('standalone artifact gate rejects missing explicit human approval',()=>{
   const e=valid(); e.explicitApproval=false;
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/CI\/approval missing for artifact verification/);
 });
+
+
+test('standalone artifact gate rejects wrong runtime even with approval',()=>{
+  const e=valid(); e.runtime='2.0.44';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/QA A release identity mismatch/);
+});
+test('standalone artifact gate rejects wrong OTA update ID',()=>{
+  const e=valid(); e.updateId='another-update';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/QA A release identity mismatch/);
+});
+test('standalone artifact gate rejects wrong release SHA or versionCode',()=>{
+  const e=valid(); e.releaseSha='unapproved'; e.versionCode=149;
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/QA A release identity mismatch/);
+});
