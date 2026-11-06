@@ -251,3 +251,13 @@ test('standalone artifact gate rejects wrong release SHA or versionCode',()=>{
   const e=valid(); e.releaseSha='unapproved'; e.versionCode=149;
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/QA A release identity mismatch/);
 });
+
+
+test('standalone artifact gate rejects synthetic device metadata',()=>{
+  const e=valid(); e.deviceModel='Android emulator fixture';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/device metadata missing or synthetic/);
+});
+test('standalone artifact gate rejects future QA session timestamp',()=>{
+  const e=valid(); e.testedAt='2099-01-01T00:00:00Z';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/invalid QA session timestamp/);
+});
