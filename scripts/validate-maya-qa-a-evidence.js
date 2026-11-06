@@ -73,7 +73,7 @@ function hasExpectedMediaSignature(file, extension) {
         const dataLength = chunk.readUInt32BE(0);
         const type = chunk.toString('ascii',4,8);
         if (dataLength > size - offset - 12) return false;
-        if (type === 'IDAT') sawData = true;
+        if (type === 'IDAT' && dataLength > 0) sawData = true;
         if (type === 'IEND') return dataLength === 0 && sawData && offset + 12 === size;
         offset += 12 + dataLength;
       }
