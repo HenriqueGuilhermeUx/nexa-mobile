@@ -191,3 +191,12 @@ test('literal ISO year 0099 rejects February 29',()=>{
   const e=valid(); e.testedAt='0099-02-29T10:00:00Z';
   assert.match(validate(e).join(' '),/impossible calendar date/);
 });
+
+test('non-leap February 29 is rejected',()=>{
+  const e=valid(); e.testedAt='2025-02-29T10:00:00-03:00';
+  assert.match(validate(e).join(' '),/impossible calendar date/);
+});
+test('April 31 is rejected even when timestamp parser normalizes the day',()=>{
+  const e=valid(); e.testedAt='2026-04-31T10:00:00-03:00';
+  assert.match(validate(e).join(' '),/impossible calendar date/);
+});
