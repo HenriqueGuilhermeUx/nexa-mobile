@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | 01 | `feat/maya-actions-01-agenda-v148` | Criar lembrete local, confirmar, agendar, cancelar, concluir | Permissao notificaçao, horario futuro, logico antifraude e teste dispositivo | PR #122 merged na integracao; nao publicada |
 | 02 | `feat/maya-actions-02-planejamento-v148` | Metas, orcamento e progresso local por conta | Campos BRL validos, persistencia, nada confundir com saldo real | PR #124 merged; entrega no candidato OTA QA A |
-| 03 | `feat/maya-actions-03-financas-leitura-v148` e `feat/maya-actions-03-leitura-movimentacoes-v148` | Ler atividade da Nexa existente; Open Finance externo e analises Premium depois | Token autenticado, consulta manual, sem saldo inferido, sem executar ordens | PR #134 em CI: atividade Nexa read-only, sem Open Finance externo |
+| 03 | `feat/maya-actions-03-financas-leitura-v148` e `feat/maya-actions-03-leitura-movimentacoes-v148` | Ler atividade da Nexa existente; Open Finance externo e analises Premium depois | Token autenticado, consulta manual, sem saldo inferido, sem executar ordens | PR #134 merged: leitura de atividade Nexa autenticada, sem Open Finance externo |
 | 04 | `feat/maya-actions-04-documentos-comunicacao-v148` e `feat/maya-actions-04-comunicacao-assistida-v148` | Criar e revisar mensagens, e-mails e solicitacoes | Preview e compartilhamento por toque; nenhum envio automatico, sem guardar rascunhos | PR #132 merged; pacote cumulativo publicado em QA C |
 | 05 | `feat/maya-actions-05-wallet-preflight-v148` | Preparar cotacao, simular transferencia, Pix e troca cripto | Saldo/cotacao vivos; destinatario, taxa, rede e limite visiveis; nenhum envio | Branch criada |
 | 06 | `feat/maya-actions-06-wallet-execucao-v148` | Movimentar capital nas funcionalidades ja suportadas | Fluxo nativo seguro, autenticaçao forte, aprovacao, antifraude, idempotencia e comprovante | Branch criada; bloqueada ate controles 05 |
@@ -81,5 +81,10 @@ A pesquisa read-only pode ocorrer sem login. Para formularios, cada site, campos
 - PR #132: onda 04 de comunicacao, revisao e compartilhamento manual, 3 CI verdes e merge `c0221a19be57d35f0a5e2a585d2543d4ef274e32`.
 - **OTA QA C publicada** na branch EAS `maya-actions-v148-qa-wave-c`, runtime `2.0.43`. Update group `a1b13136-fac8-4651-be7d-527b2bc3517e`; Android update `01a1b2a7-eed1-7e99-b295-4ecd2df25105`.
 - Dashboard EAS: https://expo.dev/accounts/henrriquenexa/projects/nexa/updates/a1b13136-fac8-4651-be7d-527b2bc3517e. Issue de QA C: https://github.com/HenriqueGuilhermeUx/nexa-mobile/issues/133.
-- PR #134: primeira fase da onda 03, consulta pontual a movimentacoes existentes da Nexa, sem saldo consolidado, sem contas externas e sem movimento financeiro. CI/merge/QA fisico pendentes nesta anotacao.
+- PR #134: primeira fase da onda 03, consulta pontual a movimentacoes existentes da Nexa, sem saldo consolidado, sem contas externas e sem movimento financeiro. Os 3 workflows CI passaram e a PR foi mesclada em `574d2fb20ff25a6e23332f8aa8c8d5109067ae3a`; ainda nao esta nas OTAs QA A/B/C e exige QA fisico.
 - **Proxima decisao de release**: concluir QA fisico de comunicacao do lote C e aval de regressao Wallet/Pix/KYC. Nao anunciar como production publicada sem provas.
+
+## Próximo pacote de homologacao
+- Lote C **QA publicado**: inclui comunicacao assistida e roteamento por conversa, nao a consulta de movimentacoes da PR #134, que foi integrada depois do SHA congelado.
+- APK standalone QA C preparado pelo workflow `.github/workflows/maya-actions-wave-c-github-apk.yml`; somente considerar instalavel apos sucesso confirmado e artefato real. Assinatura descartavel obriga remover apenas o QA anterior, nunca a Nexa Play.
+- A proxima OTA cumulativa QA D deve incorporar a onda 03, preservando o que ja foi testado e sem criar falsa consolidacao Open Finance.
