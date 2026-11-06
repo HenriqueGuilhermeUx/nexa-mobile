@@ -219,3 +219,12 @@ test('standalone artifact gate rejects missing observation',()=>{
   const e=valid(); e.cases[0].observed='  ';
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/case not approved for artifact verification/);
 });
+
+test('standalone artifact gate rejects placeholder observation without metadata gate',()=>{
+  const e=valid(); e.cases[0].observed='TODO verify on device';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/synthetic\/placeholder evidence/);
+});
+test('standalone artifact gate rejects placeholder artifact reference without metadata gate',()=>{
+  const e=valid(); e.cases[0].evidenceRef='qa-a/fixture/A01.png';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/synthetic\/placeholder evidence/);
+});
