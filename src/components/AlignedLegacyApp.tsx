@@ -1804,6 +1804,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             subtitle="Turbinar USDC"
             onPress={() => router.push('/(app)/rewards' as any)}
           />
+          <MenuTile icon="◈" title="Aave" subtitle="Investimentos e crédito · prévia" onPress={() => router.push('/(app)/aave-info' as any)} />
           <MenuTile icon="⌁" title="Segurança" subtitle="Biometria e proteção" onPress={() => router.push('/security')} />
         </View>
 

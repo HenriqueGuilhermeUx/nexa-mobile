@@ -1,0 +1,72 @@
+name: Nexa Aave v148 isolated Android APK QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/(app)/aave-info.tsx'
+      - 'app/(app)/_layout.tsx'
+      - 'src/components/AlignedLegacyApp.tsx'
+      - '.github/workflows/aave-v148-apk-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install project dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify TypeScript
+        run: npm run typecheck
+      - name: Prepare isolated QA app identity (never the Play Store package)
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = 'app.json';
+          const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (data.expo.version !== '2.0.43' || data.expo.android.versionCode !== 148) {
+            throw new Error('QA APK must originate from released 2.0.43 v148 baseline');
+          }
+          data.expo.name = 'Nexa Aave Preview';
+          data.expo.slug = 'nexa-aave-preview';
+          data.expo.scheme = 'nexa-aave-preview';
+          data.expo.android.package = 'br.com.trynexa.aavepreview';
+          data.expo.android.versionCode = 1;
+          data.expo.extra.financialExecutionEnabled = false;
+          data.expo.extra.releaseChannel = 'internal-aave-preview';
+          delete data.expo.updates;
+          fs.writeFileSync(path, JSON.stringify(data, null, 2) + '\n');
+          NODE
+      - name: Generate Android project
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+        run: npx expo prebuild --platform android --clean --no-install
+      - name: Build isolated debug APK
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexa-aave-v148-internal-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
