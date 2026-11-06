@@ -145,3 +145,12 @@ test('standalone artifact gate fails closed on malformed case records',()=>{
   const e=valid(); e.cases=[null,{},'invalid',...e.cases.slice(0,1)];
   assert.equal(verifyEvidenceFiles(e,os.tmpdir()).filter(x=>x.includes('invalid case object')).length,3);
 });
+
+test('standalone artifact gate rejects duplicate case IDs even with different files',()=>{
+  const e=valid(); e.cases=[e.cases[0],{...e.cases[1],id:e.cases[0].id}];
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unknown or duplicate case/);
+});
+test('standalone artifact gate rejects unknown case IDs',()=>{
+  const e=valid(); e.cases=[{...e.cases[0],id:'UNKNOWN'}];
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/unknown or duplicate case/);
+});
