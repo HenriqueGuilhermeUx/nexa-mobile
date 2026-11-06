@@ -52,7 +52,7 @@ test('artifact gate accepts existing nonempty regular files',()=>{
     for (const c of e.cases) {
       const target=path.join(root,c.evidenceRef);
       fs.mkdirSync(path.dirname(target),{recursive:true});
-      fs.writeFileSync(target,Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]));
+      fs.writeFileSync(target,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64'));
     }
     assert.deepEqual(verifyEvidenceFiles(e,root),[]);
     fs.writeFileSync(path.join(root,e.cases[0].evidenceRef),'');
@@ -110,7 +110,7 @@ test('artifact gate rejects hard-linked duplicate captures',()=>{
     const first=path.join(root,e.cases[0].evidenceRef);
     const second=path.join(root,e.cases[1].evidenceRef);
     fs.mkdirSync(path.dirname(first),{recursive:true});
-    fs.writeFileSync(first,Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]));
+    fs.writeFileSync(first,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64'));
     fs.linkSync(first,second);
     assert.match(verifyEvidenceFiles(e,root).join(' '),/duplicate physical evidence artifact/);
   } finally { fs.rmSync(root,{recursive:true,force:true}); }
@@ -136,7 +136,7 @@ test('standalone artifact gate rejects repeated paths even without metadata vali
     e.cases=[e.cases[0],{...e.cases[1],evidenceRef:e.cases[0].evidenceRef}];
     const target=path.join(root,e.cases[0].evidenceRef);
     fs.mkdirSync(path.dirname(target),{recursive:true});
-    fs.writeFileSync(target,Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]));
+    fs.writeFileSync(target,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64'));
     assert.match(verifyEvidenceFiles(e,root).join(' '),/duplicate evidence reference/);
   } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
@@ -279,7 +279,7 @@ test('artifact gate rejects text disguised as PNG',()=>{
     for (const item of e.cases) {
       const target=path.join(root,item.evidenceRef);
       fs.mkdirSync(path.dirname(target),{recursive:true});
-      fs.writeFileSync(target,Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]));
+      fs.writeFileSync(target,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64'));
     }
     fs.writeFileSync(path.join(root,e.cases[0].evidenceRef),'not a screenshot');
     assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension/);
@@ -292,9 +292,18 @@ test('artifact gate rejects a PDF header renamed as PNG',()=>{
     for (const item of e.cases) {
       const target=path.join(root,item.evidenceRef);
       fs.mkdirSync(path.dirname(target),{recursive:true});
-      fs.writeFileSync(target,Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]));
+      fs.writeFileSync(target,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64'));
     }
     fs.writeFileSync(path.join(root,e.cases[0].evidenceRef),'%PDF-1.7');
     assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension/);
   } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
+
+
+test('artifact gate rejects a PNG signature without complete chunks',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try { const e=valid(); for (const c of e.cases) { const target=path.join(root,c.evidenceRef); fs.mkdirSync(path.dirname(target),{recursive:true}); fs.writeFileSync(target,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64')); }
+ fs.writeFileSync(path.join(root,e.cases[0].evidenceRef),Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]));
+ assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
