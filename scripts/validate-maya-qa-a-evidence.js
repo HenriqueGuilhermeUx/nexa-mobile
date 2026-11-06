@@ -12,6 +12,16 @@ function validate(e) {
   if (e.updateId !== '01a1a975-d85f-794f-9d67-cf2ac961fbb7') errors.push('QA A update mismatch');
   if (![e.deviceModel, e.androidVersion, e.testedAt].every(v => typeof v === 'string' && v.trim())) errors.push('device metadata missing');
   if (typeof e.testedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(e.testedAt) || !Number.isFinite(Date.parse(e.testedAt))) errors.push('testedAt must be an ISO timestamp with timezone');
+  // Date.parse can normalize impossible days (e.g. February 30); reject them explicitly.
+  if (typeof e.testedAt === 'string') {
+    const dateParts = /^(\d{4})-(\d{2})-(\d{2})T/.exec(e.testedAt);
+    if (dateParts) {
+      const year = Number(dateParts[1]), month = Number(dateParts[2]), day = Number(dateParts[3]);
+      const calendarDate = new Date(Date.UTC(year, month - 1, day));
+      if (calendarDate.getUTCFullYear() !== year || calendarDate.getUTCMonth() + 1 !== month || calendarDate.getUTCDate() !== day)
+        errors.push('testedAt has an impossible calendar date');
+    }
+  }
   // A future-dated capture cannot substantiate a completed on-device QA session.
   if (typeof e.testedAt === 'string' && Number.isFinite(Date.parse(e.testedAt)) && Date.parse(e.testedAt) > Date.now() + 5 * 60 * 1000) errors.push('testedAt is in the future');
   if (!Array.isArray(e.cases)) errors.push('cases missing');
