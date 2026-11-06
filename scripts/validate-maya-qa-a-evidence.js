@@ -56,6 +56,12 @@ function validate(e) {
 function verifyEvidenceFiles(e, root) {
   const errors = [];
   if (!e || !Array.isArray(e.cases)) return ['cases missing for artifact verification'];
+  // Standalone verification must bind artifacts to the exact QA A binary/update,
+  // not merely to a caller-provided success/approval flag.
+  if (e.runtime !== '2.0.43' || e.versionCode !== 148 ||
+      e.releaseSha !== '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e' ||
+      e.updateId !== '01a1a975-d85f-794f-9d67-cf2ac961fbb7')
+    errors.push('QA A release identity mismatch for artifact verification');
   // Direct callers must not treat disk artifacts as approved QA without CI and human sign-off.
   if (e.ci !== 'success' || e.explicitApproval !== true) errors.push('CI/approval missing for artifact verification');
   // A standalone artifact check must never pass an empty or partial QA matrix.
