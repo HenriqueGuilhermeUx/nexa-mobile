@@ -228,3 +228,12 @@ test('standalone artifact gate rejects placeholder artifact reference without me
   const e=valid(); e.cases[0].evidenceRef='qa-a/fixture/A01.png';
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/synthetic\/placeholder evidence/);
 });
+
+test('standalone artifact gate rejects missing CI even when cases exist',()=>{
+  const e=valid(); e.ci='pending';
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/CI\/approval missing for artifact verification/);
+});
+test('standalone artifact gate rejects missing explicit human approval',()=>{
+  const e=valid(); e.explicitApproval=false;
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/CI\/approval missing for artifact verification/);
+});
