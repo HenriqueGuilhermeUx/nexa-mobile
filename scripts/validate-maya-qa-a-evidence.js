@@ -52,6 +52,21 @@ function validate(e) {
   if (e.ci !== 'success' || e.explicitApproval !== true) errors.push('CI/approval missing');
   return errors;
 }
+// Fail closed on renamed text/empty placeholders masquerading as screenshots or recordings.
+// This is a format sanity check, not proof that a capture is genuine.
+function hasExpectedMediaSignature(file, extension) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const bytes = Buffer.alloc(16);
+    const length = fs.readSync(fd, bytes, 0, bytes.length, 0);
+    if (extension === '.png') return length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+    if (extension === '.jpg' || extension === '.jpeg') return length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+    if (extension === '.webp') return length >= 12 && bytes.toString('ascii',0,4) === 'RIFF' && bytes.toString('ascii',8,12) === 'WEBP';
+    if (extension === '.pdf') return length >= 5 && bytes.toString('ascii',0,5) === '%PDF-';
+    if (extension === '.mp4') return length >= 12 && bytes.toString('ascii',4,8) === 'ftyp';
+    return false;
+  } finally { fs.closeSync(fd); }
+}
 // Verify artifacts on disk as well as their metadata. No network access or writes.
 function verifyEvidenceFiles(e, root) {
   const errors = [];
@@ -137,6 +152,8 @@ function verifyEvidenceFiles(e, root) {
         errors.push('artifact not a nonempty regular file: ' + c.id);
       else if (fs.realpathSync(target) !== target)
         errors.push('artifact path contains symlink: ' + c.id);
+      else if (!hasExpectedMediaSignature(target, path.extname(ref).toLowerCase()))
+        errors.push('artifact content does not match media extension: ' + c.id);
       else {
         // Hard links have distinct paths but reference the same underlying capture.
         const identity = `${stat.dev}:${stat.ino}`;
