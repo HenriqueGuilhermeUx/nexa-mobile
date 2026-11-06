@@ -59,7 +59,26 @@ function hasExpectedMediaSignature(file, extension) {
   try {
     const bytes = Buffer.alloc(16);
     const length = fs.readSync(fd, bytes, 0, bytes.length, 0);
-    if (extension === '.png') return length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+    if (extension === '.png') {
+      if (length < 16 || !bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return false;
+      // Require a complete IHDR and terminal IEND; a PNG signature alone is not a screenshot.
+      const size = fs.fstatSync(fd).size;
+      if (size < 45 || bytes.readUInt32BE(8) !== 13 || bytes.toString('ascii',12,16) !== 'IHDR') return false;
+      const header = Buffer.alloc(25);
+      if (fs.readSync(fd,header,0,25,8) !== 25 || header.readUInt32BE(8) === 0 || header.readUInt32BE(12) === 0) return false;
+      let offset = 8, chunks = 0, sawData = false;
+      while (offset + 12 <= size && chunks++ < 100000) {
+        const chunk = Buffer.alloc(8);
+        if (fs.readSync(fd,chunk,0,8,offset) !== 8) return false;
+        const dataLength = chunk.readUInt32BE(0);
+        const type = chunk.toString('ascii',4,8);
+        if (dataLength > size - offset - 12) return false;
+        if (type === 'IDAT') sawData = true;
+        if (type === 'IEND') return dataLength === 0 && sawData && offset + 12 === size;
+        offset += 12 + dataLength;
+      }
+      return false;
+    }
     if (extension === '.jpg' || extension === '.jpeg') return length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
     if (extension === '.webp') return length >= 12 && bytes.toString('ascii',0,4) === 'RIFF' && bytes.toString('ascii',8,12) === 'WEBP';
     if (extension === '.pdf') return length >= 5 && bytes.toString('ascii',0,5) === '%PDF-';
