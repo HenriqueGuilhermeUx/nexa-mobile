@@ -80,6 +80,12 @@ function verifyEvidenceFiles(e, root) {
       errors.push('case not approved for artifact verification: ' + c.id);
       continue;
     }
+    // Reject placeholder observations and references even when called without validate().
+    if (/\b(?:fixture|placeholder|todo|tbd|n\/a|simulated|synthetic)\b/i.test(c.observed) ||
+        /\b(?:fixture|placeholder|todo|tbd|n\/a|simulated|synthetic)\b/i.test(c.evidenceRef)) {
+      errors.push('synthetic/placeholder evidence: ' + c.id);
+      continue;
+    }
     const ref = c.evidenceRef.trim();
     // Repeat the metadata gate here: this function can also be called directly.
     if (!ref || /^(?:[a-z][a-z0-9+.-]*:|\/|\\\\)/i.test(ref) ||
