@@ -57,8 +57,20 @@ function requiresUpdate(policy: VersionPolicy) {
 }
 
 export function ForceUpdateGate({ children }: { children: React.ReactNode }) {
+  // The separately packaged, non-financial Wallet Connect lab must not be
+  // held hostage by the production Play Store minimum-build policy.
+  // Never bypass this gate in the production app or when financial execution
+  // or ledger operations are enabled.
+  const isolatedWalletLab =
+    config.releaseChannel === 'wallet-inbound-lab' &&
+    config.financialExecutionEnabled === false &&
+    config.ledgerOperationsEnabled === false &&
+    config.apiUrl ===
+      'https://nexa-backend-wallet-v15-staging.onrender.com/api/v1';
   const bypassForceUpdate =
-    config.pilotBuild || config.releaseChannel === 'nexa-pay-pilot';
+    config.pilotBuild ||
+    config.releaseChannel === 'nexa-pay-pilot' ||
+    isolatedWalletLab;
   const [checking, setChecking] = useState(!bypassForceUpdate);
   const [required, setRequired] = useState(false);
   const [policy, setPolicy] = useState<VersionPolicy | null>(null);
