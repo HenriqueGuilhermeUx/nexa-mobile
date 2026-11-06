@@ -65,7 +65,7 @@ function verifyEvidenceFiles(e, root) {
     errors.push('invalid QA session timestamp for artifact verification');
   // Date.parse may normalize impossible calendar days; reject those in the standalone gate too.
   if (typeof e.testedAt === 'string') {
-    const parts = /^(\\d{4})-(\\d{2})-(\\d{2})T/.exec(e.testedAt);
+    const parts = /^(\d{4})-(\d{2})-(\d{2})T/.exec(e.testedAt);
     if (parts) {
       const year = Number(parts[1]), month = Number(parts[2]), day = Number(parts[3]);
       const calendarDate = new Date(0);
