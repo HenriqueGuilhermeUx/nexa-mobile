@@ -19,6 +19,10 @@ on:
     branches:
       - integration/maya-actions-v148
     paths:
+      - 'scripts/validate-maya-planning-v1.js'
+      - 'app/maya-planning.tsx'
+      - 'app/assistant.tsx'
+      - 'app/_layout.tsx'
       - 'scripts/validate-maya-qa-a-evidence.js'
       - 'scripts/validate-maya-qa-a-evidence.test.js'
       - 'scripts/check-maya-qa-installed-package.js'
