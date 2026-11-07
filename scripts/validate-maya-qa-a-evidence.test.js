@@ -6,7 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const ids = ['A01','A02','A03','A04','A05','A06','P01','P02','P03','P04','P05','R01','R02','R03','R04','R05'];
 const valid = () => ({
- runtime:'2.0.43', versionCode:148,
+ applicationId:'br.com.trynexa.app', runtime:'2.0.43', versionCode:148,
  releaseSha:'096c9fd619a551f23ba8c7d9e3e72a7e01605a6e',
  updateId:'01a1a975-d85f-794f-9d67-cf2ac961fbb7',
  deviceModel:'Pixel 7', androidVersion:'14', testedAt:'2026-11-04T10:00:00-03:00',
@@ -411,4 +411,13 @@ test('artifact gate rejects PNG with a corrupted IEND CRC',()=>{
   fs.writeFileSync(target,altered);
   assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
+
+test('OTA metadata gate rejects standalone APK identity',()=>{
+ const e=valid(); e.applicationId='br.com.trynexa.mayaqa';
+ assert.match(validate(e).join(' '),/applicationId mismatch/);
+});
+test('artifact gate independently rejects standalone APK identity',()=>{
+ const e=valid(); e.applicationId='br.com.trynexa.mayaqa';
+ assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/QA A release identity mismatch/);
 });
