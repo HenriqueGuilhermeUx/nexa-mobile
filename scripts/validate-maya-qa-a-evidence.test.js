@@ -421,3 +421,21 @@ test('artifact gate independently rejects standalone APK identity',()=>{
  const e=valid(); e.applicationId='br.com.trynexa.mayaqa';
  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/QA A release identity mismatch/);
 });
+
+test('artifact gate rejects corrupted PNG IDAT payload with stale CRC',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid();
+  const target=path.join(root,e.cases[0].evidenceRef);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  const original=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64');
+  fs.writeFileSync(target,original);
+  assert.doesNotMatch(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  const damaged=Buffer.from(original);
+  // PNG layout: 8 signature + 25 IHDR + 8 IDAT header = first data byte at 41.
+  assert.equal(damaged.toString('ascii',37,41),'IDAT');
+  damaged[41]^=1;
+  fs.writeFileSync(target,damaged);
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
