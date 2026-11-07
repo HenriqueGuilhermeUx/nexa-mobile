@@ -43,3 +43,10 @@ test('UTF-8 byte limit rejects multibyte inventories below character-count thres
   assert.notEqual(result.status,0);
   assert.match(result.stderr,/oversized/i);
 });
+
+test('unexpected CLI arguments fail closed even with a valid inventory',()=>{
+  const inventory='package:br.com.trynexa.app\n';
+  const result=spawnSync(process.execPath,[script,'ota','standalone'],{input:inventory,encoding:'utf8'});
+  assert.equal(result.status,2);
+  assert.match(result.stderr,/Usage:/);
+});
