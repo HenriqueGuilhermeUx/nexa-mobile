@@ -4,6 +4,10 @@ on:
     branches:
       - feat/maya-actions-02-planejamento-v148
     paths:
+      - 'scripts/validate-maya-planning-v1.js'
+      - 'app/maya-planning.tsx'
+      - 'app/assistant.tsx'
+      - 'app/_layout.tsx'
       - 'scripts/validate-maya-qa-a-evidence.js'
       - 'scripts/validate-maya-qa-a-evidence.test.js'
       - 'scripts/check-maya-qa-installed-package.js'
@@ -36,3 +40,5 @@ jobs:
           node-version: '22'
       - name: Offline evidence gate regression tests
         run: node --test scripts/validate-maya-qa-a-evidence.test.js scripts/check-maya-qa-installed-package.test.js scripts/maya-qa-a-adb-package-gate.test.cjs
+      - name: Wave 02 planning safety and navigation checks
+        run: node scripts/validate-maya-planning-v1.js
