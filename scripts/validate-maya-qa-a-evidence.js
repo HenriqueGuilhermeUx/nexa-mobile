@@ -68,7 +68,10 @@ function hasExpectedMediaSignature(file, extension) {
       // Reject implausibly large dimensions before treating a PNG as reviewable evidence.
       if (fs.readSync(fd,header,0,25,8) !== 25 ||
           header.readUInt32BE(8) === 0 || header.readUInt32BE(12) === 0 ||
-          header.readUInt32BE(8) > 16384 || header.readUInt32BE(12) > 16384) return false;
+          header.readUInt32BE(8) > 16384 || header.readUInt32BE(12) > 16384 ||
+          // IHDR permits only defined bit-depth/color combinations, compression/filter 0 and interlace 0/1.
+          !({0:[1,2,4,8,16],2:[8,16],3:[1,2,4,8],4:[8,16],6:[8,16]}[header[17]] || []).includes(header[16]) ||
+          header[18] !== 0 || header[19] !== 0 || header[20] > 1) return false;
       let offset = 8, chunks = 0, sawData = false;
       while (offset + 12 <= size && chunks++ < 100000) {
         const chunk = Buffer.alloc(8);
