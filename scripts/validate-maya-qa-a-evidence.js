@@ -79,7 +79,13 @@ function hasExpectedMediaSignature(file, extension) {
       }
       return false;
     }
-    if (extension === '.jpg' || extension === '.jpeg') return length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+    if (extension === '.jpg' || extension === '.jpeg') {
+      // A three-byte SOI prefix is not a JPEG capture; require a terminal EOI marker.
+      const size = fs.fstatSync(fd).size;
+      if (size < 4 || length < 3 || bytes[0] !== 255 || bytes[1] !== 216 || bytes[2] !== 255) return false;
+      const end = Buffer.alloc(2);
+      return fs.readSync(fd, end, 0, 2, size - 2) === 2 && end[0] === 255 && end[1] === 217;
+    }
     if (extension === '.webp') return length >= 12 && bytes.toString('ascii',0,4) === 'RIFF' && bytes.toString('ascii',8,12) === 'WEBP';
     if (extension === '.pdf') return length >= 5 && bytes.toString('ascii',0,5) === '%PDF-';
     if (extension === '.mp4') return length >= 12 && bytes.toString('ascii',4,8) === 'ftyp';
