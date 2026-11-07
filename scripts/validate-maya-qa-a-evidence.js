@@ -135,7 +135,14 @@ function hasExpectedMediaSignature(file, extension) {
       return fs.readSync(fd, end, 0, 2, size - 2) === 2 && end[0] === 255 && end[1] === 217;
     }
     if (extension === '.webp') return length >= 12 && bytes.toString('ascii',0,4) === 'RIFF' && bytes.toString('ascii',8,12) === 'WEBP';
-    if (extension === '.pdf') return length >= 5 && bytes.toString('ascii',0,5) === '%PDF-';
+    if (extension === '.pdf') {
+      // A bare PDF header is not a complete reviewable document.
+      const size = fs.fstatSync(fd).size;
+      if (size < 10 || bytes.toString('ascii',0,5) !== '%PDF-') return false;
+      const tail = Buffer.alloc(Math.min(size, 1024));
+      if (fs.readSync(fd, tail, 0, tail.length, size - tail.length) !== tail.length) return false;
+      return /%%EOF\s*$/.test(tail.toString('latin1'));
+    }
     if (extension === '.mp4') return length >= 12 && bytes.toString('ascii',4,8) === 'ftyp';
     return false;
   } finally { fs.closeSync(fd); }
