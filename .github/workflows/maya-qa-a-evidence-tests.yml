@@ -8,6 +8,8 @@ on:
       - 'scripts/validate-maya-qa-a-evidence.test.js'
       - 'scripts/check-maya-qa-installed-package.js'
       - 'scripts/check-maya-qa-installed-package.test.js'
+      - 'scripts/maya-qa-a-adb-package-gate.cjs'
+      - 'scripts/maya-qa-a-adb-package-gate.test.cjs'
       - '.github/workflows/maya-qa-a-evidence-tests.yml'
   pull_request:
     branches:
@@ -17,6 +19,8 @@ on:
       - 'scripts/validate-maya-qa-a-evidence.test.js'
       - 'scripts/check-maya-qa-installed-package.js'
       - 'scripts/check-maya-qa-installed-package.test.js'
+      - 'scripts/maya-qa-a-adb-package-gate.cjs'
+      - 'scripts/maya-qa-a-adb-package-gate.test.cjs'
       - '.github/workflows/maya-qa-a-evidence-tests.yml'
   workflow_dispatch:
 permissions:
@@ -31,4 +35,4 @@ jobs:
         with:
           node-version: '22'
       - name: Offline evidence gate regression tests
-        run: node --test scripts/validate-maya-qa-a-evidence.test.js scripts/check-maya-qa-installed-package.test.js
+        run: node --test scripts/validate-maya-qa-a-evidence.test.js scripts/check-maya-qa-installed-package.test.js scripts/maya-qa-a-adb-package-gate.test.cjs
