@@ -6,6 +6,7 @@ const required = ['A01','A02','A03','A04','A05','A06','P01','P02','P03','P04','P
 function validate(e) {
   const errors = [];
   if (!e || typeof e !== 'object' || Array.isArray(e)) return ['evidence must be an object'];
+  if (e.applicationId !== 'br.com.trynexa.app') errors.push('QA A applicationId mismatch');
   if (e.runtime !== '2.0.43') errors.push('runtime mismatch');
   if (e.versionCode !== 148) errors.push('versionCode mismatch');
   if (e.releaseSha !== '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e') errors.push('QA A SHA mismatch');
@@ -141,7 +142,7 @@ function verifyEvidenceFiles(e, root) {
   }
   // Standalone verification must bind artifacts to the exact QA A binary/update,
   // not merely to a caller-provided success/approval flag.
-  if (e.runtime !== '2.0.43' || e.versionCode !== 148 ||
+  if (e.applicationId !== 'br.com.trynexa.app' || e.runtime !== '2.0.43' || e.versionCode !== 148 ||
       e.releaseSha !== '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e' ||
       e.updateId !== '01a1a975-d85f-794f-9d67-cf2ac961fbb7')
     errors.push('QA A release identity mismatch for artifact verification');
