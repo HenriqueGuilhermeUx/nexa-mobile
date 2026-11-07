@@ -72,6 +72,19 @@ function hasExpectedMediaSignature(file, extension) {
           // IHDR permits only defined bit-depth/color combinations, compression/filter 0 and interlace 0/1.
           !({0:[1,2,4,8,16],2:[8,16],3:[1,2,4,8],4:[8,16],6:[8,16]}[header[17]] || []).includes(header[16]) ||
           header[18] !== 0 || header[19] !== 0 || header[20] > 1) return false;
+      // IHDR CRC binds dimensions and encoding fields to the actual PNG header.
+      // A modified header with a stale CRC is not a structurally valid capture.
+      const ihdrBytes = Buffer.alloc(17);
+      if (fs.readSync(fd, ihdrBytes, 0, 17, 12) !== 17) return false;
+      let crc = 0xffffffff;
+      for (const byte of ihdrBytes) {
+        crc ^= byte;
+        for (let bit = 0; bit < 8; bit++)
+          crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+      }
+      const storedCrc = Buffer.alloc(4);
+      if (fs.readSync(fd, storedCrc, 0, 4, 29) !== 4 ||
+          storedCrc.readUInt32BE(0) !== ((crc ^ 0xffffffff) >>> 0)) return false;
       let offset = 8, chunks = 0, sawData = false;
       while (offset + 12 <= size && chunks++ < 100000) {
         const chunk = Buffer.alloc(8);
