@@ -8,3 +8,8 @@ test('OTA identity accepted with standalone installed too',()=>assert.equal(run(
 test('standalone cannot impersonate OTA',()=>assert.notEqual(run('ota','package:br.com.trynexa.mayaqa\n').status,0));
 test('duplicate package rejected',()=>assert.notEqual(run('ota','package:br.com.trynexa.app\npackage:br.com.trynexa.app\n').status,0));
 test('prefix and malformed lines rejected',()=>{assert.notEqual(run('ota','package:br.com.trynexa.app.fake\n').status,0);assert.notEqual(run('ota','garbage\npackage:br.com.trynexa.app\n').status,0)});
+
+test('standalone identity accepted with production app installed',()=>assert.equal(run('standalone','package:br.com.trynexa.app\r\npackage:br.com.trynexa.mayaqa\r\n').status,0));
+test('OTA cannot impersonate standalone',()=>assert.notEqual(run('standalone','package:br.com.trynexa.app\n').status,0));
+test('empty and oversized inventories fail closed',()=>{assert.notEqual(run('ota','').status,0);assert.notEqual(run('ota','package:br.com.trynexa.app\n'+'x'.repeat(1024*1024)).status,0)});
+test('invalid mode fails closed',()=>assert.notEqual(run('production','package:br.com.trynexa.app\n').status,0));
