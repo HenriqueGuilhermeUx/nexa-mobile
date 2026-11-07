@@ -34,3 +34,12 @@ test('noncanonical trailing spaces or tabs cannot pass as ADB package records',(
   assert.notEqual(run('ota','package:br.com.trynexa.app\t\n').status,0);
   assert.equal(run('ota','package:br.com.trynexa.app\n').status,0);
 });
+
+test('UTF-8 byte limit rejects multibyte inventories below character-count threshold',()=>{
+  const inventory='package:br.com.trynexa.app\n'+'é'.repeat(530000);
+  assert.ok(inventory.length < 1024*1024);
+  assert.ok(Buffer.byteLength(inventory,'utf8') > 1024*1024);
+  const result=run('ota',inventory);
+  assert.notEqual(result.status,0);
+  assert.match(result.stderr,/oversized/i);
+});
