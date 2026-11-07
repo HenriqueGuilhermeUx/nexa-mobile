@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const mode = process.argv[2];
 const expected = {ota:'br.com.trynexa.app',standalone:'br.com.trynexa.mayaqa'};
-if (!Object.hasOwn(expected,mode)) { console.error('Usage: node scripts/maya-qa-a-adb-package-gate.cjs ota|standalone < packages.txt'); process.exit(2); }
+if (process.argv.length !== 3 || !Object.hasOwn(expected,mode)) { console.error('Usage: node scripts/maya-qa-a-adb-package-gate.cjs ota|standalone < packages.txt'); process.exit(2); }
 const data = fs.readFileSync(0,'utf8');
 if (!data || Buffer.byteLength(data, 'utf8') > 1024*1024) { console.error('Missing or oversized ADB inventory'); process.exit(1); }
 // Accept one terminal newline from adb, but reject blank records elsewhere.
