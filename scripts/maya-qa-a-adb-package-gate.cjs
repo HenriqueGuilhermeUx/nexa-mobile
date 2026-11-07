@@ -7,7 +7,7 @@ const expected = {ota:'br.com.trynexa.app',standalone:'br.com.trynexa.mayaqa'};
 if (!Object.hasOwn(expected,mode)) { console.error('Usage: node scripts/maya-qa-a-adb-package-gate.cjs ota|standalone < packages.txt'); process.exit(2); }
 const data = fs.readFileSync(0,'utf8');
 if (!data || data.length > 1024*1024) { console.error('Missing or oversized ADB inventory'); process.exit(1); }
-const lines = data.trim().split(/\r?\n/);
+// Accept one terminal newline from adb, but reject blank records elsewhere.\nconst lines = data.replace(/\\r?\\n$/, '').split(/\\r?\\n/);
 const names = [];
 for (const line of lines) {
   const match = /^package:([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+)\s*$/.exec(line);
