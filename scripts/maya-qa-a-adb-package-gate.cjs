@@ -11,7 +11,7 @@ if (!data || data.length > 1024*1024) { console.error('Missing or oversized ADB 
 const lines = data.replace(/\r?\n$/, '').split(/\r?\n/);
 const names = [];
 for (const line of lines) {
-  const match = /^package:([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+)\s*$/.exec(line);
+  const match = /^package:([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+)$/.exec(line);
   if (!match) { console.error('Malformed ADB package inventory'); process.exit(1); }
   names.push(match[1]);
 }
