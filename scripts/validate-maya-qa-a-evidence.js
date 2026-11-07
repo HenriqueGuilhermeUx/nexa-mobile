@@ -65,7 +65,10 @@ function hasExpectedMediaSignature(file, extension) {
       const size = fs.fstatSync(fd).size;
       if (size < 45 || bytes.readUInt32BE(8) !== 13 || bytes.toString('ascii',12,16) !== 'IHDR') return false;
       const header = Buffer.alloc(25);
-      if (fs.readSync(fd,header,0,25,8) !== 25 || header.readUInt32BE(8) === 0 || header.readUInt32BE(12) === 0) return false;
+      // Reject implausibly large dimensions before treating a PNG as reviewable evidence.
+      if (fs.readSync(fd,header,0,25,8) !== 25 ||
+          header.readUInt32BE(8) === 0 || header.readUInt32BE(12) === 0 ||
+          header.readUInt32BE(8) > 16384 || header.readUInt32BE(12) > 16384) return false;
       let offset = 8, chunks = 0, sawData = false;
       while (offset + 12 <= size && chunks++ < 100000) {
         const chunk = Buffer.alloc(8);
