@@ -349,3 +349,21 @@ test('artifact gate accepts JPEG signature with terminal EOI as format sanity ch
   assert.doesNotMatch(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('artifact gate rejects PNG dimensions beyond evidence sanity limit',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid();
+  const good=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64');
+  const target=path.join(root,e.cases[0].evidenceRef);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  const oversized=Buffer.from(good);
+  oversized.writeUInt32BE(16385,16);
+  fs.writeFileSync(target,oversized);
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  const zeroHeight=Buffer.from(good);
+  zeroHeight.writeUInt32BE(0,20);
+  fs.writeFileSync(target,zeroHeight);
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
