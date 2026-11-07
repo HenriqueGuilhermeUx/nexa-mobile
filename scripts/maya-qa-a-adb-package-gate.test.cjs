@@ -23,4 +23,8 @@ test('ADB inventory rejects additional non-package output even when expected pac
   assert.notEqual(run('ota','package:br.com.trynexa.app\nerror: device offline\n').status,0);
 });
 
-test('blank ADB inventory records are rejected even if expected package is present',()=>{\n  assert.notEqual(run('ota','\\npackage:br.com.trynexa.app\\n').status,0);\n  assert.notEqual(run('ota','package:br.com.trynexa.app\\n\\n').status,0);\n  assert.notEqual(run('ota','package:br.com.trynexa.app\\n\\npackage:br.com.trynexa.mayaqa\\n').status,0);\n});\n
+test('blank ADB inventory records are rejected even if expected package is present',()=>{
+  assert.notEqual(run('ota','\npackage:br.com.trynexa.app\n').status,0);
+  assert.notEqual(run('ota','package:br.com.trynexa.app\n\n').status,0);
+  assert.notEqual(run('ota','package:br.com.trynexa.app\n\npackage:br.com.trynexa.mayaqa\n').status,0);
+});
