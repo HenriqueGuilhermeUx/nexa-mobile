@@ -93,7 +93,29 @@ function hasExpectedMediaSignature(file, extension) {
         const dataLength = chunk.readUInt32BE(0);
         const type = chunk.toString('ascii',4,8);
         if (dataLength > size - offset - 12) return false;
-        if (type === 'IDAT' && dataLength > 0) sawData = true;
+        if (type === 'IDAT' && dataLength > 0) {
+          // A corrupted IDAT payload is not usable QA evidence even with a valid PNG header.
+          // Stream the CRC to avoid allocating an untrusted chunk-sized buffer.
+          let chunkCrc = 0xffffffff;
+          let remaining = dataLength + 4; // chunk type plus payload
+          let position = offset + 4;
+          const buffer = Buffer.alloc(8192);
+          while (remaining > 0) {
+            const count = Math.min(remaining, buffer.length);
+            if (fs.readSync(fd, buffer, 0, count, position) !== count) return false;
+            for (let i = 0; i < count; i++) {
+              chunkCrc ^= buffer[i];
+              for (let bit = 0; bit < 8; bit++)
+                chunkCrc = (chunkCrc >>> 1) ^ ((chunkCrc & 1) ? 0xedb88320 : 0);
+            }
+            position += count;
+            remaining -= count;
+          }
+          const checksum = Buffer.alloc(4);
+          if (fs.readSync(fd, checksum, 0, 4, offset + 8 + dataLength) !== 4 ||
+              checksum.readUInt32BE(0) !== ((chunkCrc ^ 0xffffffff) >>> 0)) return false;
+          sawData = true;
+        }
         if (type === 'IEND') {
           // The zero-length IEND chunk has a fixed CRC; reject a forged terminator.
           const terminatorCrc = Buffer.alloc(4);
