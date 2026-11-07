@@ -367,3 +367,19 @@ test('artifact gate rejects PNG dimensions beyond evidence sanity limit',()=>{
   assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('artifact gate rejects invalid PNG IHDR encoding fields',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid();
+  const good=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64');
+  const target=path.join(root,e.cases[0].evidenceRef);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  for(const [offset,value] of [[24,7],[25,5],[26,1],[27,1],[28,2]]) {
+   const bad=Buffer.from(good);
+   bad[offset]=value;
+   fs.writeFileSync(target,bad);
+   assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  }
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
