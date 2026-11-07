@@ -93,7 +93,13 @@ function hasExpectedMediaSignature(file, extension) {
         const type = chunk.toString('ascii',4,8);
         if (dataLength > size - offset - 12) return false;
         if (type === 'IDAT' && dataLength > 0) sawData = true;
-        if (type === 'IEND') return dataLength === 0 && sawData && offset + 12 === size;
+        if (type === 'IEND') {
+          // The zero-length IEND chunk has a fixed CRC; reject a forged terminator.
+          const terminatorCrc = Buffer.alloc(4);
+          return dataLength === 0 && sawData && offset + 12 === size &&
+            fs.readSync(fd, terminatorCrc, 0, 4, offset + 8) === 4 &&
+            terminatorCrc.readUInt32BE(0) === 0xae426082;
+        }
         offset += 12 + dataLength;
       }
       return false;
