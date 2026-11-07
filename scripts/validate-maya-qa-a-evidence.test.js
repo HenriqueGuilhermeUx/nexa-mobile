@@ -383,3 +383,17 @@ test('artifact gate rejects invalid PNG IHDR encoding fields',()=>{
   }
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('artifact gate rejects altered PNG dimensions when IHDR CRC is stale',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid();
+  const good=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lXcAAAAASUVORK5CYII=','base64');
+  const target=path.join(root,e.cases[0].evidenceRef);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  const altered=Buffer.from(good);
+  altered.writeUInt32BE(2,16); // Valid dimensions, but no matching IHDR CRC.
+  fs.writeFileSync(target,altered);
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
