@@ -15,6 +15,10 @@ function checkPackageInventory(text, mode) {
 }
 if (require.main === module) {
   const [mode, file] = process.argv.slice(2);
+  if (!Object.hasOwn(expected, mode) || typeof file !== 'string' || !file.trim()) {
+    console.error('NO-GO: usage: node check-maya-qa-installed-package.js <ota|standalone> <adb-inventory-file>');
+    process.exit(2);
+  }
   let content;
   try { content = fs.readFileSync(file,'utf8'); }
   catch { console.error('NO-GO: package inventory missing/unreadable'); process.exit(2); }
