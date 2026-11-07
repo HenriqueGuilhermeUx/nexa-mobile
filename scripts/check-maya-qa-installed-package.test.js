@@ -20,3 +20,9 @@ test('rejects duplicate ADB inventory lines even if expected package is present'
  assert.match(checkPackageInventory(duplicated,'ota').join(' '),/duplicate entries/);
  assert.deepEqual(checkPackageInventory('package:br.com.trynexa.app\npackage:br.com.trynexa.mayaqa\n','ota'),[]);
 });
+
+test('secondary inventory verifier rejects whitespace, blank records and oversized input',()=>{
+ for (const data of ['package:br.com.trynexa.app \n','package:br.com.trynexa.app\n\n','\npackage:br.com.trynexa.app\n','package:br.com.trynexa.app\t\n','package:br.com.trynexa.app\n'+'x'.repeat(1024*1024)])
+  assert.ok(checkPackageInventory(data,'ota').length);
+ assert.deepEqual(checkPackageInventory('package:br.com.trynexa.app\r\n','ota'),[]);
+});
