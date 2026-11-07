@@ -4,8 +4,9 @@ const fs = require('node:fs');
 const expected = Object.freeze({ota:'br.com.trynexa.app',standalone:'br.com.trynexa.mayaqa'});
 function checkPackageInventory(text, mode) {
   if (!Object.hasOwn(expected,mode)) return ['unknown QA artifact mode'];
-  if (typeof text !== 'string' || !text.trim()) return ['empty adb package inventory'];
-  const packages = text.split(/\r?\n/).filter(Boolean).map(line=>/^package:([a-zA-Z][a-zA-Z0-9_.]*)$/.exec(line.trim()));
+  if (typeof text !== 'string' || !text || Buffer.byteLength(text, 'utf8') > 1024 * 1024) return ['empty or oversized adb package inventory'];
+  const lines = text.replace(/\r?\n$/, '').split(/\r?\n/);
+  const packages = lines.map(line=>/^package:([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+)$/.exec(line));
   if (!packages.length || packages.some(match=>!match)) return ['invalid adb package inventory'];
   const ids = packages.map(match=>match[1]);
   if (new Set(ids).size !== ids.length) return ['duplicate entries in adb package inventory'];
