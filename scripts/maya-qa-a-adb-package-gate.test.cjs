@@ -28,3 +28,9 @@ test('blank ADB inventory records are rejected even if expected package is prese
   assert.notEqual(run('ota','package:br.com.trynexa.app\n\n').status,0);
   assert.notEqual(run('ota','package:br.com.trynexa.app\n\npackage:br.com.trynexa.mayaqa\n').status,0);
 });
+
+test('noncanonical trailing spaces or tabs cannot pass as ADB package records',()=>{
+  assert.notEqual(run('ota','package:br.com.trynexa.app \n').status,0);
+  assert.notEqual(run('ota','package:br.com.trynexa.app\t\n').status,0);
+  assert.equal(run('ota','package:br.com.trynexa.app\n').status,0);
+});
