@@ -439,3 +439,17 @@ test('artifact gate rejects corrupted PNG IDAT payload with stale CRC',()=>{
   assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+
+test('artifact gate rejects a truncated PDF header without EOF',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid(); e.cases[0].evidenceRef='qa-a/device-01/A01.pdf';
+  const target=path.join(root,e.cases[0].evidenceRef);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  fs.writeFileSync(target,'%PDF-1.7\n1 0 obj\n');
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  fs.writeFileSync(target,'%PDF-1.7\n1 0 obj\nendobj\n%%EOF\n');
+  assert.doesNotMatch(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
