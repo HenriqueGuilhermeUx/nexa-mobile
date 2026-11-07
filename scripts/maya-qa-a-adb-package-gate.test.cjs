@@ -13,3 +13,12 @@ test('standalone identity accepted with production app installed',()=>assert.equ
 test('OTA cannot impersonate standalone',()=>assert.notEqual(run('standalone','package:br.com.trynexa.app\n').status,0));
 test('empty and oversized inventories fail closed',()=>{assert.notEqual(run('ota','').status,0);assert.notEqual(run('ota','package:br.com.trynexa.app\n'+'x'.repeat(1024*1024)).status,0)});
 test('invalid mode fails closed',()=>assert.notEqual(run('production','package:br.com.trynexa.app\n').status,0));
+
+test('ADB inventory rejects ANSI escapes and Unicode lookalike package names',()=>{
+  assert.notEqual(run('ota','\u001b[32mpackage:br.com.trynexa.app\u001b[0m\n').status,0);
+  assert.notEqual(run('ota','package:br.com.trynexa.аpp\n').status,0); // Cyrillic a
+});
+test('ADB inventory rejects additional non-package output even when expected package is present',()=>{
+  assert.notEqual(run('ota','List of devices attached\npackage:br.com.trynexa.app\n').status,0);
+  assert.notEqual(run('ota','package:br.com.trynexa.app\nerror: device offline\n').status,0);
+});
