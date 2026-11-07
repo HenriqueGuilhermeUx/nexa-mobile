@@ -326,3 +326,26 @@ test('artifact gate rejects PNG with an empty IDAT chunk',()=>{
   assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension/);
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('artifact gate rejects JPEG with SOI prefix but no EOI trailer',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid();
+  e.cases[0].evidenceRef='qa-a/device-01/A01.jpg';
+  const target=path.join(root,e.cases[0].evidenceRef);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  fs.writeFileSync(target,Buffer.from([0xff,0xd8,0xff,0xe0,0x00,0x10]));
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
+test('artifact gate accepts JPEG signature with terminal EOI as format sanity check only',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid();
+  e.cases[0].evidenceRef='qa-a/device-01/A01.jpg';
+  const target=path.join(root,e.cases[0].evidenceRef);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  fs.writeFileSync(target,Buffer.from([0xff,0xd8,0xff,0xe0,0xff,0xd9]));
+  assert.doesNotMatch(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
