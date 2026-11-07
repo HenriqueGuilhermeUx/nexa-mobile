@@ -14,3 +14,9 @@ test('rejects prefix spoofing and malformed inventories',()=>{
   assert.ok(checkPackageInventory(data,'ota').length);
 });
 test('unknown mode is fail closed',()=>assert.ok(checkPackageInventory('package:br.com.trynexa.app','production').length));
+
+test('rejects duplicate ADB inventory lines even if expected package is present',()=>{
+ const duplicated='package:br.com.trynexa.app\npackage:br.com.trynexa.app\n';
+ assert.match(checkPackageInventory(duplicated,'ota').join(' '),/duplicate entries/);
+ assert.deepEqual(checkPackageInventory('package:br.com.trynexa.app\npackage:br.com.trynexa.mayaqa\n','ota'),[]);
+});
