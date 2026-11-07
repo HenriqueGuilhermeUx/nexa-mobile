@@ -1,0 +1,16 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {checkPackageInventory}=require('./check-maya-qa-installed-package');
+test('OTA requires exact installed package',()=>{
+ assert.deepEqual(checkPackageInventory('package:br.com.trynexa.app\n','ota'),[]);
+ assert.match(checkPackageInventory('package:br.com.trynexa.mayaqa\n','ota').join(' '),/not installed/);
+});
+test('standalone requires its own package',()=>{
+ assert.deepEqual(checkPackageInventory('package:br.com.trynexa.mayaqa\n','standalone'),[]);
+ assert.match(checkPackageInventory('package:br.com.trynexa.app\n','standalone').join(' '),/not installed/);
+});
+test('rejects prefix spoofing and malformed inventories',()=>{
+ for(const data of ['package:br.com.trynexa.app.fake\n','br.com.trynexa.app\n','package:br.com.trynexa.app\nspoofed',''])
+  assert.ok(checkPackageInventory(data,'ota').length);
+});
+test('unknown mode is fail closed',()=>assert.ok(checkPackageInventory('package:br.com.trynexa.app','production').length));
