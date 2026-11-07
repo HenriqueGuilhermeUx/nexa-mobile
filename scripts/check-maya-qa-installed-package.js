@@ -8,6 +8,7 @@ function checkPackageInventory(text, mode) {
   const packages = text.split(/\r?\n/).filter(Boolean).map(line=>/^package:([a-zA-Z][a-zA-Z0-9_.]*)$/.exec(line.trim()));
   if (!packages.length || packages.some(match=>!match)) return ['invalid adb package inventory'];
   const ids = packages.map(match=>match[1]);
+  if (new Set(ids).size !== ids.length) return ['duplicate entries in adb package inventory'];
   if (!ids.includes(expected[mode])) return ['expected QA package not installed: '+expected[mode]];
   return [];
 }
