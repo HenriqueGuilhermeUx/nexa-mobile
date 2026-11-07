@@ -26,3 +26,13 @@ test('secondary inventory verifier rejects whitespace, blank records and oversiz
   assert.ok(checkPackageInventory(data,'ota').length);
  assert.deepEqual(checkPackageInventory('package:br.com.trynexa.app\r\n','ota'),[]);
 });
+
+test('CLI refuses absent or unsupported modes before reading an inventory',()=>{
+ const {spawnSync}=require('node:child_process');
+ const script=require('node:path').join(__dirname,'check-maya-qa-installed-package.js');
+ for (const args of [[],['production','missing-adb-inventory.txt'],['ota']]) {
+  const result=spawnSync(process.execPath,[script,...args],{encoding:'utf8'});
+  assert.equal(result.status,2);
+  assert.match(result.stderr,/NO-GO: usage:/);
+ }
+});
