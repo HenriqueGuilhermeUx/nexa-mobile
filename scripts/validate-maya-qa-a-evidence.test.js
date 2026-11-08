@@ -472,3 +472,24 @@ test('artifact gate rejects truncated or length-mismatched WebP evidence',()=>{
   assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('artifact gate rejects MP4 with missing or inconsistent ftyp box length',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid(); e.cases[0].evidenceRef='qa-a/device-01/A01.mp4';
+  const target=path.join(root,e.cases[0].evidenceRef);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  const box=Buffer.alloc(16);
+  box.writeUInt32BE(16,0); box.write('ftyp',4); box.write('isom',8);
+  fs.writeFileSync(target,box);
+  assert.doesNotMatch(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  fs.writeFileSync(target,box.subarray(0,12));
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  const over=Buffer.from(box); over.writeUInt32BE(4096,0);
+  fs.writeFileSync(target,over);
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  const under=Buffer.from(box); under.writeUInt32BE(8,0);
+  fs.writeFileSync(target,under);
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
