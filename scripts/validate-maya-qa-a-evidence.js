@@ -129,7 +129,8 @@ function hasExpectedMediaSignature(file, extension) {
       return false;
     }
     if (extension === '.jpg' || extension === '.jpeg') {
-      // A three-byte SOI prefix is not a JPEG capture; require a terminal EOI marker.\n      // Reject tiny marker-only files; this remains a format sanity check, not image decoding.
+      // A three-byte SOI prefix is not a JPEG capture; require a terminal EOI marker.
+      // Reject tiny marker-only files; this remains a format sanity check, not image decoding.
       const size = fs.fstatSync(fd).size;
       if (size < 128 || length < 3 || bytes[0] !== 255 || bytes[1] !== 216 || bytes[2] !== 255) return false;
       const end = Buffer.alloc(2);
