@@ -453,3 +453,22 @@ test('artifact gate rejects a truncated PDF header without EOF',()=>{
   assert.doesNotMatch(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+test('artifact gate rejects truncated or length-mismatched WebP evidence',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'maya-qa-'));
+ try {
+  const e=valid(); e.cases[0].evidenceRef='qa-a/device-01/A01.webp';
+  const target=path.join(root,e.cases[0].evidenceRef);
+  fs.mkdirSync(path.dirname(target),{recursive:true});
+  const good=Buffer.alloc(22);
+  good.write('RIFF',0); good.writeUInt32LE(14,4); good.write('WEBP',8);
+  good.write('VP8L',12); good.writeUInt32LE(1,16); good[20]=0x2f;
+  fs.writeFileSync(target,good);
+  assert.doesNotMatch(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  fs.writeFileSync(target,good.subarray(0,12));
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  const mismatched=Buffer.from(good); mismatched.writeUInt32LE(99,4);
+  fs.writeFileSync(target,mismatched);
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+ } finally { fs.rmSync(root,{recursive:true,force:true}); }
+});
