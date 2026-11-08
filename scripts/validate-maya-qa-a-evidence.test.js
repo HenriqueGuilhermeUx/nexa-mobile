@@ -514,3 +514,12 @@ test('QA A gate rejects unresolved brace placeholders in observations and eviden
   assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/synthetic\/placeholder evidence: A01/);
  }
 });
+
+// Unfinished physical checks must never be accepted as observed PASS evidence.
+test('QA A rejects pending or untested observations in both gates',()=>{
+ for(const observed of ['Pending device verification','not tested yet','aguardando teste','pendente de captura','não testado no aparelho','nao testado']) {
+  const e=valid(); e.cases[0].observed=observed;
+  assert.match(validate(e).join(' '),/synthetic\/placeholder evidence: A01/);
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/synthetic\/placeholder evidence: A01/);
+ }
+});
