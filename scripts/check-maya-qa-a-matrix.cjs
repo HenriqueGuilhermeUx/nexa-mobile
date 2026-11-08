@@ -19,7 +19,7 @@ const requiredIdentityLines = [
 for (const pattern of requiredIdentityLines) {
   assert.match(markdown, pattern, 'QA A identity must match the exact labeled release fields');
 }
-const table = markdown.split(/\r?\n/).filter(line => /^\|\s*[A-Za-z][A-Za-z0-9]*\s*\|/.test(line) && !/^\|\s*Caso\s*\|/.test(line));
+const table = markdown.split(/\r?\n/).filter(line => /^\|\s*[^|]+\|/.test(line) && !/^\|\s*(?:Caso|[-:\s]+)\s*\|/.test(line));
 const rows = table.filter(line => /^\|\s*[APR]0[1-9]\s*\|/.test(line));
 assert.equal(table.length, rows.length, 'QA A must not contain unknown or malformed case IDs');
 const ids = rows.map(line => line.split('|')[1].trim());
