@@ -47,6 +47,7 @@ function validate(e) {
     if (c.status !== 'PASS') errors.push('not PASS: ' + c.id);
     if (![c.observed, c.evidenceRef].every(v => typeof v === 'string' && v.trim())) errors.push('missing observation/evidence: ' + c.id);
     if (/\b(?:fixture|placeholder|todo|tbd|n\/a|simulated|synthetic)\b/i.test(String(c.observed)) ||
+         /\{[^{}\r\n]+\}/.test(String(c.observed)) || /\{[^{}\r\n]+\}/.test(String(c.evidenceRef)) ||
         /\b(?:fixture|placeholder|todo|tbd|n\/a|simulated|synthetic)\b/i.test(String(c.evidenceRef))) errors.push('synthetic/placeholder evidence: ' + c.id);
   }
   for (const id of required) if (!seen.has(id)) errors.push('missing case: ' + id);
@@ -235,6 +236,7 @@ function verifyEvidenceFiles(e, root) {
     }
     // Reject placeholder observations and references even when called without validate().
     if (/\b(?:fixture|placeholder|todo|tbd|n\/a|simulated|synthetic)\b/i.test(c.observed) ||
+        /\{[^{}\r\n]+\}/.test(c.observed) || /\{[^{}\r\n]+\}/.test(c.evidenceRef) ||
         /\b(?:fixture|placeholder|todo|tbd|n\/a|simulated|synthetic)\b/i.test(c.evidenceRef)) {
       errors.push('synthetic/placeholder evidence: ' + c.id);
       continue;
