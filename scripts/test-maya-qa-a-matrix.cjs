@@ -26,6 +26,10 @@ try {
   assert.notEqual(run(original.replace(row, row + '\n' + row.replace('A01', 'X01'))).status, 0, 'Unknown wave X01 case must fail');
   assert.notEqual(run(original.replace(row, row + '\n' + row.replace('A01', '01'))).status, 0, 'Numeric-only case ID must fail');
   assert.notEqual(run(original.replace(row, row + '\n' + row.replace('A01', 'A-01'))).status, 0, 'Punctuation in case ID must fail');
+  // Invalid or empty state must not be silently treated as pending/approved.
+  assert.notEqual(run(original.replace(row, row.replace('PENDENTE', 'APROVADO'))).status, 0, 'Unknown approval state must fail');
+  assert.notEqual(run(original.replace(row, row.replace('PENDENTE', ''))).status, 0, 'Empty state must fail');
+  assert.notEqual(run(original.replace(row, row.replace('PENDENTE', 'PASS'))).status, 0, 'PASS without evidence must fail');
   const pass = '| A01 | Abrir Maya e iniciar criação de lembrete | PASS | evidence-A01.mp4 |';
   const validPass = run(original.replace(row, pass));
   assert.equal(validPass.status, 0, 'PASS with reference must pass structural gate only: ' + validPass.stderr);
