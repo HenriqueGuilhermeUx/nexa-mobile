@@ -18,18 +18,20 @@ try {
     return spawnSync(process.execPath, [path.join(temp, 'scripts/check-maya-qa-a-matrix.cjs')], { encoding: 'utf8' });
   };
   const row = '| A01 | Abrir Maya e iniciar criação de lembrete | PENDENTE | — |';
-  assert.equal(run(original).status, 0, 'Canonical pending matrix must pass');
+  const canonical = run(original);
+  assert.equal(canonical.status, 0, 'Canonical pending matrix must pass: ' + canonical.stderr);
   assert.notEqual(run(original.replace(row, '')).status, 0, 'Missing case must fail');
   assert.notEqual(run(original.replace(row, row + '\n' + row)).status, 0, 'Duplicate case must fail');
   const pass = '| A01 | Abrir Maya e iniciar criação de lembrete | PASS | evidence-A01.mp4 |';
-  assert.equal(run(original.replace(row, pass)).status, 0, 'PASS with reference must pass structural gate only');
+  const validPass = run(original.replace(row, pass));
+  assert.equal(validPass.status, 0, 'PASS with reference must pass structural gate only: ' + validPass.stderr);
   assert.notEqual(run(original.replace(row, row.replace('PENDENTE | —', 'PASS | TODO'))).status, 0, 'Placeholder must fail');
   assert.notEqual(run(original.replace(row, row.replace('PENDENTE | —', 'PASS | {INSERIR_EVIDENCIA}'))).status, 0, 'Brace-delimited template reference must fail');
   const row2 = '| A02 | Informar título e data futura válida; revisar antes de salvar | PENDENTE | — |';
   assert.notEqual(run(original.replace(row, pass).replace(row2, row2.replace('PENDENTE | —', 'PASS | evidence-A01.mp4'))).status, 0, 'Duplicate evidence must fail');
   assert.notEqual(run(original.replace(row, pass).replace(row2, row2.replace('PENDENTE | —', 'PASS | EVIDENCE-a01.MP4'))).status, 0, 'Case-only evidence alias must fail');
   assert.notEqual(run(original.replace(row, row.replace('PENDENTE | —', 'PASS | qa/evidence-A01.mp4')).replace(row2, row2.replace('PENDENTE | —', 'PASS | qa\\\\evidence-A01.mp4'))).status, 0, 'Slash/backslash evidence alias must fail');
-  for (const token of ['br.com.trynexa.app', '2.0.43', '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e', '01a1a975-d85f-794f-9d67-cf2ac961fbb7']) {
+  for (const token of ['br.com.trynexa.app', '148', '2.0.43', '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e', '01a1a975-d85f-794f-9d67-cf2ac961fbb7', 'maya-actions-v148-qa']) {
     assert.notEqual(run(original.replace('`' + token + '`', '`wrong-release`')).status, 0, 'Release identity mismatch must fail: ' + token);
   }
   console.log('QA A matrix gate regression fixtures passed; physical QA is NOT approved.');
