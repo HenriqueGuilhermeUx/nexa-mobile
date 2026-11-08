@@ -154,7 +154,15 @@ function hasExpectedMediaSignature(file, extension) {
       if (fs.readSync(fd, tail, 0, tail.length, size - tail.length) !== tail.length) return false;
       return /%%EOF\s*$/.test(tail.toString('latin1'));
     }
-    if (extension === '.mp4') return length >= 12 && bytes.toString('ascii',4,8) === 'ftyp';
+    if (extension === '.mp4') {
+      // The first ISO BMFF box must fit the file; an 'ftyp' token alone is not a video.
+      const size = fs.fstatSync(fd).size;
+      if (size < 16 || length < 16 || bytes.toString('ascii', 4, 8) !== 'ftyp') return false;
+      const boxSize = bytes.readUInt32BE(0);
+      // Extended-size and size-to-EOF boxes are not accepted by this conservative QA gate.
+      if (boxSize < 16 || boxSize > size) return false;
+      return /^[\x20-\x7e]{4}$/.test(bytes.toString('latin1', 8, 12));
+    }
     return false;
   } finally { fs.closeSync(fd); }
 }
