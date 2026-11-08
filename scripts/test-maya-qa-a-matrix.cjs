@@ -18,6 +18,7 @@ try {
     return spawnSync(process.execPath, [path.join(temp, 'scripts/check-maya-qa-a-matrix.cjs')], { encoding: 'utf8' });
   };
   const row = '| A01 | Abrir Maya e iniciar criação de lembrete | PENDENTE | — |';
+  assert.ok(original.includes(row), 'Canonical QA A fixture must contain A01 pending row');
   const canonical = run(original);
   assert.equal(canonical.status, 0, 'Canonical pending matrix must pass: ' + canonical.stderr);
   assert.notEqual(run(original.replace(row, '')).status, 0, 'Missing case must fail');
@@ -44,8 +45,8 @@ try {
   }
   // A release token elsewhere in the document must not rescue a changed identity field.
   const alteredIdentity = original.replace('versionCode `148`', 'versionCode `149`');
-  assert.notEqual(run(alteredIdentity + '\\n\\nReference only: `148`').status, 0, 'Stray release token must not rescue wrong build');
-  assert.notEqual(run(original.replace('branch `maya-actions-v148-qa`', 'branch `wrong-qa`') + '\\n\\nReference: `maya-actions-v148-qa`').status, 0, 'Stray EAS branch must not rescue wrong QA branch');
+  assert.notEqual(run(alteredIdentity + '\n\nReference only: `148`').status, 0, 'Stray release token must not rescue wrong build');
+  assert.notEqual(run(original.replace('branch `maya-actions-v148-qa`', 'branch `wrong-qa`') + '\n\nReference: `maya-actions-v148-qa`').status, 0, 'Stray EAS branch must not rescue wrong QA branch');
   console.log('QA A matrix gate regression fixtures passed; physical QA is NOT approved.');
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
