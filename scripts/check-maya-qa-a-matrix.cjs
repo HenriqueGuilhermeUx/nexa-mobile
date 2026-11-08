@@ -36,7 +36,8 @@ for (const row of rows) {
     assert.doesNotMatch(cells[3], /^(?:pendente|todo|tbd|n\/a|sem evid[eê]ncia|placeholder|exemplo)(?:\b|$)/i, 'PASS cannot use placeholder evidence');
     assert.doesNotMatch(cells[3], /(?:example\.(?:com|org|net)|localhost|127\.0\.0\.1|dummy|fake|mock|sample|teste[-_ ]?fict[ií]cio)/i, 'PASS cannot cite synthetic or local placeholder evidence');
     assert.doesNotMatch(cells[3], /[<>]|\[insira|\{[^}]+\}/i, 'PASS cannot contain template tokens');
-    const evidenceKey = cells[3].replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase();
+    // Canonicalize dot segments so aliases cannot reuse the same physical capture.
+    const evidenceKey = path.posix.normalize(cells[3].replace(/\\/g, '/')).toLowerCase();
     assert.ok(!evidenceRefs.has(evidenceKey), 'PASS evidence reference must be unique per case (case and separator insensitive)');
     evidenceRefs.add(evidenceKey);
   }
