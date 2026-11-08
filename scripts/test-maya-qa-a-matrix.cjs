@@ -32,7 +32,7 @@ try {
   assert.notEqual(run(original.replace(row, pass).replace(row2, row2.replace('PENDENTE | —', 'PASS | EVIDENCE-a01.MP4'))).status, 0, 'Case-only evidence alias must fail');
   assert.notEqual(run(original.replace(row, row.replace('PENDENTE | —', 'PASS | qa/evidence-A01.mp4')).replace(row2, row2.replace('PENDENTE | —', 'PASS | qa\\\\evidence-A01.mp4'))).status, 0, 'Slash/backslash evidence alias must fail');
   for (const token of ['br.com.trynexa.app', '148', '2.0.43', '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e', '01a1a975-d85f-794f-9d67-cf2ac961fbb7', 'maya-actions-v148-qa']) {
-    assert.notEqual(run(original.replace('`' + token + '`', '`wrong-release`')).status, 0, 'Release identity mismatch must fail: ' + token);
+    assert.notEqual(run(original.split('\n').map(line => /^(?:- Aplicativo QA A:|- SHA congelado:|- Android EAS update:)/.test(line) ? line.replace('`' + token + '`', '`wrong-release`') : line).join('\n')).status, 0, 'Release identity mismatch must fail: ' + token);
   }
   console.log('QA A matrix gate regression fixtures passed; physical QA is NOT approved.');
 } finally {
