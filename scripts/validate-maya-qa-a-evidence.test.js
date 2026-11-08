@@ -486,6 +486,10 @@ test('artifact gate rejects MP4 with missing or inconsistent ftyp box length',()
   const media=Buffer.alloc(12);
   media.writeUInt32BE(12,0); media.write('mdat',4); media.writeUInt32BE(0x12345678,8);
   fs.writeFileSync(target,Buffer.concat([box,media]));
+  assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
+  const moov=Buffer.alloc(12);
+  moov.writeUInt32BE(12,0); moov.write('moov',4); moov.writeUInt32BE(0x12345678,8);
+  fs.writeFileSync(target,Buffer.concat([box,moov,media]));
   assert.doesNotMatch(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
   const truncated=Buffer.from(media); truncated.writeUInt32BE(4096,0);
   fs.writeFileSync(target,Buffer.concat([box,truncated]));
