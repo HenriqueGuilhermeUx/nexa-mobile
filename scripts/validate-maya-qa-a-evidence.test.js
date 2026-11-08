@@ -504,3 +504,13 @@ test('artifact gate rejects MP4 with missing or inconsistent ftyp box length',()
   assert.match(verifyEvidenceFiles(e,root).join(' '),/content does not match media extension: A01/);
  } finally { fs.rmSync(root,{recursive:true,force:true}); }
 });
+
+
+test('QA A gate rejects unresolved brace placeholders in observations and evidence paths',()=>{
+ for(const field of ['observed','evidenceRef']) {
+  const e=valid();
+  e.cases[0][field]=field==='observed' ? '{INSERIR_EVIDENCIA}' : 'qa-a/{CAPTURA_A01}.png';
+  assert.match(validate(e).join(' '),/synthetic\/placeholder evidence: A01/);
+  assert.match(verifyEvidenceFiles(e,os.tmpdir()).join(' '),/synthetic\/placeholder evidence: A01/);
+ }
+});
