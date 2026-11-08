@@ -161,7 +161,19 @@ function hasExpectedMediaSignature(file, extension) {
       const boxSize = bytes.readUInt32BE(0);
       // Extended-size and size-to-EOF boxes are not accepted by this conservative QA gate.
       if (boxSize < 16 || boxSize > size) return false;
-      return /^[\x20-\x7e]{4}$/.test(bytes.toString('latin1', 8, 12));
+      if (!/^[\x20-\x7e]{4}$/.test(bytes.toString('latin1', 8, 12))) return false;
+      // An ftyp header alone is not playable video evidence. Require a nonempty
+      // media-data box and reject truncated or overflowing top-level boxes.
+      let offset = boxSize, sawMedia = false, boxes = 0;
+      while (offset + 8 <= size && boxes++ < 10000) {
+        const header = Buffer.alloc(8);
+        if (fs.readSync(fd, header, 0, 8, offset) !== 8) return false;
+        const length = header.readUInt32BE(0);
+        if (length < 8 || length > size - offset) return false;
+        if (header.toString('ascii', 4, 8) === 'mdat' && length > 8) sawMedia = true;
+        offset += length;
+      }
+      return offset === size && sawMedia;
     }
     return false;
   } finally { fs.closeSync(fd); }
