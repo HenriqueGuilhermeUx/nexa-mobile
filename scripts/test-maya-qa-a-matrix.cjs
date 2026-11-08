@@ -34,6 +34,10 @@ try {
   for (const token of ['br.com.trynexa.app', '148', '2.0.43', '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e', '01a1a975-d85f-794f-9d67-cf2ac961fbb7', 'maya-actions-v148-qa']) {
     assert.notEqual(run(original.split('\n').map(line => /^(?:- Aplicativo QA A:|- SHA congelado:|- Android EAS update:)/.test(line) ? line.replace('`' + token + '`', '`wrong-release`') : line).join('\n')).status, 0, 'Release identity mismatch must fail: ' + token);
   }
+  // A release token elsewhere in the document must not rescue a changed identity field.
+  const alteredIdentity = original.replace('versionCode `148`', 'versionCode `149`');
+  assert.notEqual(run(alteredIdentity + '\\n\\nReference only: `148`').status, 0, 'Stray release token must not rescue wrong build');
+  assert.notEqual(run(original.replace('branch `maya-actions-v148-qa`', 'branch `wrong-qa`') + '\\n\\nReference: `maya-actions-v148-qa`').status, 0, 'Stray EAS branch must not rescue wrong QA branch');
   console.log('QA A matrix gate regression fixtures passed; physical QA is NOT approved.');
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
