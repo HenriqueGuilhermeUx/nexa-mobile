@@ -11,16 +11,13 @@ const expected = [
   ...Array.from({ length: 5 }, (_, i) => `R0${i + 1}`),
 ];
 // Pin the tested OTA identity; a different binary/update requires a separate QA matrix.
-const identity = [
-  'br.com.trynexa.app',
-  '148',
-  '2.0.43',
-  '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e',
-  '01a1a975-d85f-794f-9d67-cf2ac961fbb7',
-  'maya-actions-v148-qa',
+const requiredIdentityLines = [
+  /^- Aplicativo QA A: `br\.com\.trynexa\.app`; versionCode `148`; runtime `2\.0\.43`\.$/m,
+  /^- SHA congelado: `096c9fd619a551f23ba8c7d9e3e72a7e01605a6e`\.$/m,
+  /^- Android EAS update: `01a1a975-d85f-794f-9d67-cf2ac961fbb7`; branch `maya-actions-v148-qa`\.$/m,
 ];
-for (const token of identity) {
-  assert.ok(markdown.includes('`' + token + '`'), 'QA A identity token missing: ' + token);
+for (const pattern of requiredIdentityLines) {
+  assert.match(markdown, pattern, 'QA A identity must match the exact labeled release fields');
 }
 const rows = markdown.split(/\r?\n/).filter(line => /^\|\s*[APR]0[1-9]\s*\|/.test(line));
 const ids = rows.map(line => line.split('|')[1].trim());
