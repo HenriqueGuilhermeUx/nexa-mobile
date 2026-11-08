@@ -22,6 +22,8 @@ try {
   assert.equal(canonical.status, 0, 'Canonical pending matrix must pass: ' + canonical.stderr);
   assert.notEqual(run(original.replace(row, '')).status, 0, 'Missing case must fail');
   assert.notEqual(run(original.replace(row, row + '\n' + row)).status, 0, 'Duplicate case must fail');
+  assert.notEqual(run(original.replace(row, row + '\n' + row.replace('A01', 'A10'))).status, 0, 'Unexpected A10 case must fail');
+  assert.notEqual(run(original.replace(row, row + '\n' + row.replace('A01', 'X01'))).status, 0, 'Unknown wave X01 case must fail');
   const pass = '| A01 | Abrir Maya e iniciar criação de lembrete | PASS | evidence-A01.mp4 |';
   const validPass = run(original.replace(row, pass));
   assert.equal(validPass.status, 0, 'PASS with reference must pass structural gate only: ' + validPass.stderr);
