@@ -26,6 +26,8 @@ try {
   assert.notEqual(run(original.replace(row, row.replace('PENDENTE | —', 'PASS | TODO'))).status, 0, 'Placeholder must fail');
   const row2 = '| A02 | Informar título e data futura válida; revisar antes de salvar | PENDENTE | — |';
   assert.notEqual(run(original.replace(row, pass).replace(row2, row2.replace('PENDENTE | —', 'PASS | evidence-A01.mp4'))).status, 0, 'Duplicate evidence must fail');
+  assert.notEqual(run(original.replace(row, pass).replace(row2, row2.replace('PENDENTE | —', 'PASS | EVIDENCE-a01.MP4'))).status, 0, 'Case-only evidence alias must fail');
+  assert.notEqual(run(original.replace(row, row.replace('PENDENTE | —', 'PASS | qa/evidence-A01.mp4')).replace(row2, row2.replace('PENDENTE | —', 'PASS | qa\\\\evidence-A01.mp4'))).status, 0, 'Slash/backslash evidence alias must fail');
   console.log('QA A matrix gate regression fixtures passed; physical QA is NOT approved.');
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
