@@ -24,6 +24,7 @@ try {
   const pass = '| A01 | Abrir Maya e iniciar criação de lembrete | PASS | evidence-A01.mp4 |';
   assert.equal(run(original.replace(row, pass)).status, 0, 'PASS with reference must pass structural gate only');
   assert.notEqual(run(original.replace(row, row.replace('PENDENTE | —', 'PASS | TODO'))).status, 0, 'Placeholder must fail');
+  assert.notEqual(run(original.replace(row, row.replace('PENDENTE | —', 'PASS | {INSERIR_EVIDENCIA}'))).status, 0, 'Brace-delimited template reference must fail');
   const row2 = '| A02 | Informar título e data futura válida; revisar antes de salvar | PENDENTE | — |';
   assert.notEqual(run(original.replace(row, pass).replace(row2, row2.replace('PENDENTE | —', 'PASS | evidence-A01.mp4'))).status, 0, 'Duplicate evidence must fail');
   assert.notEqual(run(original.replace(row, pass).replace(row2, row2.replace('PENDENTE | —', 'PASS | EVIDENCE-a01.MP4'))).status, 0, 'Case-only evidence alias must fail');
