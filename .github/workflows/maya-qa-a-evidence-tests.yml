@@ -14,6 +14,8 @@ on:
       - 'scripts/check-maya-qa-installed-package.test.js'
       - 'scripts/maya-qa-a-adb-package-gate.cjs'
       - 'scripts/maya-qa-a-adb-package-gate.test.cjs'
+      - 'scripts/check-maya-qa-a-matrix.cjs'
+      - 'docs/maya-actions-qa-a-physical-capture-matrix.md'
       - '.github/workflows/maya-qa-a-evidence-tests.yml'
   pull_request:
     branches:
@@ -29,6 +31,8 @@ on:
       - 'scripts/check-maya-qa-installed-package.test.js'
       - 'scripts/maya-qa-a-adb-package-gate.cjs'
       - 'scripts/maya-qa-a-adb-package-gate.test.cjs'
+      - 'scripts/check-maya-qa-a-matrix.cjs'
+      - 'docs/maya-actions-qa-a-physical-capture-matrix.md'
       - '.github/workflows/maya-qa-a-evidence-tests.yml'
   workflow_dispatch:
 permissions:
@@ -44,5 +48,7 @@ jobs:
           node-version: '22'
       - name: Offline evidence gate regression tests
         run: node --test scripts/validate-maya-qa-a-evidence.test.js scripts/check-maya-qa-installed-package.test.js scripts/maya-qa-a-adb-package-gate.test.cjs
+      - name: QA A physical matrix structure (not device approval)
+        run: node scripts/check-maya-qa-a-matrix.cjs
       - name: Wave 02 planning safety and navigation checks
         run: node scripts/validate-maya-planning-v1.js
