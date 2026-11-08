@@ -134,7 +134,18 @@ function hasExpectedMediaSignature(file, extension) {
       const end = Buffer.alloc(2);
       return fs.readSync(fd, end, 0, 2, size - 2) === 2 && end[0] === 255 && end[1] === 217;
     }
-    if (extension === '.webp') return length >= 12 && bytes.toString('ascii',0,4) === 'RIFF' && bytes.toString('ascii',8,12) === 'WEBP';
+    if (extension === '.webp') {
+      // RIFF declares the complete file length; a 12-byte WEBP prefix is not a capture.
+      const size = fs.fstatSync(fd).size;
+      if (size < 20 || bytes.toString('ascii',0,4) !== 'RIFF' ||
+          bytes.toString('ascii',8,12) !== 'WEBP' || bytes.readUInt32LE(4) !== size - 8) return false;
+      const chunk = Buffer.alloc(8);
+      if (fs.readSync(fd, chunk, 0, 8, 12) !== 8) return false;
+      const type = chunk.toString('ascii',0,4);
+      const payload = chunk.readUInt32LE(4);
+      return ['VP8 ', 'VP8L', 'VP8X'].includes(type) && payload > 0 &&
+        20 + payload + (payload % 2) <= size;
+    }
     if (extension === '.pdf') {
       // A bare PDF header is not a complete reviewable document.
       const size = fs.fstatSync(fd).size;
