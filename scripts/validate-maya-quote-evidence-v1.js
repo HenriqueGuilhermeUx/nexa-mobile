@@ -129,4 +129,10 @@ for (const control of [String.fromCharCode(10), String.fromCharCode(9), String.f
     quote: {url}, evidence: {sourceUrl: url}
   }), now), false);
 }
+// Budget validation must fail closed before presenting a ranked comparison.
+for (const budget of [Number.NaN, Number.POSITIVE_INFINITY, -1, 0, 1000001]) {
+  assert.throws(() => compareEvidenceBackedQuotes([item('notebook-8gb', 100)], budget, now), /Orçamento inválido/);
+}
+// At the exact approved ceiling, the same verified quote remains comparable.
+assert.equal(compareEvidenceBackedQuotes([item('notebook-8gb', 100)], 1000000, now).groups[0].comparison.ranked.length, 1);
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
