@@ -187,4 +187,12 @@ for (const malformed of [null, 123, {}, Symbol('url')]) {
     assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, extra), now), false);
   }
 }
+// Primitive entries from an untrusted JSON array must not crash comparison or poison valid offers.
+for (const malformed of [false, true, 0, 123, '', 'unexpected']) {
+  assert.equal(hasQuoteEvidence(malformed, now), false);
+  const mixed = compareEvidenceBackedQuotes([malformed, item('notebook-8gb', 100)], 3000, now);
+  assert.deepEqual(Array.from(mixed.rejectedIndices), [0]);
+  assert.equal(mixed.groups.length, 1);
+  assert.equal(mixed.groups[0].comparison.ranked.length, 1);
+}
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
