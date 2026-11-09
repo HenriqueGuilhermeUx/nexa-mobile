@@ -48,6 +48,7 @@ export function hasQuoteEvidence(item: MayaEvidenceBackedQuote, now = Date.now()
   if (!Number.isFinite(now) || now < 0) return false;
   if (!item || !item.quote || !item.evidence) return false;
   const ev = item.evidence;
+  if (typeof ev.sourceId !== 'string' || typeof ev.retrievalId !== 'string' || typeof ev.productKey !== 'string') return false;
   if (!safeIdentifier.test(ev.sourceId) || !safeIdentifier.test(ev.retrievalId)) return false;
   if (!safeIdentifier.test(ev.productKey) || !publicHttpsUrl(ev.sourceUrl) || !publicHttpsUrl(item.quote.url)) return false;
   // Reject malformed backend timestamps before Date.parse can coerce objects or throw. 
