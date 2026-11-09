@@ -60,6 +60,10 @@ assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: '
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'https://loja.example:8443/produto'}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {fetchedAt: new Date(now + 1000).toISOString()}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {fetchedAt: 'not-a-date'}}), now), false);
+// Merchant offer URLs must also be public HTTPS, not merely host-matched to evidence.
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://user:secret@loja.example/produto'}}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://loja.example:8443/produto'}}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://127.0.0.1/produto'}, evidence: {sourceUrl: 'https://127.0.0.1/produto'}}), now), false);
 // Invalid evaluation clocks must not bypass freshness checks.
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.NaN), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.POSITIVE_INFINITY), false);
