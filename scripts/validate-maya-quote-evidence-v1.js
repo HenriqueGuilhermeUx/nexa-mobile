@@ -143,4 +143,8 @@ for (const clock of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
   assert.throws(() => compareEvidenceBackedQuotes([], 3000, clock), /Horário de avaliação inválido/);
 }
 assert.deepEqual(Array.from(compareEvidenceBackedQuotes([], 1000000, now).groups), []);
+// Malformed backend payloads must fail with a controlled validation error, not a runtime crash.
+for (const batch of [null, undefined, {}, 'not-an-array']) {
+  assert.throws(() => compareEvidenceBackedQuotes(batch, 3000, now), /Lote de ofertas inválido/);
+}
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
