@@ -44,6 +44,8 @@ jobs:
           fi
       - name: Validate verified-quote comparison contract
         run: node scripts/validate-maya-verified-comparison-v1.js
+      - name: Validate quotation provenance and product variant grouping
+        run: node scripts/validate-maya-quote-evidence-v1.js
       - name: Validate planning goals
         run: |
           if [ -e scripts/validate-maya-planning-v1.js ]; then
