@@ -60,4 +60,8 @@ assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: '
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'https://loja.example:8443/produto'}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {fetchedAt: new Date(now + 1000).toISOString()}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {fetchedAt: 'not-a-date'}}), now), false);
+// Invalid evaluation clocks must not bypass freshness checks.
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.NaN), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.POSITIVE_INFINITY), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), -1), false);
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
