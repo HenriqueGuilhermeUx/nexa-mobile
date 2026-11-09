@@ -64,7 +64,7 @@ assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {fetchedAt: '
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://user:secret@loja.example/produto'}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://loja.example:8443/produto'}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://127.0.0.1/produto'}, evidence: {sourceUrl: 'https://127.0.0.1/produto'}}), now), false);
-// Invalid evaluation clocks must not bypass freshness checks.
+// Trailing-dot DNS names must not bypass the public-host guard.\nassert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'https://localhost./produto'}, quote: {url: 'https://localhost./produto'}}), now), false);\nassert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'https://loja.local./produto'}, quote: {url: 'https://loja.local./produto'}}), now), false);\nassert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://loja.example./produto'}, evidence: {sourceUrl: 'https://loja.example./produto'}}), now), false);\n// Invalid evaluation clocks must not bypass freshness checks.
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.NaN), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.POSITIVE_INFINITY), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), -1), false);
