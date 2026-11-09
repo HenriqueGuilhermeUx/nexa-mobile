@@ -54,4 +54,10 @@ assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {fetchedAt: n
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {productKey: ''}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {retrievalId: ''}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {observedAt: new Date(now - 2 * 60 * 60 * 1000).toISOString()}}), now), false);
+// Unsafe provenance URLs and inconsistent chronology must fail closed.
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'https://user:secret@loja.example/produto'}}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'https://127.0.0.1/produto'}}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'https://loja.example:8443/produto'}}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {fetchedAt: new Date(now + 1000).toISOString()}}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {fetchedAt: 'not-a-date'}}), now), false);
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
