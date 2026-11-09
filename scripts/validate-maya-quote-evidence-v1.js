@@ -117,4 +117,9 @@ assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
   evidence: {retrievalId: 'x'.repeat(121)}
 }), now), false);
+// Comparison batches must be bounded even when every individual quote is valid.
+assert.deepEqual(Array.from(compareEvidenceBackedQuotes([], 3000, now).groups), []);
+assert.deepEqual(Array.from(compareEvidenceBackedQuotes([], 3000, now).rejectedIndices), []);
+assert.equal(compareEvidenceBackedQuotes(Array(100).fill(item('notebook-8gb', 100)), 3000, now).groups.length, 1);
+assert.throws(() => compareEvidenceBackedQuotes(Array(101).fill(item('notebook-8gb', 100)), 3000, now), /100 ofertas/);
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
