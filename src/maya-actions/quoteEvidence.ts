@@ -47,7 +47,7 @@ export function hasQuoteEvidence(item: MayaEvidenceBackedQuote, now = Date.now()
   if (!item || !item.quote || !item.evidence) return false;
   const ev = item.evidence;
   if (!safeIdentifier.test(ev.sourceId) || !safeIdentifier.test(ev.retrievalId)) return false;
-  if (!safeIdentifier.test(ev.productKey) || !publicHttpsUrl(ev.sourceUrl)) return false;
+  if (!safeIdentifier.test(ev.productKey) || !publicHttpsUrl(ev.sourceUrl) || !publicHttpsUrl(item.quote.url)) return false;
   const fetchedAt = Date.parse(ev.fetchedAt);
   const observedAt = Date.parse(item.quote.observedAt);
   if (!Number.isFinite(fetchedAt) || !Number.isFinite(observedAt)) return false;
