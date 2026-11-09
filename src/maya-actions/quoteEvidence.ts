@@ -32,6 +32,8 @@ const safeIdentifier = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{2,119}$/;
 
 function publicHttpsUrl(value: string): boolean {
   try {
+    // URL parsing silently strips ASCII tabs/newlines; reject untrusted raw input first.
+    if (typeof value !== 'string' || /[\u0000-\u0020\u007f]/.test(value)) return false;
     const u = new URL(value);
     const host = u.hostname.toLowerCase();
     if (u.protocol !== 'https:' || u.username || u.password || u.port) return false;
