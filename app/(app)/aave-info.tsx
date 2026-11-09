@@ -184,7 +184,7 @@ export default function AaveInfoScreen() {
           <Text style={styles.buttonText}>{simulating ? 'Calculando…' : 'Simular cenário'}</Text>
         </Pressable>
         {simulation && <Text style={styles.detail}>
-          Garantia após queda: US$ {simulation.stressedCollateralUsd.toFixed(2)}. LTV projetado: {Number.isFinite(simulation.stressedLtvPercent) ? simulation.stressedLtvPercent.toFixed(1) + '%' : 'não calculável'}.
+          Garantia após queda: US$ {simulation.stressedCollateralUsd.toFixed(2)}. LTV projetado: {typeof simulation.stressedLtvPercent === 'number' && Number.isFinite(simulation.stressedLtvPercent) ? simulation.stressedLtvPercent.toFixed(1) + '%' : 'não calculável'}.
           {simulation.outsideReferenceLtv ? ' Acima da referência educativa.' : ' Dentro da referência educativa.'}
         </Text>}
       </View>
