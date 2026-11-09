@@ -103,4 +103,18 @@ assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
   quote: {observedAt: new Date(now - 60 * 60 * 1000 - 5001).toISOString()}
 }), now), false);
+// Host equality is exact: a sibling or lookalike subdomain is not the same merchant.
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+  evidence: {sourceUrl: 'https://ofertas.loja.com/produto'}
+}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+  evidence: {sourceUrl: 'https://loja.com.evil.org/produto'}
+}), now), false);
+// Provenance identifiers must be bounded, structured and not arbitrary strings.
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+  evidence: {sourceId: 'provider with spaces'}
+}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+  evidence: {retrievalId: 'x'.repeat(121)}
+}), now), false);
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
