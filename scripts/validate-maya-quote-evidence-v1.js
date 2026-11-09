@@ -68,4 +68,21 @@ assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://1
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.NaN), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.POSITIVE_INFINITY), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), -1), false);
+// Exact freshness boundaries: just inside 24h is valid; exactly 24h is not.
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+  quote: {observedAt: new Date(now - 24 * 60 * 60 * 1000 + 1).toISOString()},
+  evidence: {fetchedAt: new Date(now - 24 * 60 * 60 * 1000 + 1).toISOString()}
+}), now), true);
+// Retrieval cannot precede observation, even when both timestamps are recent.
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+  quote: {observedAt: new Date(now - 1000).toISOString()},
+  evidence: {fetchedAt: new Date(now - 2000).toISOString()}
+}), now), false);
+// One hour between observation and retrieval is accepted; one extra ms is rejected.
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+  quote: {observedAt: new Date(now - 60 * 60 * 1000 - 5000).toISOString()}
+}), now), true);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+  quote: {observedAt: new Date(now - 60 * 60 * 1000 - 5001).toISOString()}
+}), now), false);
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
