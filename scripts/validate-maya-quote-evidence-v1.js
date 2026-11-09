@@ -135,4 +135,12 @@ for (const budget of [Number.NaN, Number.POSITIVE_INFINITY, -1, 0, 1000001]) {
 }
 // At the exact approved ceiling, the same verified quote remains comparable.
 assert.equal(compareEvidenceBackedQuotes([item('notebook-8gb', 100)], 1000000, now).groups[0].comparison.ranked.length, 1);
+// Invalid evaluation inputs must fail closed even when no offer survives evidence screening.
+for (const budget of [Number.NaN, Number.POSITIVE_INFINITY, -1, 0, 1000001]) {
+  assert.throws(() => compareEvidenceBackedQuotes([], budget, now), /Orçamento inválido/);
+}
+for (const clock of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+  assert.throws(() => compareEvidenceBackedQuotes([], 3000, clock), /Horário de avaliação inválido/);
+}
+assert.deepEqual(Array.from(compareEvidenceBackedQuotes([], 1000000, now).groups), []);
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
