@@ -50,6 +50,8 @@ export function hasQuoteEvidence(item: MayaEvidenceBackedQuote, now = Date.now()
   const ev = item.evidence;
   if (!safeIdentifier.test(ev.sourceId) || !safeIdentifier.test(ev.retrievalId)) return false;
   if (!safeIdentifier.test(ev.productKey) || !publicHttpsUrl(ev.sourceUrl) || !publicHttpsUrl(item.quote.url)) return false;
+  // Reject malformed backend timestamps before Date.parse can coerce objects or throw. 
+  if (typeof ev.fetchedAt !== 'string' || typeof item.quote.observedAt !== 'string') return false;
   const fetchedAt = Date.parse(ev.fetchedAt);
   const observedAt = Date.parse(item.quote.observedAt);
   if (!Number.isFinite(fetchedAt) || !Number.isFinite(observedAt)) return false;
