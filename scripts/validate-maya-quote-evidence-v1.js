@@ -147,4 +147,13 @@ assert.deepEqual(Array.from(compareEvidenceBackedQuotes([], 1000000, now).groups
 for (const batch of [null, undefined, {}, 'not-an-array']) {
   assert.throws(() => compareEvidenceBackedQuotes(batch, 3000, now), /Lote de ofertas inválido/);
 }
+// Backend timestamps must be strings; coercible objects and symbols cannot count as evidence.
+for (const malformed of [null, 123, {}, Symbol('timestamp')]) {
+  assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+    evidence: {fetchedAt: malformed}
+  }), now), false);
+  assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+    quote: {observedAt: malformed}
+  }), now), false);
+}
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
