@@ -122,4 +122,11 @@ assert.deepEqual(Array.from(compareEvidenceBackedQuotes([], 3000, now).groups), 
 assert.deepEqual(Array.from(compareEvidenceBackedQuotes([], 3000, now).rejectedIndices), []);
 assert.equal(compareEvidenceBackedQuotes(Array(100).fill(item('notebook-8gb', 100)), 3000, now).groups.length, 1);
 assert.throws(() => compareEvidenceBackedQuotes(Array(101).fill(item('notebook-8gb', 100)), 3000, now), /100 ofertas/);
+// URL constructor normalizes tabs/newlines; raw evidence must be rejected before parsing.
+for (const control of [String.fromCharCode(10), String.fromCharCode(9), String.fromCharCode(13), ' ']) {
+  const url = control === ' ' ? ' https://loja.com/produto' : 'https://loja.com/prod' + control + 'uto';
+  assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+    quote: {url}, evidence: {sourceUrl: url}
+  }), now), false);
+}
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
