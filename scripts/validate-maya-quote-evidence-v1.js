@@ -68,7 +68,7 @@ assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://1
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'https://localhost./produto'}, quote: {url: 'https://localhost./produto'}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'https://loja.local./produto'}, quote: {url: 'https://loja.local./produto'}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {url: 'https://loja.example./produto'}, evidence: {sourceUrl: 'https://loja.example./produto'}}), now), false);
-// Invalid evaluation clocks must not bypass freshness checks.
+// Reserved DNS suffixes are not public merchant endpoints, even over HTTPS.\nfor (const suffix of ['internal', 'test', 'invalid']) {\n  const url = `https://merchant.${suffix}/produto`;\n  assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {\n    quote: {url}, evidence: {sourceUrl: url}\n  }), now), false);\n}\n// Invalid evaluation clocks must not bypass freshness checks.
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.NaN), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), Number.POSITIVE_INFINITY), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), -1), false);
