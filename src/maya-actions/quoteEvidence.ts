@@ -71,6 +71,7 @@ export function compareEvidenceBackedQuotes(
   if (budgetBrl !== undefined && (!Number.isFinite(budgetBrl) || budgetBrl <= 0 || budgetBrl > 1000000)) {
     throw new Error('Orçamento inválido.');
   }
+  if (!Array.isArray(items)) throw new Error('Lote de ofertas inválido.');
   if (items.length > 100) throw new Error('Limite de 100 ofertas por comparação.');
   const grouped = new Map<string, MayaMerchantQuote[]>();
   const rejectedIndices: number[] = [];
