@@ -129,6 +129,13 @@ for (const control of [String.fromCharCode(10), String.fromCharCode(9), String.f
     quote: {url}, evidence: {sourceUrl: url}
   }), now), false);
 }
+// WHATWG URL may trim Unicode whitespace; never accept normalized untrusted URLs.
+for (const whitespace of ['\u00a0', '\u2028', '\u2029', '\u2003']) {
+  const url = whitespace + 'https://loja.com/produto';
+  assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+    quote: {url}, evidence: {sourceUrl: url}
+  }), now), false);
+}
 // Budget validation must fail closed before presenting a ranked comparison.
 for (const budget of [Number.NaN, Number.POSITIVE_INFINITY, -1, 0, 1000001]) {
   assert.throws(() => compareEvidenceBackedQuotes([item('notebook-8gb', 100)], budget, now), /Orçamento inválido/);
