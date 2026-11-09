@@ -48,4 +48,10 @@ assert.deepEqual(Array.from(group.rejectedIndices), [3, 4]);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceId: ''}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {sourceUrl: 'http://loja.example/produto'}}), now), false);
 assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {observedAt: new Date(now + 5000).toISOString()}}), now), false);
+// Boundary and tampering regressions: evidence must not be treated as verified
+// when its retrieval time is outside the freshness window or variant is absent.
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {fetchedAt: new Date(now - 24 * 60 * 60 * 1000).toISOString()}}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {productKey: ''}}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {evidence: {retrievalId: ''}}), now), false);
+assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {quote: {observedAt: new Date(now - 2 * 60 * 60 * 1000).toISOString()}}), now), false);
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
