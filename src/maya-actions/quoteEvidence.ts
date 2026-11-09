@@ -35,7 +35,7 @@ function publicHttpsUrl(value: string): boolean {
     const u = new URL(value);
     const host = u.hostname.toLowerCase();
     if (u.protocol !== 'https:' || u.username || u.password || u.port) return false;
-    if (!host.includes('.') || host.endsWith('.') || host === 'localhost' || host.endsWith('.local') || host.endsWith('.localhost') || host.endsWith('.internal') || host.endsWith('.test') || host.endsWith('.invalid')) return false;
+    if (!host.includes('.') || host.endsWith('.') || host === 'localhost' || host.endsWith('.local') || host.endsWith('.localhost') || host.endsWith('.internal') || host.endsWith('.test') || host.endsWith('.invalid') || host.endsWith('.example') || host.endsWith('.onion')) return false;
     if (host.startsWith('[') || host.includes(':') || /^\d+(?:\.\d+){3}$/.test(host)) return false;
     return true;
   } catch { return false; }
