@@ -43,6 +43,7 @@ function publicHttpsUrl(value: string): boolean {
 
 /** Evidence metadata is mandatory. Actual provenance is established ONLY by the backend. */
 export function hasQuoteEvidence(item: MayaEvidenceBackedQuote, now = Date.now()): boolean {
+  if (!Number.isFinite(now) || now < 0) return false;
   if (!item || !item.quote || !item.evidence) return false;
   const ev = item.evidence;
   if (!safeIdentifier.test(ev.sourceId) || !safeIdentifier.test(ev.retrievalId)) return false;
