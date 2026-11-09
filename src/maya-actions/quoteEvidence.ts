@@ -67,6 +67,10 @@ export function compareEvidenceBackedQuotes(
   budgetBrl?: number,
   now = Date.now(),
 ): MayaEvidenceComparison {
+  if (!Number.isFinite(now) || now < 0) throw new Error('Horário de avaliação inválido.');
+  if (budgetBrl !== undefined && (!Number.isFinite(budgetBrl) || budgetBrl <= 0 || budgetBrl > 1000000)) {
+    throw new Error('Orçamento inválido.');
+  }
   if (items.length > 100) throw new Error('Limite de 100 ofertas por comparação.');
   const grouped = new Map<string, MayaMerchantQuote[]>();
   const rejectedIndices: number[] = [];
