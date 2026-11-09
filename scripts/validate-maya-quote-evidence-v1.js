@@ -164,4 +164,11 @@ for (const malformed of [null, 123, {}, Symbol('identifier')]) {
     }), now), false);
   }
 }
+// Untrusted backend batches can contain missing envelopes; reject only bad entries.
+for (const malformed of [null, undefined, {}, {quote: null}, {evidence: null}, {quote: {}}, {evidence: {}}]) {
+  assert.equal(hasQuoteEvidence(malformed, now), false);
+  const mixed = compareEvidenceBackedQuotes([item('notebook-8gb', 100), malformed], 3000, now);
+  assert.deepEqual(Array.from(mixed.rejectedIndices), [1]);
+  assert.equal(mixed.groups.length, 1);
+}
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
