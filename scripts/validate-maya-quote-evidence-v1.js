@@ -178,4 +178,13 @@ for (const malformed of [null, undefined, {}, {quote: null}, {evidence: null}, {
   assert.deepEqual(Array.from(mixed.rejectedIndices), [1]);
   assert.equal(mixed.groups.length, 1);
 }
+// URLs supplied by an untrusted backend must be strings, never coerced objects.
+for (const malformed of [null, 123, {}, Symbol('url')]) {
+  for (const field of ['sourceUrl', 'url']) {
+    const extra = field === 'sourceUrl'
+      ? {evidence: {sourceUrl: malformed}}
+      : {quote: {url: malformed}};
+    assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, extra), now), false);
+  }
+}
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
