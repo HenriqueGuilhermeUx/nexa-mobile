@@ -156,4 +156,12 @@ for (const malformed of [null, 123, {}, Symbol('timestamp')]) {
     quote: {observedAt: malformed}
   }), now), false);
 }
+// Malformed provenance identifiers (including Symbol) must fail closed without throwing.
+for (const malformed of [null, 123, {}, Symbol('identifier')]) {
+  for (const field of ['sourceId', 'retrievalId', 'productKey']) {
+    assert.equal(hasQuoteEvidence(item('notebook-8gb', 100, {
+      evidence: {[field]: malformed}
+    }), now), false);
+  }
+}
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
