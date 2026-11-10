@@ -41,6 +41,7 @@ function check(record) {
     else if(evidenceIds.has(c.evidence_id.trim().toLowerCase())) errors.push('reused evidence '+c.id);
     else evidenceIds.add(c.evidence_id.trim().toLowerCase());
     if(typeof c.observed_at!=='string'||!OFFSET.test(c.observed_at)||Number.isNaN(Date.parse(c.observed_at))) errors.push('invalid timestamp '+c.id);
+    else if(Date.parse(c.observed_at)>Date.now()) errors.push('future timestamp '+c.id);
   }
   for(const id of IDS) if(!seen.has(id)) errors.push('missing '+id);
   if(record.ci!=='success') errors.push('CI not approved');
@@ -67,6 +68,7 @@ if(require.main===module){
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:' TODO '}:c)}).includes('missing evidence A01'));
     assert(check({...good,session:{...s,reviewer:'  pendente  '}}).includes('missing session.reviewer'));
     assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2099-01-01T00:00:00-03:00'}:c)}).includes('future timestamp A01'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
     const otaSession={...s,package_name:'br.com.trynexa.app',bundle_sha:QA_A_OTA_SHA,update_id:QA_A_OTA_ID};
     const otaCases=cases.map(c=>({...c,package_name:otaSession.package_name,bundle_sha:otaSession.bundle_sha,update_id:otaSession.update_id}));
