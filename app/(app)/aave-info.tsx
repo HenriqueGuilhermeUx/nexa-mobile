@@ -15,7 +15,7 @@ type Status = {
   withdrawEnabled: false;
 };
 type Reserve = {
-  asset: string; ltvBps: number; liquidationThresholdBps: number;
+  asset: string; decimals: number; ltvBps: number; liquidationThresholdBps: number;
   active: boolean; paused: boolean; frozen: boolean; borrowingEnabled: boolean;
 };
 type MarketResponse = {
@@ -31,6 +31,7 @@ type Account = {
 type PositionResponse = {
   success: true; informationalOnly: true; position: Account;
 };
+type AavePlan = { success: true; informationalOnly: true; executionEnabled: false; signatureRequired: true; state: string; action: string; };
 type Simulation = {
   success: true; informationalOnly: true; executionEnabled: false;
   stressedCollateralUsd: number; stressedLtvPercent: number | null;
@@ -54,6 +55,11 @@ export default function AaveInfoScreen() {
   const [drop, setDrop] = useState('25');
   const [simulation, setSimulation] = useState<Simulation | null>(null);
   const [simulating, setSimulating] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState('');
+  const [action, setAction] = useState<'SUPPLY' | 'BORROW' | 'REPAY' | 'WITHDRAW'>('SUPPLY');
+  const [amount, setAmount] = useState('10');
+  const [planning, setPlanning] = useState(false);
+  const [plan, setPlan] = useState<AavePlan | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -127,7 +133,44 @@ export default function AaveInfoScreen() {
     } finally { setSimulating(false); }
   }
 
+  async function preparePlan(reserve: Reserve) {
+    setPlan(null);
+    if (!markets || !Number.isSafeInteger(markets.chainId) ||
+        !Number.isInteger(reserve.decimals) || reserve.decimals < 0 || reserve.decimals > 36 ||
+        !/^(?:0|[1-9]\\d*)(?:\\.\\d+)?$/.test(amount)) {
+      setMessage('Escolha um ativo e informe uma quantidade válida.'); return;
+    }
+    const [whole, frac = ''] = amount.split('.');
+    if (frac.length > reserve.decimals || amount.length > 78) {
+      setMessage('Quantidade com casas decimais acima do permitido pelo ativo.'); return;
+    }
+    const baseUnits = BigInt(whole + frac.padEnd(reserve.decimals, '0'));
+    if (baseUnits <= 0n || baseUnits > (1n << 256n) - 1n) {
+      setMessage('Quantidade fora do limite permitido.'); return;
+    }
+    setPlanning(true); setMessage('');
+    try {
+      const session = await loadNexaSession();
+      if (!session?.accessToken) throw new Error('Entre novamente na Nexa.');
+      const response = await fetch(API + '/invest-credit/aave/plan', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + session.accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, chainId: markets.chainId, asset: reserve.asset, amountBaseUnits: baseUnits.toString() }),
+      });
+      if (!response.ok) throw new Error('Planejamento não habilitado para esta conta.');
+      const data = await response.json();
+      if (data?.success !== true || data?.informationalOnly !== true || data?.executionEnabled !== false ||
+          data?.signatureRequired !== true || data?.state !== 'REQUIRES_FRESH_RISK_QUOTE_AND_WALLET_CONFIRMATION') {
+        throw new Error('Resposta de segurança inesperada.');
+      }
+      setPlan(data as AavePlan);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Não foi possível preparar.');
+    } finally { setPlanning(false); }
+  }
+
   const usable = markets?.reserves.filter((r) => r.active && !r.paused && !r.frozen) ?? [];
+  const chosen = usable.find((r) => r.asset === selectedAsset) ?? usable[0];
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>NEXA · INVESTIMENTOS E CRÉDITO</Text>
@@ -170,6 +213,34 @@ export default function AaveInfoScreen() {
             <Text style={styles.tag}>{reserve.borrowingEnabled ? 'Empréstimo previsto no protocolo' : 'Empréstimo desativado'}</Text>
           </View>
         )) : <Text style={styles.small}>Mercados ainda não disponíveis nesta rede.</Text>}
+      </View>
+      <View style={styles.panel}>
+        <Text style={styles.panelTitle}>Preparar uma operação</Text>
+        <Text style={styles.small}>A Nexa verifica sua intenção com o backend. Nenhuma quantia é movimentada nem é solicitada assinatura.</Text>
+        <View style={styles.grid}>
+          {([['SUPPLY', 'Aplicar'], ['BORROW', 'Crédito'], ['REPAY', 'Amortizar'], ['WITHDRAW', 'Retirar']] as const).map(([key, title]) => (
+            <Pressable key={key} accessibilityRole="button" onPress={() => { setAction(key); setPlan(null); }}
+              style={[styles.option, action === key && { borderWidth: 1, borderColor: colors.cyan }]}>
+              <Text style={styles.optionTitle}>{title}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {usable.slice(0, 8).map((reserve) => (
+          <Pressable key={reserve.asset} accessibilityRole="button" style={styles.market}
+            onPress={() => { setSelectedAsset(reserve.asset); setPlan(null); }}>
+            <Text style={styles.detail}>{chosen?.asset === reserve.asset ? '◉' : '○'} {prettyAddress(reserve.asset)}</Text>
+            <Text style={styles.small}>{reserve.decimals} casas decimais · rede {markets?.chainId}</Text>
+          </Pressable>
+        ))}
+        <Text style={styles.detail}>Quantidade do ativo</Text>
+        <TextInput style={styles.input} keyboardType="decimal-pad" accessibilityLabel="Quantidade de ativo"
+          value={amount} onChangeText={(v) => { setAmount(v); setPlan(null); }} />
+        <Pressable accessibilityRole="button" disabled={planning || !chosen} style={styles.button}
+          onPress={() => { if (chosen) void preparePlan(chosen); }}>
+          <Text style={styles.buttonText}>{planning ? 'Verificando…' : 'Verificar intenção'}</Text>
+        </Pressable>
+        {plan && <Text style={styles.notice}>Intenção validada. Para executar serão necessários cotação de risco atualizada, autorização expressa da carteira e habilitação do serviço. Nenhuma operação foi executada.</Text>}
+        {!chosen && <Text style={styles.small}>Consulta de mercados indisponível nesta conta.</Text>}
       </View>
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Teste o risco antes de decidir</Text>
