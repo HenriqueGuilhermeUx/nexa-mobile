@@ -10,7 +10,7 @@ function check(record) {
   if (!record || typeof record!=='object' || Array.isArray(record)) return ['invalid record'];
   const s=record.session || {};
   for(const key of ['session_id','package_name','runtime','build','bundle_sha','update_id','device','reviewer']) {
-    if(typeof s[key]!=='string'||!s[key].trim()||s[key]==='PENDENTE') errors.push('missing session.'+key);
+    if(typeof s[key]!=='string'||!s[key].trim()||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER)$/i.test(s[key].trim())) errors.push('missing session.'+key);
   }
   if(!SHA.test(s.bundle_sha||'')) errors.push('invalid session.bundle_sha');
   if(s.runtime!=='2.0.43'||s.build!=='148') errors.push('runtime/build mismatch');
@@ -54,6 +54,8 @@ if(require.main===module){
     assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:'  REDACTED-a01  '}:c)}).includes('reused evidence A02'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'PENDENTE'}:c)}).includes('missing evidence A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:' TODO '}:c)}).includes('missing evidence A01'));
+    assert(check({...good,session:{...s,reviewer:'  pendente  '}}).includes('missing session.reviewer'));
+    assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
     assert(check({...good,explicit_approval:false}).includes('approval missing'));
     console.log('QA A validator self-test passed (synthetic evidence only)');
