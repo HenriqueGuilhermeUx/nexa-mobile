@@ -1,0 +1,130 @@
+name: Build Maya Actions Wave D standalone Android QA APK
+on:
+  push:
+    branches: [qa/maya-actions-wave-d-apk-20261110]
+    paths: ['.github/workflows/maya-actions-wave-d-github-apk.yml']
+  pull_request:
+    branches: [integration/maya-actions-v148]
+    paths: ['.github/workflows/maya-actions-wave-d-github-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preview-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout isolated Wave D QA source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify QA source was not taken from production
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = 'pull_request' ]; then
+            test "$GITHUB_HEAD_REF" = 'qa/maya-actions-wave-d-apk-20261110'
+          else
+            test "$GITHUB_REF_NAME" = 'qa/maya-actions-wave-d-apk-20261110'
+          fi
+          echo "Building QA source $(git rev-parse HEAD)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install frozen Wave D dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate TypeScript
+        run: npm run typecheck
+      - name: Validate Maya Actions local contracts
+        run: |
+          node scripts/validate-maya-actions-v1.js
+          node scripts/validate-maya-actions-agenda-v1.js
+          node scripts/validate-maya-planning-v1.js
+          node scripts/validate-maya-web-quotes-v1.js
+          node scripts/validate-maya-web-forms-v1.js
+          node scripts/validate-maya-shopping-v1.js
+          node scripts/validate-maya-chat-routing-v1.js
+          node scripts/validate-maya-comunicacao-v1.js
+          node scripts/validate-mobile-safety-v123.js
+      - name: Isolate APK identity from installed Nexa Play app
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = 'app.json';
+          const doc = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (doc.expo.version !== '2.0.43' || doc.expo.android.versionCode !== 148) throw Error('Wrong released baseline');
+          doc.expo.name = 'Nexa Maya Actions QA D';
+          doc.expo.slug = 'nexa-maya-actions-qa-d';
+          doc.expo.scheme = 'nexa-maya-actions-qa-d';
+          doc.expo.android.package = 'br.com.trynexa.mayaqad';
+          // The backend version gate enforces min build 144 even on the isolated QA package.
+          // Keep the Play baseline's build code without changing its applicationId or signing.
+          doc.expo.android.versionCode = 148;
+          doc.expo.extra.financialExecutionEnabled = false;
+          doc.expo.extra.releaseChannel = 'internal-maya-qa';
+          delete doc.expo.updates;
+          fs.writeFileSync(path, JSON.stringify(doc, null, 2) + '\n');
+          NODE
+      - name: Ensure test APK is isolated from OTA production
+        run: |
+          node <<'NODE'
+          const app=require('./app.json').expo;
+          if (app.android.package !== 'br.com.trynexa.mayaqad' || app.updates) throw Error('QA app must not share production package or live OTA');
+          if (app.version !== '2.0.43' || app.android.versionCode !== 148) throw Error('Wrong QA identity or build below min 144');
+          NODE
+      - name: Generate Android native project
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+        run: npx expo prebuild --platform android --clean --no-install
+      - name: Configure bounded Gradle memory and arm64-only internal QA
+        run: |
+          cat >> android/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
+          org.gradle.workers.max=1
+          org.gradle.parallel=false
+          reactNativeArchitectures=arm64-v8a
+          EOF
+      - name: Assemble standalone release-mode APK (test signing only)
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon --max-workers=1 --no-parallel --no-configuration-cache -PreactNativeArchitectures=arm64-v8a -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease
+      - name: Sign isolated test APK with disposable QA key and verify
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -v -keystore "$RUNNER_TEMP/nexa-qa.jks" -storepass android -keypass android -alias nexaqa -keyalg RSA -keysize 3072 -validity 2 -dname "CN=Nexa Maya Actions QA"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          UNSIGNED="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          if [ ! -f "$UNSIGNED" ]; then
+            UNSIGNED="android/app/build/outputs/apk/release/app-release.apk"
+          fi
+          test -f "$UNSIGNED"
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$RUNNER_TEMP/nexa-aligned.apk"
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/nexa-qa.jks" --ks-key-alias nexaqa --ks-pass pass:android --key-pass pass:android --out nexa-maya-wave-d-v148-build148-qa-signed.apk "$RUNNER_TEMP/nexa-aligned.apk"
+          APK="nexa-maya-wave-d-v148-build148-qa-signed.apk"
+          test -s "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          # Inspect the *actual* signed APK manifest, not just app.json.
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK" | head -n 1)"
+          printf '%s\n' "$BADGING"
+          [[ "$BADGING" == *"name='br.com.trynexa.mayaqad'"* ]] || { echo 'Wrong QA package in APK'; exit 1; }
+          [[ "$BADGING" == *"versionCode='148'"* ]] || { echo 'Wrong APK build; server requires 144+'; exit 1; }
+          [[ "$BADGING" == *"versionName='2.0.43'"* ]] || { echo 'Wrong APK version'; exit 1; }
+      - name: Upload APK to GitHub Actions for internal test
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexa-maya-actions-wave-d-v148-build148-standalone-qa-apk
+          path: nexa-maya-wave-d-v148-build148-qa-signed.apk
+          if-no-files-found: error
+          retention-days: 7
