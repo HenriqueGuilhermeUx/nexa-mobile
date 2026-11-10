@@ -79,7 +79,7 @@ if(require.main===module){
     assert(check({...good,cases:['A01',...cases.slice(1)]}).includes('unknown case'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,bundle_sha:'b'.repeat(40)}:c)}).some(x=>x.startsWith('provenance mismatch')));
     assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:cases[0].evidence_id}:c)}).includes('reused evidence A02'));
-    assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:'  REDACTED-a01  '}:c)}).includes('reused evidence A02'));
+    assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:'  CAPTURE-a01  '}:c)}).includes('reused evidence A02'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'PENDENTE'}:c)}).includes('missing evidence A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:' TODO '}:c)}).includes('missing evidence A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'redacted-A01'}:c)}).includes('missing evidence A01'));
