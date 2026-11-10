@@ -23,11 +23,13 @@ import {
   saveNexaSession,
 } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
+import { config } from '@/config';
 
 export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [qaLoginStage, setQaLoginStage] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -100,9 +102,12 @@ export default function SignInScreen() {
     }
 
     setLoading(true);
+    const qaLogin = config.releaseChannel === 'wallet-inbound-lab';
     try {
+      if (qaLogin) setQaLoginStage('Conectando ao servidor de homologação…');
       const response = await nexaApi.login(normalizedEmail, password);
       const tokens = tokensFromLogin(response);
+      if (qaLogin) setQaLoginStage('Salvando sessão de homologação…');
       await saveNexaSession({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -111,7 +116,9 @@ export default function SignInScreen() {
 
       // /user/me is the canonical onboarding profile: KYC, payout Pix,
       // Premium and linked wallet all come from the same source of truth.
+      if (qaLogin) setQaLoginStage('Carregando perfil de homologação…');
       const profile = await nexaApi.me(tokens.accessToken);
+      if (qaLogin) setQaLoginStage('Abrindo a Nexa QA…');
       await maybeOfferDeviceProtection(profile, tokens.accessToken);
     } catch (caught) {
       await clearNexaTokens();
@@ -120,6 +127,7 @@ export default function SignInScreen() {
       );
     } finally {
       setLoading(false);
+      setQaLoginStage('');
     }
   }
 
@@ -166,6 +174,7 @@ export default function SignInScreen() {
         loading={loading}
         onPress={authenticateNexa}
       />
+      {loading && qaLoginStage ? <Text style={styles.securityNote}>{qaLoginStage}</Text> : null}
       <ActionButton
         label="Esqueci minha senha"
         variant="secondary"
