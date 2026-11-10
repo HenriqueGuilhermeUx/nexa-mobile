@@ -57,6 +57,7 @@ function check(record) {
     else evidenceIds.add(c.evidence_id.trim().toLowerCase());
     if(!validObservedAt(c.observed_at)) errors.push('invalid timestamp '+c.id);
     else if(Date.parse(c.observed_at)>Date.now()) errors.push('future timestamp '+c.id);
+    else if(s.package_name==='br.com.trynexa.app' && Date.parse(c.observed_at)<Date.parse('2026-11-04T00:00:00Z')) errors.push('timestamp predates QA A release '+c.id);
   }
   for(const id of IDS) if(!seen.has(id)) errors.push('missing '+id);
   if(record.ci!=='success') errors.push('CI not approved');
@@ -93,6 +94,7 @@ if(require.main===module){
     const otaSession={...s,package_name:'br.com.trynexa.app',bundle_sha:QA_A_OTA_SHA,update_id:QA_A_OTA_ID};
     const otaCases=cases.map(c=>({...c,package_name:otaSession.package_name,bundle_sha:otaSession.bundle_sha,update_id:otaSession.update_id}));
     assert.deepEqual(check({...good,session:otaSession,cases:otaCases}),[]);
+    assert(check({...good,session:otaSession,cases:otaCases.map((c,i)=>i===0?{...c,observed_at:'2026-11-03T12:00:00Z'}:c)}).includes('timestamp predates QA A release A01'));
     const wrongRelease={...otaSession,update_id:'50890af6-e7ba-4f98-8fa7-1b3068c18fd4'};
     assert(check({...good,session:wrongRelease,cases:otaCases.map(c=>({...c,update_id:wrongRelease.update_id}))}).includes('QA A OTA provenance mismatch'));
     assert(check({...good,session:{...otaSession,bundle_sha:'b'.repeat(40)},cases:otaCases.map(c=>({...c,bundle_sha:'b'.repeat(40)}))}).includes('QA A OTA provenance mismatch'));
