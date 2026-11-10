@@ -137,7 +137,7 @@ export default function AaveInfoScreen() {
     setPlan(null);
     if (!markets || !Number.isSafeInteger(markets.chainId) ||
         !Number.isInteger(reserve.decimals) || reserve.decimals < 0 || reserve.decimals > 36 ||
-        !/^(?:0|[1-9]\\d*)(?:\\.\\d+)?$/.test(amount)) {
+        !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(amount)) {
       setMessage('Escolha um ativo e informe uma quantidade válida.'); return;
     }
     const [whole, frac = ''] = amount.split('.');
