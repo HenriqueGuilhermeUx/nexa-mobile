@@ -130,7 +130,10 @@ if(require.main===module){
     catch { console.error('NO-GO: evidence file unreadable'); process.exit(1); }
     const parsed=parseEvidence(raw);
     const errors=parsed.errors.length?parsed.errors:check(parsed.record);
-    console.log(errors.length?'NO-GO: '+errors.join('; '):'EVIDENCE PRECHECK PASS — human approval still required');
+    const passedLabel=parsed.record?.session?.package_name==='br.com.trynexa.mayaqa'
+      ? 'STANDALONE QA PRECHECK PASS — not OTA QA A evidence; human approval still required'
+      : 'OTA QA A EVIDENCE PRECHECK PASS — human approval still required';
+    console.log(errors.length?'NO-GO: '+errors.join('; '):passedLabel);
     process.exitCode=errors.length?1:0;
   }
 }
