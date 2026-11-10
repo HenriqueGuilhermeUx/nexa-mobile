@@ -26,6 +26,20 @@ jobs:
         run: node --check scripts/maya-qa-a-evidence-check.cjs
       - name: Synthetic QA evidence regression suite
         run: node scripts/maya-qa-a-evidence-check.cjs --self-test
+      - name: Ensure malformed and null JSON fail closed
+        shell: bash
+        run: |
+          for payload in '{broken' 'null' '[]'; do
+            file="$(mktemp)"
+            printf '%s' "$payload" > "$file"
+            if node scripts/maya-qa-a-evidence-check.cjs "$file"; then
+              echo 'ERROR: invalid evidence was accepted'
+              rm -f "$file"
+              exit 1
+            fi
+            rm -f "$file"
+          done
+          echo 'Malformed and non-object evidence rejected as expected'
       - name: Ensure missing evidence fails closed
         shell: bash
         run: |
