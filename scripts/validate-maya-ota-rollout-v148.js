@@ -2,9 +2,12 @@
 // This does not publish an OTA, prove a channel's EAS mapping or replace QA on device.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const { execFileSync } = require('node:child_process');
 const app = JSON.parse(fs.readFileSync('app.json', 'utf8')).expo;
 const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
-const promotion = fs.readFileSync('.github/workflows/maya-actions-v148-ota-promotion.yml', 'utf8');
+// The production publisher is owned by main, not the cumulative integration branch.
+// GitHub Actions checkout uses fetch-depth: 0; inspect its tracked source without copying it.
+const promotion = execFileSync('git', ['show', 'origin/main:.github/workflows/maya-actions-v148-ota-promotion.yml'], { encoding: 'utf8' });
 const plan = fs.readFileSync('docs/maya-actions-ota-rollout-lotes.md', 'utf8');
 assert.equal(app.version, '2.0.43');
 assert.equal(app.android.versionCode, 148);
