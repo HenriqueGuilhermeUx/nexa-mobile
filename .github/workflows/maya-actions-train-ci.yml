@@ -30,6 +30,8 @@ jobs:
         run: git fetch origin feat/aave-v148-internal-apk-20261102:refs/remotes/origin/feat/aave-v148-internal-apk-20261102
       - name: Validate OTA v148 scope
         run: node scripts/validate-maya-release-train.js
+      - name: Validate cumulative OTA rollout gates
+        run: node scripts/validate-maya-ota-rollout-v148.js
       - name: Validate Actions V1
         run: node scripts/validate-maya-actions-v1.js
       - name: Validate agenda local notifications
