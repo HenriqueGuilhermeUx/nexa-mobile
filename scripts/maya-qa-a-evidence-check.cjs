@@ -91,6 +91,12 @@ if(require.main===module){
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-10T01:00:00-15:00'}:c)}).includes('invalid timestamp A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-10T25:00:00-03:00'}:c)}).includes('invalid timestamp A01'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
+    // Fail closed if any mandatory release gate is absent, even with 16 PASS cases.
+    assert(check({...good,ci:undefined}).includes('CI not approved'));
+    assert(check({...good,device_compatibility:undefined}).includes('device compatibility unverified'));
+    assert(check({...good,explicit_approval:undefined}).includes('approval missing'));
+    assert(check({...good,session:{...s,build:'149'},cases:cases.map(c=>({...c,build:'149'}))}).includes('runtime/build mismatch'));
+    assert(check({...good,session:{...s,runtime:'2.0.44'},cases:cases.map(c=>({...c,runtime:'2.0.44'}))}).includes('runtime/build mismatch'));
     const otaSession={...s,package_name:'br.com.trynexa.app',bundle_sha:QA_A_OTA_SHA,update_id:QA_A_OTA_ID};
     const otaCases=cases.map(c=>({...c,package_name:otaSession.package_name,bundle_sha:otaSession.bundle_sha,update_id:otaSession.update_id}));
     assert.deepEqual(check({...good,session:otaSession,cases:otaCases}),[]);
