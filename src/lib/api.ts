@@ -58,10 +58,32 @@ async function request<T>(
     headers.set('x-privy-access-token', `Bearer ${options.privyAccessToken}`);
   }
 
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers,
-  });
+  // The isolated Wallet Connect staging service can sleep or stall.
+  // Bound auth requests in QA only; never alter production request policy.
+  const qaAuthRequest =
+    config.releaseChannel === 'wallet-inbound-lab' &&
+    (path === '/auth/login' || path === '/user/me');
+  const abort = qaAuthRequest ? new AbortController() : null;
+  const timeout = abort ? setTimeout(() => abort.abort(), 18000) : null;
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      headers,
+      ...(abort ? { signal: abort.signal } : {}),
+    });
+  } catch (caught) {
+    if (qaAuthRequest) {
+      throw new ApiError(
+        'O servidor de homologação não respondeu ao login. A conta da Nexa oficial utiliza outro ambiente. Tente novamente mais tarde ou use uma conta QA autorizada.',
+        0,
+        abort?.signal.aborted ? 'QA_AUTH_TIMEOUT' : 'QA_AUTH_NETWORK',
+      );
+    }
+    throw caught;
+  } finally {
+    if (timeout !== null) clearTimeout(timeout);
+  }
   const text = await response.text();
   let payload: any = {};
   try {
