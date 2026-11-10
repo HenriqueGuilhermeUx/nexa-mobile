@@ -21,7 +21,7 @@ function check(record) {
   const seen=new Set();
   const evidenceIds=new Set();
   for(const c of record.cases){
-    if(!c||!IDS.includes(c.id)) {errors.push('unknown case');continue;}
+    if(!c||typeof c!=='object'||Array.isArray(c)||!IDS.includes(c.id)) {errors.push('unknown case');continue;}
     if(seen.has(c.id)) errors.push('duplicate '+c.id);
     seen.add(c.id);
     if(c.result!=='PASS') errors.push('not PASS '+c.id);
@@ -45,6 +45,10 @@ if(require.main===module){
     assert.deepEqual(check(good),[]);
     assert(check({...good,cases:[...cases,cases[0]]}).some(x=>x.startsWith('duplicate')));
     assert(check({...good,cases:cases.slice(1)}).includes('missing A01'));
+    assert(check({...good,cases:[null,...cases.slice(1)]}).includes('unknown case'));
+    assert(check({...good,cases:[42,...cases.slice(1)]}).includes('unknown case'));
+    assert(check({...good,cases:[[],...cases.slice(1)]}).includes('unknown case'));
+    assert(check({...good,cases:['A01',...cases.slice(1)]}).includes('unknown case'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,bundle_sha:'b'.repeat(40)}:c)}).some(x=>x.startsWith('provenance mismatch')));
     assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:cases[0].evidence_id}:c)}).includes('reused evidence A02'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
