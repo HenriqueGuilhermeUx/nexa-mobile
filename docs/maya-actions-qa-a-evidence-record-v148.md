@@ -58,3 +58,9 @@ Resultado permitido por caso: PASS / FAIL / BLOCKED / NOT_RUN; PENDENTE equivale
 - A10: com duas contas exclusivamente de teste, criar meta na conta A, sair, entrar na B e confirmar que a meta A nao aparece; voltar a A e confirmar que permanece. Se nao houver duas contas de teste autorizadas, marcar BLOCKED, nunca PASS.
 - A11/A16: verificar troca de conta e fronteiras Staff/PJ somente com perfis de teste autorizados, sem alterar permissoes reais; anotar a rota observada e eventual issue.
 - Nao inserir tokens, nomes, saldos, screenshots de clientes ou IDs de conta em claro. Os campos continuam PENDENTE ate evidencia fisica autentica.
+
+## Conferencia de proveniencia antes de assinar 16/16
+- Anexar a cada evidencia A01–A16 o mesmo `session_id` anonimizado, SHA completo, package name, runtime, build e EAS update ID (ou `standalone_sem_ota`). Evidencia sem correspondencia com a identidade da sessao nao conta como PASS.
+- Registrar `observed_at` com offset ISO 8601 e um identificador de artefato/log anonimizado para cada caso. O resultado PASS exige comportamento observado, nao somente print da tela inicial ou CI verde.
+- Conferir que os 16 IDs A01–A16 aparecem exatamente uma vez, sem resultado PENDENTE/NOT_RUN/BLOCKED/FAIL; se houver duplicata, evidencia ausente ou mistura de APK standalone e OTA Play, a decisao permanece NO-GO.
+- A assinatura final deve apontar para uma unica sessao e conter revisor, data, versao/runtime, resultado do CI do SHA e aprovacao explicita. Este documento nao substitui teste em dispositivo nem autoriza OTA production.
