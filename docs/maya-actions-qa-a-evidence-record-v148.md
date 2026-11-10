@@ -42,3 +42,12 @@ Resultado permitido por caso: PASS / FAIL / BLOCKED / NOT_RUN; PENDENTE equivale
 - Regressao Wallet/Pix/USDC/Didit/login/Staff/PJ: PENDENTE
 - Revisao e aprovacao explicita: PENDENTE
 - Decisao: **NO-GO** ate todos os gates passarem. Nao publicar OTA production nem executar transacoes.
+
+## Reprodutibilidade e triagem de falhas
+- Executar A01–A16 no mesmo binario identificado acima; se trocar APK, conta, dispositivo, runtime ou update ID, abrir nova sessao de evidencias. Nao combinar resultados de builds diferentes para obter 16/16.
+- Para A03 e A05, registrar horario programado, horario efetivo e fuso, sem dados pessoais. Confirmar notificacao no Android, nao apenas mensagem de sucesso na UI.
+- Para A04, revogar permissao nas configuracoes do Android e retornar ao app; restaurar somente apos registrar o resultado.
+- Para A07 e A10, encerrar processo e reabrir; distinguir persistencia local de sincronizacao entre contas. Nao usar contas reais de clientes.
+- Para A12–A16, usar apenas navegacao read-only, sem QR pago, KYC submetido, trade, transferencias ou mudanca de perfil Staff/PJ.
+- Em FAIL/BLOCKED, registrar passo minimo, comportamento esperado/observado, log anonimizado, SHA e issue; nao repetir teste com fundos ou credenciais reais.
+- Nao promover a production com qualquer caso NOT_RUN/BLOCKED/FAIL, mesmo se CI estiver verde ou APK standalone tiver recebido avaliacao positiva.
