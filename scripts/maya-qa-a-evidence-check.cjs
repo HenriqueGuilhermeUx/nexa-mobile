@@ -19,7 +19,7 @@ function validObservedAt(value) {
   const zone=m[7];
   if(zone!=='Z') {
     const zh=Number(zone.slice(1,3)), zm=Number(zone.slice(4,6));
-    if(zh>23||zm>59) return false;
+    if(zh>14||zm>59||(zh===14&&zm!==0)) return false;
   }
   return Number.isFinite(Date.parse(value));
 }
@@ -86,6 +86,8 @@ if(require.main===module){
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2099-01-01T00:00:00-03:00'}:c)}).includes('future timestamp A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-02-30T01:00:00-03:00'}:c)}).includes('invalid timestamp A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-10T01:00:00+25:00'}:c)}).includes('invalid timestamp A01'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-10T01:00:00+14:01'}:c)}).includes('invalid timestamp A01'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-10T01:00:00-15:00'}:c)}).includes('invalid timestamp A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-10T25:00:00-03:00'}:c)}).includes('invalid timestamp A01'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
     const otaSession={...s,package_name:'br.com.trynexa.app',bundle_sha:QA_A_OTA_SHA,update_id:QA_A_OTA_ID};
