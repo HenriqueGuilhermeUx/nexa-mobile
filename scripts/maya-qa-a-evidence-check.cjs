@@ -34,6 +34,10 @@ function check(record) {
   for(const key of ['session_id','package_name','runtime','build','bundle_sha','update_id','device','reviewer']) {
     if(typeof s[key]!=='string'||!s[key].trim()||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER)$/i.test(s[key].trim())) errors.push('missing session.'+key);
   }
+  // QA records must identify a real session/device/reviewer, not synthetic fixtures.
+  for(const key of ['session_id','device','reviewer']) {
+    if(typeof s[key]==='string' && /^(?:test(?:[-_ ].*)?|demo(?:[-_ ].*)?|mock(?:[-_ ].*)?|synthetic(?:[-_ ].*)?|example(?:[-_ ].*)?|fake(?:[-_ ].*)?)$/i.test(s[key].trim())) errors.push('synthetic session.'+key);
+  }
   if(!SHA.test(s.bundle_sha||'')) errors.push('invalid session.bundle_sha');
   if(s.runtime!=='2.0.43'||s.build!=='148') errors.push('runtime/build mismatch');
   if(!['br.com.trynexa.mayaqa','br.com.trynexa.app'].includes(s.package_name)) errors.push('unknown package');
@@ -67,10 +71,13 @@ function check(record) {
 }
 if(require.main===module){
   if(process.argv[2]==='--self-test'){
-    const s={session_id:'test',package_name:'br.com.trynexa.mayaqa',runtime:'2.0.43',build:'148',bundle_sha:'a'.repeat(40),update_id:'standalone_sem_ota',device:'test Android',reviewer:'QA'};
+    const s={session_id:'qa-session-001',package_name:'br.com.trynexa.mayaqa',runtime:'2.0.43',build:'148',bundle_sha:'a'.repeat(40),update_id:'standalone_sem_ota',device:'Pixel QA physical device',reviewer:'QA operator'};
     const cases=IDS.map(id=>({...s,id,result:'PASS',evidence_id:'capture-'+id,observed_at:'2026-11-10T01:00:00-03:00'}));
     const good={session:s,cases,ci:'success',device_compatibility:true,explicit_approval:true};
     assert.deepEqual(check(good),[]);
+    assert(check({...good,session:{...s,session_id:'test-123'}}).includes('synthetic session.session_id'));
+    assert(check({...good,session:{...s,device:'demo device'}}).includes('synthetic session.device'));
+    assert(check({...good,session:{...s,reviewer:'mock'}}).includes('synthetic session.reviewer'));
     assert(check({...good,cases:[...cases,cases[0]]}).some(x=>x.startsWith('duplicate')));
     assert(check({...good,cases:cases.slice(1)}).includes('missing A01'));
     assert(check({...good,cases:[null,...cases.slice(1)]}).includes('unknown case'));
