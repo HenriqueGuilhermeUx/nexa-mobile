@@ -51,3 +51,10 @@ Resultado permitido por caso: PASS / FAIL / BLOCKED / NOT_RUN; PENDENTE equivale
 - Para A12–A16, usar apenas navegacao read-only, sem QR pago, KYC submetido, trade, transferencias ou mudanca de perfil Staff/PJ.
 - Em FAIL/BLOCKED, registrar passo minimo, comportamento esperado/observado, log anonimizado, SHA e issue; nao repetir teste com fundos ou credenciais reais.
 - Nao promover a production com qualquer caso NOT_RUN/BLOCKED/FAIL, mesmo se CI estiver verde ou APK standalone tiver recebido avaliacao positiva.
+
+## Protocolo adicional — notificacoes e isolamento (sem mudar os 16 gates)
+- A03: registrar `scheduled_at` e `received_at` em ISO 8601 com offset do aparelho, permissao Android e diferenca em segundos. Se nao chegar, marcar FAIL; nao inferir entrega pelo agendamento local. Nao alterar relogio do aparelho para simular entrega.
+- A05/A06: anotar ID anonimizado do lembrete, instante do cancelamento/conclusao e janela de observacao ate depois do horario originalmente previsto; confirmar que nao surgiu notificacao duplicada ou tardia.
+- A10: com duas contas exclusivamente de teste, criar meta na conta A, sair, entrar na B e confirmar que a meta A nao aparece; voltar a A e confirmar que permanece. Se nao houver duas contas de teste autorizadas, marcar BLOCKED, nunca PASS.
+- A11/A16: verificar troca de conta e fronteiras Staff/PJ somente com perfis de teste autorizados, sem alterar permissoes reais; anotar a rota observada e eventual issue.
+- Nao inserir tokens, nomes, saldos, screenshots de clientes ou IDs de conta em claro. Os campos continuam PENDENTE ate evidencia fisica autentica.
