@@ -3,6 +3,9 @@ on:
   push:
     branches: [qa/maya-actions-wave-d-apk-20261110]
     paths: ['.github/workflows/maya-actions-wave-d-github-apk.yml']
+  pull_request:
+    branches: [integration/maya-actions-v148]
+    paths: ['.github/workflows/maya-actions-wave-d-github-apk.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -11,11 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Checkout isolated Wave D QA branch
+      - name: Checkout isolated Wave D QA source
         uses: actions/checkout@v4
-      - name: Verify QA branch
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify QA source was not taken from production
         run: |
-          test "$GITHUB_REF_NAME" = 'qa/maya-actions-wave-d-apk-20261110'
+          if [ "$GITHUB_EVENT_NAME" = 'pull_request' ]; then
+            test "$GITHUB_HEAD_REF" = 'qa/maya-actions-wave-d-apk-20261110'
+          else
+            test "$GITHUB_REF_NAME" = 'qa/maya-actions-wave-d-apk-20261110'
+          fi
           echo "Building QA source $(git rev-parse HEAD)"
       - uses: actions/setup-node@v4
         with:
