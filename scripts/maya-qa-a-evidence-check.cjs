@@ -5,6 +5,8 @@ const assert = require('node:assert/strict');
 const IDS = Array.from({length:16},(_,i)=>'A'+String(i+1).padStart(2,'0'));
 const SHA=/^[a-f0-9]{40}$/i;
 const EAS_UPDATE_ID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
+const QA_A_OTA_SHA='096c9fd619a551f23ba8c7d9e3e72a7e01605a6e';
+const QA_A_OTA_ID='01a1a975-d85f-794f-9d67-cf2ac961fbb7';
 const OFFSET=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/;
 function parseEvidence(text) {
   try { return {record: JSON.parse(text), errors: []}; }
@@ -21,7 +23,11 @@ function check(record) {
   if(s.runtime!=='2.0.43'||s.build!=='148') errors.push('runtime/build mismatch');
   if(!['br.com.trynexa.mayaqa','br.com.trynexa.app'].includes(s.package_name)) errors.push('unknown package');
   if(s.package_name==='br.com.trynexa.mayaqa' && s.update_id!=='standalone_sem_ota') errors.push('standalone/OTA mixed');
-  if(s.package_name==='br.com.trynexa.app' && !EAS_UPDATE_ID.test(s.update_id||'')) errors.push('invalid EAS update ID');
+  if(s.package_name==='br.com.trynexa.app') {
+    if(!EAS_UPDATE_ID.test(s.update_id||'')) errors.push('invalid EAS update ID');
+    // QA A only: a syntactically valid UUID from another release is not QA A evidence.
+    if(s.update_id!==QA_A_OTA_ID || s.bundle_sha!==QA_A_OTA_SHA) errors.push('QA A OTA provenance mismatch');
+  }
   if(!Array.isArray(record.cases)) return [...errors,'missing cases'];
   const seen=new Set();
   const evidenceIds=new Set();
@@ -62,9 +68,12 @@ if(require.main===module){
     assert(check({...good,session:{...s,reviewer:'  pendente  '}}).includes('missing session.reviewer'));
     assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
-    const otaSession={...s,package_name:'br.com.trynexa.app',update_id:'01a1a975-d85f-794f-9d67-cf2ac961fbb7'};
-    const otaCases=cases.map(c=>({...c,package_name:otaSession.package_name,update_id:otaSession.update_id}));
+    const otaSession={...s,package_name:'br.com.trynexa.app',bundle_sha:QA_A_OTA_SHA,update_id:QA_A_OTA_ID};
+    const otaCases=cases.map(c=>({...c,package_name:otaSession.package_name,bundle_sha:otaSession.bundle_sha,update_id:otaSession.update_id}));
     assert.deepEqual(check({...good,session:otaSession,cases:otaCases}),[]);
+    const wrongRelease={...otaSession,update_id:'50890af6-e7ba-4f98-8fa7-1b3068c18fd4'};
+    assert(check({...good,session:wrongRelease,cases:otaCases.map(c=>({...c,update_id:wrongRelease.update_id}))}).includes('QA A OTA provenance mismatch'));
+    assert(check({...good,session:{...otaSession,bundle_sha:'b'.repeat(40)},cases:otaCases.map(c=>({...c,bundle_sha:'b'.repeat(40)}))}).includes('QA A OTA provenance mismatch'));
     assert(check({...good,session:{...otaSession,update_id:'fake-ota'},cases:otaCases.map(c=>({...c,update_id:'fake-ota'}))}).includes('invalid EAS update ID'));
     assert(check({...good,session:{...otaSession,update_id:'standalone_sem_ota'},cases:otaCases.map(c=>({...c,update_id:'standalone_sem_ota'}))}).includes('invalid EAS update ID'));
     assert(check({...good,explicit_approval:false}).includes('approval missing'));
