@@ -52,7 +52,7 @@ function check(record) {
     seen.add(c.id);
     if(c.result!=='PASS') errors.push('not PASS '+c.id);
     for(const k of ['session_id','package_name','runtime','build','bundle_sha','update_id']) if(c[k]!==s[k]) errors.push('provenance mismatch '+c.id+':'+k);
-    if(typeof c.evidence_id!=='string'||!c.evidence_id.trim()||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER)$/i.test(c.evidence_id.trim())) errors.push('missing evidence '+c.id);
+    if(typeof c.evidence_id!=='string'||!c.evidence_id.trim()||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER|REDACTED(?:[-_].*)?|EXAMPLE(?:[-_].*)?|SYNTHETIC(?:[-_].*)?)$/i.test(c.evidence_id.trim())) errors.push('missing evidence '+c.id);
     else if(evidenceIds.has(c.evidence_id.trim().toLowerCase())) errors.push('reused evidence '+c.id);
     else evidenceIds.add(c.evidence_id.trim().toLowerCase());
     if(!validObservedAt(c.observed_at)) errors.push('invalid timestamp '+c.id);
@@ -68,7 +68,7 @@ function check(record) {
 if(require.main===module){
   if(process.argv[2]==='--self-test'){
     const s={session_id:'test',package_name:'br.com.trynexa.mayaqa',runtime:'2.0.43',build:'148',bundle_sha:'a'.repeat(40),update_id:'standalone_sem_ota',device:'test Android',reviewer:'QA'};
-    const cases=IDS.map(id=>({...s,id,result:'PASS',evidence_id:'redacted-'+id,observed_at:'2026-11-10T01:00:00-03:00'}));
+    const cases=IDS.map(id=>({...s,id,result:'PASS',evidence_id:'capture-'+id,observed_at:'2026-11-10T01:00:00-03:00'}));
     const good={session:s,cases,ci:'success',device_compatibility:true,explicit_approval:true};
     assert.deepEqual(check(good),[]);
     assert(check({...good,cases:[...cases,cases[0]]}).some(x=>x.startsWith('duplicate')));
@@ -82,6 +82,8 @@ if(require.main===module){
     assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:'  REDACTED-a01  '}:c)}).includes('reused evidence A02'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'PENDENTE'}:c)}).includes('missing evidence A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:' TODO '}:c)}).includes('missing evidence A01'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'redacted-A01'}:c)}).includes('missing evidence A01'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'synthetic-A01'}:c)}).includes('missing evidence A01'));
     assert(check({...good,session:{...s,reviewer:'  pendente  '}}).includes('missing session.reviewer'));
     assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2099-01-01T00:00:00-03:00'}:c)}).includes('future timestamp A01'));
