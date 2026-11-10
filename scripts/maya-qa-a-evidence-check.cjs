@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const IDS = Array.from({length:16},(_,i)=>'A'+String(i+1).padStart(2,'0'));
 const SHA=/^[a-f0-9]{40}$/i;
+const EAS_UPDATE_ID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 const OFFSET=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/;
 function parseEvidence(text) {
   try { return {record: JSON.parse(text), errors: []}; }
@@ -20,7 +21,7 @@ function check(record) {
   if(s.runtime!=='2.0.43'||s.build!=='148') errors.push('runtime/build mismatch');
   if(!['br.com.trynexa.mayaqa','br.com.trynexa.app'].includes(s.package_name)) errors.push('unknown package');
   if(s.package_name==='br.com.trynexa.mayaqa' && s.update_id!=='standalone_sem_ota') errors.push('standalone/OTA mixed');
-  if(s.package_name==='br.com.trynexa.app' && s.update_id==='standalone_sem_ota') errors.push('Play/standalone mixed');
+  if(s.package_name==='br.com.trynexa.app' && !EAS_UPDATE_ID.test(s.update_id||'')) errors.push('invalid EAS update ID');
   if(!Array.isArray(record.cases)) return [...errors,'missing cases'];
   const seen=new Set();
   const evidenceIds=new Set();
@@ -61,6 +62,11 @@ if(require.main===module){
     assert(check({...good,session:{...s,reviewer:'  pendente  '}}).includes('missing session.reviewer'));
     assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
+    const otaSession={...s,package_name:'br.com.trynexa.app',update_id:'01a1a975-d85f-794f-9d67-cf2ac961fbb7'};
+    const otaCases=cases.map(c=>({...c,package_name:otaSession.package_name,update_id:otaSession.update_id}));
+    assert.deepEqual(check({...good,session:otaSession,cases:otaCases}),[]);
+    assert(check({...good,session:{...otaSession,update_id:'fake-ota'},cases:otaCases.map(c=>({...c,update_id:'fake-ota'}))}).includes('invalid EAS update ID'));
+    assert(check({...good,session:{...otaSession,update_id:'standalone_sem_ota'},cases:otaCases.map(c=>({...c,update_id:'standalone_sem_ota'}))}).includes('invalid EAS update ID'));
     assert(check({...good,explicit_approval:false}).includes('approval missing'));
     assert.deepEqual(parseEvidence('{broken').errors,['invalid evidence JSON']);
     assert.deepEqual(parseEvidence('null').record,null);
