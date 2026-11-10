@@ -8,6 +8,21 @@ const EAS_UPDATE_ID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 const QA_A_OTA_SHA='096c9fd619a551f23ba8c7d9e3e72a7e01605a6e';
 const QA_A_OTA_ID='01a1a975-d85f-794f-9d67-cf2ac961fbb7';
 const OFFSET=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/;
+function validObservedAt(value) {
+  if(typeof value!=='string'||!OFFSET.test(value)) return false;
+  const m=/^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.\d+)?(Z|[+-]\d\d:\d\d)$/.exec(value);
+  if(!m) return false;
+  const [year,month,day,hour,minute,second]=m.slice(1,7).map(Number);
+  if(year<100||month<1||month>12||hour>23||minute>59||second>59) return false;
+  const calendar=new Date(Date.UTC(year,month-1,day));
+  if(calendar.getUTCFullYear()!==year||calendar.getUTCMonth()!==month-1||calendar.getUTCDate()!==day) return false;
+  const zone=m[7];
+  if(zone!=='Z') {
+    const zh=Number(zone.slice(1,3)), zm=Number(zone.slice(4,6));
+    if(zh>23||zm>59) return false;
+  }
+  return Number.isFinite(Date.parse(value));
+}
 function parseEvidence(text) {
   try { return {record: JSON.parse(text), errors: []}; }
   catch { return {record: null, errors: ['invalid evidence JSON']}; }
@@ -40,7 +55,7 @@ function check(record) {
     if(typeof c.evidence_id!=='string'||!c.evidence_id.trim()||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER)$/i.test(c.evidence_id.trim())) errors.push('missing evidence '+c.id);
     else if(evidenceIds.has(c.evidence_id.trim().toLowerCase())) errors.push('reused evidence '+c.id);
     else evidenceIds.add(c.evidence_id.trim().toLowerCase());
-    if(typeof c.observed_at!=='string'||!OFFSET.test(c.observed_at)||Number.isNaN(Date.parse(c.observed_at))) errors.push('invalid timestamp '+c.id);
+    if(!validObservedAt(c.observed_at)) errors.push('invalid timestamp '+c.id);
     else if(Date.parse(c.observed_at)>Date.now()) errors.push('future timestamp '+c.id);
   }
   for(const id of IDS) if(!seen.has(id)) errors.push('missing '+id);
@@ -69,6 +84,9 @@ if(require.main===module){
     assert(check({...good,session:{...s,reviewer:'  pendente  '}}).includes('missing session.reviewer'));
     assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2099-01-01T00:00:00-03:00'}:c)}).includes('future timestamp A01'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-02-30T01:00:00-03:00'}:c)}).includes('invalid timestamp A01'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-10T01:00:00+25:00'}:c)}).includes('invalid timestamp A01'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-10T25:00:00-03:00'}:c)}).includes('invalid timestamp A01'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
     const otaSession={...s,package_name:'br.com.trynexa.app',bundle_sha:QA_A_OTA_SHA,update_id:QA_A_OTA_ID};
     const otaCases=cases.map(c=>({...c,package_name:otaSession.package_name,bundle_sha:otaSession.bundle_sha,update_id:otaSession.update_id}));
