@@ -26,7 +26,7 @@ function check(record) {
     seen.add(c.id);
     if(c.result!=='PASS') errors.push('not PASS '+c.id);
     for(const k of ['session_id','package_name','runtime','build','bundle_sha','update_id']) if(c[k]!==s[k]) errors.push('provenance mismatch '+c.id+':'+k);
-    if(typeof c.evidence_id!=='string'||!c.evidence_id.trim()) errors.push('missing evidence '+c.id);
+    if(typeof c.evidence_id!=='string'||!c.evidence_id.trim()||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER)$/i.test(c.evidence_id.trim())) errors.push('missing evidence '+c.id);
     else if(evidenceIds.has(c.evidence_id.trim())) errors.push('reused evidence '+c.id);
     else evidenceIds.add(c.evidence_id.trim());
     if(typeof c.observed_at!=='string'||!OFFSET.test(c.observed_at)||Number.isNaN(Date.parse(c.observed_at))) errors.push('invalid timestamp '+c.id);
@@ -51,6 +51,8 @@ if(require.main===module){
     assert(check({...good,cases:['A01',...cases.slice(1)]}).includes('unknown case'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,bundle_sha:'b'.repeat(40)}:c)}).some(x=>x.startsWith('provenance mismatch')));
     assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:cases[0].evidence_id}:c)}).includes('reused evidence A02'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'PENDENTE'}:c)}).includes('missing evidence A01'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:' TODO '}:c)}).includes('missing evidence A01'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
     assert(check({...good,explicit_approval:false}).includes('approval missing'));
     console.log('QA A validator self-test passed (synthetic evidence only)');
