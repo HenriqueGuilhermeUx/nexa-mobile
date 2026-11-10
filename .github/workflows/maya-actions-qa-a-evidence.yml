@@ -1,0 +1,37 @@
+name: Maya QA A evidence validator — isolated self-test
+on:
+  push:
+    branches:
+      - feat/maya-actions-01-agenda-v148
+    paths:
+      - scripts/maya-qa-a-evidence-check.cjs
+      - .github/workflows/maya-actions-qa-a-evidence.yml
+  pull_request:
+    paths:
+      - scripts/maya-qa-a-evidence-check.cjs
+      - .github/workflows/maya-actions-qa-a-evidence.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evidence-self-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check scripts/maya-qa-a-evidence-check.cjs
+      - name: Synthetic QA evidence regression suite
+        run: node scripts/maya-qa-a-evidence-check.cjs --self-test
+      - name: Ensure missing evidence fails closed
+        shell: bash
+        run: |
+          if node scripts/maya-qa-a-evidence-check.cjs /tmp/maya-qa-a-evidence-not-present.json; then
+            echo 'ERROR: missing evidence was accepted'
+            exit 1
+          fi
+          echo 'Missing evidence rejected as expected'
+# This workflow never uploads artifacts, publishes EAS updates, or promotes production.
