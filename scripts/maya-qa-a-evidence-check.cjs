@@ -56,7 +56,7 @@ function check(record) {
     seen.add(c.id);
     if(c.result!=='PASS') errors.push('not PASS '+c.id);
     for(const k of ['session_id','package_name','runtime','build','bundle_sha','update_id']) if(c[k]!==s[k]) errors.push('provenance mismatch '+c.id+':'+k);
-    if(typeof c.evidence_id!=='string'||!c.evidence_id.trim()||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER|REDACTED(?:[-_].*)?|EXAMPLE(?:[-_].*)?|SYNTHETIC(?:[-_].*)?)$/i.test(c.evidence_id.trim())) errors.push('missing evidence '+c.id);
+    if(typeof c.evidence_id!=='string'||!c.evidence_id.trim()||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER|REDACTED(?:[-_].*)?|EXAMPLE(?:[-_].*)?|SYNTHETIC(?:[-_].*)?|FAKE(?:[-_].*)?|MOCK(?:[-_].*)?|DEMO(?:[-_].*)?|TEST(?:[-_].*)?)$/i.test(c.evidence_id.trim())) errors.push('missing evidence '+c.id);
     else if(evidenceIds.has(c.evidence_id.trim().toLowerCase())) errors.push('reused evidence '+c.id);
     else evidenceIds.add(c.evidence_id.trim().toLowerCase());
     if(!validObservedAt(c.observed_at)) errors.push('invalid timestamp '+c.id);
@@ -91,6 +91,9 @@ if(require.main===module){
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:' TODO '}:c)}).includes('missing evidence A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'redacted-A01'}:c)}).includes('missing evidence A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'synthetic-A01'}:c)}).includes('missing evidence A01'));
+    for(const placeholder of ['fake-A01','mock_A01','demo-A01','test_A01']) {
+      assert(check({...good,cases:cases.map((item,i)=>i===0?{...item,evidence_id:placeholder}:item)}).includes('missing evidence A01'));
+    }
     assert(check({...good,session:{...s,reviewer:'  pendente  '}}).includes('missing session.reviewer'));
     assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2099-01-01T00:00:00-03:00'}:c)}).includes('future timestamp A01'));
