@@ -5,6 +5,10 @@ const assert = require('node:assert/strict');
 const IDS = Array.from({length:16},(_,i)=>'A'+String(i+1).padStart(2,'0'));
 const SHA=/^[a-f0-9]{40}$/i;
 const OFFSET=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/;
+function parseEvidence(text) {
+  try { return {record: JSON.parse(text), errors: []}; }
+  catch { return {record: null, errors: ['invalid evidence JSON']}; }
+}
 function check(record) {
   const errors=[];
   if (!record || typeof record!=='object' || Array.isArray(record)) return ['invalid record'];
@@ -58,10 +62,17 @@ if(require.main===module){
     assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
     assert(check({...good,ci:'pending'}).includes('CI not approved'));
     assert(check({...good,explicit_approval:false}).includes('approval missing'));
+    assert.deepEqual(parseEvidence('{broken').errors,['invalid evidence JSON']);
+    assert.deepEqual(parseEvidence('null').record,null);
+    assert.deepEqual(check(parseEvidence('null').record),['invalid record']);
     console.log('QA A validator self-test passed (synthetic evidence only)');
   } else {
     if(!process.argv[2]) {console.error('Usage: node scripts/maya-qa-a-evidence-check.cjs <evidence.json>');process.exit(2);}
-    const errors=check(JSON.parse(fs.readFileSync(process.argv[2],'utf8')));
+    let raw;
+    try { raw=fs.readFileSync(process.argv[2],'utf8'); }
+    catch { console.error('NO-GO: evidence file unreadable'); process.exit(1); }
+    const parsed=parseEvidence(raw);
+    const errors=parsed.errors.length?parsed.errors:check(parsed.record);
     console.log(errors.length?'NO-GO: '+errors.join('; '):'EVIDENCE PRECHECK PASS — human approval still required');
     process.exitCode=errors.length?1:0;
   }
