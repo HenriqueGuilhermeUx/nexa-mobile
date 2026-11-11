@@ -45,5 +45,7 @@ assert.deepEqual(Array.from(overflow.ranked, item => item.quote.merchant), ['Fin
 assert.deepEqual(Array.from(overflow.excluded, item => item.index), [0]);
 assert.equal(overflow.excluded[0].reason, 'incomplete_total');
 assert.throws(() => rankVerifiedQuotes([], -1, now));
+assert.throws(() => rankVerifiedQuotes([quote('Valid', 100)], undefined, 8.64e15 + 1), /Horário de avaliação inválido/);
+assert.equal(rankVerifiedQuotes([], undefined, 8.64e15).evaluatedAt, '+275760-09-13T00:00:00.000Z');
 assert.throws(() => rankVerifiedQuotes(Array(101).fill(quote('X', 5)), undefined, now));
 console.log('PASS Maya 09C: comparable costs only, stale/unsafe excluded, budget, stable ranking');
