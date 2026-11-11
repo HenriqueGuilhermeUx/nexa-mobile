@@ -66,6 +66,7 @@ function check(record) {
     if(!validObservedAt(c.observed_at)) errors.push('invalid timestamp '+c.id);
     else if(Date.parse(c.observed_at)>Date.now()) errors.push('future timestamp '+c.id);
     else if(s.package_name==='br.com.trynexa.app' && Date.parse(c.observed_at)<Date.parse('2026-11-04T00:00:00Z')) errors.push('timestamp predates QA A release '+c.id);
+    else if(s.package_name==='br.com.trynexa.mayaqa' && Date.parse(c.observed_at)<Date.parse('2026-11-06T00:00:00Z')) errors.push('timestamp predates standalone QA A availability '+c.id);
   }
   for(const id of IDS) if(!seen.has(id)) errors.push('missing '+id);
   if(record.ci!=='success') errors.push('CI not approved');
@@ -113,6 +114,7 @@ if(require.main===module){
     assert(check({...good,session:{...s,reviewer:'x'.repeat(257)}}).includes('invalid session identifier reviewer'));
     assert(check({...good,session:{...s,reviewer:'  pendente  '}}).includes('missing session.reviewer'));
     assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-05T12:00:00Z'}:c)}).includes('timestamp predates standalone QA A availability A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2099-01-01T00:00:00-03:00'}:c)}).includes('future timestamp A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-02-30T01:00:00-03:00'}:c)}).includes('invalid timestamp A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,observed_at:'2026-11-10T01:00:00+25:00'}:c)}).includes('invalid timestamp A01'));
