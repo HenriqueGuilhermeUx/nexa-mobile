@@ -37,6 +37,13 @@ assert.throws(() => rankVerifiedQuotes(null, undefined, now), /Lote de ofertas i
 const malformed = rankVerifiedQuotes([null, {}, quote('Valid', 100), { ...quote('Bad', 10), merchant: null }], undefined, now);
 assert.deepEqual(Array.from(malformed.ranked, item => item.quote.merchant), ['Valid']);
 assert.deepEqual(Array.from(malformed.excluded, item => item.index), [0, 1, 3]);
+const overflow = rankVerifiedQuotes([
+  quote('Overflow', Number.MAX_VALUE, {shippingPrice: Number.MAX_VALUE, taxes: 0}),
+  quote('Finite', 100)
+], undefined, now);
+assert.deepEqual(Array.from(overflow.ranked, item => item.quote.merchant), ['Finite']);
+assert.deepEqual(Array.from(overflow.excluded, item => item.index), [0]);
+assert.equal(overflow.excluded[0].reason, 'incomplete_total');
 assert.throws(() => rankVerifiedQuotes([], -1, now));
 assert.throws(() => rankVerifiedQuotes(Array(101).fill(quote('X', 5)), undefined, now));
 console.log('PASS Maya 09C: comparable costs only, stale/unsafe excluded, budget, stable ranking');
