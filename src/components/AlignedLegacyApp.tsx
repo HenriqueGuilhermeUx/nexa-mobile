@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
 import { config } from '@/config';
+import { NEXA_TELEGRAM_SUPPORT_URL, nexaWhatsAppSupportUrl } from '@/lib/nexaSupportLinks';
 import { nexaApi } from '@/lib/api';
 import { futureFinancialFeatures } from '@/lib/futureFinancialFeatures';
 import {
@@ -587,28 +588,20 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
   }, [initialUser?.id, token]);
 
   async function openNexaSupport() {
-    const supportMessage = [
-      'Olá, equipe Nexa!',
-      '',
-      'Preciso de ajuda com minha conta.',
-      user?.email ? `E-mail: ${user.email}` : '',
-      handle ? `Nexa ID/usuário: ${handle}` : '',
-      '',
-      'Se for sobre atualização ou saldo anterior, posso enviar os detalhes por aqui.',
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    const url =
-      'https://wa.me/551333289704?text=' +
-      encodeURIComponent(supportMessage);
-
+    // Start an optional, user-initiated WhatsApp conversation with Theo.
+    // Do not put Nexa IDs, emails, balances or KYC details into the URL.
     try {
-      await Linking.openURL(url);
+      await Linking.openURL(nexaWhatsAppSupportUrl());
     } catch {
-      setMessage(
-        'Não foi possível abrir o WhatsApp. Fale com a Nexa pelo número (13) 3328-9704.',
-      );
+      setMessage('Não foi possível abrir o WhatsApp. Use o menu de ajuda ou acesse trynexa.com.br/suporte.');
+    }
+  }
+
+  async function openNexaTelegram() {
+    try {
+      await Linking.openURL(NEXA_TELEGRAM_SUPPORT_URL);
+    } catch {
+      setMessage('Não foi possível abrir o Telegram. Acesse t.me/NexaTheoBot pelo navegador.');
     }
   }
 
@@ -1838,9 +1831,16 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           ) : null}
           <MenuTile
             icon="◉"
-            title="Fale com a Nexa"
-            subtitle="Atendimento no WhatsApp"
+            title="Theo no WhatsApp"
+            subtitle="Abrir conversa de atendimento"
             onPress={openNexaSupport}
+            accent
+          />
+          <MenuTile
+            icon="✈"
+            title="Theo no Telegram"
+            subtitle="Abrir conversa de atendimento"
+            onPress={openNexaTelegram}
             accent
           />
         </View>
@@ -2155,10 +2155,17 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
               <Text style={styles.profileMenuArrow}>›</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity style={styles.profileMenuRow} onPress={openNexaSupport}>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={openNexaSupport} accessibilityRole="button">
             <View>
-              <Text style={styles.profileMenuTitle}>Ajuda</Text>
-              <Text style={styles.profileMenuText}>Falar com a equipe Nexa</Text>
+              <Text style={styles.profileMenuTitle}>Ajuda por WhatsApp</Text>
+              <Text style={styles.profileMenuText}>Conversar com Theo no WhatsApp</Text>
+            </View>
+            <Text style={styles.profileMenuArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileMenuRow} onPress={openNexaTelegram} accessibilityRole="button">
+            <View>
+              <Text style={styles.profileMenuTitle}>Ajuda por Telegram</Text>
+              <Text style={styles.profileMenuText}>Conversar com Theo no Telegram</Text>
             </View>
             <Text style={styles.profileMenuArrow}>›</Text>
           </TouchableOpacity>
@@ -2285,7 +2292,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
         <Card style={styles.profileSupportCard}>
           <Text style={[styles.staffEyebrow, isPremium ? styles.premiumAccentText : null]}>ATENDIMENTO</Text>
           <Text style={styles.highlightTitle}>Precisa de ajuda?</Text>
-          <Text style={styles.highlightText}>Fale com a Nexa pelo WhatsApp ou peça ajuda ao seu Assistente.</Text>
+          <Text style={styles.highlightText}>Escolha WhatsApp ou Telegram para conversar com o Theo. Não envie CPF, documentos, senhas ou códigos pelo chat.</Text>
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={[
@@ -2295,6 +2302,17 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
               onPress={openNexaSupport}
             >
               <Text style={styles.staffPrimaryActionText}>WhatsApp</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.staffSecondaryAction,
+                isPremium ? styles.premiumBorder : null,
+              ]}
+              onPress={openNexaTelegram}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir atendimento Theo pelo Telegram"
+            >
+              <Text style={styles.staffSecondaryActionText}>Telegram</Text>
             </TouchableOpacity>
             {config.assistantEnabled ? (
               <TouchableOpacity
