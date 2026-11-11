@@ -78,4 +78,43 @@ jobs:
           fi
           rm -f "$file"
           echo 'Unapproved evidence rejected as expected'
+      - name: Verify CLI accepts only matching QA A provenance
+        shell: bash
+        run: |
+          file="$(mktemp)"
+          trap 'rm -f "$file"' EXIT
+          node - "$file" <<'NODE'
+          const fs = require('node:fs');
+          const path = process.argv[2];
+          const session = {
+            session_id: 'qa-validation-001', package_name: 'br.com.trynexa.app',
+            runtime: '2.0.43', build: '148',
+            bundle_sha: '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e',
+            update_id: '01a1a975-d85f-794f-9d67-cf2ac961fbb7',
+            device: 'Physical QA device', reviewer: 'QA operator'
+          };
+          const cases = Array.from({length:16}, (_, i) => ({
+            ...session, id: 'A' + String(i+1).padStart(2,'0'),
+            result: 'PASS', evidence_id: 'capture-' + (i+1),
+            observed_at: '2026-11-10T01:00:00-03:00'
+          }));
+          fs.writeFileSync(path, JSON.stringify({
+            session, cases, ci:'success', device_compatibility:true,
+            explicit_approval:true
+          }));
+          NODE
+          node scripts/maya-qa-a-evidence-check.cjs "$file" | grep -F 'OTA QA A EVIDENCE PRECHECK PASS'
+          node - "$file" <<'NODE'
+          const fs = require('node:fs');
+          const p = process.argv[2];
+          const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+          data.session.update_id = '50890af6-e7ba-4f98-8fa7-1b3068c18fd4';
+          data.cases.forEach(c => { c.update_id = data.session.update_id; });
+          fs.writeFileSync(p, JSON.stringify(data));
+          NODE
+          if node scripts/maya-qa-a-evidence-check.cjs "$file"; then
+            echo 'ERROR: wrong OTA provenance accepted'
+            exit 1
+          fi
+          echo 'Synthetic CLI provenance checks passed; not physical QA approval'
 # This workflow never uploads artifacts, publishes EAS updates, or promotes production.
