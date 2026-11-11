@@ -61,8 +61,8 @@ function check(record) {
     if(c.result!=='PASS') errors.push('not PASS '+c.id);
     for(const k of ['session_id','package_name','runtime','build','bundle_sha','update_id','device','reviewer']) if(c[k]!==s[k]) errors.push('provenance mismatch '+c.id+':'+k);
     if(typeof c.evidence_id!=='string'||!c.evidence_id.trim()||c.evidence_id.length>256||/[\r\n\x00-\x1f\x7f]/.test(c.evidence_id)||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER|REDACTED(?:[-_].*)?|EXAMPLE(?:[-_].*)?|SYNTHETIC(?:[-_].*)?|FAKE(?:[-_].*)?|MOCK(?:[-_].*)?|DEMO(?:[-_].*)?|TEST(?:[-_].*)?)$/i.test(c.evidence_id.trim())) errors.push('missing evidence '+c.id);
-    else if(evidenceIds.has(c.evidence_id.trim().toLowerCase())) errors.push('reused evidence '+c.id);
-    else evidenceIds.add(c.evidence_id.trim().toLowerCase());
+    else if(evidenceIds.has(c.evidence_id.trim().normalize('NFKC').toLowerCase())) errors.push('reused evidence '+c.id);
+    else evidenceIds.add(c.evidence_id.trim().normalize('NFKC').toLowerCase());
     if(!validObservedAt(c.observed_at)) errors.push('invalid timestamp '+c.id);
     else if(Date.parse(c.observed_at)>Date.now()) errors.push('future timestamp '+c.id);
     else if(s.package_name==='br.com.trynexa.app' && Date.parse(c.observed_at)<Date.parse('2026-11-04T00:00:00Z')) errors.push('timestamp predates QA A release '+c.id);
@@ -93,6 +93,8 @@ if(require.main===module){
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,reviewer:'Different reviewer'}:c)}).includes('provenance mismatch A01:reviewer'));
     assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:cases[0].evidence_id}:c)}).includes('reused evidence A02'));
     assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:'  CAPTURE-a01  '}:c)}).includes('reused evidence A02'));
+    // Full-width Unicode variants must not bypass evidence uniqueness.
+    assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:'ｃａｐｔｕｒｅ－Ａ０１'}:c)}).includes('reused evidence A02'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'PENDENTE'}:c)}).includes('missing evidence A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'capture-A01\nCI: success'}:c)}).includes('missing evidence A01'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'x'.repeat(257)}:c)}).includes('missing evidence A01'));
