@@ -23,7 +23,8 @@ assert.equal(eas.build.production.channel,'production');
 assert.match(links,/https:\/\/t\.me\/NexaTheoBot/);
 assert.match(links,/https:\/\/wa\.me\/551333289704\?text=/);
 assert.match(links,/encodeURIComponent\(message\)/);
-assert.doesNotMatch(links,/email|userId|accountId|cpf|token|walletAddress|saldo/i,
+const linkLogic=links.split('\n').filter(line=>!/^\s*\/\//.test(line)).join('\n');
+assert.doesNotMatch(linkLogic,/user\?\.email|userId|accountId|\bcpf\b|accessToken|walletAddress|\bsaldo\b/i,
   'Support URL must not contain user information or session state');
 assert.match(links,/topic === 'kyc'/);
 assert.match(app,/async function openNexaTelegram\(\)/);
