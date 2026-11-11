@@ -209,6 +209,21 @@ export default function MayaActionsScreen() {
         <Text style={styles.buttonText}>Preparar tarefa para revisão</Text>
       </Pressable>
       {!!status && <Text accessibilityRole="alert" style={styles.notice}>{status}</Text>}
+      {draft && (
+        <View style={styles.preview}>
+          <Text style={styles.title}>Rascunho — não executado</Text>
+          <Text style={styles.description}>Tipo: {selected.title}</Text>
+          <Text style={styles.description}>{draft.description}</Text>
+          {draft.kind === 'reminder' && <Text style={styles.description}>Data e hora: {draft.remindAt}</Text>}
+          <Text style={styles.notice}>{draft.kind === 'reminder' ? 'Após sua confirmação, será agendada uma notificação local no aparelho.' : 'A tarefa será salva apenas neste dispositivo.'} Não executa pagamentos ou ações externas.</Text>
+          {!storageKey && <Text style={styles.warning}>Carregando sua conta para salvar. Se não aparecer, volte ao login e tente novamente.</Text>}
+          {tasks.length >= 50 && <Text style={styles.warning}>Limite de 50 tarefas neste aparelho. Exclua uma tarefa para continuar.</Text>}
+          <Pressable accessibilityRole="button" disabled={!storageKey || tasks.length >= 50 || busy} onPress={() => { void confirmDraft(); }} style={[styles.button, !storageKey && styles.disabled]}><Text style={styles.buttonText}>Confirmar e salvar tarefa</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => setDraft(null)}><Text style={styles.cancel}>Descartar rascunho</Text></Pressable>
+        </View>
+      )}
+      <Text style={styles.title}>Minhas tarefas salvas</Text>
+      {tasks.length === 0 && <Text style={styles.description}>Nenhuma tarefa salva ainda.</Text>}
       {tasks.map(task => (
         <View key={task.id} style={styles.preview}>
           <Text style={styles.title}>{task.done ? 'Concluída' : 'Pendente'} · {choices.find(item => item.key === task.kind)?.title}</Text>
@@ -218,17 +233,7 @@ export default function MayaActionsScreen() {
           <Pressable accessibilityRole="button" onPress={() => { void removeTask(task); }}><Text style={styles.cancel}>Excluir tarefa</Text></Pressable>
         </View>
       ))}
-      {draft && (
-        <View style={styles.preview}>
-          <Text style={styles.title}>Rascunho — não executado</Text>
-          <Text style={styles.description}>Tipo: {selected.title}</Text>
-          <Text style={styles.description}>{draft.description}</Text>
-          {draft.kind === 'reminder' && <Text style={styles.description}>Data e hora: {draft.remindAt}</Text>}
-          <Text style={styles.notice}>{draft.kind === 'reminder' ? 'Após sua confirmação, será agendada uma notificação local no aparelho.' : 'A tarefa será salva apenas neste dispositivo.'} Não executa pagamentos ou ações externas.</Text>
-          <Pressable accessibilityRole="button" disabled={!storageKey || tasks.length >= 50 || busy} onPress={() => { void confirmDraft(); }} style={[styles.button, !storageKey && styles.disabled]}><Text style={styles.buttonText}>Confirmar e salvar tarefa</Text></Pressable>
-          <Pressable accessibilityRole="button" onPress={() => setDraft(null)}><Text style={styles.cancel}>Descartar rascunho</Text></Pressable>
-        </View>
-      )}
+
     </ScrollView>
   );
 }
@@ -248,6 +253,7 @@ const styles = StyleSheet.create({
   preview: { borderWidth: 1, borderColor: '#34506B', borderRadius: 12, padding: 15, gap: 10 },
   notice: { color: '#E6BE7A', lineHeight: 20 },
   cancel: { color: '#40BDF0', fontWeight: '700' },
+  warning: { color: '#E6BE7A', lineHeight: 20 },
   entryText: { color: colors.text, fontWeight: '700' },
   calendarPanel: { borderColor: '#34506B', borderWidth: 1, borderRadius: 12, padding: 12, gap: 12 },
   monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
