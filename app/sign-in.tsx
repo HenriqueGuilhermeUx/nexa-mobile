@@ -11,6 +11,7 @@ import {
   Title,
 } from '@/components/ui';
 import { nexaApi, tokensFromLogin } from '@/lib/api';
+import { NEXA_TELEGRAM_SUPPORT_URL, nexaWhatsAppSupportUrl } from '@/lib/nexaSupportLinks';
 import { resolveAuthenticatedRoute } from '@/lib/onboarding';
 import {
   enableAppLock,
@@ -134,6 +135,14 @@ export default function SignInScreen() {
     }
   }
 
+  async function openSupport(channel: 'whatsapp' | 'telegram') {
+    try {
+      await Linking.openURL(channel === 'whatsapp' ? nexaWhatsAppSupportUrl() : NEXA_TELEGRAM_SUPPORT_URL);
+    } catch {
+      setError('Não foi possível abrir o atendimento. Acesse trynexa.com.br/suporte no navegador.');
+    }
+  }
+
   return (
     <Screen>
       <Brand />
@@ -180,6 +189,19 @@ export default function SignInScreen() {
       />
 
       <Text style={styles.securityNote}>Biometria pode proteger o acesso depois do primeiro login neste aparelho.</Text>
+      <Text style={styles.securityNote}>Dificuldade para entrar? Fale com Theo sem compartilhar CPF, senha ou códigos pelo chat.</Text>
+      <View style={styles.supportActions}>
+        <ActionButton
+          label="Ajuda no WhatsApp"
+          variant="secondary"
+          onPress={() => void openSupport('whatsapp')}
+        />
+        <ActionButton
+          label="Ajuda no Telegram"
+          variant="secondary"
+          onPress={() => void openSupport('telegram')}
+        />
+      </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </Screen>
@@ -188,6 +210,7 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
+  supportActions: { gap: spacing.sm, marginTop: spacing.sm },
   securityNote: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: spacing.md },
   error: {
     color: colors.danger,
