@@ -1,0 +1,48 @@
+name: Nexa v148 Dual Support — OTA Safety CI
+on:
+  push:
+    branches:
+      - feat/nexa-dual-support-v148-ota-20261111
+  pull_request:
+    branches:
+      - feat/aave-v148-internal-apk-20261102
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Validate v148 OTA runtime, UI entry points and no personal data in chat URLs
+        run: node scripts/validate-dual-support-v148.js
+      - name: Protect financial and native baseline
+        run: |
+          git fetch origin feat/aave-v148-internal-apk-20261102 --depth=1
+          git diff --name-only origin/feat/aave-v148-internal-apk-20261102 HEAD | sort > /tmp/changed-files
+          printf 'app/kyc.tsx\napp/sign-in.tsx\nsrc/components/AlignedLegacyApp.tsx\nsrc/lib/nexaSupportLinks.ts\nscripts/validate-dual-support-v148.js\n.github/workflows/nexa-dual-support-v148-ci.yml\n' | sort > /tmp/allowed
+          diff -u /tmp/allowed /tmp/changed-files
+          git diff --exit-code origin/feat/aave-v148-internal-apk-20261102 HEAD -- app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript validation
+        run: npm run typecheck
+      - name: Nexa financial safety contracts
+        run: node scripts/validate-mobile-safety-v123.js
+      - name: Export Android JS bundle (no OTA publication)
+        run: npm run export:android
