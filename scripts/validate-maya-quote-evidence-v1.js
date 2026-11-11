@@ -217,3 +217,14 @@ for (const badQuote of [
   assert.equal(result.groups.length, 1);
   assert.equal(result.groups[0].comparison.ranked.length, 1);
 }
+
+// Non-string merchant/product fields must not reach .trim() in the offer validator.
+for (const malformed of [null, undefined, 42, {}, Symbol('merchant')]) {
+  for (const field of ['merchant', 'product']) {
+    const bad = item('notebook-8gb', 100, {quote: {[field]: malformed}});
+    assert.equal(hasQuoteEvidence(bad, now), false);
+    const result = compareEvidenceBackedQuotes([bad, item('notebook-8gb', 100)], 3000, now);
+    assert.deepEqual(Array.from(result.rejectedIndices), [0]);
+    assert.equal(result.groups[0].comparison.ranked.length, 1);
+  }
+}
