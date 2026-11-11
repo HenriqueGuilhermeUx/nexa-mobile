@@ -1,32 +1,34 @@
-# Maya Actions QA A — registro de evidencias (modelo, nao executado)
+# Maya Actions QA A — checklist de 16 evidências físicas (modelo, não executado)
 
-Release congelado: `096c9fd619a551f23ba8c7d9e3e72a7e01605a6e`; runtime `2.0.43`; EAS QA A group `1cd78cdf-0535-4a79-b0dc-ff65ffe46178`.
+Release OTA QA A congelado: `096c9fd619a551f23ba8c7d9e3e72a7e01605a6e`; runtime Android `2.0.43`; build `148`; update `01a1a975-d85f-794f-9d67-cf2ac961fbb7`.
 
-Preencher antes dos testes: aparelho/Android ___; build/versionCode ___; canal EAS ___; update ID efetivamente instalado ___; data/hora ___; testador ___.
+Este checklist usa **exatamente os IDs A01–A16** aceitos por `scripts/maya-qa-a-evidence-check.cjs` e pelo registro `docs/maya-actions-qa-a-evidence-record-v148.md`. Não misturar IDs de protocolos anteriores (P01/R01) nem contar duas vezes um mesmo caso.
 
-**Importante:** o app production nao recebe automaticamente a branch QA. Nao confundir sucesso do workflow com instalacao ou homologacao no aparelho. Nao usar conta com saldo real.
+Preencher antes dos testes: aparelho/Android ___; pacote ___; build ___; canal EAS ___; update ID efetivamente instalado ___; SHA ___; data/hora ___; testador ___; session ID anonimizado ___.
 
-| Caso | Resultado | Evidencia sem dados sensiveis | Observacao |
+**Separação obrigatória:** `br.com.trynexa.mayaqa` é APK standalone e deve usar `standalone_sem_ota`; `br.com.trynexa.app` deve provar instalação da OTA QA A exata. O APK não comprova a OTA. Nunca utilizar saldo ou dados de clientes.
+
+| ID | Verificação física | Resultado | Evidência anonimizada |
 | --- | --- | --- | --- |
-| A01 permissao negada | NOT RUN | — | |
-| A02 notificacao entregue | NOT RUN | — | |
-| A03 persistencia sem duplicar | NOT RUN | — | |
-| A04 cancelamento antes do disparo | NOT RUN | — | |
-| A05 conclusao e reabertura | NOT RUN | — | |
-| A06 data invalida/passada | NOT RUN | — | |
-| P01 meta BRL valida | NOT RUN | — | |
-| P02 valores invalidos | NOT RUN | — | |
-| P03 persistencia | NOT RUN | — | |
-| P04 isolamento entre contas | NOT RUN | — | |
-| P05 progresso e limites | NOT RUN | — | |
-| R01 login/logout | NOT RUN | — | |
-| R02 Maya e Staff | NOT RUN | — | |
-| R03 Didit/KYC (navegacao) | NOT RUN | — | |
-| R04 Wallet/extrato/QR/Pix/USDC (somente leitura/preflight) | NOT RUN | — | |
-| R05 offline/segundo plano/runtime | NOT RUN | — | |
+| A01 | Criar lembrete futuro; conferir título e horário | NOT_RUN | — |
+| A02 | Recusar horário passado | NOT_RUN | — |
+| A03 | Permissão concedida: notificação recebida no horário | NOT_RUN | — |
+| A04 | Permissão negada: aviso sem crash | NOT_RUN | — |
+| A05 | Cancelar lembrete; nenhuma notificação posterior | NOT_RUN | — |
+| A06 | Concluir lembrete sem duplicidade | NOT_RUN | — |
+| A07 | Reiniciar app; lembretes persistem | NOT_RUN | — |
+| A08 | Criar meta BRL válida e conferir progresso | NOT_RUN | — |
+| A09 | Rejeitar valores vazios, negativos ou inválidos | NOT_RUN | — |
+| A10 | Persistência e isolamento de metas entre duas contas de teste | NOT_RUN | — |
+| A11 | Login/logout e restauração de sessão | NOT_RUN | — |
+| A12 | Wallet e extrato: navegação somente leitura | NOT_RUN | — |
+| A13 | Pix e QR: navegação sem pagamento | NOT_RUN | — |
+| A14 | USDC: consulta sem trade/transferência | NOT_RUN | — |
+| A15 | Didit/KYC: navegação sem submissão | NOT_RUN | — |
+| A16 | Staff/PJ: fronteiras de acesso com perfis de teste | NOT_RUN | — |
 
-Valores permitidos: `PASS`, `FAIL`, `BLOCKED`, `NOT RUN`. Cada PASS exige evidencia observada em aparelho. Para falha, registrar passos de reproducao e impacto; nao anexar segredos, tokens, saldos ou dados pessoais.
+Resultados permitidos: `PASS`, `FAIL`, `BLOCKED`, `NOT_RUN`. Cada PASS exige evidência física distinta, timestamp com fuso, e identidade de sessão/dispositivo/revisor consistente. Em FAIL/BLOCKED, registrar reprodução e issue, sem segredos, OTP, dados financeiros ou identificadores de clientes.
 
-Decisao: **NO-GO (nao homologado)** ate que todos os casos criticos estejam comprovados, CI do SHA de promocao esteja verde e haja aprovacao explicita. Nao executar Pix, compras, reservas, pagamentos, cadastros externos ou qualquer operacao financeira. Nao publicar OTA production.
+**Gate NO-GO:** até CI verificável do SHA, 16/16 PASS físicos, compatibilidade do binário EAS QA, regressões e aprovação explícita. O validador faz apenas preflight; não aprova release. Nenhuma OTA production ou operação financeira autorizada por este documento.
 
-Protocolo detalhado: `docs/maya-actions-qa-a-device-protocol.md`.
+Protocolo detalhado: `docs/maya-actions-qa-a-device-protocol.md`. Registro de execução: `docs/maya-actions-qa-a-evidence-record-v148.md`.
