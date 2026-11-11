@@ -8,24 +8,29 @@ Escopo: Android br.com.trynexa.app, versionCode 148, runtime 2.0.43. Documento d
 - Usar conta de teste sem fundos; nao executar Pix, trade, saque, compra, reserva ou formulario externo.
 - Para cada caso anotar PASS/FAIL/BLOCKED, captura sem dados sensiveis, horario e resultado observado. Nenhum caso deve ser marcado PASS apenas por CI verde.
 
-## Onda 01 — lembretes
-| Caso | Acao | Resultado esperado | Estado |
-| --- | --- | --- | --- |
-| A01 | Negar permissao de notificacao e criar lembrete futuro | UI informa limite sem travar; tarefa permanece acessivel | NOT RUN |
-| A02 | Conceder permissao e criar lembrete para horario futuro | Horario persistido e notificacao entregue no dispositivo | NOT RUN |
-| A03 | Fechar e reabrir app apos criar lembrete | Lembrete persiste sem duplicacao | NOT RUN |
-| A04 | Cancelar/excluir lembrete antes do disparo | Nao dispara notificacao cancelada | NOT RUN |
-| A05 | Concluir e reabrir tarefa | Estado correto e nenhuma notificacao indevida | NOT RUN |
-| A06 | Informar data/hora passada ou invalida | Bloqueio explicito; nenhum agendamento indevido | NOT RUN |
+## Matriz unica de casos A01–A16 (alinhada ao registro e validador)
+Os identificadores abaixo sao os mesmos de `docs/maya-actions-qa-a-evidence-record-v148.md` e `scripts/maya-qa-a-evidence-check.cjs`. Nao usar codigos P01–P05 ou R01–R05 na coleta: o validador aceita apenas A01–A16.
 
-## Onda 02 — metas e planejamento
-| Caso | Acao | Resultado esperado | Estado |
+| Caso | Acao em dispositivo | Resultado esperado | Estado |
 | --- | --- | --- | --- |
-| P01 | Criar meta com valor BRL valido | Valor e progresso exibidos corretamente, sem tratar como saldo bancario | NOT RUN |
-| P02 | Tentar valor vazio, negativo, NaN e formato invalido | Validacao impede dados invalidos | NOT RUN |
-| P03 | Fechar/reabrir app e consultar meta | Persistencia local por conta sem perda | NOT RUN |
-| P04 | Trocar de conta de teste e voltar | Metas de uma conta nao aparecem em outra | NOT RUN |
-| P05 | Atualizar progresso e verificar limites | Calculo consistente; sem operacao financeira | NOT RUN |
+| A01 | Criar lembrete futuro | Titulo e horario corretos | NOT RUN |
+| A02 | Informar horario passado | Bloqueio sem agendamento | NOT RUN |
+| A03 | Conceder permissao e aguardar disparo | Notificacao efetivamente recebida | NOT RUN |
+| A04 | Negar permissao | Aviso sem travamento | NOT RUN |
+| A05 | Cancelar antes do disparo | Nenhuma notificacao posterior | NOT RUN |
+| A06 | Concluir lembrete | Nenhuma notificacao duplicada | NOT RUN |
+| A07 | Reiniciar app | Lembretes persistem | NOT RUN |
+| A08 | Criar meta em BRL | Progresso correto, nao confundido com saldo | NOT RUN |
+| A09 | Testar valores vazios, negativos e invalidos | Dados recusados | NOT RUN |
+| A10 | Reiniciar e alternar duas contas de teste | Persistencia e isolamento por conta | NOT RUN |
+| A11 | Fechar/reabrir sessao | Login preservado conforme regras do app | NOT RUN |
+| A12 | Abrir Wallet e extrato | Apenas leitura, sem alteracoes | NOT RUN |
+| A13 | Navegar Pix/QR | Sem efetuar pagamento | NOT RUN |
+| A14 | Abrir informacoes USDC | Sem trade ou transferencia | NOT RUN |
+| A15 | Abrir Didit/KYC | Sem submeter dados nem mudar estado real | NOT RUN |
+| A16 | Conferir Staff/PJ com perfis de teste | Fronteiras de acesso preservadas | NOT RUN |
+
+Para A03/A05/A06, registrar horario previsto, horario observado e fuso; para A10, usar duas contas de teste autorizadas ou marcar BLOCKED. Uma captura do APK standalone nao substitui a prova da OTA QA A no app Play.
 
 ## Regressao e decisao
 - Login persistente e logout; ativacao; Maya/Staff; Didit/KYC; Wallet, saldo, extrato, QR/Pix/USDC, transferencias **apenas navegacao e preflight, sem confirmar operacoes reais**.
