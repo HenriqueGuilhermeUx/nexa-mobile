@@ -48,4 +48,34 @@ jobs:
             exit 1
           fi
           echo 'Missing evidence rejected as expected'
+      - name: Ensure incomplete release gates fail closed via CLI
+        shell: bash
+        run: |
+          file="$(mktemp)"
+          node - "$file" <<'NODE'
+          const fs = require('node:fs');
+          const path = process.argv[2];
+          const session = {
+            session_id: 'qa-session-001', package_name: 'br.com.trynexa.mayaqa',
+            runtime: '2.0.43', build: '148', bundle_sha: 'a'.repeat(40),
+            update_id: 'standalone_sem_ota', device: 'Physical QA device',
+            reviewer: 'QA operator'
+          };
+          fs.writeFileSync(path, JSON.stringify({
+            session,
+            cases: Array.from({length:16}, (_, i) => ({
+              ...session, id: 'A' + String(i+1).padStart(2,'0'),
+              result: 'PASS', evidence_id: 'capture-' + (i+1),
+              observed_at: '2026-11-10T01:00:00-03:00'
+            })),
+            ci: 'pending', device_compatibility: false, explicit_approval: false
+          }));
+          NODE
+          if node scripts/maya-qa-a-evidence-check.cjs "$file"; then
+            echo 'ERROR: unapproved 16-PASS evidence was accepted'
+            rm -f "$file"
+            exit 1
+          fi
+          rm -f "$file"
+          echo 'Unapproved evidence rejected as expected'
 # This workflow never uploads artifacts, publishes EAS updates, or promotes production.
