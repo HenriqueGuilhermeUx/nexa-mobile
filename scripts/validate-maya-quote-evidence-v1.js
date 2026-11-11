@@ -203,3 +203,17 @@ for (const invalidClock of [8.64e15 + 1, Number.MAX_VALUE]) {
   assert.throws(() => compareEvidenceBackedQuotes([], 3000, invalidClock), /Horário de avaliação inválido/);
   assert.throws(() => compareEvidenceBackedQuotes([item('notebook-8gb', 100)], 3000, invalidClock), /Horário de avaliação inválido/);
 }
+
+// Invalid quote economics must be reported as rejected batch entries, not empty ranked groups.
+for (const badQuote of [
+  {shippingPrice: null},
+  {itemPrice: Number.MAX_VALUE, shippingPrice: Number.MAX_VALUE},
+  {availability: 'unavailable'},
+]) {
+  const bad = item('notebook-8gb', 100, {quote: badQuote});
+  assert.equal(hasQuoteEvidence(bad, now), false);
+  const result = compareEvidenceBackedQuotes([bad, item('notebook-8gb', 100)], 3000, now);
+  assert.deepEqual(Array.from(result.rejectedIndices), [0]);
+  assert.equal(result.groups.length, 1);
+  assert.equal(result.groups[0].comparison.ranked.length, 1);
+}
