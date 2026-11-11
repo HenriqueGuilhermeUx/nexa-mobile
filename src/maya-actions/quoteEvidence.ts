@@ -45,7 +45,7 @@ function publicHttpsUrl(value: string): boolean {
 
 /** Evidence metadata is mandatory. Actual provenance is established ONLY by the backend. */
 export function hasQuoteEvidence(item: MayaEvidenceBackedQuote, now = Date.now()): boolean {
-  if (!Number.isFinite(now) || now < 0) return false;
+  if (!Number.isFinite(now) || now < 0 || now > 8.64e15) return false;
   if (!item || !item.quote || !item.evidence) return false;
   const ev = item.evidence;
   if (typeof ev.sourceId !== 'string' || typeof ev.retrievalId !== 'string' || typeof ev.productKey !== 'string') return false;
@@ -70,7 +70,7 @@ export function compareEvidenceBackedQuotes(
   budgetBrl?: number,
   now = Date.now(),
 ): MayaEvidenceComparison {
-  if (!Number.isFinite(now) || now < 0) throw new Error('Horário de avaliação inválido.');
+  if (!Number.isFinite(now) || now < 0 || now > 8.64e15) throw new Error('Horário de avaliação inválido.');
   if (budgetBrl !== undefined && (!Number.isFinite(budgetBrl) || budgetBrl <= 0 || budgetBrl > 1000000)) {
     throw new Error('Orçamento inválido.');
   }
