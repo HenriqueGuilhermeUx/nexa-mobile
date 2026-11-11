@@ -40,7 +40,9 @@ export function rankVerifiedQuotes(
       return;
     }
     const totalBrl = comparableTotal(quote);
-    if (totalBrl === null) {
+    // A backend can return individually finite amounts whose sum overflows.
+    // Never rank an infinite or otherwise non-finite checkout total.
+    if (totalBrl === null || !Number.isFinite(totalBrl)) {
       excluded.push({ index, reason: 'incomplete_total' });
       return;
     }
