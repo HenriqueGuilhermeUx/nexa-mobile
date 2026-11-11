@@ -6,10 +6,16 @@ on:
     paths:
       - scripts/maya-qa-a-evidence-check.cjs
       - .github/workflows/maya-actions-qa-a-evidence.yml
+      - docs/maya-actions-qa-a-device-protocol.md
+      - docs/maya-actions-qa-a-evidence-record-v148.md
+      - docs/maya-actions-qa-a-evidence-template.md
   pull_request:
     paths:
       - scripts/maya-qa-a-evidence-check.cjs
       - .github/workflows/maya-actions-qa-a-evidence.yml
+      - docs/maya-actions-qa-a-device-protocol.md
+      - docs/maya-actions-qa-a-evidence-record-v148.md
+      - docs/maya-actions-qa-a-evidence-template.md
   workflow_dispatch:
 permissions:
   contents: read
