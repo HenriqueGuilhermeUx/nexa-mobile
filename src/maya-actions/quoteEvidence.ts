@@ -3,7 +3,7 @@
  * substitute for server-side signature/merchant/DNS verification.
  * The application does not fetch offers and must not imply that it does.
  */
-import { type MayaMerchantQuote } from '../lib/mayaWebActionContracts';
+import { comparableTotal, isPlausiblePublicOffer, type MayaMerchantQuote } from '../lib/mayaWebActionContracts';
 import { rankVerifiedQuotes, type MayaQuoteComparison } from './verifiedQuoteComparison';
 
 export type MayaEvidenceBackedQuote = {
@@ -47,6 +47,11 @@ function publicHttpsUrl(value: string): boolean {
 export function hasQuoteEvidence(item: MayaEvidenceBackedQuote, now = Date.now()): boolean {
   if (!Number.isFinite(now) || now < 0 || now > 8.64e15) return false;
   if (!item || !item.quote || !item.evidence) return false;
+  // Evidence metadata alone must not admit an invalid or incomplete offer.
+  // Reject it at the batch boundary so rejectedIndices remains accurate.
+  if (!isPlausiblePublicOffer(item.quote, now)) return false;
+  const total = comparableTotal(item.quote);
+  if (total === null || !Number.isFinite(total)) return false;
   const ev = item.evidence;
   if (typeof ev.sourceId !== 'string' || typeof ev.retrievalId !== 'string' || typeof ev.productKey !== 'string') return false;
   if (!safeIdentifier.test(ev.sourceId) || !safeIdentifier.test(ev.retrievalId)) return false;
