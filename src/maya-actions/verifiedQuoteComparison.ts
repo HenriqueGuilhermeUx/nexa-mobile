@@ -27,11 +27,15 @@ export function rankVerifiedQuotes(
   if (budgetBrl !== undefined && (!Number.isFinite(budgetBrl) || budgetBrl <= 0 || budgetBrl > 1000000)) {
     throw new Error('Orçamento inválido.');
   }
+  if (!Array.isArray(quotes)) throw new Error('Lote de ofertas inválido.');
   if (quotes.length > 100) throw new Error('Limite de 100 ofertas por comparação.');
   const ranked: MayaRankedQuote[] = [];
   const excluded: MayaQuoteComparison['excluded'] = [];
   quotes.forEach((quote, index) => {
-    if (!isPlausiblePublicOffer(quote, evaluatedAt)) {
+    // Malformed backend entries must be excluded, never crash the whole comparison.
+    if (!quote || typeof quote !== 'object' || typeof quote.merchant !== 'string' ||
+        typeof quote.product !== 'string' || typeof quote.url !== 'string' ||
+        typeof quote.observedAt !== 'string' || !isPlausiblePublicOffer(quote, evaluatedAt)) {
       excluded.push({ index, reason: 'invalid_or_stale' });
       return;
     }
