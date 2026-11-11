@@ -1274,6 +1274,23 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           <QuickAction icon="send" title="Enviar" onPress={openWalletFirstSend} />
           <QuickAction icon="withdraw" title="Sacar" onPress={openWalletFirstWithdraw} />
         </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Abrir investimentos e crédito Aave"
+          style={styles.assistantHomeCard}
+          activeOpacity={0.84}
+          onPress={() => router.push('/(app)/aave-info' as any)}
+        >
+          <View style={styles.assistantHomeIcon}>
+            <Text style={styles.assistantHomeIconText}>◈</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.assistantHomeKicker}>INVESTIMENTOS E CRÉDITO</Text>
+            <Text style={styles.assistantHomeTitle}>Aave na Nexa</Text>
+            <Text style={styles.assistantHomeText}>Consulte posições e mercados, simule riscos e prepare operações com segurança.</Text>
+          </View>
+          <Text style={styles.assistantHomeArrow}>›</Text>
+        </TouchableOpacity>
 
         {config.assistantEnabled ? (
           <TouchableOpacity
