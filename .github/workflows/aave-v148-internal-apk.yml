@@ -27,6 +27,21 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Validate TypeScript
         run: npm run typecheck
+      - name: Verify Aave is reachable from Nexa home
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const home = fs.readFileSync('src/components/AlignedLegacyApp.tsx', 'utf8');
+          const layout = fs.readFileSync('app/(app)/_layout.tsx', 'utf8');
+          const aave = fs.readFileSync('app/(app)/aave-info.tsx', 'utf8');
+          if (!/function Home\(\)[\s\S]*?Aave na Nexa[\s\S]*?function /.test(home)) throw Error('No Aave home entry');
+          if (!home.includes("onPress={() => router.push('/(app)/aave-info' as any)}")) throw Error('No reachable Aave navigation');
+          if (!layout.includes('name="aave-info"')) throw Error('Missing Expo Router Aave screen');
+          for (const label of ['Mercados Aave observados','Minha posição na blockchain','Preparar uma operação','Teste o risco antes de decidir']) {
+            if (!aave.includes(label)) throw Error('Missing feature: ' + label);
+          }
+          console.log('Aave entry, navigation and content confirmed in source');
+          NODE
       - name: Isolate APK identity from installed Nexa Play app
         run: |
           node - <<'NODE'
@@ -38,7 +53,7 @@ jobs:
           doc.expo.slug = 'nexa-aave-internal';
           doc.expo.scheme = 'nexa-aave-internal';
           doc.expo.android.package = 'br.com.trynexa.aavepreview';
-          doc.expo.android.versionCode = 151; // Internal QA with real authenticated reads; above minimum build 144
+          doc.expo.android.versionCode = 152; // Internal QA with real authenticated reads; above minimum build 144
           doc.expo.extra.financialExecutionEnabled = false;
           doc.expo.extra.releaseChannel = 'internal-aave-qa';
           delete doc.expo.updates;
