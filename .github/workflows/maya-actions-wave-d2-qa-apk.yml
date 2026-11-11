@@ -1,11 +1,11 @@
 name: Build Maya Actions Wave D2 standalone Android QA APK
 on:
   push:
-    branches: [qa/maya-actions-wave-d2-apk-20261110]
-    paths: ['.github/workflows/maya-actions-wave-d2-github-apk.yml']
+    branches: [fix/maya-d-ux-calendar-finance-v148-20261111]
+    paths: ['.github/workflows/maya-actions-wave-d2-qa-apk.yml']
   pull_request:
     branches: [release/maya-actions-v148-wave-d-20261106]
-    paths: ['.github/workflows/maya-actions-wave-d2-github-apk.yml']
+    paths: ['.github/workflows/maya-actions-wave-d2-qa-apk.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,9 +21,9 @@ jobs:
       - name: Verify QA source was not taken from production
         run: |
           if [ "$GITHUB_EVENT_NAME" = 'pull_request' ]; then
-            test "$GITHUB_HEAD_REF" = 'qa/maya-actions-wave-d2-apk-20261110'
+            test "$GITHUB_HEAD_REF" = 'fix/maya-d-ux-calendar-finance-v148-20261111'
           else
-            test "$GITHUB_REF_NAME" = 'qa/maya-actions-wave-d2-apk-20261110'
+            test "$GITHUB_REF_NAME" = 'fix/maya-d-ux-calendar-finance-v148-20261111'
           fi
           echo "Building QA source $(git rev-parse HEAD)"
       - uses: actions/setup-node@v4
