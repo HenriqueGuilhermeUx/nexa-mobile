@@ -36,7 +36,7 @@ function check(record) {
   }
   // Reject control characters and oversized session identifiers before provenance checks.
   for(const key of ['session_id','device','reviewer']) {
-    if(typeof s[key]==='string' && (s[key].length>256 || /[\x00-\x1f\x7f]/.test(s[key]))) errors.push('invalid session identifier '+key);
+    if(typeof s[key]==='string' && (s[key].length>256 || /[\x00-\x1f\x7f\u200b-\u200f\u2060\ufeff]/u.test(s[key]))) errors.push('invalid session identifier '+key);
   }
   // QA records must identify a real session/device/reviewer, not synthetic fixtures.
   for(const key of ['session_id','device','reviewer']) {
@@ -107,6 +107,9 @@ if(require.main===module){
       assert(check({...good,cases:cases.map((item,i)=>i===0?{...item,evidence_id:placeholder}:item)}).includes('missing evidence A01'));
     }
     assert(check({...good,session:{...s,device:'Pixel QA\nCI: success'}}).includes('invalid session identifier device'));
+    assert(check({...good,session:{...s,device:'Pixel QA\u200b physical device'}}).includes('invalid session identifier device'));
+    assert(check({...good,session:{...s,reviewer:'QA\ufeff operator'}}).includes('invalid session identifier reviewer'));
+    assert(check({...good,session:{...s,session_id:'qa\u2060-session-001'}}).includes('invalid session identifier session_id'));
     assert(check({...good,session:{...s,reviewer:'x'.repeat(257)}}).includes('invalid session identifier reviewer'));
     assert(check({...good,session:{...s,reviewer:'  pendente  '}}).includes('missing session.reviewer'));
     assert(check({...good,session:{...s,device:'TODO'}}).includes('missing session.device'));
