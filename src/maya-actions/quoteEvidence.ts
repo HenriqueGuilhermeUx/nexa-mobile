@@ -50,6 +50,9 @@ export function hasQuoteEvidence(item: MayaEvidenceBackedQuote, now = Date.now()
   // Check raw backend timestamps before invoking offer validators that call Date.parse.
   // Date.parse(Symbol) throws rather than returning NaN.
   if (typeof item.quote.observedAt !== 'string' || typeof item.evidence.fetchedAt !== 'string') return false;
+  // Untrusted backend JSON may contain missing or non-string merchant/product fields.
+  // isPlausiblePublicOffer calls .trim() on both, so reject them before delegation.
+  if (typeof item.quote.merchant !== 'string' || typeof item.quote.product !== 'string') return false;
   // Evidence metadata alone must not admit an invalid or incomplete offer.
   // Reject it at the batch boundary so rejectedIndices remains accurate.
   if (!isPlausiblePublicOffer(item.quote, now)) return false;
