@@ -196,3 +196,10 @@ for (const malformed of [false, true, 0, 123, '', 'unexpected']) {
   assert.equal(mixed.groups[0].comparison.ranked.length, 1);
 }
 console.log('PASS Maya 09C evidence: distinct variants, source freshness, merchant-host consistency');
+
+// A finite timestamp beyond ECMAScript TimeClip must fail before ISO serialization.
+for (const invalidClock of [8.64e15 + 1, Number.MAX_VALUE]) {
+  assert.equal(hasQuoteEvidence(item('notebook-8gb', 100), invalidClock), false);
+  assert.throws(() => compareEvidenceBackedQuotes([], 3000, invalidClock), /Horário de avaliação inválido/);
+  assert.throws(() => compareEvidenceBackedQuotes([item('notebook-8gb', 100)], 3000, invalidClock), /Horário de avaliação inválido/);
+}
