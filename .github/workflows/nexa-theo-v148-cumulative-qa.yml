@@ -1,0 +1,62 @@
+name: Nexa Theo v148 — cumulative production bundle QA (no publish)
+on:
+  push:
+    branches: [feat/nexa-theo-composite-ota-v148-20261111]
+  pull_request:
+    branches: [release/nexa-2.0.43-v148-brasil]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexa-theo-cumulative-v148-qa
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_URL: https://trydocwallet.com
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_URL: https://mydatamed.com/healthwallet
+      EXPO_PUBLIC_NEXA_DOCWALLET_PLAY_STORE_URL: https://play.google.com/store/apps/details?id=br.com.alternativeventures.docwalletdocs
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_PLAY_STORE_URL: https://play.google.com/store/apps/details?id=br.com.healthwallet.app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Copy immutable composition logic before detaching old release
+        run: |
+          cp scripts/nexa-theo-v148-compose.sh "$RUNNER_TEMP/nexa-theo-v148-compose.sh"
+          cp scripts/nexa-theo-v148-ota-overlay.js "$RUNNER_TEMP/nexa-theo-v148-ota-overlay.js"
+      - name: Reconstruct previous approved OTA and add only Theo links
+        run: bash "$RUNNER_TEMP/nexa-theo-v148-compose.sh"
+      - name: Install pinned v148 dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate TypeScript
+        run: npm run typecheck
+      - name: Validate v148 mobile financial safety
+        run: |
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+      - name: Export cumulative Android bundle, no OTA publication
+        run: npm run export:android
