@@ -23,7 +23,8 @@ export function rankVerifiedQuotes(
   budgetBrl?: number,
   evaluatedAt = Date.now(),
 ): MayaQuoteComparison {
-  if (!Number.isFinite(evaluatedAt) || evaluatedAt < 0) throw new Error('Horário de avaliação inválido.');
+  // Date.toISOString accepts only the ECMAScript TimeClip range; reject bad backend clocks before processing.
+  if (!Number.isFinite(evaluatedAt) || evaluatedAt < 0 || evaluatedAt > 8.64e15) throw new Error('Horário de avaliação inválido.');
   if (budgetBrl !== undefined && (!Number.isFinite(budgetBrl) || budgetBrl <= 0 || budgetBrl > 1000000)) {
     throw new Error('Orçamento inválido.');
   }
