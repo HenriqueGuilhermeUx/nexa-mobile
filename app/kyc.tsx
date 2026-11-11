@@ -18,6 +18,7 @@ import {
   Title,
 } from '@/components/ui';
 import { BrazilKycStatus, nexaApi } from '@/lib/api';
+import { NEXA_TELEGRAM_SUPPORT_URL, nexaWhatsAppSupportUrl } from '@/lib/nexaSupportLinks';
 import { shouldShowEcosystemWelcome } from '@/lib/ecosystemOnboarding';
 import { resolveAuthenticatedRoute } from '@/lib/onboarding';
 import { loadNexaSession } from '@/lib/session';
@@ -152,6 +153,17 @@ export default function KycScreen() {
     }
   }
 
+  async function openSupport(channel: 'whatsapp' | 'telegram') {
+    const destination =
+      channel === 'whatsapp' ? nexaWhatsAppSupportUrl('kyc') : NEXA_TELEGRAM_SUPPORT_URL;
+    try {
+      // A click opens the external chat. No financial account data leaves Nexa.
+      await Linking.openURL(destination);
+    } catch {
+      setError('Não foi possível abrir o atendimento. Acesse trynexa.com.br/suporte no navegador.');
+    }
+  }
+
   const manualReview = status?.nextAction === 'manual_review';
   const approved = status?.kycStatus === 'approved';
 
@@ -240,6 +252,25 @@ export default function KycScreen() {
         onPress={refreshStatus}
       />
 
+      <Card>
+        <Text style={styles.consentTitle}>Precisa de ajuda com a verificação?</Text>
+        <Text style={styles.helper}>
+          O Theo pode orientar você por WhatsApp ou Telegram. A conversa não autentica sua conta, não aprova o KYC e não exige depósitos. Nunca envie CPF, documentos, selfies, senhas ou códigos pelo chat.
+        </Text>
+        <View style={styles.supportActions}>
+          <ActionButton
+            label="Falar com Theo no WhatsApp"
+            variant="secondary"
+            onPress={() => void openSupport('whatsapp')}
+          />
+          <ActionButton
+            label="Falar com Theo no Telegram"
+            variant="secondary"
+            onPress={() => void openSupport('telegram')}
+          />
+        </View>
+      </Card>
+
       {status?.outcomeCode ? (
         <Text style={styles.code}>Referência: {status.outcomeCode}</Text>
       ) : null}
@@ -250,6 +281,7 @@ export default function KycScreen() {
 
 const styles = StyleSheet.create({
   steps: { marginTop: spacing.md, gap: spacing.md },
+  supportActions: { marginTop: spacing.md, gap: spacing.sm },
   stepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   stepIndex: {
     width: 28,
