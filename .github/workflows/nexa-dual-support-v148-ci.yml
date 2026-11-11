@@ -34,10 +34,10 @@ jobs:
       - name: Protect financial and native baseline
         run: |
           git fetch origin feat/aave-v148-internal-apk-20261102 --depth=1
-          git diff --name-only origin/feat/aave-v148-internal-apk-20261102...HEAD | sort > /tmp/changed-files
+          git diff --name-only origin/feat/aave-v148-internal-apk-20261102 HEAD | sort > /tmp/changed-files
           printf 'app/kyc.tsx\napp/sign-in.tsx\nsrc/components/AlignedLegacyApp.tsx\nsrc/lib/nexaSupportLinks.ts\nscripts/validate-dual-support-v148.js\n.github/workflows/nexa-dual-support-v148-ci.yml\n' | sort > /tmp/allowed
           diff -u /tmp/allowed /tmp/changed-files
-          git diff --exit-code origin/feat/aave-v148-internal-apk-20261102...HEAD -- app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts
+          git diff --exit-code origin/feat/aave-v148-internal-apk-20261102 HEAD -- app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: TypeScript validation
