@@ -47,6 +47,9 @@ function publicHttpsUrl(value: string): boolean {
 export function hasQuoteEvidence(item: MayaEvidenceBackedQuote, now = Date.now()): boolean {
   if (!Number.isFinite(now) || now < 0 || now > 8.64e15) return false;
   if (!item || !item.quote || !item.evidence) return false;
+  // Check raw backend timestamps before invoking offer validators that call Date.parse.
+  // Date.parse(Symbol) throws rather than returning NaN.
+  if (typeof item.quote.observedAt !== 'string' || typeof item.evidence.fetchedAt !== 'string') return false;
   // Evidence metadata alone must not admit an invalid or incomplete offer.
   // Reject it at the batch boundary so rejectedIndices remains accurate.
   if (!isPlausiblePublicOffer(item.quote, now)) return false;
