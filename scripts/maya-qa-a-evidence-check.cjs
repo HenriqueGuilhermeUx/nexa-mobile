@@ -55,7 +55,7 @@ function check(record) {
     if(seen.has(c.id)) errors.push('duplicate '+c.id);
     seen.add(c.id);
     if(c.result!=='PASS') errors.push('not PASS '+c.id);
-    for(const k of ['session_id','package_name','runtime','build','bundle_sha','update_id']) if(c[k]!==s[k]) errors.push('provenance mismatch '+c.id+':'+k);
+    for(const k of ['session_id','package_name','runtime','build','bundle_sha','update_id','device','reviewer']) if(c[k]!==s[k]) errors.push('provenance mismatch '+c.id+':'+k);
     if(typeof c.evidence_id!=='string'||!c.evidence_id.trim()||/^(?:PENDENTE|TODO|TBD|N\/A|NA|PLACEHOLDER|REDACTED(?:[-_].*)?|EXAMPLE(?:[-_].*)?|SYNTHETIC(?:[-_].*)?|FAKE(?:[-_].*)?|MOCK(?:[-_].*)?|DEMO(?:[-_].*)?|TEST(?:[-_].*)?)$/i.test(c.evidence_id.trim())) errors.push('missing evidence '+c.id);
     else if(evidenceIds.has(c.evidence_id.trim().toLowerCase())) errors.push('reused evidence '+c.id);
     else evidenceIds.add(c.evidence_id.trim().toLowerCase());
@@ -85,6 +85,8 @@ if(require.main===module){
     assert(check({...good,cases:[[],...cases.slice(1)]}).includes('unknown case'));
     assert(check({...good,cases:['A01',...cases.slice(1)]}).includes('unknown case'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,bundle_sha:'b'.repeat(40)}:c)}).some(x=>x.startsWith('provenance mismatch')));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,device:'Different physical device'}:c)}).includes('provenance mismatch A01:device'));
+    assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,reviewer:'Different reviewer'}:c)}).includes('provenance mismatch A01:reviewer'));
     assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:cases[0].evidence_id}:c)}).includes('reused evidence A02'));
     assert(check({...good,cases:cases.map((c,i)=>i===1?{...c,evidence_id:'  CAPTURE-a01  '}:c)}).includes('reused evidence A02'));
     assert(check({...good,cases:cases.map((c,i)=>i===0?{...c,evidence_id:'PENDENTE'}:c)}).includes('missing evidence A01'));
