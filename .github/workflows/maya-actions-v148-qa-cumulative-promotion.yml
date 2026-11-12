@@ -1,0 +1,85 @@
+name: Maya Actions v148 — manual cumulative QA OTA gate
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: 'Exact tested 40-character SHA from integration/maya-actions-v148'
+        type: string
+        required: true
+      wave:
+        description: 'Wave identifier (e.g. 04-communication, 03-financas-leitura)'
+        type: string
+        required: true
+      confirmation:
+        description: 'Type QA-MAYA-ANDROID-V148 to publish ONLY to QA'
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: maya-actions-v148-qa-ota
+  cancel-in-progress: false
+jobs:
+  qa-update:
+    if: inputs.confirmation == 'QA-MAYA-ANDROID-V148'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: qa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/maya-actions-v148
+          fetch-depth: 0
+      - name: Lock candidate to integrated, reviewed SHA and Android v148 baseline
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          WAVE: ${{ inputs.wave }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[a-fA-F0-9]{40}$ ]]
+          [[ "$WAVE" =~ ^[0-9]{2}-[a-z0-9-]+$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch origin feat/aave-v148-internal-apk-20261102:refs/remotes/origin/feat/aave-v148-internal-apk-20261102
+          for path in app.json app.config.js eas.json; do
+            git show "origin/feat/aave-v148-internal-apk-20261102:$path" | cmp - "$path"
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node scripts/validate-maya-release-train.js
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: node scripts/validate-maya-actions-v1.js
+      - name: Test existing Maya contracts
+        run: |
+          for script in scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js; do
+            if test -f "$script"; then node "$script"; fi
+          done
+      - run: npm run typecheck
+      - name: Validate frozen Expo SDK57 binary patch drift (QA only)
+        run: node scripts/validate-maya-expo-qa-drift.js
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Verify Expo credentials
+        run: eas whoami
+      - name: Publish Android QA branch only — never production
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          WAVE: ${{ inputs.wave }}
+        run: |
+          eas update --branch maya-actions-v148-qa --platform android --message "Maya Actions QA $WAVE v148 sha $RELEASE_SHA" --non-interactive
