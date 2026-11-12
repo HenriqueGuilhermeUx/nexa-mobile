@@ -24,11 +24,14 @@ function run(data) {
 }
 try {
   assert.equal(run(base).status, 0, 'complete synthetic manifest should parse');
-  for (const timestamp of ['2026-11-06T', 'invalid', '2026-99-99T12:00:00Z', '2099-01-01T00:00:00Z']) {
+  for (const timestamp of ['2026-11-06T', 'invalid', '2026-99-99T12:00:00Z', '2026-02-30T12:00:00Z', '2026-04-31T12:00:00Z', '2025-02-29T12:00:00Z', '2099-01-01T00:00:00Z']) {
     const data = structuredClone(base);
     data.cases[0].testedAt = timestamp;
     assert.equal(run(data).status, 1, 'must reject timestamp: ' + timestamp);
   }
+  const leap = structuredClone(base);
+  leap.cases[0].testedAt = '2024-02-29T12:00:00Z';
+  assert.equal(run(leap).status, 1, 'pre-candidate leap date must be rejected');
   const duplicate = structuredClone(base);
   duplicate.cases[1].id = 'A01';
   assert.equal(run(duplicate).status, 1, 'duplicate/missing case must fail');
