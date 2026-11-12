@@ -1,0 +1,121 @@
+name: Maya D2 v148 — QA APK with actual EAS OTA channel
+on:
+  push:
+    branches: [qa/maya-d2-v148-ota-client-apk-20261112]
+    paths: ['.github/workflows/maya-d2-v148-ota-client-apk.yml']
+permissions:
+  contents: read
+concurrency:
+  group: maya-d2-v148-ota-client-apk
+  cancel-in-progress: false
+jobs:
+  build-qa-channel-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: qa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6f1c9fd1bf16fc0046228993a83118390da62760
+          fetch-depth: 0
+      - name: Verify tested D2 source and installable QA identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "6f1c9fd1bf16fc0046228993a83118390da62760"
+          node - <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const doc = JSON.parse(fs.readFileSync('app.json','utf8'));
+          assert.equal(doc.expo.version,'2.0.43');
+          assert.equal(doc.expo.android.versionCode,148);
+          assert.equal(doc.expo.android.package,'br.com.trynexa.app');
+          assert.equal(doc.expo.runtimeVersion.policy,'appVersion');
+          assert.equal(doc.expo.updates.url,'https://u.expo.dev/b3faabec-283a-4ba2-88b5-f096304e68aa');
+          assert.equal(doc.expo.extra.eas.projectId,'b3faabec-283a-4ba2-88b5-f096304e68aa');
+          doc.expo.name='Nexa Maya OTA QA';
+          doc.expo.android.package='br.com.trynexa.mayaotaqa';
+          doc.expo.scheme='nexa-maya-ota-qa';
+          doc.expo.extra.financialExecutionEnabled=false;
+          doc.expo.extra.releaseChannel='qa';
+          fs.writeFileSync('app.json',JSON.stringify(doc,null,2)+'\n');
+          const eas=JSON.parse(fs.readFileSync('eas.json','utf8'));
+          assert.equal(eas.build.production.channel,'production');
+          eas.build['maya-d2-ota-qa']={
+            distribution:'internal',channel:'maya-actions-v148-qa',
+            android:{buildType:'apk'},
+            env:{
+              EXPO_PUBLIC_NEXA_API_URL:'https://nexa-backend-p2u0.onrender.com/api/v1',
+              EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED:'false',
+              EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED:'false',
+              EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED:'true',
+              EXPO_PUBLIC_NEXA_RELEASE_CHANNEL:'qa'
+            }
+          };
+          fs.writeFileSync('eas.json',JSON.stringify(eas,null,2)+'\n');
+          NODE
+          test "$(node -p "require('./app.json').expo.android.package")" = "br.com.trynexa.mayaotaqa"
+          test "$(node -p "require('./eas.json').build['maya-d2-ota-qa'].channel")" = "maya-actions-v148-qa"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Validate unchanged Maya source contracts
+        run: |
+          node scripts/validate-maya-actions-agenda-v1.js
+          node scripts/validate-maya-financas-leitura-v1.js
+          npm run typecheck
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Verify EAS channel points only to QA branch
+        run: |
+          set -euo pipefail
+          eas whoami
+          eas channel:view maya-actions-v148-qa --json --non-interactive > "$RUNNER_TEMP/qa-channel.json"
+          node - "$RUNNER_TEMP/qa-channel.json" <<'NODE'
+          const fs=require('node:fs');
+          const x=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          const text=JSON.stringify(x);
+          if (!text.includes('maya-actions-v148-qa')) throw Error('QA channel does not reference expected QA branch');
+          if (text.includes('"production"')) throw Error('QA channel appears linked to production; manual review required');
+          console.log('QA channel exists with isolated QA branch');
+          NODE
+      - name: Build Android QA client (different package, OTA ENABLED)
+        run: |
+          eas build --platform android --profile maya-d2-ota-qa --non-interactive --wait --json > "$RUNNER_TEMP/eas-qa-build.json"
+      - name: Download signed internal QA APK and validate package
+        run: |
+          set -euo pipefail
+          node - "$RUNNER_TEMP/eas-qa-build.json" <<'NODE'
+          const fs=require('node:fs');
+          const data=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          const b=Array.isArray(data)?data[0]:data;
+          if (!b || b.status!=='FINISHED' || !/^https:\/\//.test(b.artifacts?.buildUrl||'')) throw Error('EAS did not return a successful downloadable Android artifact');
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/eas-qa-apk-url.txt',b.artifacts.buildUrl);
+          console.log('EAS build ID:',b.id);
+          NODE
+          curl --fail --location --retry 3 --max-time 180 --output Nexa-Maya-D2-OTA-QA-v148.apk "$(cat "$RUNNER_TEMP/eas-qa-apk-url.txt")"
+          test -s Nexa-Maya-D2-OTA-QA-v148.apk
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging Nexa-Maya-D2-OTA-QA-v148.apk | head -n 1)"
+          echo "$BADGING"
+          [[ "$BADGING" == *"name='br.com.trynexa.mayaotaqa'"* ]]
+          [[ "$BADGING" == *"versionCode='148'"* ]]
+          [[ "$BADGING" == *"versionName='2.0.43'"* ]]
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nexa-Maya-D2-OTA-QA-v148-Android-APK
+          path: Nexa-Maya-D2-OTA-QA-v148.apk
+          if-no-files-found: error
+          retention-days: 7
