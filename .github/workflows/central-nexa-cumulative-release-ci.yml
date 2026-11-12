@@ -1,0 +1,41 @@
+name: Central Nexa — cumulative v148 Android release safety CI
+on:
+  push:
+    branches:
+      - release/central-nexa-v148-ota-safe-20261112
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Protect exact EAS production code and native identity
+        run: |
+          set -euo pipefail
+          node scripts/validate-central-nexa-cumulative-release.js
+          for path in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts; do
+            git show a97dea14a6235be6332fc106370c70665de9fef3:"$path" | cmp - "$path"
+          done
+      - run: node scripts/validate-central-nexa-v148.js
+      - run: node scripts/validate-central-nexa-push-optin-v148.js
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run export:android
