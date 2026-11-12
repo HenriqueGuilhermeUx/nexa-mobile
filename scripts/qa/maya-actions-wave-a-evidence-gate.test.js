@@ -67,6 +67,11 @@ try {
   const deviceMissing = structuredClone(base);
   deviceMissing.cases[0].device = '  ';
   assert.equal(run(deviceMissing).status, 1, 'missing device must fail');
+  for (const badDevice of ['Android\nspoofed', 'Android\tspoofed', 'Android\u0000spoofed', 'Android\u007fspoofed', 'X'.repeat(161)]) {
+    const data = structuredClone(base);
+    data.cases[0].device = badDevice;
+    assert.equal(run(data).status, 1, 'unsafe device metadata must fail');
+  }
   const notPassed = structuredClone(base);
   notPassed.cases[0].status = 'PENDING';
   assert.equal(run(notPassed).status, 1, 'pending physical test must fail');
