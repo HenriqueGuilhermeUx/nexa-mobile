@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { config } from '@/config';
@@ -41,6 +41,7 @@ export default function CentralNexaScreen() {
   const [preferences, setPreferences] = useState<CentralPreferences | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const pendingMessage = useRef<{ text: string; requestId: string } | null>(null);
 
   useEffect(() => {
     let current = true;
@@ -52,7 +53,11 @@ export default function CentralNexaScreen() {
           setIdentityStage('signed_out');
           return;
         }
-        const state = await nexaApi.getMyKycStatus(session.accessToken);
+        const profile = await nexaApi.me(session.accessToken);
+        const country = String(profile?.residenceCountry || 'BR').trim().toUpperCase();
+        const state = country === 'BR'
+          ? await nexaApi.getMyKycStatus(session.accessToken)
+          : await nexaApi.getMyGlobalKycStatus(session.accessToken);
         if (!current) return;
         if (state.kycStatus === 'approved' || state.nextAction === 'approved') {
           setIdentityStage('approved');
@@ -102,6 +107,12 @@ export default function CentralNexaScreen() {
       setInboxState('signed_out');
       return;
     }
+    // Retain the same client message ID if the connection fails after
+    // the backend commits. Replaying with a new ID would duplicate Theo.
+    if (!pendingMessage.current || pendingMessage.current.text !== text) {
+      pendingMessage.current = { text, requestId: Crypto.randomUUID() };
+    }
+    const requestId = pendingMessage.current.requestId;
     setSending(true);
     try {
       const response = await fetch((config.apiUrl.endsWith('/') ? config.apiUrl.slice(0, -1) : config.apiUrl) + '/central-nexa/support', {
@@ -110,12 +121,13 @@ export default function CentralNexaScreen() {
           Authorization: 'Bearer ' + session.accessToken,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text, clientMessageId: Crypto.randomUUID() }),
+        body: JSON.stringify({ text, clientMessageId: requestId }),
       });
       if (!response.ok) {
         setNotice('Mensagem não enviada. Não inclua CPF, e-mail, telefone ou documentos. Você pode usar o atendimento externo.');
         return;
       }
+      pendingMessage.current = null;
       setDraft('');
       setNotice('');
       await refreshInbox();
@@ -206,7 +218,7 @@ export default function CentralNexaScreen() {
             <TextInput
               accessibilityLabel="Escrever para o Theo"
               value={draft}
-              onChangeText={setDraft}
+              onChangeText={value => { if (value !== draft) pendingMessage.current = null; setDraft(value); }}
               maxLength={1000}
               multiline
               placeholder="Pergunte ao Theo, sem enviar dados pessoais"
