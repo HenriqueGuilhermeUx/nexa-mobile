@@ -90,7 +90,7 @@ jobs:
         run: eas update --branch central-nexa-v148-qa --platform android --message "Central Nexa QA v148 $(git rev-parse --short HEAD)" --non-interactive
 
   production-canary:
-    if: github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release(central): rollout-10')
+    if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release(central): rollout-10')"
     needs: [release-contract, qa-ota]
     runs-on: ubuntu-latest
     timeout-minutes: 35
