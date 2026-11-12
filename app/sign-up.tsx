@@ -14,6 +14,7 @@ import {
 import { nexaApi, tokensFromLogin } from '@/lib/api';
 import { clearNexaSession, saveNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
+import { config } from '@/config';
 
 function digits(value: string) {
   return String(value || '').replace(/\D/g, '');
@@ -30,6 +31,7 @@ export default function SignUpScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [qaStage, setQaStage] = useState('');
   const [error, setError] = useState('');
 
   function validateForm() {
@@ -57,8 +59,11 @@ export default function SignUpScreen() {
     const normalizedPhone = digits(phone);
 
     setLoading(true);
+    const qa = config.releaseChannel === 'wallet-inbound-lab';
     try {
+      if (qa) setQaStage('Preparando sessão de testes…');
       await clearNexaSession();
+      if (qa) setQaStage('Enviando cadastro ao servidor QA…');
       const response = await nexaApi.register({
         fullName: fullName.trim(),
         email: normalizedEmail,
@@ -68,6 +73,7 @@ export default function SignUpScreen() {
         password,
       });
       const tokens = tokensFromLogin(response);
+      if (qa) setQaStage('Salvando sessão QA…');
       await saveNexaSession({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -86,6 +92,7 @@ export default function SignUpScreen() {
       );
     } finally {
       setLoading(false);
+      setQaStage('');
     }
   }
 
@@ -149,6 +156,7 @@ export default function SignUpScreen() {
         loading={loading}
         onPress={createAccount}
       />
+      {loading && qaStage ? <Text style={styles.country}>{qaStage}</Text> : null}
       <Text style={styles.country}>País de residência: {countryCode}</Text>
       <ActionButton
         label="Trocar país"
