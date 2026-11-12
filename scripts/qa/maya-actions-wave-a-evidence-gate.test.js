@@ -90,7 +90,7 @@ try {
     assert.equal(run(data).status, 1, 'control characters in evidence reference must fail');
   }
   // Unicode format controls can invisibly alter or spoof an audit reference.
-  for (const invisible of ['\\u200b', '\\u200d', '\\u202e', '\\ufeff']) {
+  for (const invisible of [0x200b, 0x200d, 0x202e, 0xfeff].map(cp => String.fromCodePoint(cp))) {
     const ref = structuredClone(base);
     ref.cases[0].evidenceRef = 'proof' + invisible + '1';
     assert.equal(run(ref).status, 1, 'invisible Unicode in evidence must fail');
