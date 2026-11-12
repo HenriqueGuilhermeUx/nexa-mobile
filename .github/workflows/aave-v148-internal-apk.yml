@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths: ['.github/workflows/aave-v148-internal-apk.yml']
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/aave-v148-internal-apk.yml']
 permissions:
   contents: read
 jobs:
@@ -14,7 +17,7 @@ jobs:
       - name: Check out isolated v148 Aave QA branch
         uses: actions/checkout@v4
         with:
-          ref: feat/aave-v148-internal-apk-20261102
+          ref: feat/aave-qa-operation-eligibility-20261112
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -27,6 +30,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Validate TypeScript
         run: npm run typecheck
+      - name: Run Aave isolated planning eligibility regression matrix
+        run: node scripts/validate-aave-eligibility.cjs
       - name: Verify Aave is reachable from Nexa home
         run: |
           node - <<'NODE'
@@ -53,7 +58,7 @@ jobs:
           doc.expo.slug = 'nexa-aave-internal';
           doc.expo.scheme = 'nexa-aave-internal';
           doc.expo.android.package = 'br.com.trynexa.aavepreview';
-          doc.expo.android.versionCode = 152; // Internal QA with real authenticated reads; above minimum build 144
+          doc.expo.android.versionCode = 153; // Internal QA with real authenticated reads; above minimum build 144
           doc.expo.extra.financialExecutionEnabled = false;
           doc.expo.extra.releaseChannel = 'internal-aave-qa';
           delete doc.expo.updates;
@@ -100,7 +105,7 @@ jobs:
       - name: Upload APK to GitHub Actions for internal test
         uses: actions/upload-artifact@v4
         with:
-          name: nexa-aave-v148-standalone-qa-apk
+          name: nexa-aave-build153-eligibility-qa-apk
           path: nexa-aave-v148-qa-signed.apk
           if-no-files-found: error
           retention-days: 7
