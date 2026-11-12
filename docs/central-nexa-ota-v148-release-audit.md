@@ -28,6 +28,10 @@
 Previous production group: db9fba55-40ca-4a60-8a53-e89f0960c8fb.
 If canary causes regressions, stop/invalidate the rollout and republish the known-good EAS update using Expo's rollback mechanism, then check native version and app status. Avoid deleting user data or clearing application storage.
 
+## Production 10% canary authorization
+
+The owner explicitly authorized the Central Nexa OTA with preservation of all installed functionality. The release workflow will publish to 10% only after testing an exactly matching SHA on the unlinked EAS QA branch and revalidating the last production Android update against the known-good commit. This is a canary, not full 100% rollout. No remote push or promotion is enabled.
+
 ## QA completion
 
 CI of minimal production baseline: PASS.
