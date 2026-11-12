@@ -117,7 +117,7 @@ jobs:
               const response=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify({query,variables}),signal:AbortSignal.timeout(12000)});
               return response.json();
             }
-            const query='query Production($appId:String!){app{byId(appId:$appId){id updateChannelByName(name:"production"){id name branchMapping updateBranches{name}} updateBranchByName(name:"production"){id name updateGroups(limit:12){id createdAt updates{id gitCommitHash platform createdAt}}}}}}';
+            const query='query Production($appId:String!){app{byId(appId:$appId){id updateChannelByName(name:"production"){id name branchMapping updateBranches(offset:0,limit:15){name}} updateBranchByName(name:"production"){id name updates(offset:0,limit:20){id gitCommitHash platform group createdAt}}}}}';
             const data=await exec(query,{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'});
             if(data.errors?.length){
               console.log('EXPO_PRODUCTION_QUERY_ERROR_CODES='+JSON.stringify(data.errors.map(e=>e.extensions?.code||'schema_error')));
@@ -131,10 +131,9 @@ jobs:
               console.log('EXPO_PRODUCTION_CHANNEL_BRANCHES='+JSON.stringify(channel.updateBranches?.map(b=>b.name)||[]));
               const branch=app.updateBranchByName||{};
               console.log('EXPO_PRODUCTION_UPDATE_BRANCH='+branch.name);
-              for(const g of (branch.updateGroups||[]).slice(0,10)){
-                console.log('EXPO_PRODUCTION_UPDATE_GROUP='+JSON.stringify({
-                  id:g.id,createdAt:g.createdAt,
-                  updates:g.updates?.map(u=>({id:u.id,commit:u.gitCommitHash,platform:u.platform,createdAt:u.createdAt}))||[]
+              for(const u of (branch.updates||[]).slice(0,16)){
+                console.log('EXPO_PRODUCTION_UPDATE='+JSON.stringify({
+                  id:u.id,group:u.group,commit:u.gitCommitHash,platform:u.platform,createdAt:u.createdAt
                 }));
               }
             }
