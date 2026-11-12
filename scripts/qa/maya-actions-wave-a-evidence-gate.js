@@ -60,6 +60,13 @@ for (const id of ids) {
   // Reject control characters that can corrupt audit logs or conceal a reused reference.
   if (typeof c.evidenceRef === 'string' && /[\x00-\x1f\x7f\u2028\u2029\p{Cf}]/u.test(c.evidenceRef)) failures.push(id + ': evidence reference contains control characters');
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.length > 512) failures.push(id + ': evidence reference too long');
+  // Do not allow credentials embedded in private evidence URLs to enter QA audit logs.
+  if (typeof c.evidenceRef === 'string' && /^https?:\/\//i.test(c.evidenceRef.trim())) {
+    try {
+      const url = new URL(c.evidenceRef.trim());
+      if (url.username || url.password) failures.push(id + ': evidence URL contains credentials');
+    } catch { failures.push(id + ': malformed evidence URL'); }
+  }
   if (typeof c.testedAt !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(c.testedAt) ||
       !Number.isFinite(Date.parse(c.testedAt)) ||
