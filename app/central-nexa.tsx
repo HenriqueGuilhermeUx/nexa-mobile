@@ -7,6 +7,7 @@ import { config } from '@/config';
 import { Screen } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
 import { ensureNexaNotificationPermission } from '@/lib/nexaNotifications';
+import { registerNexaCentralServicePush, revokeNexaCentralServicePush } from '@/lib/nexaCentralPush';
 import { loadNexaSession } from '@/lib/session';
 import { NEXA_TELEGRAM_SUPPORT_URL, nexaWhatsAppSupportUrl } from '@/lib/nexaSupportLinks';
 import { colors, radius, spacing } from '@/theme';
@@ -173,13 +174,37 @@ export default function CentralNexaScreen() {
     setPushState('loading');
     try {
       const result = await ensureNexaNotificationPermission();
-      setPushState(result.granted ? 'granted' : 'denied');
-      setNotice(result.granted
-        ? 'Avisos permitidos neste aparelho. A caixa de mensagens e os envios remotos estão sendo preparados.'
-        : 'As notificações não foram autorizadas. Você poderá ajustar isso nas configurações do aparelho.');
+      if (!result.granted) {
+        setPushState('denied');
+        setNotice('As notificações não foram autorizadas. Você poderá ajustar isso nas configurações do aparelho.');
+        return;
+      }
+      const registration = await registerNexaCentralServicePush();
+      setPushState(registration.registered ? 'granted' : 'idle');
+      setNotice(registration.registered
+        ? 'Seu aparelho foi registrado para avisos de serviço. A entrega remota ainda está em homologação; ofertas continuam desativadas.'
+        : 'O aparelho permitiu notificações, mas ainda não conseguimos registrar este dispositivo na Nexa. Nenhum envio foi ativado.');
     } catch {
       setPushState('denied');
       setNotice('Não foi possível solicitar a permissão neste aparelho. Tente novamente mais tarde.');
+    }
+  }
+
+  async function disablePush() {
+    setPushState('loading');
+    try {
+      const revoked = await revokeNexaCentralServicePush();
+      if (revoked) {
+        setPushState('idle');
+        setPreferences(current => current ? {...current,servicePushOptIn:false} : current);
+        setNotice('Avisos de serviço desativados para este aparelho.');
+      } else {
+        setPushState('idle');
+        setNotice('Não foi possível confirmar a desativação. Você pode bloquear notificações nas configurações do aparelho.');
+      }
+    } catch {
+      setPushState('idle');
+      setNotice('Não foi possível confirmar a desativação no servidor.');
     }
   }
 
@@ -249,7 +274,10 @@ export default function CentralNexaScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Avisos no celular</Text>
         <Text style={styles.paragraph}>Você decide se permite notificações neste aparelho. Não ativaremos campanhas promocionais automaticamente.</Text>
-        <Action title={pushState === 'granted' ? 'Notificações permitidas' : pushState === 'loading' ? 'Verificando permissão…' : 'Permitir notificações'} detail="O envio de push remoto ainda exige configuração e validação do serviço" onPress={() => { if (pushState !== 'loading') void enablePush(); }} />
+        <Action title={pushState === 'granted' ? 'Avisos de serviço: aparelho registrado' : pushState === 'loading' ? 'Verificando aparelho…' : 'Ativar avisos de serviço'} detail="Solicita a permissão do aparelho e registra o dispositivo na Nexa; não autoriza publicidade." onPress={() => { if (pushState !== 'loading' && pushState !== 'granted') void enablePush(); }} />
+        {pushState === 'granted' || preferences?.servicePushOptIn ? (
+          <Action title="Desativar avisos neste aparelho" detail="Revoga o dispositivo e a preferência de serviço" onPress={() => { if (pushState !== 'loading') void disablePush(); }} />
+        ) : null}
       </View>
 
       <View style={styles.section}>
