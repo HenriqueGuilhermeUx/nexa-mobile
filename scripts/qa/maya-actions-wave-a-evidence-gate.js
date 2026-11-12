@@ -61,6 +61,10 @@ for (const id of ids) {
       Date.parse(c.testedAt) > Date.now()) failures.push(id + ': invalid or future timestamp');
   if (typeof c.device !== 'string' || !c.device.trim()) failures.push(id + ': device missing');
 }
+// Each physical test must point to its own evidence; a copied reference is not 16 proofs.
+const refs = cases.filter(c => c && typeof c.evidenceRef === 'string' && c.evidenceRef.trim())
+  .map(c => c.evidenceRef.trim());
+if (new Set(refs).size !== refs.length) failures.push('duplicate evidence reference');
 if (cases.some(c => !ids.includes(c?.id))) failures.push('unknown case ID');
 if (failures.length) {
   console.error('NO-GO: ' + failures.join('; '));
