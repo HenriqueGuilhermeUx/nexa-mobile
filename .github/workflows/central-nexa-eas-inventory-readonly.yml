@@ -37,36 +37,53 @@ jobs:
         with:
           eas-version: 24.8.0
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Read channel mapping and latest Android update group
+      - name: Read-only EAS channel and update inventory with safe summaries
         shell: bash
         run: |
           set -euo pipefail
-          eas channel:view production --json --non-interactive > /tmp/nexa-channel.json
-          node - <<'NODE'
-          const fs = require('fs');
-          const value = JSON.parse(fs.readFileSync('/tmp/nexa-channel.json','utf8'));
-          const candidates = [value?.branch?.name, value?.branchMapping?.branchName, value?.branchName, value?.branch];
-          const branch = candidates.find(x => typeof x === 'string' && /^[a-z0-9][a-z0-9/_-]{0,120}$/i.test(x));
-          if (!branch) throw new Error('EAS_BRANCH_MAPPING_UNCLEAR — do not publish');
-          fs.writeFileSync('/tmp/nexa-production-branch',branch);
-          console.log('EAS_PRODUCTION_BRANCH='+branch);
+          if eas channel:list --json --non-interactive > /tmp/nexa-channels.json 2>/tmp/nexa-channels-error; then
+            node - <<'NODE'
+          const fs=require('fs');
+          const data=JSON.parse(fs.readFileSync('/tmp/nexa-channels.json','utf8'));
+          const rows=Array.isArray(data)?data:Array.isArray(data.channels)?data.channels:Array.isArray(data.results)?data.results:[];
+          console.log('EAS_CHANNEL_COUNT='+rows.length);
+          rows.filter(x=>String(x.name||'').includes('production')).forEach(x=>{
+            const mapping=x.branchMapping||x.branch||{};
+            console.log('EAS_CHANNEL='+JSON.stringify({
+              name:x.name,branch:typeof mapping==='string'?mapping:(mapping.name||mapping.branchName||null),
+              runtimeVersion:x.runtimeVersion||null
+            }));
+          });
           NODE
-          BRANCH="$(cat /tmp/nexa-production-branch)"
-          eas update:list --branch "$BRANCH" --platform android --limit 12 --json --non-interactive > /tmp/nexa-updates.json
-          node - <<'NODE'
-          const fs = require('fs');
-          const source = JSON.parse(fs.readFileSync('/tmp/nexa-updates.json','utf8'));
-          // Keep a deliberately narrow public audit record; no tokens, URLs, PII or manifests.
-          const entries = Array.isArray(source) ? source : Array.isArray(source?.updates) ? source.updates : Array.isArray(source?.updateGroups) ? source.updateGroups : [];
-          if (!entries.length) throw new Error('EAS_UPDATES_FORMAT_OR_HISTORY_UNKNOWN — do not publish');
-          for (const item of entries.slice(0, 8)) {
-            const safe = {
-              id: item.group || item.groupId || item.id || null,
-              createdAt: item.createdAt || item.updatedAt || null,
-              runtimeVersion: item.runtimeVersion || item.updates?.[0]?.runtimeVersion || null,
-              gitCommitHash: item.gitCommitHash || item.updates?.[0]?.gitCommitHash || null,
-              message: String(item.message || '').slice(0,120),
-            };
-            console.log('EAS_UPDATE_SUMMARY '+JSON.stringify(safe));
-          }
+          else
+            echo "EAS_CHANNEL_LIST_FAILED: no channel details available"
+          fi
+          if eas branch:list --json --non-interactive > /tmp/nexa-branches.json 2>/tmp/nexa-branches-error; then
+            node - <<'NODE'
+          const fs=require('fs');
+          const data=JSON.parse(fs.readFileSync('/tmp/nexa-branches.json','utf8'));
+          const rows=Array.isArray(data)?data:Array.isArray(data.branches)?data.branches:[];
+          console.log('EAS_BRANCH_COUNT='+rows.length);
+          console.log('EAS_BRANCH_NAMES='+rows.map(x=>x.name).filter(x=>typeof x==='string').slice(0,35).join(','));
           NODE
+          else
+            echo "EAS_BRANCH_LIST_FAILED: no branch details available"
+          fi
+          if eas update:list --all --platform android --limit 15 --json --non-interactive > /tmp/nexa-updates.json 2>/tmp/nexa-updates-error; then
+            node - <<'NODE'
+          const fs=require('fs');
+          const data=JSON.parse(fs.readFileSync('/tmp/nexa-updates.json','utf8'));
+          const rows=Array.isArray(data)?data:Array.isArray(data.updates)?data.updates:Array.isArray(data.updateGroups)?data.updateGroups:[];
+          console.log('EAS_ANDROID_UPDATE_COUNT='+rows.length);
+          rows.slice(0,12).forEach(x=>console.log('EAS_UPDATE='+JSON.stringify({
+            id:x.group||x.groupId||x.id||null,
+            branch:x.branch?.name||x.branchName||null,
+            runtimeVersion:x.runtimeVersion||x.updates?.[0]?.runtimeVersion||null,
+            gitCommitHash:x.gitCommitHash||x.updates?.[0]?.gitCommitHash||null,
+            createdAt:x.createdAt||null
+          })));
+          NODE
+          else
+            echo "EAS_UPDATES_LIST_FAILED: no update details available"
+          fi
+          echo "AUDIT_ONLY_NO_CHANGES"
