@@ -58,7 +58,7 @@ for (const id of ids) {
   if (c.status !== 'PASS') failures.push(id + ': not PASS');
   if (typeof c.evidenceRef !== 'string' || !c.evidenceRef.trim()) failures.push(id + ': evidence reference missing');
   // Reject control characters that can corrupt audit logs or conceal a reused reference.
-  if (typeof c.evidenceRef === 'string' && /[\x00-\x1f\x7f]/.test(c.evidenceRef)) failures.push(id + ': evidence reference contains control characters');
+  if (typeof c.evidenceRef === 'string' && /[\x00-\x1f\x7f\p{Cf}]/u.test(c.evidenceRef)) failures.push(id + ': evidence reference contains control characters');
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.length > 512) failures.push(id + ': evidence reference too long');
   if (typeof c.testedAt !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(c.testedAt) ||
@@ -69,7 +69,7 @@ for (const id of ids) {
       Date.parse(c.testedAt) > Date.now()) failures.push(id + ': invalid or future timestamp');
   if (typeof c.device !== 'string' || !c.device.trim()) failures.push(id + ': device missing');
   // Keep device metadata printable and bounded; it is copied into private audit reports.
-  if (typeof c.device === 'string' && (/[\x00-\x1f\x7f]/.test(c.device) || c.device.length > 160)) failures.push(id + ': invalid device metadata');
+  if (typeof c.device === 'string' && (/[\x00-\x1f\x7f\p{Cf}]/u.test(c.device) || c.device.length > 160)) failures.push(id + ': invalid device metadata');
 }
 // Each physical test must point to its own evidence; a copied reference is not 16 proofs.
 const refs = cases.filter(c => c && typeof c.evidenceRef === 'string' && c.evidenceRef.trim())
