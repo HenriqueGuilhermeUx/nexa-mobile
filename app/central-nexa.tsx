@@ -74,7 +74,7 @@ export default function CentralNexaScreen() {
     try {
       const session = await loadNexaSession();
       if (!session) { setInboxState('signed_out'); return; }
-      const response = await fetch(config.apiUrl.replace(/\\/$/, '') + '/central-nexa/me', {
+      const response = await fetch((config.apiUrl.endsWith('/') ? config.apiUrl.slice(0, -1) : config.apiUrl) + '/central-nexa/me', {
         headers: { Authorization: 'Bearer ' + session.accessToken },
       });
       if (!response.ok) { setInboxState('unavailable'); return; }
@@ -104,7 +104,7 @@ export default function CentralNexaScreen() {
     }
     setSending(true);
     try {
-      const response = await fetch(config.apiUrl.replace(/\\/$/, '') + '/central-nexa/support', {
+      const response = await fetch((config.apiUrl.endsWith('/') ? config.apiUrl.slice(0, -1) : config.apiUrl) + '/central-nexa/support', {
         method: 'POST',
         headers: {
           Authorization: 'Bearer ' + session.accessToken,
@@ -131,7 +131,7 @@ export default function CentralNexaScreen() {
     const session = await loadNexaSession();
     if (!session) return;
     try {
-      const response = await fetch(config.apiUrl.replace(/\\/$/, '') + '/central-nexa/preferences', {
+      const response = await fetch((config.apiUrl.endsWith('/') ? config.apiUrl.slice(0, -1) : config.apiUrl) + '/central-nexa/preferences', {
         method: 'POST',
         headers: {
           Authorization: 'Bearer ' + session.accessToken,
