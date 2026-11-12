@@ -86,4 +86,19 @@ jobs:
           else
             echo "EAS_UPDATES_LIST_FAILED: no update details available"
           fi
+          node - <<'NODE'
+          const fs = require('fs');
+          for (const type of ['channels','branches','updates']) {
+            const path = '/tmp/nexa-' + type + '-error';
+            if (!fs.existsSync(path)) continue;
+            const error = fs.readFileSync(path,'utf8').toLowerCase();
+            const category =
+              /not.authoriz|permission|access.denied|forbidden|403/.test(error) ? 'authorization' :
+              /project.not.found|could.not.find.project|404|not.found/.test(error) ? 'project_not_found' :
+              /network|timeout|503|502|unavailable|connection|fetch.failed/.test(error) ? 'network_or_outage' :
+              /unknown.flag|unknown.option|unexpected.argument|invalid.flag/.test(error) ? 'cli_argument' :
+              /graphql/.test(error) ? 'graphql_or_backend' : 'unclassified';
+            console.log('EAS_'+type.toUpperCase()+'_FAILURE_CATEGORY='+category);
+          }
+          NODE
           echo "AUDIT_ONLY_NO_CHANGES"
