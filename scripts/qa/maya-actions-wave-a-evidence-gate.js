@@ -71,9 +71,9 @@ for (const id of ids) {
   // Keep device metadata printable and bounded; it is copied into private audit reports.
   if (typeof c.device === 'string' && (/[\x00-\x1f\x7f\p{Cf}]/u.test(c.device) || c.device.length > 160)) failures.push(id + ': invalid device metadata');
 }
-// Each physical test must point to its own evidence; a copied reference is not 16 proofs.
+// Each physical test must point to its own evidence; normalize canonically equivalent Unicode to prevent duplicate-proof bypasses.
 const refs = cases.filter(c => c && typeof c.evidenceRef === 'string' && c.evidenceRef.trim())
-  .map(c => c.evidenceRef.trim());
+  .map(c => c.evidenceRef.trim().normalize('NFC'));
 if (new Set(refs).size !== refs.length) failures.push('duplicate evidence reference');
 if (cases.some(c => !ids.includes(c?.id))) failures.push('unknown case ID');
 if (failures.length) {
