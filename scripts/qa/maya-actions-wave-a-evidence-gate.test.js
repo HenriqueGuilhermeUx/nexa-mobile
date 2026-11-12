@@ -69,6 +69,12 @@ try {
   const duplicate = structuredClone(base);
   duplicate.cases[1].id = 'A01';
   assert.equal(run(duplicate).status, 1, 'duplicate/missing case must fail');
+  const reused = structuredClone(base);
+  reused.cases[1].evidenceRef = reused.cases[0].evidenceRef;
+  assert.equal(run(reused).status, 1, 'reused evidence reference must fail');
+  const reusedWhitespace = structuredClone(base);
+  reusedWhitespace.cases[1].evidenceRef = ' ' + reusedWhitespace.cases[0].evidenceRef + ' ';
+  assert.equal(run(reusedWhitespace).status, 1, 'whitespace cannot bypass evidence uniqueness');
   const missing = structuredClone(base);
   missing.cases[0].evidenceRef = '';
   assert.equal(run(missing).status, 1, 'missing evidence must fail');
