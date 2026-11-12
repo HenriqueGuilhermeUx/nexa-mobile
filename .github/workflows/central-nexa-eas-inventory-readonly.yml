@@ -81,6 +81,31 @@ jobs:
             }catch(e){console.log('EXPO_API_TRANSPORT_ERROR='+String(e.name||'unknown'))}
           })();
           NODE
+      - name: Inspect read-only Expo GraphQL update metadata fields
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const names=['App','UpdateBranch','UpdateChannel','Update','UpdateGroup'];
+            const query='query Introspection($name:String!){__type(name:$name){name fields{name type{kind name ofType{kind name}}}}}';
+            for(const name of names){
+              try{
+                const res=await fetch('https://api.expo.dev/graphql',{
+                  method:'POST',headers:{'Authorization':'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+                  body:JSON.stringify({query,variables:{name}}),signal:AbortSignal.timeout(12000)
+                });
+                const value=await res.json();
+                const fields=value.data?.__type?.fields?.map(x=>x.name)||[];
+                console.log('EXPO_SCHEMA_'+name.toUpperCase()+'='+JSON.stringify(
+                  fields.filter(x=>/update|channel|branch|group|runtime|commit|created|name|id/i.test(x)).slice(0,70)
+                ));
+                console.log('EXPO_SCHEMA_'+name.toUpperCase()+'_ERRORS='+JSON.stringify(
+                  (value.errors||[]).map(x=>x.extensions?.code||'unknown')
+                ));
+              }catch(e){console.log('EXPO_SCHEMA_'+name.toUpperCase()+'_UNAVAILABLE')}
+            }
+          })();
+          NODE
       - name: Validate linked EAS project (read only)
         shell: bash
         run: |
