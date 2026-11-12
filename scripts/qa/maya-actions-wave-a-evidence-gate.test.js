@@ -98,6 +98,15 @@ try {
     device.cases[0].device = 'Android' + invisible + 'QA';
     assert.equal(run(device).status, 1, 'invisible Unicode in device must fail');
   }
+  // Unicode line/paragraph separators are not Cf, but still split audit log lines.
+  for (const separator of [0x2028, 0x2029].map(cp => String.fromCodePoint(cp))) {
+    const ref = structuredClone(base);
+    ref.cases[0].evidenceRef = 'proof' + separator + '1';
+    assert.equal(run(ref).status, 1, 'Unicode line separator in evidence must fail');
+    const device = structuredClone(base);
+    device.cases[0].device = 'Android' + separator + 'QA';
+    assert.equal(run(device).status, 1, 'Unicode line separator in device must fail');
+  }
   const canonicallyEquivalent = structuredClone(base);
   canonicallyEquivalent.cases[0].evidenceRef = 'prova-\u00e9';
   canonicallyEquivalent.cases[1].evidenceRef = 'prova-e\u0301';
