@@ -98,6 +98,14 @@ try {
     device.cases[0].device = 'Android' + invisible + 'QA';
     assert.equal(run(device).status, 1, 'invisible Unicode in device must fail');
   }
+  const canonicallyEquivalent = structuredClone(base);
+  canonicallyEquivalent.cases[0].evidenceRef = 'prova-\u00e9';
+  canonicallyEquivalent.cases[1].evidenceRef = 'prova-e\u0301';
+  assert.equal(run(canonicallyEquivalent).status, 1, 'NFC-equivalent references must not count as distinct evidence');
+  const distinctAccents = structuredClone(base);
+  distinctAccents.cases[0].evidenceRef = 'prova-e';
+  distinctAccents.cases[1].evidenceRef = 'prova-\u00e9';
+  assert.equal(run(distinctAccents).status, 0, 'genuinely distinct Unicode references must remain valid');
   const maxRef = structuredClone(base);
   maxRef.cases[0].evidenceRef = 'E'.repeat(512);
   assert.equal(run(maxRef).status, 0, 'bounded 512-character evidence reference must pass');
