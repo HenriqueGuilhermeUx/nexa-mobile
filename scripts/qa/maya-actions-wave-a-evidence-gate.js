@@ -65,6 +65,8 @@ for (const id of ids) {
       new Date(Date.parse(c.testedAt)).toISOString().slice(0, 10) < '2026-11-04' ||
       Date.parse(c.testedAt) > Date.now()) failures.push(id + ': invalid or future timestamp');
   if (typeof c.device !== 'string' || !c.device.trim()) failures.push(id + ': device missing');
+  // Keep device metadata printable and bounded; it is copied into private audit reports.
+  if (typeof c.device === 'string' && (/[\x00-\x1f\x7f]/.test(c.device) || c.device.length > 160)) failures.push(id + ': invalid device metadata');
 }
 // Each physical test must point to its own evidence; a copied reference is not 16 proofs.
 const refs = cases.filter(c => c && typeof c.evidenceRef === 'string' && c.evidenceRef.trim())
