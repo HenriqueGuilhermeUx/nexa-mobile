@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { config } from '@/config';
 import { loadNexaSession } from '@/lib/session';
+import { aaveReserveEligibleForPlanning } from '@/lib/aaveReserveEligibility';
 import { colors } from '@/theme';
 
 type Status = {
@@ -140,6 +141,9 @@ export default function AaveInfoScreen() {
         !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(amount)) {
       setMessage('Escolha um ativo e informe uma quantidade válida.'); return;
     }
+    if (!aaveReserveEligibleForPlanning(reserve, action)) {
+      setMessage('Esta reserva não está elegível para a operação selecionada.'); return;
+    }
     const [whole, frac = ''] = amount.split('.');
     if (frac.length > reserve.decimals || amount.length > 78) {
       setMessage('Quantidade com casas decimais acima do permitido pelo ativo.'); return;
@@ -170,7 +174,12 @@ export default function AaveInfoScreen() {
   }
 
   const usable = markets?.reserves.filter((r) => r.active && !r.paused && !r.frozen) ?? [];
-  const chosen = usable.find((r) => r.asset === selectedAsset) ?? usable[0];
+  // Aave V3 frozen reserves prevent new supply/borrow, not debt repayment or withdrawal.
+  // Paused/inactive reserves remain unavailable for all four QA actions.
+  const actionReserves = markets?.reserves.filter((r) =>
+    aaveReserveEligibleForPlanning(r, action)
+  ) ?? [];
+  const chosen = actionReserves.find((r) => r.asset === selectedAsset) ?? actionReserves[0];
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>NEXA · INVESTIMENTOS E CRÉDITO</Text>
@@ -225,7 +234,7 @@ export default function AaveInfoScreen() {
             </Pressable>
           ))}
         </View>
-        {usable.slice(0, 8).map((reserve) => (
+        {actionReserves.slice(0, 8).map((reserve) => (
           <Pressable key={reserve.asset} accessibilityRole="button" style={styles.market}
             onPress={() => { setSelectedAsset(reserve.asset); setPlan(null); }}>
             <Text style={styles.detail}>{chosen?.asset === reserve.asset ? '◉' : '○'} {prettyAddress(reserve.asset)}</Text>
@@ -240,7 +249,7 @@ export default function AaveInfoScreen() {
           <Text style={styles.buttonText}>{planning ? 'Verificando…' : 'Verificar intenção'}</Text>
         </Pressable>
         {plan && <Text style={styles.notice}>Intenção validada. Para executar serão necessários cotação de risco atualizada, autorização expressa da carteira e habilitação do serviço. Nenhuma operação foi executada.</Text>}
-        {!chosen && <Text style={styles.small}>Consulta de mercados indisponível nesta conta.</Text>}
+        {!chosen && <Text style={styles.small}>Nenhuma reserva elegível para esta operação na consulta atual. A execução continua desativada.</Text>}
       </View>
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Teste o risco antes de decidir</Text>
