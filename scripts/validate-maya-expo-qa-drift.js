@@ -7,14 +7,14 @@
 const { spawnSync } = require('node:child_process');
 
 const allowed = new Map([
-  ['expo', '~57.0.32 57.0.31'],
+  ['expo', '~57.0.33 57.0.31'],
   ['expo-build-properties', '~57.0.23 57.0.22'],
-  ['expo-constants', '~57.0.23 57.0.22'],
+  ['expo-constants', '~57.0.24 57.0.22'],
   ['expo-dev-client', '~57.0.21 57.0.20'],
   ['expo-image-picker', '~57.0.21 57.0.20'],
-  ['expo-router', '~57.0.30 57.0.29'],
+  ['expo-router', '~57.0.31 57.0.29'],
   ['expo-splash-screen', '~57.0.11 57.0.10'],
-  ['expo-updates', '~57.0.27 57.0.26'],
+  ['expo-updates', '~57.0.28 57.0.26'],
 ]);
 
 function validateDoctorResult(status, rawLog) {
