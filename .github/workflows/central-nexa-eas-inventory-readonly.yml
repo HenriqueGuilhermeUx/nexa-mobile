@@ -5,6 +5,9 @@ on:
       - feat/central-nexa-push-optin-v148-20261112
     paths:
       - '.github/workflows/central-nexa-eas-inventory-readonly.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/central-nexa-eas-inventory-readonly.yml'
   workflow_dispatch:
 
 permissions:
