@@ -15,13 +15,17 @@ const values=Array.from({length:10},(_,i)=>({id:'private-id-'+i,status:'complete
 const result=normalize({ items:values });
 assert.strictEqual(result.returnedCount,10);
 assert.strictEqual(result.recent.length,8);
-assert.strictEqual(result.recent[0].status,'completed');
+assert.strictEqual(result.recent[0].status,'Concluída');
+assert(result.recent[0].amountLabel && result.recent[0].amountLabel.includes('900'), 'Show BRL values explicitly supplied by the authenticated API');
 assert.strictEqual(typeof result.recent[0].dateLabel,'string');
 assert(!JSON.stringify(result).includes('cpf') && !JSON.stringify(result).includes('amountBrl') && !JSON.stringify(result).includes('private-id'));
 assert.strictEqual(normalize({ orders:[{status:'in_review'}] }).returnedCount,1);
 assert.strictEqual(normalize({data:{items:[{status:'created'}]}}).returnedCount,1);
 const long=normalize([{status:'x'.repeat(500)}]);
-assert.strictEqual(long.recent[0].status,'Estado não informado');
+assert.strictEqual(long.recent[0].status,'Situação não informada');
+assert.strictEqual(normalize([{status:'paid',amount:12.34}]).recent[0].amountLabel,null,'Amount with no currency must stay hidden');
+assert.strictEqual(normalize([{status:'credited',amount:25.50,currency:'BRL',type:'deposit'}]).recent[0].title,'Entrada na Nexa');
+assert(normalize([{status:'failed'}]).recent[0].status==='Não concluída','Translate technical statuses');
 const screen=fs.readFileSync('app/maya-actions-financas.tsx','utf8');
 const layout=fs.readFileSync('app/_layout.tsx','utf8');
 const actions=fs.readFileSync('app/maya-actions.tsx','utf8');
@@ -30,6 +34,8 @@ assert(screen.includes('async function consult()') && screen.includes('onPress={
 assert(screen.includes('Promise.allSettled(['), 'Independent source failures required');
 assert(screen.includes('nexaApi.listFiatDeposits(') && screen.includes('nexaApi.listPixRedemptions(') && screen.includes('nexaApi.listOrders('), 'Use existing authenticated read APIs');
 assert(!/(AsyncStorage|SecureStore|createWalletFirstPixCharge|requestPixRedemption|createEntryOrder|createExitOrder|sendPix|executePayment|Share\.share)/.test(screen), 'No storage or financial execution');
+assert(!screen.includes('Registro {index + 1}'), 'Do not present unhelpful numbered records');
+assert(screen.includes('item.amountLabel') && screen.includes('item.title'), 'Show safely parsed amount and human label');
 assert(screen.includes('não mostra saldo consolidado') && screen.includes('Open Finance depende'), 'Avoid misleading balance or connected-bank claims');
 assert(layout.includes('name="maya-actions-financas"') && actions.includes("router.push('/maya-actions-financas'"), 'Link to UI missing');
 console.log('PASS Maya 03: authenticated read-only Nexa activity, no invented balances or data storage');

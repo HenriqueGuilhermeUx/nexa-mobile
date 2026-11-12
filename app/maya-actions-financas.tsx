@@ -79,7 +79,7 @@ export default function MayaReadOnlyFinanceScreen() {
         };
       });
       setSources(summaries);
-      setNotice('Consulta concluída. Mostramos apenas os registros que a API retornou, sem estimar saldos.');
+      setNotice('Consulta concluída. Valores só aparecem quando a API informa o valor em reais de forma verificável; sem inventar saldos.');
     } catch {
       setSources([]);
       setNotice('Não foi possível confirmar sua sessão ou consultar as movimentações. Nenhum dado foi alterado.');
@@ -112,8 +112,11 @@ export default function MayaReadOnlyFinanceScreen() {
               )}
               {source.result.recent.map((item, index) => (
                 <View key={index} style={styles.entry}>
-                  <Text style={styles.entryText}>Registro {index + 1} · {item.status}</Text>
-                  {item.dateLabel && <Text style={styles.description}>Data informada: {item.dateLabel}</Text>}
+                  <Text style={styles.entryText}>{item.title}</Text>
+                  <Text style={styles.description}>{item.status}</Text>
+                  {item.amountLabel ? <Text style={styles.entryText}>{item.amountLabel}</Text> :
+                    <Text style={styles.description}>Valor não informado pela origem consultada.</Text>}
+                  {item.dateLabel && <Text style={styles.description}>{item.dateLabel}</Text>}
                 </View>
               ))}
             </>
