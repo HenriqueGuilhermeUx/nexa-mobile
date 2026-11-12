@@ -11,6 +11,7 @@ import {
   Title,
 } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
+import { config } from '@/config';
 import { colors, radius, spacing } from '@/theme';
 
 const countries = [
@@ -30,11 +31,18 @@ export default function SignUpCountryScreen() {
     setLoadingCountry(countryCode);
     setMessage('');
 
+    // Brazil registration requires no capabilities round-trip. In staging the
+    // optional Rails service may be unavailable even when auth is healthy.
+    if (countryCode === 'BR') {
+      router.push({ pathname: '/sign-up', params: { countryCode } } as any);
+      setLoadingCountry('');
+      return;
+    }
+
     try {
       const capability = await nexaApi.countryCapabilities(countryCode);
 
       if (
-        countryCode === 'BR' ||
         capability?.onboarding?.registrationEnabled === true
       ) {
         router.push({
