@@ -1,0 +1,69 @@
+name: Central Nexa — read-only EAS production baseline inventory
+on:
+  push:
+    branches:
+      - feat/central-nexa-push-optin-v148-20261112
+    paths:
+      - '.github/workflows/central-nexa-eas-inventory-readonly.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-eas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_NO_TELEMETRY: '1'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Ensure EAS token exists without printing it
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EAS_INVENTORY_BLOCKED: GitHub secret EXPO_TOKEN not configured"
+            exit 1
+          fi
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Read channel mapping and latest Android update group
+        shell: bash
+        run: |
+          set -euo pipefail
+          eas channel:view production --json --non-interactive > /tmp/nexa-channel.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const value = JSON.parse(fs.readFileSync('/tmp/nexa-channel.json','utf8'));
+          const candidates = [value?.branch?.name, value?.branchMapping?.branchName, value?.branchName, value?.branch];
+          const branch = candidates.find(x => typeof x === 'string' && /^[a-z0-9][a-z0-9/_-]{0,120}$/i.test(x));
+          if (!branch) throw new Error('EAS_BRANCH_MAPPING_UNCLEAR — do not publish');
+          fs.writeFileSync('/tmp/nexa-production-branch',branch);
+          console.log('EAS_PRODUCTION_BRANCH='+branch);
+          NODE
+          BRANCH="$(cat /tmp/nexa-production-branch)"
+          eas update:list --branch "$BRANCH" --platform android --limit 12 --json --non-interactive > /tmp/nexa-updates.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const source = JSON.parse(fs.readFileSync('/tmp/nexa-updates.json','utf8'));
+          // Keep a deliberately narrow public audit record; no tokens, URLs, PII or manifests.
+          const entries = Array.isArray(source) ? source : Array.isArray(source?.updates) ? source.updates : Array.isArray(source?.updateGroups) ? source.updateGroups : [];
+          if (!entries.length) throw new Error('EAS_UPDATES_FORMAT_OR_HISTORY_UNKNOWN — do not publish');
+          for (const item of entries.slice(0, 8)) {
+            const safe = {
+              id: item.group || item.groupId || item.id || null,
+              createdAt: item.createdAt || item.updatedAt || null,
+              runtimeVersion: item.runtimeVersion || item.updates?.[0]?.runtimeVersion || null,
+              gitCommitHash: item.gitCommitHash || item.updates?.[0]?.gitCommitHash || null,
+              message: String(item.message || '').slice(0,120),
+            };
+            console.log('EAS_UPDATE_SUMMARY '+JSON.stringify(safe));
+          }
+          NODE
