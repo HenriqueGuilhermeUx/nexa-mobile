@@ -11,6 +11,8 @@ const base = {
   candidateSha: '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e',
   runtime: '2.0.43',
   packageId: 'br.com.trynexa.mayaqa',
+  easBranch: 'maya-actions-v148-qa',
+  androidUpdateId: '01a1a975-d85f-794f-9d67-cf2ac961fbb7',
   cases: Array.from({length: 16}, (_, i) => ({
     id: 'A' + String(i + 1).padStart(2, '0'),
     status: 'PASS', evidenceRef: 'synthetic-' + i,
@@ -51,7 +53,9 @@ try {
   for (const [field, value] of [
     ['candidateSha', 'f341f01787f50eaa13b363dc8a57b17da1fe5044'],
     ['runtime', '2.0.42'],
-    ['packageId', 'br.com.trynexa.app']
+    ['packageId', 'br.com.trynexa.app'],
+    ['easBranch', 'maya-actions-v148-qa-wave-b'],
+    ['androidUpdateId', '01a1a97d-d9f7-7be1-aed3-229ce41d2128']
   ]) {
     const data = structuredClone(base);
     data[field] = value;
