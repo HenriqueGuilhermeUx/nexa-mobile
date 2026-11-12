@@ -274,10 +274,16 @@ export default function CentralNexaScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Avisos no celular</Text>
         <Text style={styles.paragraph}>Você decide se permite notificações neste aparelho. Não ativaremos campanhas promocionais automaticamente.</Text>
-        <Action title={pushState === 'granted' ? 'Avisos de serviço: aparelho registrado' : pushState === 'loading' ? 'Verificando aparelho…' : 'Ativar avisos de serviço'} detail="Solicita a permissão do aparelho e registra o dispositivo na Nexa; não autoriza publicidade." onPress={() => { if (pushState !== 'loading' && pushState !== 'granted') void enablePush(); }} />
-        {pushState === 'granted' || preferences?.servicePushOptIn ? (
-          <Action title="Desativar avisos neste aparelho" detail="Revoga o dispositivo e a preferência de serviço" onPress={() => { if (pushState !== 'loading') void disablePush(); }} />
-        ) : null}
+        {inboxState === 'ready' ? (
+          <>
+            <Action title={pushState === 'granted' ? 'Avisos de serviço: aparelho registrado' : pushState === 'loading' ? 'Verificando aparelho…' : 'Ativar avisos de serviço'} detail="Registra o aparelho para avisos de serviço; não autoriza publicidade." onPress={() => { if (pushState !== 'loading' && pushState !== 'granted') void enablePush(); }} />
+            {pushState === 'granted' || preferences?.servicePushOptIn ? (
+              <Action title="Desativar avisos neste aparelho" detail="Revoga o dispositivo e a preferência de serviço" onPress={() => { if (pushState !== 'loading') void disablePush(); }} />
+            ) : null}
+          </>
+        ) : (
+          <Text style={styles.paragraph}>Os avisos push estão em preparação. Quando estiverem disponíveis, você poderá escolher ativá-los aqui.</Text>
+        )}
       </View>
 
       <View style={styles.section}>
