@@ -121,6 +121,14 @@ try {
   const oversizedRef = structuredClone(base);
   oversizedRef.cases[0].evidenceRef = 'E'.repeat(513);
   assert.equal(run(oversizedRef).status, 1, 'oversized evidence reference must fail');
+  for (const unsafeUrl of ['https://user:secret@example.test/evidence', 'https://user@example.test/evidence', 'https://%ZZ@example.test/evidence']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = unsafeUrl;
+    assert.equal(run(data).status, 1, 'credential-bearing or malformed evidence URL must fail');
+  }
+  const safeUrl = structuredClone(base);
+  safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
+  assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
   const missing = structuredClone(base);
   missing.cases[0].evidenceRef = '';
   assert.equal(run(missing).status, 1, 'missing evidence must fail');
