@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { config } from '@/config';
 import { loadNexaSession } from '@/lib/session';
+import { aaveReserveEligibleForPlanning } from '@/lib/aaveReserveEligibility';
 import { colors } from '@/theme';
 
 type Status = {
@@ -140,9 +141,7 @@ export default function AaveInfoScreen() {
         !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(amount)) {
       setMessage('Escolha um ativo e informe uma quantidade válida.'); return;
     }
-    if (!reserve.active || reserve.paused ||
-        ((action === 'SUPPLY' || action === 'BORROW') && reserve.frozen) ||
-        (action === 'BORROW' && !reserve.borrowingEnabled)) {
+    if (!aaveReserveEligibleForPlanning(reserve, action)) {
       setMessage('Esta reserva não está elegível para a operação selecionada.'); return;
     }
     const [whole, frac = ''] = amount.split('.');
@@ -178,9 +177,7 @@ export default function AaveInfoScreen() {
   // Aave V3 frozen reserves prevent new supply/borrow, not debt repayment or withdrawal.
   // Paused/inactive reserves remain unavailable for all four QA actions.
   const actionReserves = markets?.reserves.filter((r) =>
-    r.active && !r.paused &&
-    (action === 'REPAY' || action === 'WITHDRAW' || !r.frozen) &&
-    (action !== 'BORROW' || r.borrowingEnabled)
+    aaveReserveEligibleForPlanning(r, action)
   ) ?? [];
   const chosen = actionReserves.find((r) => r.asset === selectedAsset) ?? actionReserves[0];
   return (
