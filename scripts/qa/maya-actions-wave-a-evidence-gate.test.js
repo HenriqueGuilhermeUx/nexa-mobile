@@ -89,6 +89,15 @@ try {
     data.cases[0].evidenceRef = badRef;
     assert.equal(run(data).status, 1, 'control characters in evidence reference must fail');
   }
+  // Unicode format controls can invisibly alter or spoof an audit reference.
+  for (const invisible of ['\\u200b', '\\u200d', '\\u202e', '\\ufeff']) {
+    const ref = structuredClone(base);
+    ref.cases[0].evidenceRef = 'proof' + invisible + '1';
+    assert.equal(run(ref).status, 1, 'invisible Unicode in evidence must fail');
+    const device = structuredClone(base);
+    device.cases[0].device = 'Android' + invisible + 'QA';
+    assert.equal(run(device).status, 1, 'invisible Unicode in device must fail');
+  }
   const maxRef = structuredClone(base);
   maxRef.cases[0].evidenceRef = 'E'.repeat(512);
   assert.equal(run(maxRef).status, 0, 'bounded 512-character evidence reference must pass');
