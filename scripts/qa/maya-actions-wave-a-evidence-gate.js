@@ -57,6 +57,7 @@ for (const id of ids) {
   if (typeof c.evidenceRef !== 'string' || !c.evidenceRef.trim()) failures.push(id + ': evidence reference missing');
   // Reject control characters that can corrupt audit logs or conceal a reused reference.
   if (typeof c.evidenceRef === 'string' && /[\x00-\x1f\x7f]/.test(c.evidenceRef)) failures.push(id + ': evidence reference contains control characters');
+  if (typeof c.evidenceRef === 'string' && c.evidenceRef.length > 512) failures.push(id + ': evidence reference too long');
   if (typeof c.testedAt !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(c.testedAt) ||
       !Number.isFinite(Date.parse(c.testedAt)) ||
