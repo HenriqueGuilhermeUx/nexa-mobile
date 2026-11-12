@@ -7,6 +7,17 @@ const fs = require('node:fs');
 const ids = Array.from({ length: 16 }, (_, i) => 'A' + String(i + 1).padStart(2, '0'));
 const file = process.argv[2];
 // Date.parse normalizes impossible calendar dates in some runtimes (e.g. February 30).
+function validClockAndOffset(timestamp) {
+  const match = /^\\d{4}-\\d{2}-\\d{2}T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.\\d{1,3})?(Z|([+-])(\\d{2}):(\\d{2}))$/.exec(timestamp);
+  if (!match) return false;
+  const hour = Number(match[1]), minute = Number(match[2]), second = Number(match[3]);
+  if (hour > 23 || minute > 59 || second > 59) return false;
+  if (match[4] !== 'Z') {
+    const offsetHour = Number(match[6]), offsetMinute = Number(match[7]);
+    if (offsetHour > 14 || offsetMinute > 59 || (offsetHour === 14 && offsetMinute !== 0)) return false;
+  }
+  return true;
+}
 function validCalendarDate(timestamp) {
   const match = /^(\d{4})-(\d{2})-(\d{2})T/.exec(timestamp);
   if (!match) return false;
@@ -45,6 +56,7 @@ for (const id of ids) {
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(c.testedAt) ||
       !Number.isFinite(Date.parse(c.testedAt)) ||
       !validCalendarDate(c.testedAt) ||
+      !validClockAndOffset(c.testedAt) ||
       new Date(Date.parse(c.testedAt)).toISOString().slice(0, 10) < '2026-11-04' ||
       Date.parse(c.testedAt) > Date.now()) failures.push(id + ': invalid or future timestamp');
   if (typeof c.device !== 'string' || !c.device.trim()) failures.push(id + ': device missing');
