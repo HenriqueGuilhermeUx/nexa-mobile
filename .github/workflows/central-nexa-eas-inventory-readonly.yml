@@ -37,6 +37,27 @@ jobs:
         with:
           eas-version: 27.9.0
           token: ${{ secrets.EXPO_TOKEN }}
+      - name: Diagnose EAS access without displaying credentials
+        shell: bash
+        run: |
+          set +e
+          EXPO_DEBUG=1 eas project:info --json --non-interactive > /tmp/nexa-project-debug-output 2>/tmp/nexa-project-debug-error
+          node - <<'NODE'
+          const fs=require('fs');
+          const raw=fs.readFileSync('/tmp/nexa-project-debug-error','utf8');
+          // The raw debug log may include request headers. Never print it.
+          const tests = {
+            UNAUTHORIZED: /unauthoriz|unauthenticat|not.authorized|permission.denied|permission to view|access denied|forbidden|status 403|status 401/i,
+            PROJECT_MISSING: /project.*not found|project.*does not exist|projectId.*invalid|no project|not a valid project|status 404/i,
+            GRAPHQL: /graphql|GraphQLError/i,
+            NETWORK: /network error|fetch failed|timed out|ECONN|ETIMEDOUT|503|502|service unavailable/i,
+            CLI_USAGE: /unknown flag|unknown option|flag.*not defined|unexpected argument/i,
+            SCOPE: /scope|resource owner|project owner|account owner/i,
+          };
+          for (const [name,re] of Object.entries(tests)) console.log('EAS_DEBUG_'+name+'='+re.test(raw));
+          console.log('EAS_DEBUG_STDERR_LINES='+raw.split('\n').length);
+          NODE
+          exit 0
       - name: Validate linked EAS project (read only)
         shell: bash
         run: |
