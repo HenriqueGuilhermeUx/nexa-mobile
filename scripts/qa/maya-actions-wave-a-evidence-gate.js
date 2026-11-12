@@ -44,6 +44,9 @@ const failures = [];
 if (data.candidateSha !== '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e') failures.push('candidate SHA mismatch');
 if (data.runtime !== '2.0.43') failures.push('runtime mismatch');
 if (data.packageId !== 'br.com.trynexa.mayaqa') failures.push('QA package mismatch');
+// Bind the manifest to the frozen QA A EAS update; an arbitrary QA or production OTA is not evidence for this candidate.
+if (data.easBranch !== 'maya-actions-v148-qa') failures.push('QA EAS branch mismatch');
+if (data.androidUpdateId !== '01a1a975-d85f-794f-9d67-cf2ac961fbb7') failures.push('QA Android update mismatch');
 if (!Array.isArray(data.cases)) failures.push('cases must be an array');
 const cases = Array.isArray(data.cases) ? data.cases : [];
 for (const id of ids) {
