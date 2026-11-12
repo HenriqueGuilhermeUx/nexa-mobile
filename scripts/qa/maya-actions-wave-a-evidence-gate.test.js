@@ -24,6 +24,16 @@ function run(data) {
 }
 try {
   assert.equal(run(base).status, 0, 'complete synthetic manifest should parse');
+  for (const validTimestamp of ['2026-11-06T12:00:00Z', '2026-11-06T09:00:00-03:00', '2026-11-06T12:00:00.123Z']) {
+    const data = structuredClone(base);
+    data.cases[0].testedAt = validTimestamp;
+    assert.equal(run(data).status, 0, 'valid ISO timestamp must pass: ' + validTimestamp);
+  }
+  for (const invalidTimestamp of ['2026-11-06T25:00:00Z', '2026-11-06T12:60:00Z', '2026-11-06T12:00:60Z', '2026-11-06T12:00:00+15:00']) {
+    const data = structuredClone(base);
+    data.cases[0].testedAt = invalidTimestamp;
+    assert.equal(run(data).status, 1, 'invalid clock or UTC offset must fail: ' + invalidTimestamp);
+  }
   for (const invalid of [null, [], 'not-a-manifest', 0, true]) {
     const result = run(invalid);
     assert.equal(result.status, 1, 'non-object manifest must fail closed: ' + JSON.stringify(invalid));
