@@ -24,6 +24,11 @@ function run(data) {
 }
 try {
   assert.equal(run(base).status, 0, 'complete synthetic manifest should parse');
+  for (const invalid of [null, [], 'not-a-manifest', 0, true]) {
+    const result = run(invalid);
+    assert.equal(result.status, 1, 'non-object manifest must fail closed: ' + JSON.stringify(invalid));
+    assert.match(result.stderr, /NO-GO/, 'failure must be explicit');
+  }
   for (const timestamp of ['2026-11-06T', 'invalid', '2026-99-99T12:00:00Z', '2026-02-30T12:00:00Z', '2026-04-31T12:00:00Z', '2025-02-29T12:00:00Z', '2099-01-01T00:00:00Z']) {
     const data = structuredClone(base);
     data.cases[0].testedAt = timestamp;
