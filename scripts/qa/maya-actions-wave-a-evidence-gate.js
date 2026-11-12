@@ -6,6 +6,18 @@
 const fs = require('node:fs');
 const ids = Array.from({ length: 16 }, (_, i) => 'A' + String(i + 1).padStart(2, '0'));
 const file = process.argv[2];
+// Date.parse normalizes impossible calendar dates in some runtimes (e.g. February 30).
+function validCalendarDate(timestamp) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T/.exec(timestamp);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1 || month < 1 || month > 12) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day >= 1 && day <= days[month - 1];
+}
 if (!file) {
   console.error('BLOCKED: provide a local, redacted evidence JSON path. No device approval inferred.');
   process.exit(2);
@@ -28,6 +40,7 @@ for (const id of ids) {
   if (typeof c.testedAt !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(c.testedAt) ||
       !Number.isFinite(Date.parse(c.testedAt)) ||
+      !validCalendarDate(c.testedAt) ||
       new Date(Date.parse(c.testedAt)).toISOString().slice(0, 10) < '2026-11-04' ||
       Date.parse(c.testedAt) > Date.now()) failures.push(id + ': invalid or future timestamp');
   if (typeof c.device !== 'string' || !c.device.trim()) failures.push(id + ': device missing');
