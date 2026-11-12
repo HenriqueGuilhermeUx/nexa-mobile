@@ -35,8 +35,26 @@ jobs:
           fi
       - uses: expo/expo-github-action@v8
         with:
-          eas-version: 24.8.0
+          eas-version: 27.9.0
           token: ${{ secrets.EXPO_TOKEN }}
+      - name: Validate linked EAS project (read only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if eas project:info --json --non-interactive > /tmp/nexa-project.json 2>/tmp/nexa-project-error; then
+            node - <<'NODE'
+          const fs=require('fs');
+          const obj=JSON.parse(fs.readFileSync('/tmp/nexa-project.json','utf8'));
+          const project=obj.project||obj;
+          console.log('EAS_PROJECT='+JSON.stringify({
+            id:project.id||null,
+            slug:project.slug||null,
+            owner:project.ownerAccount?.name||project.owner||null
+          }));
+          NODE
+          else
+            echo 'EAS_PROJECT_INFO_UNAVAILABLE'
+          fi
       - name: Read-only EAS channel and update inventory with safe summaries
         shell: bash
         run: |
@@ -88,7 +106,7 @@ jobs:
           fi
           node - <<'NODE'
           const fs = require('fs');
-          for (const type of ['channels','branches','updates']) {
+          for (const type of ['project','channels','branches','updates']) {
             const path = '/tmp/nexa-' + type + '-error';
             if (!fs.existsSync(path)) continue;
             const error = fs.readFileSync(path,'utf8').toLowerCase();
