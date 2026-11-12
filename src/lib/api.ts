@@ -62,7 +62,7 @@ async function request<T>(
   // Bound auth requests in QA only; never alter production request policy.
   const qaAuthRequest =
     config.releaseChannel === 'wallet-inbound-lab' &&
-    (path === '/auth/login' || path === '/user/me');
+    (path === '/auth/login' || path === '/auth/register' || path === '/user/me' || path.startsWith('/nexa-rails/v1/capabilities/'));
   const abort = qaAuthRequest ? new AbortController() : null;
   const timeout = abort ? setTimeout(() => abort.abort(), 18000) : null;
   let response: Response;
@@ -75,7 +75,13 @@ async function request<T>(
   } catch (caught) {
     if (qaAuthRequest) {
       throw new ApiError(
-        'O servidor de homologação não respondeu ao login. A conta da Nexa oficial utiliza outro ambiente. Tente novamente mais tarde ou use uma conta QA autorizada.',
+        path === '/auth/register'
+          ? 'O cadastro de homologação não respondeu. Confira a disponibilidade do servidor QA e tente novamente; nenhum usuário foi confirmado.'
+          : path.startsWith('/nexa-rails/v1/capabilities/')
+            ? 'A consulta de países de homologação não respondeu. Para o Brasil, prossiga diretamente ao cadastro de testes.'
+            : path === '/user/me'
+              ? 'A sessão foi criada, mas o perfil de homologação não respondeu. Tente entrar novamente.'
+              : 'O servidor de homologação não respondeu ao login. A conta da Nexa oficial utiliza outro ambiente. Tente novamente mais tarde ou use uma conta QA autorizada.',
         0,
         abort?.signal.aborted ? 'QA_AUTH_TIMEOUT' : 'QA_AUTH_NETWORK',
       );
