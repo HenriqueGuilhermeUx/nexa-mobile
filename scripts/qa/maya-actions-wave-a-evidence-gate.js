@@ -25,6 +25,10 @@ if (!file) {
 let data;
 try { data = JSON.parse(fs.readFileSync(file, 'utf8')); }
 catch { console.error('BLOCKED: evidence file missing or invalid JSON'); process.exit(2); }
+if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+  console.error('NO-GO: evidence manifest must be a JSON object');
+  process.exit(1);
+}
 const failures = [];
 if (data.candidateSha !== '096c9fd619a551f23ba8c7d9e3e72a7e01605a6e') failures.push('candidate SHA mismatch');
 if (data.runtime !== '2.0.43') failures.push('runtime mismatch');
