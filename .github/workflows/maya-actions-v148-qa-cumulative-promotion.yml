@@ -68,7 +68,8 @@ jobs:
             if test -f "$script"; then node "$script"; fi
           done
       - run: npm run typecheck
-      - run: npx expo-doctor
+      - name: Validate frozen Expo SDK57 binary patch drift (QA only)
+        run: node scripts/validate-maya-expo-qa-drift.js
       - run: npm run export:android
       - uses: expo/expo-github-action@v8
         with:
