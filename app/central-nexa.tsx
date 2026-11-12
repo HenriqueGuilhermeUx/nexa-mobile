@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as Crypto from 'expo-crypto';
+import { config } from '@/config';
 
 import { Screen } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
@@ -10,6 +12,9 @@ import { NEXA_TELEGRAM_SUPPORT_URL, nexaWhatsAppSupportUrl } from '@/lib/nexaSup
 import { colors, radius, spacing } from '@/theme';
 
 type IdentityStage = 'loading' | 'signed_out' | 'pending' | 'review' | 'approved' | 'unavailable';
+type InboxState = 'loading' | 'signed_out' | 'unavailable' | 'ready';
+type CentralMessage = { id: string; direction: 'inbound' | 'theo' | 'nexa'; topic: string; body: string; createdAt: string };
+type CentralPreferences = { servicePushOptIn: boolean; offersOptIn: boolean; marketingPushOptIn: boolean };
 
 const PORTAL_URL = 'https://trynexa.com.br/portal/';
 const GUIDE_URL = 'https://trynexa.com.br/insights/primeira-utilizacao-nexa.html';
@@ -31,6 +36,11 @@ export default function CentralNexaScreen() {
   const [identityStage, setIdentityStage] = useState<IdentityStage>('loading');
   const [notice, setNotice] = useState('');
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
+  const [inboxState, setInboxState] = useState<InboxState>('loading');
+  const [messages, setMessages] = useState<CentralMessage[]>([]);
+  const [preferences, setPreferences] = useState<CentralPreferences | null>(null);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     let current = true;
@@ -57,6 +67,86 @@ export default function CentralNexaScreen() {
     })();
     return () => { current = false; };
   }, []);
+
+  // The in-app chat is only shown after a successful owner-scoped API reply.
+  // When the backend flag is off, use the existing official Theo channels.
+  async function refreshInbox() {
+    try {
+      const session = await loadNexaSession();
+      if (!session) { setInboxState('signed_out'); return; }
+      const response = await fetch(config.apiUrl.replace(/\\/$/, '') + '/central-nexa/me', {
+        headers: { Authorization: 'Bearer ' + session.accessToken },
+      });
+      if (!response.ok) { setInboxState('unavailable'); return; }
+      const body = await response.json();
+      if (!Array.isArray(body?.messages)) { setInboxState('unavailable'); return; }
+      setMessages(body.messages.slice(-100));
+      setPreferences(body.preferences || null);
+      setInboxState('ready');
+    } catch {
+      setInboxState('unavailable');
+    }
+  }
+
+  useEffect(() => { void refreshInbox(); }, []);
+
+  async function sendInternalMessage() {
+    if (sending || inboxState !== 'ready') return;
+    const text = draft.trim();
+    if (!text || text.length > 1000) {
+      setNotice('Escreva uma pergunta de até 1000 caracteres.');
+      return;
+    }
+    const session = await loadNexaSession();
+    if (!session) {
+      setInboxState('signed_out');
+      return;
+    }
+    setSending(true);
+    try {
+      const response = await fetch(config.apiUrl.replace(/\\/$/, '') + '/central-nexa/support', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + session.accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text, clientMessageId: Crypto.randomUUID() }),
+      });
+      if (!response.ok) {
+        setNotice('Mensagem não enviada. Não inclua CPF, e-mail, telefone ou documentos. Você pode usar o atendimento externo.');
+        return;
+      }
+      setDraft('');
+      setNotice('');
+      await refreshInbox();
+    } catch {
+      setNotice('Não foi possível enviar. Sua mensagem foi mantida para tentar novamente.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function updatePreference(name: keyof CentralPreferences, enabled: boolean) {
+    if (inboxState !== 'ready') return;
+    const session = await loadNexaSession();
+    if (!session) return;
+    try {
+      const response = await fetch(config.apiUrl.replace(/\\/$/, '') + '/central-nexa/preferences', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + session.accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ [name]: enabled }),
+      });
+      if (!response.ok) throw new Error('Preference not confirmed');
+      const updated = await response.json() as CentralPreferences;
+      setPreferences(updated);
+      setNotice('Preferência registrada na sua conta Nexa.');
+    } catch {
+      setNotice('Não conseguimos confirmar essa preferência; ela não foi modificada.');
+    }
+  }
 
   async function openUrl(url: string) {
     try {
@@ -101,7 +191,37 @@ export default function CentralNexaScreen() {
       <View style={styles.feature}>
         <Text style={styles.featureLabel}>CONVERSE COM O THEO</Text>
         <Text style={styles.featureTitle}>Como podemos ajudar?</Text>
-        <Text style={styles.featureCopy}>Estamos preparando o chat dentro do aplicativo. Até a caixa de entrada estar conectada, escolha um canal oficial para conversar com o Theo.</Text>
+        {inboxState === 'ready' ? (
+          <>
+            <Text style={styles.featureCopy}>Converse com o Theo na Nexa. Ele oferece orientações gerais; não movimenta sua conta nem aprova verificações.</Text>
+            <View style={styles.chatHistory}>
+              {messages.length === 0 ? <Text style={styles.chatEmpty}>Sua conversa começa aqui. Você pode perguntar sobre cadastro e verificação de identidade.</Text> : null}
+              {messages.map(message => (
+                <View key={message.id} style={[styles.chatBubble, message.direction === 'inbound' ? styles.chatOwn : styles.chatTheo]}>
+                  <Text style={styles.chatAuthor}>{message.direction === 'inbound' ? 'Você' : message.direction === 'theo' ? 'Theo' : 'Nexa'}</Text>
+                  <Text style={styles.chatBody}>{message.body}</Text>
+                </View>
+              ))}
+            </View>
+            <TextInput
+              accessibilityLabel="Escrever para o Theo"
+              value={draft}
+              onChangeText={setDraft}
+              maxLength={1000}
+              multiline
+              placeholder="Pergunte ao Theo, sem enviar dados pessoais"
+              placeholderTextColor={colors.mutedStrong}
+              style={styles.chatInput}
+            />
+            <Pressable accessibilityRole="button" disabled={sending || !draft.trim()} onPress={() => void sendInternalMessage()} style={styles.sendButton}>
+              <Text style={styles.sendLabel}>{sending ? 'Enviando…' : 'Enviar ao Theo'}</Text>
+            </Pressable>
+          </>
+        ) : (
+          <Text style={styles.featureCopy}>{inboxState === 'signed_out'
+            ? 'Entre na conta para usar o chat privado. O atendimento externo continua disponível.'
+            : 'Estamos preparando o chat dentro do aplicativo. Enquanto isso, escolha um canal oficial para conversar com o Theo.'}</Text>
+        )}
         <Action title="Theo no WhatsApp" detail="Atendimento por mensagem, iniciado por você" onPress={() => void openUrl(nexaWhatsAppSupportUrl())} />
         <Action title="Theo no Telegram" detail="Abrir @NexaTheoBot" onPress={() => void openUrl(NEXA_TELEGRAM_SUPPORT_URL)} />
       </View>
@@ -122,7 +242,15 @@ export default function CentralNexaScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Mensagens e novidades</Text>
-        <Text style={styles.paragraph}>A caixa de entrada permanente, preferências de novidades e ofertas estão em preparação. Não mostramos mensagens fictícias nem enviamos campanhas sem sua escolha.</Text>
+        <Text style={styles.paragraph}>{inboxState === 'ready'
+          ? 'Seus comunicados ficam aqui. Avisos de serviço e ofertas são preferências separadas e podem ser desativadas.'
+          : 'A caixa de entrada permanente, preferências de novidades e ofertas estão em preparação. Não mostramos mensagens fictícias nem enviamos campanhas sem sua escolha.'}</Text>
+        {inboxState === 'ready' && preferences ? (
+          <>
+            <Action title={preferences.offersOptIn ? 'Novidades e ofertas: autorizado' : 'Novidades e ofertas: desativado'} detail="Toque para mudar sua preferência. Nenhuma campanha é enviada automaticamente." onPress={() => void updatePreference('offersOptIn', !preferences.offersOptIn)} />
+            <Action title={preferences.marketingPushOptIn ? 'Push promocional: autorizado' : 'Push promocional: desativado'} detail="Preferência independente da permissão do aparelho" onPress={() => void updatePreference('marketingPushOptIn', !preferences.marketingPushOptIn)} />
+          </>
+        ) : null}
         <Action title="Guia de primeira utilização" detail="Entenda Pix, USDC, KYC e segurança" onPress={() => void openUrl(GUIDE_URL)} />
         <Action title="Abrir o portal Nexa" detail="Consulte informações da sua conta com segurança" onPress={() => void openUrl(PORTAL_URL)} />
       </View>
@@ -151,5 +279,15 @@ const styles = StyleSheet.create({
   actionDetail: { color: colors.muted, fontSize: 11, lineHeight: 16 },
   chevron: { color: colors.cyan, fontSize: 26 },
   notice: { color: colors.warning, fontSize: 13, lineHeight: 20, marginBottom: spacing.md },
+  chatHistory: { maxHeight: 320, gap: spacing.sm, marginVertical: spacing.sm },
+  chatEmpty: { color: colors.muted, fontSize: 12, lineHeight: 18 },
+  chatBubble: { borderRadius: radius.md, padding: spacing.sm, gap: 4 },
+  chatOwn: { backgroundColor: colors.primarySoft, marginLeft: 18 },
+  chatTheo: { backgroundColor: colors.panelSoft, marginRight: 18 },
+  chatAuthor: { color: colors.cyan, fontWeight: '800', fontSize: 10 },
+  chatBody: { color: colors.text, fontSize: 13, lineHeight: 19 },
+  chatInput: { color: colors.text, backgroundColor: colors.backgroundSecondary, borderColor: colors.borderStrong, borderWidth: 1, borderRadius: radius.md, minHeight: 54, padding: spacing.md, textAlignVertical: 'top' },
+  sendButton: { padding: spacing.md, borderRadius: radius.md, alignItems: 'center', backgroundColor: colors.primary },
+  sendLabel: { color: colors.white, fontWeight: '800', fontSize: 14 },
   footnote: { color: colors.mutedStrong, fontSize: 11, lineHeight: 17, marginBottom: spacing.xl },
 });
