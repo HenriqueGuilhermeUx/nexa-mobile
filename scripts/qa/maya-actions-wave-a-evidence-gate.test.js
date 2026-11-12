@@ -32,6 +32,25 @@ try {
   const leap = structuredClone(base);
   leap.cases[0].testedAt = '2024-02-29T12:00:00Z';
   assert.equal(run(leap).status, 1, 'pre-candidate leap date must be rejected');
+  // Guardrails: no approval from an incomplete or mismatched QA manifest.
+  for (const [field, value] of [
+    ['candidateSha', 'f341f01787f50eaa13b363dc8a57b17da1fe5044'],
+    ['runtime', '2.0.42'],
+    ['packageId', 'br.com.trynexa.app']
+  ]) {
+    const data = structuredClone(base);
+    data[field] = value;
+    assert.equal(run(data).status, 1, 'must reject mismatched ' + field);
+  }
+  const unknown = structuredClone(base);
+  unknown.cases.push({ ...unknown.cases[0], id: 'A17' });
+  assert.equal(run(unknown).status, 1, 'unknown case must fail');
+  const deviceMissing = structuredClone(base);
+  deviceMissing.cases[0].device = '  ';
+  assert.equal(run(deviceMissing).status, 1, 'missing device must fail');
+  const notPassed = structuredClone(base);
+  notPassed.cases[0].status = 'PENDING';
+  assert.equal(run(notPassed).status, 1, 'pending physical test must fail');
   const duplicate = structuredClone(base);
   duplicate.cases[1].id = 'A01';
   assert.equal(run(duplicate).status, 1, 'duplicate/missing case must fail');
