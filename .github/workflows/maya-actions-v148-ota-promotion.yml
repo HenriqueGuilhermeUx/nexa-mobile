@@ -68,9 +68,17 @@ jobs:
           if [ -e scripts/validate-maya-actions-agenda-v1.js ]; then
             node scripts/validate-maya-actions-agenda-v1.js
           fi
+      - name: Validate Maya D2 financial read-only access
+        run: node scripts/validate-maya-financas-leitura-v1.js
       - run: node scripts/validate-mobile-safety-v123.js
+      - name: Validate Maya communication, shopping and planning contracts
+        run: |
+          for script in scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-shopping-v1.js scripts/validate-maya-planning-v1.js; do
+            if test -f "$script"; then node "$script"; fi
+          done
       - run: npm run typecheck
-      - run: npx expo-doctor
+      - name: Validate frozen Expo SDK 57 patch-only drift (Android v148)
+        run: node scripts/validate-maya-expo-qa-drift.js
       - run: npm run export:android
       - uses: expo/expo-github-action@v8
         with:
