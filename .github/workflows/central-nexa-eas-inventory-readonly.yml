@@ -1,0 +1,248 @@
+name: Central Nexa — read-only EAS production baseline inventory
+on:
+  push:
+    branches:
+      - feat/central-nexa-push-optin-v148-20261112
+    paths:
+      - '.github/workflows/central-nexa-eas-inventory-readonly.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/central-nexa-eas-inventory-readonly.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-eas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_NO_TELEMETRY: '1'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Ensure EAS token exists without printing it
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EAS_INVENTORY_BLOCKED: GitHub secret EXPO_TOKEN not configured"
+            exit 1
+          fi
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Diagnose EAS access without displaying credentials
+        shell: bash
+        run: |
+          set +e
+          EXPO_DEBUG=1 eas project:info --json --non-interactive > /tmp/nexa-project-debug-output 2>/tmp/nexa-project-debug-error
+          node - <<'NODE'
+          const fs=require('fs');
+          const raw=fs.readFileSync('/tmp/nexa-project-debug-error','utf8');
+          // The raw debug log may include request headers. Never print it.
+          const tests = {
+            UNAUTHORIZED: /unauthoriz|unauthenticat|not.authorized|permission.denied|permission to view|access denied|forbidden|status 403|status 401/i,
+            PROJECT_MISSING: /project.*not found|project.*does not exist|projectId.*invalid|no project|not a valid project|status 404/i,
+            GRAPHQL: /graphql|GraphQLError/i,
+            NETWORK: /network error|fetch failed|timed out|ECONN|ETIMEDOUT|503|502|service unavailable/i,
+            CLI_USAGE: /unknown flag|unknown option|flag.*not defined|unexpected argument/i,
+            SCOPE: /scope|resource owner|project owner|account owner/i,
+          };
+          for (const [name,re] of Object.entries(tests)) console.log('EAS_DEBUG_'+name+'='+re.test(raw));
+          console.log('EAS_DEBUG_STDERR_LINES='+raw.split('\n').length);
+          NODE
+          exit 0
+      - name: Read-only Expo API project access probe
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const id='b3faabec-283a-4ba2-88b5-f096304e68aa';
+            const query='query Project($appId:String!){app{byId(appId:$appId){id slug ownerAccount{name} updateBranches(offset:0,limit:20){name}}}}';
+            try {
+              const response=await fetch('https://api.expo.dev/graphql',{
+                method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+process.env.EXPO_TOKEN},
+                body:JSON.stringify({query,variables:{appId:id}}),signal:AbortSignal.timeout(12000)
+              });
+              const data=await response.json();
+              console.log('EXPO_API_HTTP_STATUS='+response.status);
+              console.log('EXPO_API_ERROR_CODES='+JSON.stringify((data.errors||[]).map(e=>e.extensions?.code||'unclassified').slice(0,4)));
+              if(data.data?.app?.byId){
+                const p=data.data.app.byId;
+                console.log('EXPO_LINKED_PROJECT='+JSON.stringify({id:p.id,slug:p.slug,owner:p.ownerAccount?.name||null}));
+                console.log('EXPO_UPDATE_BRANCHES='+JSON.stringify(p.updateBranches?.map(b=>b.name)||[]));
+              }else console.log('EXPO_PROJECT_ACCESS_UNVERIFIED');
+            }catch(e){console.log('EXPO_API_TRANSPORT_ERROR='+String(e.name||'unknown'))}
+          })();
+          NODE
+      - name: Inspect read-only Expo GraphQL update metadata fields
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const names=['App','UpdateBranch','UpdateChannel','Update','UpdateGroup'];
+            const query='query Introspection($name:String!){__type(name:$name){name fields{name type{kind name ofType{kind name}}}}}';
+            for(const name of names){
+              try{
+                const res=await fetch('https://api.expo.dev/graphql',{
+                  method:'POST',headers:{'Authorization':'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+                  body:JSON.stringify({query,variables:{name}}),signal:AbortSignal.timeout(12000)
+                });
+                const value=await res.json();
+                const fields=value.data?.__type?.fields?.map(x=>x.name)||[];
+                console.log('EXPO_SCHEMA_'+name.toUpperCase()+'='+JSON.stringify(
+                  fields.filter(x=>/update|channel|branch|group|runtime|commit|created|name|id/i.test(x)).slice(0,70)
+                ));
+                console.log('EXPO_SCHEMA_'+name.toUpperCase()+'_ERRORS='+JSON.stringify(
+                  (value.errors||[]).map(x=>x.extensions?.code||'unknown')
+                ));
+              }catch(e){console.log('EXPO_SCHEMA_'+name.toUpperCase()+'_UNAVAILABLE')}
+            }
+          })();
+          NODE
+      - name: Retrieve Expo production branch and latest update metadata
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const endpoint='https://api.expo.dev/graphql';
+            const headers={'Authorization':'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'};
+            async function exec(query,variables){
+              const response=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify({query,variables}),signal:AbortSignal.timeout(12000)});
+              return response.json();
+            }
+            const query='query Production($appId:String!){app{byId(appId:$appId){id updateChannelByName(name:"production"){id name branchMapping updateBranches(offset:0,limit:15){name}} updateBranchByName(name:"production"){id name updates(offset:0,limit:20){id gitCommitHash platform group createdAt}} qaBranch:updateBranchByName(name:"central-nexa-v148-qa"){id name updates(offset:0,limit:8){id gitCommitHash platform group createdAt}}}}}';
+            const data=await exec(query,{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'});
+            if(data.errors?.length){
+              console.log('EXPO_PRODUCTION_QUERY_ERROR_CODES='+JSON.stringify(data.errors.map(e=>e.extensions?.code||'schema_error')));
+              // Reveal only GraphQL schema hints about bad field/argument names, not any credential or private values.
+              const hints=data.errors.map(e=>String(e.message||'')).filter(m=>/Cannot query field|Unknown argument|must not have|of required type|not defined/.test(m)).map(m=>m.slice(0,180));
+              console.log('EXPO_PRODUCTION_SCHEMA_HINTS='+JSON.stringify(hints));
+            }else{
+              const app=data.data?.app?.byId||{};
+              const channel=app.updateChannelByName||{};
+              console.log('EXPO_PRODUCTION_CHANNEL='+JSON.stringify({name:channel.name,branchMapping:channel.branchMapping}));
+              console.log('EXPO_PRODUCTION_CHANNEL_BRANCHES='+JSON.stringify(channel.updateBranches?.map(b=>b.name)||[]));
+              const qa=app.qaBranch||{};
+              console.log('EXPO_CENTRAL_QA_BRANCH='+String(qa.name||'not_created'));
+              for(const u of (qa.updates||[]).slice(0,6)) console.log('EXPO_CENTRAL_QA_UPDATE='+JSON.stringify({id:u.id,group:u.group,commit:u.gitCommitHash,platform:u.platform,createdAt:u.createdAt}));
+              const branch=app.updateBranchByName||{};
+              console.log('EXPO_PRODUCTION_UPDATE_BRANCH='+branch.name);
+              for(const u of (branch.updates||[]).slice(0,16)){
+                console.log('EXPO_PRODUCTION_UPDATE='+JSON.stringify({
+                  id:u.id,group:u.group,commit:u.gitCommitHash,platform:u.platform,createdAt:u.createdAt
+                }));
+              }
+            }
+          })().catch(e=>console.log('EXPO_PRODUCTION_QUERY_FAILED='+String(e.name||'unknown')));
+          NODE
+      - name: Inspect Expo update field contracts read-only
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query Contract($type:String!){__type(name:$type){fields{name args{name type{kind name ofType{name kind}}} type{kind name ofType{kind name ofType{kind name}}}}}}';
+            for (const type of ['App','UpdateBranch','UpdateChannel','Update']){
+              const response=await fetch('https://api.expo.dev/graphql',{
+                method:'POST',headers:{'Authorization':'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+                body:JSON.stringify({query,variables:{type}}),signal:AbortSignal.timeout(12000)
+              });
+              const data=await response.json();
+              const fields=(data.data?.__type?.fields||[]).filter(x=>
+                type==='App' ? /updateChannelByName|updateBranchByName/.test(x.name)
+                : type==='UpdateBranch' ? /updateGroups|updates/.test(x.name)
+                : type==='UpdateChannel' ? /branchMapping|updateBranches/.test(x.name)
+                : /gitCommitHash|platform|runtime|group/.test(x.name));
+              console.log('EXPO_FIELD_CONTRACT_'+type.toUpperCase()+'='+JSON.stringify(fields));
+            }
+          })().catch(e=>console.log('EXPO_FIELD_CONTRACT_UNAVAILABLE='+e.name));
+          NODE
+      - name: Validate linked EAS project (read only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if eas project:info --json --non-interactive > /tmp/nexa-project.json 2>/tmp/nexa-project-error; then
+            node - <<'NODE'
+          const fs=require('fs');
+          const obj=JSON.parse(fs.readFileSync('/tmp/nexa-project.json','utf8'));
+          const project=obj.project||obj;
+          console.log('EAS_PROJECT='+JSON.stringify({
+            id:project.id||null,
+            slug:project.slug||null,
+            owner:project.ownerAccount?.name||project.owner||null
+          }));
+          NODE
+          else
+            echo 'EAS_PROJECT_INFO_UNAVAILABLE'
+          fi
+      - name: Read-only EAS channel and update inventory with safe summaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          if eas channel:list --json --non-interactive > /tmp/nexa-channels.json 2>/tmp/nexa-channels-error; then
+            node - <<'NODE'
+          const fs=require('fs');
+          const data=JSON.parse(fs.readFileSync('/tmp/nexa-channels.json','utf8'));
+          const rows=Array.isArray(data)?data:Array.isArray(data.channels)?data.channels:Array.isArray(data.results)?data.results:[];
+          console.log('EAS_CHANNEL_COUNT='+rows.length);
+          rows.filter(x=>String(x.name||'').includes('production')).forEach(x=>{
+            const mapping=x.branchMapping||x.branch||{};
+            console.log('EAS_CHANNEL='+JSON.stringify({
+              name:x.name,branch:typeof mapping==='string'?mapping:(mapping.name||mapping.branchName||null),
+              runtimeVersion:x.runtimeVersion||null
+            }));
+          });
+          NODE
+          else
+            echo "EAS_CHANNEL_LIST_FAILED: no channel details available"
+          fi
+          if eas branch:list --json --non-interactive > /tmp/nexa-branches.json 2>/tmp/nexa-branches-error; then
+            node - <<'NODE'
+          const fs=require('fs');
+          const data=JSON.parse(fs.readFileSync('/tmp/nexa-branches.json','utf8'));
+          const rows=Array.isArray(data)?data:Array.isArray(data.branches)?data.branches:[];
+          console.log('EAS_BRANCH_COUNT='+rows.length);
+          console.log('EAS_BRANCH_NAMES='+rows.map(x=>x.name).filter(x=>typeof x==='string').slice(0,35).join(','));
+          NODE
+          else
+            echo "EAS_BRANCH_LIST_FAILED: no branch details available"
+          fi
+          if eas update:list --all --platform android --limit 15 --json --non-interactive > /tmp/nexa-updates.json 2>/tmp/nexa-updates-error; then
+            node - <<'NODE'
+          const fs=require('fs');
+          const data=JSON.parse(fs.readFileSync('/tmp/nexa-updates.json','utf8'));
+          const rows=Array.isArray(data)?data:Array.isArray(data.updates)?data.updates:Array.isArray(data.updateGroups)?data.updateGroups:[];
+          console.log('EAS_ANDROID_UPDATE_COUNT='+rows.length);
+          rows.slice(0,12).forEach(x=>console.log('EAS_UPDATE='+JSON.stringify({
+            id:x.group||x.groupId||x.id||null,
+            branch:x.branch?.name||x.branchName||null,
+            runtimeVersion:x.runtimeVersion||x.updates?.[0]?.runtimeVersion||null,
+            gitCommitHash:x.gitCommitHash||x.updates?.[0]?.gitCommitHash||null,
+            createdAt:x.createdAt||null
+          })));
+          NODE
+          else
+            echo "EAS_UPDATES_LIST_FAILED: no update details available"
+          fi
+          node - <<'NODE'
+          const fs = require('fs');
+          for (const type of ['project','channels','branches','updates']) {
+            const path = '/tmp/nexa-' + type + '-error';
+            if (!fs.existsSync(path)) continue;
+            const error = fs.readFileSync(path,'utf8').toLowerCase();
+            const category =
+              /not.authoriz|permission|access.denied|forbidden|403/.test(error) ? 'authorization' :
+              /project.not.found|could.not.find.project|404|not.found/.test(error) ? 'project_not_found' :
+              /network|timeout|503|502|unavailable|connection|fetch.failed/.test(error) ? 'network_or_outage' :
+              /unknown.flag|unknown.option|unexpected.argument|invalid.flag/.test(error) ? 'cli_argument' :
+              /graphql/.test(error) ? 'graphql_or_backend' : 'unclassified';
+            console.log('EAS_'+type.toUpperCase()+'_FAILURE_CATEGORY='+category);
+          }
+          NODE
+          echo "AUDIT_ONLY_NO_CHANGES"
