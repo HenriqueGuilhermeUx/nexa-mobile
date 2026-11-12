@@ -89,6 +89,12 @@ try {
     data.cases[0].evidenceRef = badRef;
     assert.equal(run(data).status, 1, 'control characters in evidence reference must fail');
   }
+  const maxRef = structuredClone(base);
+  maxRef.cases[0].evidenceRef = 'E'.repeat(512);
+  assert.equal(run(maxRef).status, 0, 'bounded 512-character evidence reference must pass');
+  const oversizedRef = structuredClone(base);
+  oversizedRef.cases[0].evidenceRef = 'E'.repeat(513);
+  assert.equal(run(oversizedRef).status, 1, 'oversized evidence reference must fail');
   const missing = structuredClone(base);
   missing.cases[0].evidenceRef = '';
   assert.equal(run(missing).status, 1, 'missing evidence must fail');
