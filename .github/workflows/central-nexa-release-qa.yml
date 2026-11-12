@@ -5,11 +5,7 @@ on:
       - release/central-nexa-v148-ota-safe-20261112
     paths:
       - '.github/workflows/central-nexa-release-qa.yml'
-  pull_request:
-    branches:
-      - release/central-nexa-v148-baseline-20261112
-    paths:
-      - '.github/workflows/central-nexa-release-qa.yml'
+      - '.github/workflows/central-nexa-release-production.yml'
   workflow_dispatch:
 permissions:
   contents: read
