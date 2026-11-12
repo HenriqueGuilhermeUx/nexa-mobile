@@ -25,7 +25,11 @@ for (const id of ids) {
   const c = matches[0];
   if (c.status !== 'PASS') failures.push(id + ': not PASS');
   if (typeof c.evidenceRef !== 'string' || !c.evidenceRef.trim()) failures.push(id + ': evidence reference missing');
-  if (typeof c.testedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(c.testedAt)) failures.push(id + ': timestamp missing');
+  if (typeof c.testedAt !== 'string' ||
+      !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?(?:Z|[+-]\\d{2}:\\d{2})$/.test(c.testedAt) ||
+      !Number.isFinite(Date.parse(c.testedAt)) ||
+      new Date(Date.parse(c.testedAt)).toISOString().slice(0, 10) < '2026-11-04' ||
+      Date.parse(c.testedAt) > Date.now()) failures.push(id + ': invalid or future timestamp');
   if (typeof c.device !== 'string' || !c.device.trim()) failures.push(id + ': device missing');
 }
 if (cases.some(c => !ids.includes(c?.id))) failures.push('unknown case ID');
