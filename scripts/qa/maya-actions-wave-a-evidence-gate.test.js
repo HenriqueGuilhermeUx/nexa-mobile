@@ -79,6 +79,11 @@ try {
   const reusedWhitespace = structuredClone(base);
   reusedWhitespace.cases[1].evidenceRef = ' ' + reusedWhitespace.cases[0].evidenceRef + ' ';
   assert.equal(run(reusedWhitespace).status, 1, 'whitespace cannot bypass evidence uniqueness');
+  for (const badRef of ['evidence\nspoofed', 'evidence\tspoofed', 'evidence\u0000spoofed', 'evidence\u007fspoofed']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = badRef;
+    assert.equal(run(data).status, 1, 'control characters in evidence reference must fail');
+  }
   const missing = structuredClone(base);
   missing.cases[0].evidenceRef = '';
   assert.equal(run(missing).status, 1, 'missing evidence must fail');
