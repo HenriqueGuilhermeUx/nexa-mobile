@@ -126,6 +126,9 @@ try {
     data.cases[0].evidenceRef = unsafeUrl;
     assert.equal(run(data).status, 1, 'credential-bearing or malformed evidence URL must fail');
   }
+  const insecureUrl = structuredClone(base);
+  insecureUrl.cases[0].evidenceRef = 'http://example.test/private/evidence/A01';
+  assert.equal(run(insecureUrl).status, 1, 'remote evidence references must use HTTPS');
   const safeUrl = structuredClone(base);
   safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
   assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
