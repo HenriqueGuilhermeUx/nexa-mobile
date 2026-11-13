@@ -92,6 +92,14 @@ for (const id of ids) {
       if (url.username || url.password) failures.push(id + ': evidence URL contains credentials');
       // Loopback hosts cannot serve as remotely auditable QA evidence and may point at a tester's private machine.
       if (['localhost', '127.0.0.1', '[::1]'].includes(url.hostname.toLowerCase())) failures.push(id + ': loopback evidence URL is not allowed');
+      // Private, link-local and documentation-only network hosts are not independently reachable audit references.
+      const host = url.hostname.toLowerCase();
+      const octets = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)?.slice(1).map(Number);
+      if (host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
+          (octets && (octets[0] === 10 || octets[0] === 0 || octets[0] === 127 ||
+          (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+          (octets[0] === 192 && octets[1] === 168) ||
+          (octets[0] === 169 && octets[1] === 254)))) failures.push(id + ': private-network evidence URL is not allowed');
       // Query strings and fragments may carry access tokens or mutable viewer state; store a stable proof URL only.
       if (url.search || url.hash || /[?#]/.test(c.evidenceRef)) failures.push(id + ': evidence URL must not contain query or fragment');
     } catch { failures.push(id + ': malformed evidence URL'); }
