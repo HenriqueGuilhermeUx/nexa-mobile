@@ -64,7 +64,7 @@ for (const id of ids) {
   if (typeof c.evidenceRef === 'string' && c.evidenceRef !== c.evidenceRef.trim()) failures.push(id + ': evidence reference has surrounding whitespace');
   // Backslashes can be interpreted as URL separators by WHATWG parsers; reject ambiguous audit references.
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.includes('\\')) failures.push(id + ': evidence reference contains backslash');
-  // Local audit IDs must not resolve outside the private evidence directory.
+  // Absolute filesystem paths cannot be treated as private evidence IDs.\n  if (typeof c.evidenceRef === 'string' && c.evidenceRef.startsWith('/')) failures.push(id + ': absolute evidence path is not allowed');\n  // Local audit IDs must not resolve outside the private evidence directory.
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.split('/').some(part => part === '..' || part === '.')) failures.push(id + ': evidence reference contains path traversal');
   // Percent-encoded dot segments may be decoded by evidence viewers or storage adapters.
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.split('/').some(part => /^(?:\.|%2e){1,2}$/i.test(part) && /%2e/i.test(part))) failures.push(id + ': encoded path traversal is not allowed');
