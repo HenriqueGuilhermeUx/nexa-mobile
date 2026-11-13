@@ -1,0 +1,84 @@
+name: Nexa Maya D2 — OTA QA delivery canary 13 Nov
+on:
+  push:
+    branches: [qa/maya-d2-ota-canary-20261113]
+    paths: ['.github/workflows/maya-d2-ota-delivery-canary.yml']
+permissions:
+  contents: read
+concurrency:
+  group: maya-actions-v148-qa-ota
+  cancel-in-progress: false
+jobs:
+  publish-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: qa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 3774f6de9aa548c0e1b826c0a28a0e61368c7c74
+          fetch-depth: 0
+      - name: Validate immutable cumulative candidate and Android identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "3774f6de9aa548c0e1b826c0a28a0e61368c7c74"
+          grep -F 'OTA QA · 13/11 · atualização recebida' app/maya-actions.tsx
+          node - <<'NODE'
+          const assert = require('node:assert/strict');
+          const app = require('./app.json').expo;
+          const eas = require('./eas.json');
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.version,'2.0.43');
+          assert.equal(app.android.versionCode,148);
+          assert.equal(app.runtimeVersion.policy,'appVersion');
+          assert.equal(eas.build.production.channel,'production');
+          NODE
+          git fetch origin feat/aave-v148-internal-apk-20261102:refs/remotes/origin/feat/aave-v148-internal-apk-20261102
+          for path in app.json app.config.js eas.json; do
+            git show "origin/feat/aave-v148-internal-apk-20261102:$path" | cmp - "$path"
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Validate Android Maya and finance read-only contracts
+        run: |
+          node scripts/validate-maya-release-train.js
+          node scripts/validate-mobile-safety-v123.js
+          for script in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-shopping-v1.js; do
+            if test -f "$script"; then node "$script"; fi
+          done
+      - run: npm run typecheck
+      - run: node scripts/validate-maya-expo-qa-drift.js
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Validate EAS authentication and ensure production is not mapped to QA
+        run: |
+          set -euo pipefail
+          eas whoami
+          eas channel:view production --json --non-interactive > "$RUNNER_TEMP/prod-channel.json"
+          node - "$RUNNER_TEMP/prod-channel.json" <<'NODE'
+          const fs=require('node:fs');
+          const json=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          const all=JSON.stringify(json);
+          if (all.includes('"maya-actions-v148-qa"')) throw Error('Production channel references QA branch; abort');
+          console.log('Production channel does not reference the QA branch');
+          NODE
+      - name: Publish once to EAS QA branch only (NEVER production)
+        run: |
+          eas update --branch maya-actions-v148-qa --platform android --message "Maya OTA QA CANARY 13-11 marker sha 3774f6de9aa548c0e1b826c0a28a0e61368c7c74" --non-interactive
