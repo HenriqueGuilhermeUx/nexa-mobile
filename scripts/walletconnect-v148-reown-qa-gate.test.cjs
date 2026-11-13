@@ -10,9 +10,13 @@ const gate=mod.exports.assertReownExternalWalletReady;
 const valid={enabled:true,projectId:'a'.repeat(32),licenseApproved:true,nativeBuildVerified:false,nativeQaMode:true,environment:'preview'};
 assert.equal(gate(valid).transferEnabled,false);
 assert.equal(gate(valid).internalQaOnly,true);
+// Internal QA can test actual WalletConnect pairing before release-review signoff.
+// No financial operations are enabled by this preview-only exception.
+assert.equal(gate({...valid,licenseApproved:false}).internalQaOnly,true);
+assert.equal(gate({...valid,licenseApproved:false}).transferEnabled,false);
 for(const bad of [
   {enabled:false},{projectId:''},{projectId:'xyz'},{projectId:'*'.repeat(32)},
-  {licenseApproved:false},{nativeBuildVerified:false,nativeQaMode:false},
+  {licenseApproved:false,nativeQaMode:false},{nativeBuildVerified:false,nativeQaMode:false},
   {environment:'production'},{environment:'production',nativeBuildVerified:true},
   {environment:'development',nativeQaMode:true,nativeBuildVerified:false},
 ]) assert.throws(()=>gate({...valid,...bad}),/DISABLED|REQUIRED|REVIEW|UNVERIFIED|ROLLOUT/);
