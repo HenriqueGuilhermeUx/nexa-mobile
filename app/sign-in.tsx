@@ -46,6 +46,10 @@ export default function SignInScreen() {
     profile: any,
     accessToken: string,
   ) {
+    if (config.releaseChannel === 'wallet-inbound-lab') {
+      router.replace('/(app)/external-wallet-connect?market=BR' as any);
+      return;
+    }
     const target = await resolveAuthenticatedRoute(profile, accessToken);
     router.replace(target as any);
   }
@@ -119,7 +123,11 @@ export default function SignInScreen() {
       if (qaLogin) setQaLoginStage('Carregando perfil de homologação…');
       const profile = await nexaApi.me(tokens.accessToken);
       if (qaLogin) setQaLoginStage('Abrindo a Nexa QA…');
-      await maybeOfferDeviceProtection(profile, tokens.accessToken);
+      if (qaLogin) {
+        await goToAuthenticatedArea(profile, tokens.accessToken);
+      } else {
+        await maybeOfferDeviceProtection(profile, tokens.accessToken);
+      }
     } catch (caught) {
       await clearNexaTokens();
       setError(
@@ -148,7 +156,9 @@ export default function SignInScreen() {
       <View style={styles.topSpace} />
       <Title>Bem-vindo de volta</Title>
       <Paragraph>
-        Acesse sua Nexa Wallet. Sua senha não é armazenada neste aparelho.
+        {config.releaseChannel === 'wallet-inbound-lab'
+          ? 'Acesse com sua conta Nexa existente. Este APK é apenas para testes, sem transferências.'
+          : 'Acesse sua Nexa Wallet. Sua senha não é armazenada neste aparelho.'}
       </Paragraph>
 
       <Field
@@ -181,12 +191,16 @@ export default function SignInScreen() {
         disabled={loading}
         onPress={openPasswordRecovery}
       />
-      <ActionButton
-        label="Criar conta"
-        variant="secondary"
-        disabled={loading}
-        onPress={() => router.push('/sign-up-country' as any)}
-      />
+      {config.releaseChannel !== 'wallet-inbound-lab' ? (
+        <ActionButton
+          label="Criar conta"
+          variant="secondary"
+          disabled={loading}
+          onPress={() => router.push('/sign-up-country' as any)}
+        />
+      ) : (
+        <Text style={styles.securityNote}>Para criar uma conta, utilize o aplicativo Nexa oficial. Não há cadastro separado para a Wallet Connect.</Text>
+      )}
 
       <Text style={styles.securityNote}>Biometria pode proteger o acesso depois do primeiro login neste aparelho.</Text>
 
