@@ -152,6 +152,12 @@ try {
     data.cases[0].evidenceRef = urlWithSecretOrFragment;
     assert.equal(run(data).status, 1, 'query/fragment evidence URL must fail: ' + urlWithSecretOrFragment);
   }
+  // Loopback HTTPS URLs cannot independently substantiate a QA device run.
+  for (const loopbackUrl of ['https://localhost/evidence/A01', 'https://127.0.0.1/evidence/A01', 'https://[::1]/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = loopbackUrl;
+    assert.equal(run(data).status, 1, 'loopback evidence URL must fail: ' + loopbackUrl);
+  }
   const insecureUrl = structuredClone(base);
   insecureUrl.cases[0].evidenceRef = 'http://example.test/private/evidence/A01';
   assert.equal(run(insecureUrl).status, 1, 'remote evidence references must use HTTPS');
