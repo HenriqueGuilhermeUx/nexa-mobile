@@ -64,25 +64,25 @@ jobs:
           NODE
       - name: Install dependencies for Expo config and router plugins
         run: npm ci --no-audit --no-fund
-      - name: Republish SAME canary assets to 100 percent Android only
-        shell: bash
-        run: |
-          set -euo pipefail
-          eas update:republish --group db83eb5e-fa58-431d-9916-42104b423e03 --destination-branch production --platform android --rollout-percentage 100 --force-end-active-rollout --message "Central Nexa v148 complete Android rollout from exact tested group" --non-interactive
-      - name: Verify latest Android production update after publish
+      - name: Validate native EAS update-rollout workflow
+        run: eas workflow:validate .eas/workflows/central-nexa-finish-rollout.yml --non-interactive
+      - name: Complete SAME existing update group from 10 to 100 percent
+        run: eas workflow:run .eas/workflows/central-nexa-finish-rollout.yml --non-interactive --wait
+      - name: Verify original EAS Android update group remains live
         shell: bash
         run: |
           node - <<'NODE'
           (async()=>{
-            const query='query($appId:String!){app{byId(appId:$appId){updateBranchByName(name:"production"){updates(offset:0,limit:8){id gitCommitHash platform group createdAt}}}}}';
+            const query='query($appId:String!){app{byId(appId:$appId){updateBranchByName(name:"production"){updates(offset:0,limit:8){id platform group gitCommitHash}}}}}';
             const response=await fetch('https://api.expo.dev/graphql',{method:'POST',
               headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
               body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
               signal:AbortSignal.timeout(15000)});
             const result=await response.json();
-            if(!response.ok||result.errors?.length)throw Error('Expo post-publish query failed');
+            if(!response.ok||result.errors?.length)throw Error('Expo production verification unavailable');
             const live=result.data?.app?.byId?.updateBranchByName?.updates?.find(x=>x.platform==='android');
-            if(!live||live.group==='db83eb5e-fa58-431d-9916-42104b423e03')throw Error('No new Android republish visible');
-            console.log('EXPO_ANDROID_PROMOTED='+JSON.stringify({id:live.id,group:live.group,commit:live.gitCommitHash,createdAt:live.createdAt}));
+            if(live?.group!=='db83eb5e-fa58-431d-9916-42104b423e03'||live.gitCommitHash!=='72f2b82241eae43bda20a33c03758680787a613e')
+              throw Error('Unexpected Android production group after rollout');
+            console.log('EAS_ANDROID_SAME_RELEASE='+JSON.stringify({id:live.id,group:live.group,commit:live.gitCommitHash}));
           })().catch(e=>{console.error(e.message);process.exitCode=1});
           NODE
