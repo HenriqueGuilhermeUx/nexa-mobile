@@ -1,0 +1,98 @@
+name: Central Nexa — KYC restored notice Android OTA
+on:
+  push:
+    branches:
+      - release/central-nexa-kyc-restored-v148-20261113
+    paths:
+      - '.github/workflows/central-nexa-kyc-restored-ota.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-android-prod-kyc-restored-notice
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify only a new Central Nexa notice is being published
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only 72f2b82241eae43bda20a33c03758680787a613e...HEAD | sort > /tmp/diff
+          printf '.github/workflows/central-nexa-kyc-restored-ota.yml\napp/central-nexa.tsx\n' | sort > /tmp/allowed
+          diff -u /tmp/allowed /tmp/diff
+          for path in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts; do
+            git show 72f2b82241eae43bda20a33c03758680787a613e:"$path" | cmp - "$path"
+          done
+          node - <<'NODE'
+          const fs=require('fs');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||
+             app.runtimeVersion.policy!=='appVersion'||
+             app.android.package!=='br.com.trynexa.app') throw Error('Native identity changed');
+          const current=fs.readFileSync('app/central-nexa.tsx','utf8');
+          const previous=require('child_process').execFileSync('git',
+            ['show','72f2b82241eae43bda20a33c03758680787a613e:app/central-nexa.tsx'],{encoding:'utf8'});
+          const notice='Verificação de identidade disponível';
+          if(!current.includes(notice)||!current.includes("router.push('/kyc' as any)"))
+            throw Error('Verified recovery CTA missing');
+          if(!current.includes("isBrazilUser && identityStage === 'pending'"))
+            throw Error('Incorrect audience for restoration notice');
+          console.log('KYC_NOTICE_DIFF_APPROVED; old length='+previous.length+' new length='+current.length);
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node scripts/validate-central-nexa-v148.js
+      - run: node scripts/validate-central-nexa-push-optin-v148.js
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Load original production Expo public configuration
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string')
+              throw Error('Unexpected release env var');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Stop unless existing full Central rollout is still the latest Android OTA
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform group}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)});
+            const obj=await response.json();if(!response.ok||obj.errors?.length)throw Error('Expo inventory unavailable');
+            const app=obj.data?.app?.byId;const branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const latest=app?.updateBranchByName?.updates?.find(x=>x.platform==='android');
+            if(branches.length!==1||branches[0]!=='production'||latest?.group!=='db83eb5e-fa58-431d-9916-42104b423e03'||latest.gitCommitHash!=='72f2b82241eae43bda20a33c03758680787a613e')
+              throw Error('Production changed; stop before publishing');
+            console.log('CENTRAL_NOTICE_PRODUCTION_BASELINE_VERIFIED='+latest.id);
+          })().catch(e=>{console.error('BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish minimal KYC service notice to all compatible Android installs
+        shell: bash
+        run: |
+          eas update --branch production --platform android --rollout-percentage 100 --message "Central Nexa v148 KYC restored service notice" --non-interactive
