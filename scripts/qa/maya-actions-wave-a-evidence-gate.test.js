@@ -202,6 +202,12 @@ try {
     data.cases[0].evidenceRef = doubleEncoded;
     assert.equal(run(data).status, 1, 'double-encoded evidence must fail: ' + doubleEncoded);
   }
+  // Invalid percent escapes must not be accepted as local audit IDs.
+  for (const malformedPercent of ['qa/proof%A01', 'qa/proof%', 'qa/proof%2', 'qa/proof%GG']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = malformedPercent;
+    assert.equal(run(data).status, 1, 'malformed percent escape must fail: ' + malformedPercent);
+  }
   const harmlessPercent = structuredClone(base);
   harmlessPercent.cases[0].evidenceRef = 'qa/proof%20A01';
   assert.equal(run(harmlessPercent).status, 0, 'non-traversal percent-encoded reference remains valid');
