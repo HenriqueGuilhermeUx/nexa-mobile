@@ -1,0 +1,72 @@
+name: Central Nexa — isolated Android QA OTA
+on:
+  push:
+    branches:
+      - release/central-nexa-v148-ota-safe-20261112
+    paths:
+      - '.github/workflows/central-nexa-release-qa.yml'
+      - '.github/workflows/central-nexa-release-production.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: central-nexa-v148-qa
+  cancel-in-progress: false
+jobs:
+  qa-ota:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: central-nexa-v148-qa
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Pin to production native baseline and Central-only JS changes
+        run: |
+          set -euo pipefail
+          node scripts/validate-central-nexa-cumulative-release.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          for path in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts; do
+            git show a97dea14a6235be6332fc106370c70665de9fef3:"$path" | cmp - "$path"
+          done
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Read-only proof production channel points away from QA
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){name updateBranches(offset:0,limit:10){name}}}}}';
+            const res=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(12000)
+            });
+            const data=await res.json();
+            const names=data.data?.app?.byId?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(names.length!==1||names[0]!=='production')throw Error('Production channel mapping changed: QA blocked');
+            console.log('QA_SAFE: production channel mapped exclusively to production EAS branch');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Publish ONLY to unlinked isolated QA branch
+        run: |
+          eas update --branch central-nexa-v148-qa --platform android --message "Central Nexa QA 2.0.43 v148 SHA $(git rev-parse --short HEAD)" --non-interactive

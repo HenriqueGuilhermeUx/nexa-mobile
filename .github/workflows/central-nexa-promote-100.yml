@@ -1,0 +1,89 @@
+name: Central Nexa — promote exact Android canary to 100 percent
+on:
+  push:
+    branches:
+      - release/central-nexa-v148-ota-safe-20261112
+    paths:
+      - '.github/workflows/central-nexa-promote-100.yml'
+      - '.eas/workflows/central-nexa-finish-rollout.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-central-android-production-full-rollout
+  cancel-in-progress: false
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm no native code or finance changes in candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/validate-central-nexa-cumulative-release.js
+          for path in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts; do
+            git show a97dea14a6235be6332fc106370c70665de9fef3:"$path" | cmp - "$path"
+          done
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Fail closed unless original canary is still latest production Android
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){name updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){name updates(offset:0,limit:12){id gitCommitHash platform group createdAt}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)});
+            const data=await response.json();
+            if(!response.ok||data.errors?.length)throw Error('EAS inventory unavailable; no promotion');
+            const app=data.data?.app?.byId;
+            const mapping=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(mapping.length!==1||mapping[0]!=='production')throw Error('Production channel changed');
+            const live=(app?.prod?.updates||[]).find(x=>x.platform==='android');
+            if(live?.id!=='01a1d168-1be7-7a7b-be88-e8be1d637641'||
+              live.group!=='db83eb5e-fa58-431d-9916-42104b423e03'||
+              live.gitCommitHash!=='72f2b82241eae43bda20a33c03758680787a613e')
+              throw Error('Latest live Android update differs from tested canary; stop');
+            console.log('EAS_PROMOTION_APPROVED='+JSON.stringify({
+              canaryUpdateId:live.id,group:live.group,sourceCommit:live.gitCommitHash
+            }));
+          })().catch(e=>{console.error('BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Install dependencies for Expo config and router plugins
+        run: npm ci --no-audit --no-fund
+      - name: Validate native EAS update-rollout workflow
+        run: eas workflow:validate .eas/workflows/central-nexa-finish-rollout.yml --non-interactive
+      - name: Complete SAME existing update group from 10 to 100 percent
+        run: eas workflow:run .eas/workflows/central-nexa-finish-rollout.yml --non-interactive --wait
+      - name: Verify original EAS Android update group remains live
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateBranchByName(name:"production"){updates(offset:0,limit:8){id platform group gitCommitHash}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)});
+            const result=await response.json();
+            if(!response.ok||result.errors?.length)throw Error('Expo production verification unavailable');
+            const live=result.data?.app?.byId?.updateBranchByName?.updates?.find(x=>x.platform==='android');
+            if(live?.group!=='db83eb5e-fa58-431d-9916-42104b423e03'||live.gitCommitHash!=='72f2b82241eae43bda20a33c03758680787a613e')
+              throw Error('Unexpected Android production group after rollout');
+            console.log('EAS_ANDROID_SAME_RELEASE='+JSON.stringify({id:live.id,group:live.group,commit:live.gitCommitHash}));
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE

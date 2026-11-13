@@ -234,6 +234,11 @@ export default function KycScreen() {
       )}
 
       <ActionButton
+        label="Central Nexa · ajuda e mensagens"
+        variant="secondary"
+        onPress={() => router.push('/central-nexa' as any)}
+      />
+      <ActionButton
         label="Atualizar status"
         variant="secondary"
         disabled={starting}

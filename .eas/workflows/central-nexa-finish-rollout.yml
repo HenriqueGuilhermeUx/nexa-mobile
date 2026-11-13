@@ -1,0 +1,11 @@
+name: Nexa Central — finish existing Android update rollout
+on:
+  workflow_dispatch: {}
+
+jobs:
+  finish_android_rollout:
+    name: Promote existing Central Nexa Android update to 100%
+    type: update-rollout
+    params:
+      update_group_id: db83eb5e-fa58-431d-9916-42104b423e03
+      rollout_percentage: 100
