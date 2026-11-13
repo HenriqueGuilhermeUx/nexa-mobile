@@ -140,6 +140,15 @@ try {
     data.cases[0].evidenceRef = protocolRelative;
     assert.equal(run(data).status, 1, 'protocol-relative evidence must fail closed');
   }
+  // Opaque schemes have no // delimiter; they must not masquerade as local audit IDs.
+  for (const opaqueScheme of ['javascript:alert(1)', 'data:text/plain,proof', 'mailto:qa@example.test', 'urn:qa:evidence:A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = opaqueScheme;
+    assert.equal(run(data).status, 1, 'opaque URI scheme must fail closed: ' + opaqueScheme);
+  }
+  const localAuditId = structuredClone(base);
+  localAuditId.cases[0].evidenceRef = 'qa-a-local-proof-A01';
+  assert.equal(run(localAuditId).status, 0, 'scheme-free local evidence ID must remain valid');
   const safeUrl = structuredClone(base);
   safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
   assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
