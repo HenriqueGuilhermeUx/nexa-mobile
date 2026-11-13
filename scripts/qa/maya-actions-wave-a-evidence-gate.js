@@ -90,6 +90,8 @@ for (const id of ids) {
       if (!/^https:\/\//i.test(c.evidenceRef.trim())) failures.push(id + ': evidence HTTPS URL must use explicit // authority');
       if (url.protocol !== 'https:') failures.push(id + ': evidence URL must use HTTPS');
       if (url.username || url.password) failures.push(id + ': evidence URL contains credentials');
+      // Loopback hosts cannot serve as remotely auditable QA evidence and may point at a tester's private machine.
+      if (['localhost', '127.0.0.1', '[::1]'].includes(url.hostname.toLowerCase())) failures.push(id + ': loopback evidence URL is not allowed');
       // Query strings and fragments may carry access tokens or mutable viewer state; store a stable proof URL only.
       if (url.search || url.hash || /[?#]/.test(c.evidenceRef)) failures.push(id + ': evidence URL must not contain query or fragment');
     } catch { failures.push(id + ': malformed evidence URL'); }
