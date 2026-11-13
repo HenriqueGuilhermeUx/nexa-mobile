@@ -66,6 +66,8 @@ for (const id of ids) {
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.split('/').some(part => part === '..' || part === '.')) failures.push(id + ': evidence reference contains path traversal');
   // Percent-encoded dot segments may be decoded by evidence viewers or storage adapters.
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.split('/').some(part => /^(?:\.|%2e){1,2}$/i.test(part) && /%2e/i.test(part))) failures.push(id + ': encoded path traversal is not allowed');
+  // Encoded separators can become traversal after a downstream URL decode; fail closed for local IDs.
+  if (typeof c.evidenceRef === 'string' && /%(?:2f|5c)/i.test(c.evidenceRef)) failures.push(id + ': encoded path separator is not allowed');
   // Do not allow credentials embedded in private evidence URLs to enter QA audit logs.
   // Protocol-relative URLs inherit an unknown scheme and must never count as auditable evidence.
   if (typeof c.evidenceRef === 'string' && /^\/\//.test(c.evidenceRef.trim())) failures.push(id + ': protocol-relative evidence URL is not allowed');
