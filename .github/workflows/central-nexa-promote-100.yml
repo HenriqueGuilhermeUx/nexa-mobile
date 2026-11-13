@@ -62,6 +62,8 @@ jobs:
             }));
           })().catch(e=>{console.error('BLOCKED: '+e.message);process.exitCode=1});
           NODE
+      - name: Install dependencies for Expo config and router plugins
+        run: npm ci --no-audit --no-fund
       - name: Republish SAME canary assets to 100 percent Android only
         shell: bash
         run: |
