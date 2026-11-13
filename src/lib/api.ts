@@ -81,7 +81,7 @@ async function request<T>(
             ? 'A consulta de países de homologação não respondeu. Para o Brasil, prossiga diretamente ao cadastro de testes.'
             : path === '/user/me'
               ? 'A sessão foi criada, mas o perfil de homologação não respondeu. Tente entrar novamente.'
-              : 'O servidor de homologação não respondeu ao login. A conta da Nexa oficial utiliza outro ambiente. Tente novamente mais tarde ou use uma conta QA autorizada.',
+              : 'O login oficial da Nexa não respondeu. Tente novamente; o ambiente QA não aceita criar uma segunda conta.',
         0,
         abort?.signal.aborted ? 'QA_AUTH_TIMEOUT' : 'QA_AUTH_NETWORK',
       );
@@ -107,7 +107,7 @@ async function request<T>(
       config.releaseChannel === 'wallet-inbound-lab'
     ) {
       throw new ApiError(
-        'Este APK de homologação utiliza o ambiente de testes da Nexa, separado das contas do aplicativo oficial. Uma conta de produção pode não estar cadastrada aqui. Use apenas um usuário de teste autorizado; não altere nem compartilhe sua senha de produção.',
+        'A Nexa não reconheceu este e-mail ou senha no login oficial. Confira seus dados pelo aplicativo Nexa original. O APK QA não permite redefinir a senha.',
         response.status,
         'QA_STAGING_LOGIN_REQUIRED',
       );
@@ -355,10 +355,17 @@ export const nexaApi = {
   },
 
   login(email: string, password: string) {
+    // Authenticate the real Nexa identity against its existing authority.
+    // The QA APK cannot create a shadow account or use production tokens
+    // to authorize requests against the staging financial backend.
+    const identityBase =
+      config.releaseChannel === 'wallet-inbound-lab'
+        ? 'https://nexa-backend-p2u0.onrender.com/api/v1'
+        : config.apiUrl;
     return request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
-    });
+    }, identityBase);
   },
 
   refresh(refreshToken: string) {
@@ -369,7 +376,11 @@ export const nexaApi = {
   },
 
   me(accessToken: string) {
-    return request<any>('/user/me', { accessToken });
+    const identityBase =
+      config.releaseChannel === 'wallet-inbound-lab'
+        ? 'https://nexa-backend-p2u0.onrender.com/api/v1'
+        : config.apiUrl;
+    return request<any>('/user/me', { accessToken }, identityBase);
   },
 
   createNexaIdAccessToken(accessToken: string) {
