@@ -150,6 +150,7 @@ export default function MayaActionsScreen() {
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.heading}>Maya · Actions</Text>
+      <Text accessibilityLabel="Marcador de atualização OTA de homologação" style={styles.notice}>OTA QA · 13/11 · atualização recebida</Text>
       <Text style={styles.description}>Crie tarefas ou agende lembretes locais com confirmação. Tudo permanece neste dispositivo; não há sincronização nem pagamentos automáticos.</Text>
       <Pressable accessibilityRole="button" onPress={() => router.push('/maya-shopping' as any)} style={styles.choice}>
         <Text style={styles.title}>Pesquisar preços na web</Text>
