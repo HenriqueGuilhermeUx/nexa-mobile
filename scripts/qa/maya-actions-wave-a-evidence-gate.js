@@ -66,6 +66,9 @@ for (const id of ids) {
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.includes('\\')) failures.push(id + ': evidence reference contains backslash');
   // Absolute filesystem paths cannot be treated as private evidence IDs.
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.startsWith('/')) failures.push(id + ': absolute evidence path is not allowed');
+  // Repeated or trailing separators create empty path components and ambiguous local proof IDs.
+  // HTTPS URLs are parsed separately; this check applies only to scheme-free local references.
+  if (typeof c.evidenceRef === 'string' && !/^[a-z][a-z0-9+.-]*:/i.test(c.evidenceRef) && c.evidenceRef.split('/').some(part => part === '')) failures.push(id + ': empty local evidence path segment');
   // Local audit IDs must not resolve outside the private evidence directory.
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.split('/').some(part => part === '..' || part === '.')) failures.push(id + ': evidence reference contains path traversal');
   // Percent-encoded dot segments may be decoded by evidence viewers or storage adapters.
