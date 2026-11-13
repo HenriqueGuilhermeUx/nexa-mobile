@@ -155,6 +155,12 @@ try {
     data.cases[0].evidenceRef = opaqueScheme;
     assert.equal(run(data).status, 1, 'opaque URI scheme must fail closed: ' + opaqueScheme);
   }
+  // WHATWG URL parsing may normalize backslashes into slashes; audit refs must remain unambiguous.
+  for (const ambiguousRef of ['https:\\example.test/evidence/A01', 'https:\\\\example.test/evidence/A01', 'qa\\proof-A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = ambiguousRef;
+    assert.equal(run(data).status, 1, 'backslash in evidence reference must fail closed');
+  }
   const localAuditId = structuredClone(base);
   localAuditId.cases[0].evidenceRef = 'qa-a-local-proof-A01';
   assert.equal(run(localAuditId).status, 0, 'scheme-free local evidence ID must remain valid');
