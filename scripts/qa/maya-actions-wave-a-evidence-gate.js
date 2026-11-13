@@ -70,6 +70,7 @@ for (const id of ids) {
   if (typeof c.evidenceRef === 'string' && /^[a-z][a-z0-9+.-]*:/i.test(c.evidenceRef.trim())) {
     try {
       const url = new URL(c.evidenceRef.trim());
+      if (!/^https:\/\//i.test(c.evidenceRef.trim())) failures.push(id + ': evidence HTTPS URL must use explicit // authority');
       if (url.protocol !== 'https:') failures.push(id + ': evidence URL must use HTTPS');
       if (url.username || url.password) failures.push(id + ': evidence URL contains credentials');
     } catch { failures.push(id + ': malformed evidence URL'); }
