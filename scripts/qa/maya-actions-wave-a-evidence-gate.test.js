@@ -184,6 +184,12 @@ try {
     data.cases[0].evidenceRef = encodedSeparator;
     assert.equal(run(data).status, 1, 'encoded path separator must fail: ' + encodedSeparator);
   }
+  // A second URL decode can turn %252e%252e or %252f into traversal separators.
+  for (const doubleEncoded of ['qa/%252e%252e/private/A01', 'qa%252f..%252fprivate/A01', 'qa%255c..%255cprivate/A01', 'qa/%25proof-A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = doubleEncoded;
+    assert.equal(run(data).status, 1, 'double-encoded evidence must fail: ' + doubleEncoded);
+  }
   const harmlessPercent = structuredClone(base);
   harmlessPercent.cases[0].evidenceRef = 'qa/proof%20A01';
   assert.equal(run(harmlessPercent).status, 0, 'non-traversal percent-encoded reference remains valid');
