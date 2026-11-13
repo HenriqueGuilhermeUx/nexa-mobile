@@ -173,6 +173,12 @@ try {
     data.cases[0].evidenceRef = ambiguousHttps;
     assert.equal(run(data).status, 1, 'HTTPS evidence must include explicit // authority');
   }
+  // Absolute paths must not be accepted as private relative evidence IDs.
+  for (const absoluteRef of ['/tmp/private/A01', '/qa/a01/proof', '/']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = absoluteRef;
+    assert.equal(run(data).status, 1, 'absolute local evidence path must fail: ' + absoluteRef);
+  }
   // Do not allow local audit references to escape their evidence directory.
   for (const traversal of ['../private/A01', 'qa/../../private/A01', './qa-proof-A01', 'qa/./proof-A01']) {
     const data = structuredClone(base);
