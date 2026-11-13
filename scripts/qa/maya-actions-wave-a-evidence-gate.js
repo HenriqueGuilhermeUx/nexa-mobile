@@ -62,6 +62,8 @@ for (const id of ids) {
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.length > 512) failures.push(id + ': evidence reference too long');
   // Backslashes can be interpreted as URL separators by WHATWG parsers; reject ambiguous audit references.
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.includes('\\')) failures.push(id + ': evidence reference contains backslash');
+  // Local audit IDs must not resolve outside the private evidence directory.
+  if (typeof c.evidenceRef === 'string' && c.evidenceRef.split('/').some(part => part === '..' || part === '.')) failures.push(id + ': evidence reference contains path traversal');
   // Do not allow credentials embedded in private evidence URLs to enter QA audit logs.
   // Protocol-relative URLs inherit an unknown scheme and must never count as auditable evidence.
   if (typeof c.evidenceRef === 'string' && /^\/\//.test(c.evidenceRef.trim())) failures.push(id + ': protocol-relative evidence URL is not allowed');
