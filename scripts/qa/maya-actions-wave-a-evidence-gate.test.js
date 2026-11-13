@@ -211,6 +211,12 @@ try {
   const harmlessPercent = structuredClone(base);
   harmlessPercent.cases[0].evidenceRef = 'qa/proof%20A01';
   assert.equal(run(harmlessPercent).status, 0, 'non-traversal percent-encoded reference remains valid');
+  // Empty local path segments must fail, without rejecting explicit HTTPS proof URLs.
+  for (const emptySegment of ['qa//proof-A01', 'qa/proof-A01/', 'qa///proof-A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = emptySegment;
+    assert.equal(run(data).status, 1, 'ambiguous empty local path segment must fail: ' + emptySegment);
+  }
   const nestedLocal = structuredClone(base);
   nestedLocal.cases[0].evidenceRef = 'qa/a01/proof';
   assert.equal(run(nestedLocal).status, 0, 'safe nested local audit reference must remain valid');
