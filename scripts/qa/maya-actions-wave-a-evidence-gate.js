@@ -63,7 +63,9 @@ for (const id of ids) {
   // Do not allow credentials embedded in private evidence URLs to enter QA audit logs.
   // Protocol-relative URLs inherit an unknown scheme and must never count as auditable evidence.
   if (typeof c.evidenceRef === 'string' && /^\/\//.test(c.evidenceRef.trim())) failures.push(id + ': protocol-relative evidence URL is not allowed');
-  if (typeof c.evidenceRef === 'string' && /^[a-z][a-z0-9+.-]*:\/\//i.test(c.evidenceRef.trim())) {
+  // Reject all URI schemes, including opaque javascript:, data: and mailto: references.
+  // Only explicit HTTPS URLs or scheme-free local audit IDs are admissible.
+  if (typeof c.evidenceRef === 'string' && /^[a-z][a-z0-9+.-]*:/i.test(c.evidenceRef.trim())) {
     try {
       const url = new URL(c.evidenceRef.trim());
       if (url.protocol !== 'https:') failures.push(id + ': evidence URL must use HTTPS');
