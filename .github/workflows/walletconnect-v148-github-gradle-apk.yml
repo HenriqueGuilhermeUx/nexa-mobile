@@ -11,6 +11,8 @@ on:
       - app/sign-up.tsx
       - app/sign-up-country.tsx
       - src/components/ForceUpdateGate.tsx
+      - src/lib/externalWalletReownGate.ts
+      - scripts/walletconnect-v148-reown-qa-gate.test.cjs
   workflow_dispatch:
   pull_request:
     branches:
@@ -39,10 +41,11 @@ jobs:
       EXPO_PUBLIC_NEXA_WALLET_STAGING_BUILD: 'true'
       EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
       EXPO_PUBLIC_NEXA_WALLET_CONNECT_UI_ENABLED: 'true'
-      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID: '0d9b915b32c04b058efeba535319dd70'
+      EXPO_PUBLIC_NEXA_REOWN_ENABLED: 'true'
       EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED: 'false'
       EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED: 'false'
-      EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'false'
+      EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE: 'true'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -76,9 +79,13 @@ jobs:
              qa.extra.financialExecutionEnabled!==false||qa.extra.ledgerOperationsEnabled!==false)
             throw Error('UNSAFE_QA_IDENTITY');
           if(process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false'||
-             process.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED!=='false')
-            throw Error('UNAUTHORIZED_CONNECTION_OR_FINANCIAL_EXECUTION');
-          console.log('PASS isolated QA package; no financial transactions and Reown is disabled pending review.');
+             process.env.EXPO_PUBLIC_NEXA_REOWN_ENABLED!=='true'||
+             process.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_QA_MODE!=='true'||
+             process.env.EXPO_PUBLIC_NEXA_REOWN_NATIVE_VERIFIED!=='false'||
+             process.env.EXPO_PUBLIC_NEXA_REOWN_LICENSE_REVIEWED!=='false'||
+             !/^[a-zA-Z0-9]{16,128}$/.test(process.env.EXPO_PUBLIC_NEXA_REOWN_PROJECT_ID||''))
+            throw Error('UNSAFE_WALLET_QA_PAIRING_CONFIGURATION');
+          console.log('PASS isolated QA Reown pairing only; NO license/native release approval, NO financial transactions.');
           NODE
       - name: Install locked dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
