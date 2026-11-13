@@ -81,6 +81,12 @@ try {
   const reused = structuredClone(base);
   reused.cases[1].evidenceRef = reused.cases[0].evidenceRef;
   assert.equal(run(reused).status, 1, 'reused evidence reference must fail');
+  // Do not silently normalize padded audit references; the recorded proof ID must match exactly.
+  for (const padded of [' qa/proof-A01', 'qa/proof-A01 ', '\\tqa/proof-A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = padded;
+    assert.equal(run(data).status, 1, 'padded evidence reference must fail');
+  }
   const reusedWhitespace = structuredClone(base);
   reusedWhitespace.cases[1].evidenceRef = ' ' + reusedWhitespace.cases[0].evidenceRef + ' ';
   assert.equal(run(reusedWhitespace).status, 1, 'whitespace cannot bypass evidence uniqueness');
