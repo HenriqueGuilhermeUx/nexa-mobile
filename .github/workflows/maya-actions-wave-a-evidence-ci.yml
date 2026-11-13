@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - qa/maya-actions-wave-a-evidence-20261111
-    paths:
-      - 'scripts/qa/maya-actions-wave-a-evidence-gate.js'
-      - 'scripts/qa/maya-actions-wave-a-evidence-gate.test.js'
-      - '.github/workflows/maya-actions-wave-a-evidence-ci.yml'
   pull_request:
     branches:
       - integration/maya-actions-v148
