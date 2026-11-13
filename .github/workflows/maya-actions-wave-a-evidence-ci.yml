@@ -8,6 +8,13 @@ on:
       - 'scripts/qa/maya-actions-wave-a-evidence-gate.js'
       - 'scripts/qa/maya-actions-wave-a-evidence-gate.test.js'
       - '.github/workflows/maya-actions-wave-a-evidence-ci.yml'
+  pull_request:
+    branches:
+      - integration/maya-actions-v148
+    paths:
+      - 'scripts/qa/maya-actions-wave-a-evidence-gate.js'
+      - 'scripts/qa/maya-actions-wave-a-evidence-gate.test.js'
+      - '.github/workflows/maya-actions-wave-a-evidence-ci.yml'
   workflow_dispatch:
 
 permissions:
