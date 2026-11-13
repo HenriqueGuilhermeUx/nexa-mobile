@@ -1,7 +1,8 @@
 /**
  * Explicit activation policy for external-wallet connection.
  * Defaults disabled; does not start SDK, prompt wallets or send transactions.
- * License, project credentials and native build validation are release gates.
+ * Project ID, preview-only native lab mode and financial isolation are QA gates.
+ * License review and verified native callback remain required before wider rollout.
  */
 export function assertReownExternalWalletReady(input: {
   enabled: boolean;
@@ -16,7 +17,11 @@ export function assertReownExternalWalletReady(input: {
   if (!input.projectId || !/^[a-zA-Z0-9]{16,128}$/.test(input.projectId)) {
     throw new Error('REOWN_PROJECT_ID_REQUIRED');
   }
-  if (!input.licenseApproved) throw new Error('REOWN_LICENSE_REVIEW_REQUIRED');
+  // A specifically activated preview-only lab may test pairing before formal
+  // release review. It cannot authorize a customer-facing release or funds.
+  if (!input.licenseApproved && !input.nativeQaMode) {
+    throw new Error('REOWN_LICENSE_REVIEW_REQUIRED');
+  }
   // An unverified native build may only enter a specifically approved preview QA session.
   if (input.nativeQaMode && input.environment !== 'preview') {
     throw new Error('REOWN_NATIVE_QA_PREVIEW_ONLY');
