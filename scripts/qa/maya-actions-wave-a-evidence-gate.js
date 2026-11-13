@@ -60,6 +60,8 @@ for (const id of ids) {
   // Reject control characters that can corrupt audit logs or conceal a reused reference.
   if (typeof c.evidenceRef === 'string' && /[\x00-\x1f\x7f\u2028\u2029\p{Cf}\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/u.test(c.evidenceRef)) failures.push(id + ': evidence reference contains control characters');
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.length > 512) failures.push(id + ': evidence reference too long');
+  // Backslashes can be interpreted as URL separators by WHATWG parsers; reject ambiguous audit references.
+  if (typeof c.evidenceRef === 'string' && c.evidenceRef.includes('\\')) failures.push(id + ': evidence reference contains backslash');
   // Do not allow credentials embedded in private evidence URLs to enter QA audit logs.
   // Protocol-relative URLs inherit an unknown scheme and must never count as auditable evidence.
   if (typeof c.evidenceRef === 'string' && /^\/\//.test(c.evidenceRef.trim())) failures.push(id + ': protocol-relative evidence URL is not allowed');
