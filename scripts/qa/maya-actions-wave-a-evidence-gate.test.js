@@ -178,6 +178,12 @@ try {
     data.cases[0].evidenceRef = encodedTraversal;
     assert.equal(run(data).status, 1, 'encoded dot segment must fail: ' + encodedTraversal);
   }
+  // Encoded slashes/backslashes can conceal path segments when decoded downstream.
+  for (const encodedSeparator of ['qa%2f..%2fprivate/A01', 'qa%2Fproof-A01', 'qa%5c..%5cprivate/A01', 'qa%5Cproof-A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = encodedSeparator;
+    assert.equal(run(data).status, 1, 'encoded path separator must fail: ' + encodedSeparator);
+  }
   const harmlessPercent = structuredClone(base);
   harmlessPercent.cases[0].evidenceRef = 'qa/proof%20A01';
   assert.equal(run(harmlessPercent).status, 0, 'non-traversal percent-encoded reference remains valid');
