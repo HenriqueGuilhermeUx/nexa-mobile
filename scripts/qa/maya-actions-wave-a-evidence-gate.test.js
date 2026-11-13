@@ -135,6 +135,11 @@ try {
     data.cases[0].evidenceRef = unsafeScheme;
     assert.equal(run(data).status, 1, 'remote evidence must reject unsupported URI scheme: ' + unsafeScheme);
   }
+  for (const protocolRelative of ['//example.test/evidence/A01', '  //example.test/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = protocolRelative;
+    assert.equal(run(data).status, 1, 'protocol-relative evidence must fail closed');
+  }
   const safeUrl = structuredClone(base);
   safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
   assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
