@@ -5,6 +5,7 @@ on:
       - release/central-nexa-v148-ota-safe-20261112
     paths:
       - '.github/workflows/central-nexa-promote-100.yml'
+      - '.eas/workflows/central-nexa-finish-rollout.yml'
 permissions:
   contents: read
 concurrency:
