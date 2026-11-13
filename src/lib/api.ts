@@ -348,6 +348,13 @@ export const nexaApi = {
   },
 
   register(data: RegistrationData) {
+    if (config.releaseChannel === 'wallet-inbound-lab') {
+      return Promise.reject(new ApiError(
+        'Não crie uma segunda conta no aplicativo de testes. Use sua conta Nexa existente no login oficial.',
+        403,
+        'QA_REGISTRATION_DISABLED',
+      ));
+    }
     return request<LoginResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
