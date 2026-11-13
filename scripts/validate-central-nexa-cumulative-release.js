@@ -16,6 +16,7 @@ const allowed=[
   '.github/workflows/central-nexa-release-qa.yml',
   '.github/workflows/central-nexa-release-production.yml',
   'docs/central-nexa-ota-v148-release-audit.md',
+  '.github/workflows/central-nexa-promote-100.yml',
 ].sort();
 const unexpected=changed.filter(path=>!allowed.includes(path));
 assert.deepStrictEqual(unexpected,[],'Non-Central changes from live OTA baseline: '+unexpected.join(', '));
