@@ -58,7 +58,7 @@ for (const id of ids) {
   if (c.status !== 'PASS') failures.push(id + ': not PASS');
   if (typeof c.evidenceRef !== 'string' || !c.evidenceRef.trim()) failures.push(id + ': evidence reference missing');
   // Reject control characters that can corrupt audit logs or conceal a reused reference.
-  if (typeof c.evidenceRef === 'string' && /[\x00-\x1f\x7f\u2028\u2029\p{Cf}]/u.test(c.evidenceRef)) failures.push(id + ': evidence reference contains control characters');
+  if (typeof c.evidenceRef === 'string' && /[\x00-\x1f\x7f\u2028\u2029\p{Cf}\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/u.test(c.evidenceRef)) failures.push(id + ': evidence reference contains control characters');
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.length > 512) failures.push(id + ': evidence reference too long');
   // Do not allow credentials embedded in private evidence URLs to enter QA audit logs.
   // Protocol-relative URLs inherit an unknown scheme and must never count as auditable evidence.
@@ -81,7 +81,7 @@ for (const id of ids) {
       Date.parse(c.testedAt) > Date.now()) failures.push(id + ': invalid or future timestamp');
   if (typeof c.device !== 'string' || !c.device.trim()) failures.push(id + ': device missing');
   // Keep device metadata printable and bounded; it is copied into private audit reports.
-  if (typeof c.device === 'string' && (/[\x00-\x1f\x7f\u2028\u2029\p{Cf}]/u.test(c.device) || c.device.length > 160)) failures.push(id + ': invalid device metadata');
+  if (typeof c.device === 'string' && (/[\x00-\x1f\x7f\u2028\u2029\p{Cf}\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/u.test(c.device) || c.device.length > 160)) failures.push(id + ': invalid device metadata');
 }
 // Each physical test must point to its own evidence; normalize canonically equivalent Unicode to prevent duplicate-proof bypasses.
 const refs = cases.filter(c => c && typeof c.evidenceRef === 'string' && c.evidenceRef.trim())
