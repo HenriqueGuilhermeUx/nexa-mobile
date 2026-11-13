@@ -1,6 +1,6 @@
 name: Nexa Central — finish existing Android update rollout
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   finish_android_rollout:
