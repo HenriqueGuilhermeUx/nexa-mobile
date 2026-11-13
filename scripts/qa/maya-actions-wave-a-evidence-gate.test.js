@@ -141,6 +141,17 @@ try {
     data.cases[0].evidenceRef = unsafeUrl;
     assert.equal(run(data).status, 1, 'credential-bearing or malformed evidence URL must fail');
   }
+  // URLs with query/fragment may leak signed access tokens or unstable viewer state into audit trails.
+  for (const urlWithSecretOrFragment of [
+    'https://example.test/private/evidence/A01?token=synthetic',
+    'https://example.test/private/evidence/A01#view',
+    'https://example.test/private/evidence/A01?',
+    'https://example.test/private/evidence/A01#'
+  ]) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = urlWithSecretOrFragment;
+    assert.equal(run(data).status, 1, 'query/fragment evidence URL must fail: ' + urlWithSecretOrFragment);
+  }
   const insecureUrl = structuredClone(base);
   insecureUrl.cases[0].evidenceRef = 'http://example.test/private/evidence/A01';
   assert.equal(run(insecureUrl).status, 1, 'remote evidence references must use HTTPS');
