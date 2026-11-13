@@ -60,6 +60,8 @@ for (const id of ids) {
   // Reject control characters that can corrupt audit logs or conceal a reused reference.
   if (typeof c.evidenceRef === 'string' && /[\x00-\x1f\x7f\u2028\u2029\p{Cf}\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/u.test(c.evidenceRef)) failures.push(id + ': evidence reference contains control characters');
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.length > 512) failures.push(id + ': evidence reference too long');
+  // Audit references must be exact: silently trimming whitespace can conceal incorrect or reused proof IDs.
+  if (typeof c.evidenceRef === 'string' && c.evidenceRef !== c.evidenceRef.trim()) failures.push(id + ': evidence reference has surrounding whitespace');
   // Backslashes can be interpreted as URL separators by WHATWG parsers; reject ambiguous audit references.
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.includes('\\')) failures.push(id + ': evidence reference contains backslash');
   // Local audit IDs must not resolve outside the private evidence directory.
