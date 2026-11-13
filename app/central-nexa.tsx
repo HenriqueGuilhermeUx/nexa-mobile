@@ -35,6 +35,7 @@ function Action({ title, detail, onPress }: { title: string; detail: string; onP
 
 export default function CentralNexaScreen() {
   const [identityStage, setIdentityStage] = useState<IdentityStage>('loading');
+  const [isBrazilUser, setIsBrazilUser] = useState(false);
   const [notice, setNotice] = useState('');
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
   const [inboxState, setInboxState] = useState<InboxState>('loading');
@@ -56,6 +57,7 @@ export default function CentralNexaScreen() {
         }
         const profile = await nexaApi.me(session.accessToken);
         const country = String(profile?.residenceCountry || 'BR').trim().toUpperCase();
+        setIsBrazilUser(country === 'BR');
         const state = country === 'BR'
           ? await nexaApi.getMyKycStatus(session.accessToken)
           : await nexaApi.getMyGlobalKycStatus(session.accessToken);
@@ -224,6 +226,22 @@ export default function CentralNexaScreen() {
         <Text style={styles.title}>Central Nexa</Text>
         <Text style={styles.subtitle}>Seu lugar para pedir ajuda, acompanhar sua jornada e escolher como falar com a Nexa.</Text>
       </View>
+
+      {isBrazilUser && identityStage === 'pending' ? (
+        <View style={styles.section}>
+          <Text style={styles.eyebrow}>COMUNICADO DE SERVIÇO • 13/11/2026</Text>
+          <Text style={styles.sectionTitle}>Verificação de identidade disponível</Text>
+          <Text style={styles.paragraph}>
+            O acesso à verificação de identidade da Nexa foi restabelecido. Se sua conta ainda precisa desta etapa, você já pode continuar pelo ambiente seguro do aplicativo.
+          </Text>
+          <Action
+            title="Continuar minha verificação"
+            detail="Abrir a verificação Didit na sua conta Nexa"
+            onPress={() => router.push('/kyc' as any)}
+          />
+          <Text style={styles.footnote}>Se sua verificação estiver em análise, não é necessário reiniciá-la. Nunca envie documentos, senhas ou códigos por mensagens.</Text>
+        </View>
+      ) : null}
 
       <View style={styles.feature}>
         <Text style={styles.featureLabel}>CONVERSE COM O THEO</Text>
