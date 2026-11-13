@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { config } from '@/config';
 import { loadNexaSession } from '@/lib/session';
 import { aaveReserveEligibleForPlanning } from '@/lib/aaveReserveEligibility';
@@ -40,6 +40,13 @@ type Simulation = {
 };
 
 const API = config.apiUrl.replace(/\/$/, '');
+// Match Android identity headers used by Nexa API; missing values lead to HTTP 426.
+const aaveRequestHeaders = (accessToken: string) => ({
+  Authorization: 'Bearer ' + accessToken,
+  'X-Nexa-App-Version': config.appVersion,
+  'X-Nexa-App-Build': config.appBuild,
+  'X-Nexa-Platform': Platform.OS,
+});
 const prettyAddress = (value: string) => value.length > 18 ? value.slice(0, 9) + '…' + value.slice(-6) : value;
 const onlyAmount = (value: string) => /^\d{1,9}(?:\.\d{1,2})?$/.test(value) && Number.isFinite(Number(value));
 
@@ -71,9 +78,10 @@ export default function AaveInfoScreen() {
         const session = await loadNexaSession();
         if (!session?.accessToken) throw new Error('Entre na sua conta Nexa para consultar.');
         if (!API.startsWith('https://')) throw new Error('Conexão segura indisponível.');
-        const headers = { Authorization: 'Bearer ' + session.accessToken };
+        const headers = aaveRequestHeaders(session.accessToken);
         const read = async (route: string) => {
           const response = await fetch(API + '/invest-credit/' + route, { headers, signal: controller.signal });
+          if (response.status === 426) throw new Error('Versão do aplicativo não autorizada pela API Nexa. Atualize o aplicativo de testes.');
           if (!response.ok) return null;
           return response.json();
         };
@@ -121,7 +129,7 @@ export default function AaveInfoScreen() {
         referenceLtvPercent: '60', priceDropPercent: drop,
       });
       const response = await fetch(API + '/invest-credit/simulate-collateral?' + params.toString(), {
-        headers: { Authorization: 'Bearer ' + session.accessToken },
+        headers: aaveRequestHeaders(session.accessToken),
       });
       if (!response.ok) throw new Error('Simulador ainda não habilitado.');
       const data = await response.json();
@@ -158,7 +166,7 @@ export default function AaveInfoScreen() {
       if (!session?.accessToken) throw new Error('Entre novamente na Nexa.');
       const response = await fetch(API + '/invest-credit/aave/plan', {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + session.accessToken, 'Content-Type': 'application/json' },
+        headers: { ...aaveRequestHeaders(session.accessToken), 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, chainId: markets.chainId, asset: reserve.asset, amountBaseUnits: baseUnits.toString() }),
       });
       if (!response.ok) throw new Error('Planejamento não habilitado para esta conta.');
