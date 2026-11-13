@@ -161,6 +161,12 @@ try {
     data.cases[0].evidenceRef = ambiguousRef;
     assert.equal(run(data).status, 1, 'backslash in evidence reference must fail closed');
   }
+  // WHATWG URL accepts scheme-without-authority forms; audit URLs must be explicit HTTPS://.
+  for (const ambiguousHttps of ['https:example.test/evidence/A01', 'https:/example.test/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = ambiguousHttps;
+    assert.equal(run(data).status, 1, 'HTTPS evidence must include explicit // authority');
+  }
   const localAuditId = structuredClone(base);
   localAuditId.cases[0].evidenceRef = 'qa-a-local-proof-A01';
   assert.equal(run(localAuditId).status, 0, 'scheme-free local evidence ID must remain valid');
