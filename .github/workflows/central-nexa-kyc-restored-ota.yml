@@ -95,4 +95,4 @@ jobs:
       - name: Publish minimal KYC service notice to all compatible Android installs
         shell: bash
         run: |
-          eas update --branch production --platform android --rollout-percentage 100 --message "Central Nexa v148 KYC restored service notice" --non-interactive
+          eas update --branch production --platform android --message "Central Nexa v148 KYC restored service notice" --non-interactive
