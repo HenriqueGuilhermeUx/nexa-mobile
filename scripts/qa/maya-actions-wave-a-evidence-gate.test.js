@@ -129,6 +129,12 @@ try {
   const insecureUrl = structuredClone(base);
   insecureUrl.cases[0].evidenceRef = 'http://example.test/private/evidence/A01';
   assert.equal(run(insecureUrl).status, 1, 'remote evidence references must use HTTPS');
+  // Remote evidence cannot bypass transport checks with a non-HTTP URI scheme.
+  for (const unsafeScheme of ['ftp://example.test/evidence/A01', 'file:///tmp/evidence/A01', 'ws://example.test/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = unsafeScheme;
+    assert.equal(run(data).status, 1, 'remote evidence must reject unsupported URI scheme: ' + unsafeScheme);
+  }
   const safeUrl = structuredClone(base);
   safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
   assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
