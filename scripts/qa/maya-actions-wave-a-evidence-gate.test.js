@@ -173,6 +173,14 @@ try {
     data.cases[0].evidenceRef = traversal;
     assert.equal(run(data).status, 1, 'dot-segment local evidence reference must fail: ' + traversal);
   }
+  for (const encodedTraversal of ['%2e%2e/private/A01', 'qa/%2E%2E/private/A01', 'qa/.%2e/private/A01', 'qa/%2e./private/A01', '%2e/qa-proof-A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = encodedTraversal;
+    assert.equal(run(data).status, 1, 'encoded dot segment must fail: ' + encodedTraversal);
+  }
+  const harmlessPercent = structuredClone(base);
+  harmlessPercent.cases[0].evidenceRef = 'qa/proof%20A01';
+  assert.equal(run(harmlessPercent).status, 0, 'non-traversal percent-encoded reference remains valid');
   const nestedLocal = structuredClone(base);
   nestedLocal.cases[0].evidenceRef = 'qa/a01/proof';
   assert.equal(run(nestedLocal).status, 0, 'safe nested local audit reference must remain valid');
