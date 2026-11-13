@@ -158,6 +158,17 @@ try {
     data.cases[0].evidenceRef = loopbackUrl;
     assert.equal(run(data).status, 1, 'loopback evidence URL must fail: ' + loopbackUrl);
   }
+  // Private-network HTTPS links are not stable remote audit evidence, even with TLS.
+  for (const privateUrl of ['https://10.0.0.5/evidence/A01', 'https://172.16.0.1/evidence/A01', 'https://172.31.255.254/evidence/A01', 'https://192.168.1.1/evidence/A01', 'https://169.254.1.2/evidence/A01', 'https://qa.local/evidence/A01', 'https://proof.internal/evidence/A01', 'https://app.localhost/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = privateUrl;
+    assert.equal(run(data).status, 1, 'private-network evidence URL must fail: ' + privateUrl);
+  }
+  for (const publicUrl of ['https://172.32.0.1/evidence/A01', 'https://192.169.1.1/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = publicUrl;
+    assert.equal(run(data).status, 0, 'public IPv4 evidence URL must remain syntactically valid');
+  }
   const insecureUrl = structuredClone(base);
   insecureUrl.cases[0].evidenceRef = 'http://example.test/private/evidence/A01';
   assert.equal(run(insecureUrl).status, 1, 'remote evidence references must use HTTPS');
