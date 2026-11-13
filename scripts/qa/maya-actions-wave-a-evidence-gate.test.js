@@ -107,6 +107,15 @@ try {
     device.cases[0].device = 'Android' + separator + 'QA';
     assert.equal(run(device).status, 1, 'Unicode line separator in device must fail');
   }
+  // Non-breaking and typographic Unicode spaces can spoof otherwise distinct audit metadata.
+  for (const spacing of [0x00a0, 0x2007, 0x202f, 0x3000].map(cp => String.fromCodePoint(cp))) {
+    const ref = structuredClone(base);
+    ref.cases[0].evidenceRef = 'proof' + spacing + 'A01';
+    assert.equal(run(ref).status, 1, 'nonstandard Unicode spacing in evidence must fail');
+    const device = structuredClone(base);
+    device.cases[0].device = 'Android' + spacing + 'QA';
+    assert.equal(run(device).status, 1, 'nonstandard Unicode spacing in device must fail');
+  }
   const canonicallyEquivalent = structuredClone(base);
   canonicallyEquivalent.cases[0].evidenceRef = 'prova-\u00e9';
   canonicallyEquivalent.cases[1].evidenceRef = 'prova-e\u0301';
