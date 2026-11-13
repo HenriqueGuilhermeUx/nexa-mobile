@@ -61,7 +61,7 @@ for (const id of ids) {
   if (typeof c.evidenceRef === 'string' && /[\x00-\x1f\x7f\u2028\u2029\p{Cf}]/u.test(c.evidenceRef)) failures.push(id + ': evidence reference contains control characters');
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.length > 512) failures.push(id + ': evidence reference too long');
   // Do not allow credentials embedded in private evidence URLs to enter QA audit logs.
-  if (typeof c.evidenceRef === 'string' && /^https?:\/\//i.test(c.evidenceRef.trim())) {
+  if (typeof c.evidenceRef === 'string' && /^[a-z][a-z0-9+.-]*:\/\//i.test(c.evidenceRef.trim())) {
     try {
       const url = new URL(c.evidenceRef.trim());
       if (url.protocol !== 'https:') failures.push(id + ': evidence URL must use HTTPS');
