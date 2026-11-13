@@ -167,6 +167,15 @@ try {
     data.cases[0].evidenceRef = ambiguousHttps;
     assert.equal(run(data).status, 1, 'HTTPS evidence must include explicit // authority');
   }
+  // Do not allow local audit references to escape their evidence directory.
+  for (const traversal of ['../private/A01', 'qa/../../private/A01', './qa-proof-A01', 'qa/./proof-A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = traversal;
+    assert.equal(run(data).status, 1, 'dot-segment local evidence reference must fail: ' + traversal);
+  }
+  const nestedLocal = structuredClone(base);
+  nestedLocal.cases[0].evidenceRef = 'qa/a01/proof';
+  assert.equal(run(nestedLocal).status, 0, 'safe nested local audit reference must remain valid');
   const localAuditId = structuredClone(base);
   localAuditId.cases[0].evidenceRef = 'qa-a-local-proof-A01';
   assert.equal(run(localAuditId).status, 0, 'scheme-free local evidence ID must remain valid');
