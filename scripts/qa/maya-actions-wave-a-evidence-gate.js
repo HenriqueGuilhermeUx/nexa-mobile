@@ -101,8 +101,8 @@ for (const id of ids) {
       // WHATWG URL.hostname encloses IPv6 literals in brackets.
       const ipv6 = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : null;
       const firstHextet = ipv6 ? parseInt(ipv6.split(':')[0], 16) : NaN;
-      const privateIpv6 = Number.isFinite(firstHextet) &&
-        ((firstHextet & 0xfe00) === 0xfc00 || (firstHextet & 0xffc0) === 0xfe80);
+      const privateIpv6 = ipv6 === '::' || (Number.isFinite(firstHextet) &&
+        ((firstHextet & 0xfe00) === 0xfc00 || (firstHextet & 0xffc0) === 0xfe80));
       // IPv4-mapped IPv6 (::ffff:a.b.c.d) can hide loopback/private IPv4 from dotted-host checks.
       // WHATWG URL canonicalizes dotted mapped literals to two hexadecimal hextets.
       const mapped = ipv6 && /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(ipv6);
