@@ -108,12 +108,18 @@ for (const id of ids) {
       const mapped = ipv6 && /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(ipv6);
       const mappedOctets = mapped ? [parseInt(mapped[1], 16) >> 8, parseInt(mapped[1], 16) & 255,
         parseInt(mapped[2], 16) >> 8, parseInt(mapped[2], 16) & 255] : null;
+      // RFC 5737 TEST-NET addresses are documentation-only and cannot host real device proof.
+      const documentationIpv4 = a => a && ((a[0] === 192 && a[1] === 0 && a[2] === 2) ||
+        (a[0] === 198 && a[1] === 51 && a[2] === 100) ||
+        (a[0] === 203 && a[1] === 0 && a[2] === 113));
+      // RFC 3849 2001:db8::/32 is reserved for examples, not evidence hosting.
+      const documentationIpv6 = ipv6 && /^2001:0?db8(?::|$)/i.test(ipv6);
       const privateMapped = mappedOctets && (mappedOctets[0] === 0 || mappedOctets[0] === 10 || mappedOctets[0] === 127 ||
         (mappedOctets[0] === 172 && mappedOctets[1] >= 16 && mappedOctets[1] <= 31) ||
         (mappedOctets[0] === 192 && mappedOctets[1] === 168) ||
         (mappedOctets[0] === 169 && mappedOctets[1] === 254) ||
         (mappedOctets[0] === 100 && mappedOctets[1] >= 64 && mappedOctets[1] <= 127));
-      if (privateMapped || privateIpv6 || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
+      if (privateMapped || privateIpv6 || documentationIpv6 || documentationIpv4(octets) || documentationIpv4(mappedOctets) || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
           (octets && (octets[0] === 10 || octets[0] === 0 || octets[0] === 127 ||
           (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
           (octets[0] === 192 && octets[1] === 168) ||
