@@ -348,6 +348,17 @@ try {
   const localAuditId = structuredClone(base);
   localAuditId.cases[0].evidenceRef = 'qa-a-local-proof-A01';
   assert.equal(run(localAuditId).status, 0, 'scheme-free local evidence ID must remain valid');
+  // RFC 2544 benchmarking IP ranges are not public audit endpoints, even when IPv4-mapped.
+  for (const benchmarkHost of ['198.18.0.0', '198.19.255.255', '[::ffff:c612:0]', '[::ffff:c613:ffff]']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = 'https://' + benchmarkHost + '/evidence/A01';
+    assert.equal(run(data).status, 1, 'benchmark network must fail: ' + benchmarkHost);
+  }
+  for (const adjacentHost of ['198.17.255.255', '198.20.0.0']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = 'https://' + adjacentHost + '/evidence/A01';
+    assert.equal(run(data).status, 0, 'adjacent non-benchmark IP remains syntactically admissible: ' + adjacentHost);
+  }
   const safeUrl = structuredClone(base);
   safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
   assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
