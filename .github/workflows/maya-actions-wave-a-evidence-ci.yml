@@ -11,6 +11,8 @@ on:
       - 'scripts/qa/maya-actions-wave-a-evidence-gate.js'
       - 'scripts/qa/maya-actions-wave-a-evidence-gate.test.js'
       - '.github/workflows/maya-actions-wave-a-evidence-ci.yml'
+      - 'docs/qa/maya-actions-wave-a-*.md'
+      - 'docs/maya-actions-12-branches-execution.md'
   workflow_dispatch:
 
 permissions:
