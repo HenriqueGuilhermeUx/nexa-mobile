@@ -75,6 +75,8 @@ for (const id of ids) {
   if (typeof c.evidenceRef === 'string' && c.evidenceRef.split('/').some(part => /^(?:\.|%2e){1,2}$/i.test(part) && /%2e/i.test(part))) failures.push(id + ': encoded path traversal is not allowed');
   // Encoded separators can become traversal after a downstream URL decode; fail closed for local IDs.
   if (typeof c.evidenceRef === 'string' && /%(?:2f|5c)/i.test(c.evidenceRef)) failures.push(id + ': encoded path separator is not allowed');
+  // Query/fragment delimiters are not stable local audit IDs; downstream viewers may strip them.
+  if (typeof c.evidenceRef === 'string' && !/^[a-z][a-z0-9+.-]*:/i.test(c.evidenceRef) && /[?#]/.test(c.evidenceRef)) failures.push(id + ': local evidence reference contains query or fragment delimiter');
   // Reject malformed percent escapes: downstream decoders disagree on their interpretation.
   if (typeof c.evidenceRef === 'string' && /%(?![0-9a-f]{2})/i.test(c.evidenceRef)) failures.push(id + ': malformed percent escape in evidence reference');
   // Reject encoded percent signs: a second decoding pass could reveal %2e, %2f or %5c traversal.
