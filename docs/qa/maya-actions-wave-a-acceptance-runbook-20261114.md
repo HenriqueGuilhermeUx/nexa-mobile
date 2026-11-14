@@ -33,3 +33,10 @@ Scope: `HenriqueGuilhermeUx/nexa-mobile`, QA evidence branch only. This is an ex
 | 12 | Reservation/booking blocked |
 
 **Decision: production NO-GO.** No feature branch, cumulative integration, production OTA, payment, purchase, reservation, or external send is authorized by this document. PR #185 and other repositories are out of scope.
+
+## Reconciliation checkpoint — 2026-11-14 (read-only inspection)
+- Fresh compare `integration/maya-actions-v148...qa/maya-actions-wave-a-evidence-20261111`: **114 ahead / 7 behind / 8 changed files**. The eighth file is this runbook; the earlier seven-file count is historical, not the current diff. Integration base SHA remains `6f1c9fd1bf16fc0046228993a83118390da62760`.
+- Changed paths: `.github/workflows/maya-actions-wave-a-evidence-ci.yml`; `docs/qa/maya-actions-wave-a-12-wave-gate-inventory-20261113.md`; `docs/qa/maya-actions-wave-a-a01-a16-evidence-20261111.md`; `docs/qa/maya-actions-wave-a-acceptance-runbook-20261114.md`; `docs/qa/maya-actions-wave-a-ci-checkpoint-20261113.md`; `docs/qa/maya-actions-wave-d-pr142-regression-gate-20261111.md`; `scripts/qa/maya-actions-wave-a-evidence-gate.js`; `scripts/qa/maya-actions-wave-a-evidence-gate.test.js`.
+- PR #142 review submissions returned `[]`. For previous commit `5eec8d7840979eca983cc588e02b5033f24632e0`, PR-triggered workflow runs `[]` and combined commit statuses `[]`; neither query covers every Actions event or check run. **CI remains unverified**.
+- Small acceptance improvement: explicitly require a *fresh compare file inventory* at the beginning of each QA gate and compare it against an allowlist of QA-only paths. Any unexpected app, wallet, authentication, or native file requires a stop and separate review; count drift alone must never be treated as a regression or as an approval.
+- Gates unchanged: A01–A16 physical evidence absent; 09 real quote backend unhomologated; 10 review-only. No approval for promotion, OTA production, or external actions.
