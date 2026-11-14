@@ -34,3 +34,10 @@ Scope: `HenriqueGuilhermeUx/nexa-mobile` only. This is an engineering checkpoint
 5. Only then advance 09 isolated backend read-only quotes, then 10 form review. No external sends, payments, reservations or purchases.
 
 No OTA, merge, payment, purchase, reservation, or external send is authorized by this file. PR #185 is explicitly out of scope.
+
+## Checkpoint 2026-11-14 — QA A IPv6 unspecified
+- QA branch HEAD: `70708b3a92c28e5fe68386505b70b3ac028595e3` (code `b77bcf1c9ad3d8a4fc575a566cc353879fa90015`; regression `70708b3a92c28e5fe68386505b70b3ac028595e3`).
+- Integration base at inspection: `6f1c9fd1bf16fc0046228993a83118390da62760`; 89 ahead / 7 behind **before** this two-commit increment. Do not merge QA branch wholesale.
+- PR #142 review query returned no reviews; commit `032c046db96b4e31548afcc767d869dbc870c607` PR-triggered workflow query and combined statuses returned empty arrays. Neither result establishes CI success or failure.
+- Waves 01/02: QA A evidence gate remains NO-GO until A01-A16 physical proof, CI and runtime verification. Waves 03/04: existing integrated work only, device QA pending per plan. Waves 05/06/07/08: unchanged, no external/financial actions authorized. Wave 09: backend real quotes not homologated, read-only only. Wave 10: review-only; no submission. Waves 11/12: blocked for checkout/reservations. All 12 feature branches left untouched.
+- New check: reject IPv6 unspecified host `https://[::]/evidence/A01` and add one synthetic regression; no real evidence, no device test and no OTA. CI for new SHA not yet confirmed.
