@@ -256,6 +256,12 @@ try {
     data.cases[0].evidenceRef = emptySegment;
     assert.equal(run(data).status, 1, 'ambiguous empty local path segment must fail: ' + emptySegment);
   }
+  // A local audit ID with ? or # can be silently truncated by a URL-based evidence viewer.
+  for (const ambiguousLocal of ['qa/proof-A01?token=synthetic', 'qa/proof-A01#fragment', 'qa/proof-A01?', 'qa/proof-A01#']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = ambiguousLocal;
+    assert.equal(run(data).status, 1, 'local query/fragment delimiter must fail: ' + ambiguousLocal);
+  }
   const nestedLocal = structuredClone(base);
   nestedLocal.cases[0].evidenceRef = 'qa/a01/proof';
   assert.equal(run(nestedLocal).status, 0, 'safe nested local audit reference must remain valid');
