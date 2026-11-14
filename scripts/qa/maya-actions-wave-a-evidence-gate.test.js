@@ -180,6 +180,16 @@ try {
     data.cases[0].evidenceRef = outsideCgnat;
     assert.equal(run(data).status, 0, 'adjacent IPv4 addresses remain syntactically admissible');
   }
+  // Reserved documentation addresses cannot be independently reachable QA proof hosts.
+  for (const reservedUrl of [
+    'https://192.0.2.1/evidence/A01', 'https://198.51.100.2/evidence/A01',
+    'https://203.0.113.254/evidence/A01', 'https://[2001:db8::1]/evidence/A01',
+    'https://[::ffff:192.0.2.1]/evidence/A01'
+  ]) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = reservedUrl;
+    assert.equal(run(data).status, 1, 'documentation-only IP cannot host evidence: ' + reservedUrl);
+  }
   // IPv6 private and link-local ranges must not be treated as public evidence endpoints.
   for (const privateIpv6Url of ['https://[fc00::1]/evidence/A01', 'https://[fd12:3456::1]/evidence/A01', 'https://[fe80::1]/evidence/A01', 'https://[febf::1]/evidence/A01']) {
     const data = structuredClone(base);
