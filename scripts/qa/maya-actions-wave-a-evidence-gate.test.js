@@ -170,6 +170,10 @@ try {
     data.cases[0].evidenceRef = privateIpv6Url;
     assert.equal(run(data).status, 1, 'private IPv6 evidence URL must fail: ' + privateIpv6Url);
   }
+  // The unspecified IPv6 address is not a reachable evidence endpoint.
+  const unspecifiedIpv6 = structuredClone(base);
+  unspecifiedIpv6.cases[0].evidenceRef = 'https://[::]/evidence/A01';
+  assert.equal(run(unspecifiedIpv6).status, 1, 'unspecified IPv6 evidence URL must fail');
   // IPv4-mapped IPv6 must not bypass the private/loopback network restriction.
   for (const mappedPrivate of ['https://[::ffff:127.0.0.1]/evidence/A01', 'https://[::ffff:10.1.2.3]/evidence/A01', 'https://[::ffff:192.168.1.1]/evidence/A01', 'https://[::ffff:169.254.1.1]/evidence/A01']) {
     const data = structuredClone(base);
