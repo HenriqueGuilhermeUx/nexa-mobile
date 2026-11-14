@@ -131,6 +131,8 @@ for (const id of ids) {
       new Date(Date.parse(c.testedAt)).toISOString().slice(0, 10) < '2026-11-04' ||
       Date.parse(c.testedAt) > Date.now()) failures.push(id + ': invalid or future timestamp');
   if (typeof c.device !== 'string' || !c.device.trim()) failures.push(id + ': device missing');
+  // Preserve exact device identifiers; surrounding whitespace can obscure audit comparisons.
+  if (typeof c.device === 'string' && c.device !== c.device.trim()) failures.push(id + ': device metadata has surrounding whitespace');
   // Keep device metadata printable and bounded; it is copied into private audit reports.
   if (typeof c.device === 'string' && (/[\x00-\x1f\x7f\u2028\u2029\p{Cf}\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/u.test(c.device) || c.device.length > 160)) failures.push(id + ': invalid device metadata');
 }
