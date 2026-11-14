@@ -95,7 +95,7 @@ for (const id of ids) {
       // Loopback hosts cannot serve as remotely auditable QA evidence and may point at a tester's private machine.
       if (['localhost', '127.0.0.1', '[::1]'].includes(url.hostname.toLowerCase())) failures.push(id + ': loopback evidence URL is not allowed');
       // Private, link-local and documentation-only network hosts are not independently reachable audit references.
-      const host = url.hostname.toLowerCase();
+      const host = url.hostname.toLowerCase().replace(/\.$/, ''); // DNS trailing dot is equivalent to the same hostname without it.
       const octets = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)?.slice(1).map(Number);
       // IPv6 ULA (fc00::/7) and link-local (fe80::/10) are not remotely auditable.
       // WHATWG URL.hostname encloses IPv6 literals in brackets.
