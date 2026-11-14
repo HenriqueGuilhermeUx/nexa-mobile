@@ -289,6 +289,26 @@ export default function CentralNexaScreen() {
         <Action title="Encontrei dificuldade no KYC" detail="Pesquisa opcional, sem envio de documentos" onPress={() => void openUrl(FEEDBACK_URL)} />
       </View>
 
+      {identityStage === 'approved' ? (
+        <View style={styles.section}>
+          <Text style={styles.eyebrow}>CONHEÇA SUA CONTA NEXA</Text>
+          <Text style={styles.sectionTitle}>Como usar Pix e USDC</Text>
+          <Text style={styles.paragraph}>
+            Com a identidade verificada, você pode consultar os depósitos disponíveis na sua conta. Entre na Nexa, abra Depósitos e confira as opções Pix. Antes de confirmar, revise cotação, taxas, prazo e riscos. Depositar é opcional e nenhuma operação será realizada automaticamente.
+          </Text>
+          <Action
+            title="Conhecer opções de depósito"
+            detail="Abrir o portal Nexa e consultar valores, custos e condições"
+            onPress={() => void openUrl(PORTAL_URL)}
+          />
+          <Action
+            title="Preciso de ajuda com depósito"
+            detail="Conversar com Theo pelo WhatsApp, sem enviar dados financeiros"
+            onPress={() => void openUrl(nexaWhatsAppSupportUrl())}
+          />
+        </View>
+      ) : null}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Avisos no celular</Text>
         <Text style={styles.paragraph}>Você decide se permite notificações neste aparelho. Não ativaremos campanhas promocionais automaticamente.</Text>
