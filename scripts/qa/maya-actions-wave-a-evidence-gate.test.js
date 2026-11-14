@@ -191,6 +191,17 @@ try {
     data.cases[0].evidenceRef = mappedPrivate;
     assert.equal(run(data).status, 1, 'private mapped IPv4 evidence must fail: ' + mappedPrivate);
   }
+  // CGNAT remains non-public even when hidden inside IPv4-mapped IPv6.
+  for (const mappedCgnat of ['https://[::ffff:100.64.0.1]/evidence/A01', 'https://[::ffff:100.127.255.254]/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = mappedCgnat;
+    assert.equal(run(data).status, 1, 'mapped CGNAT evidence must fail: ' + mappedCgnat);
+  }
+  for (const mappedOutsideCgnat of ['https://[::ffff:100.63.255.255]/evidence/A01', 'https://[::ffff:100.128.0.1]/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = mappedOutsideCgnat;
+    assert.equal(run(data).status, 0, 'mapped address outside CGNAT remains syntactically valid');
+  }
   const mappedPublic = structuredClone(base);
   mappedPublic.cases[0].evidenceRef = 'https://[::ffff:8.8.8.8]/evidence/A01';
   assert.equal(run(mappedPublic).status, 0, 'public mapped IPv4 reference remains syntactically valid');
