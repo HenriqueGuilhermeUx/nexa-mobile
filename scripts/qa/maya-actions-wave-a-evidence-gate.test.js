@@ -92,6 +92,21 @@ try {
     data.cases[0].evidenceRef = padded;
     assert.equal(run(data).status, 1, 'padded evidence reference must fail');
   }
+  // HTTPS spelling differences must not reuse the same physical evidence.
+  for (const [first, second] of [
+    ['https://EXAMPLE.test:443/qa/A01', 'https://example.test/qa/A01'],
+    ['https://example.test/qa/../proof/A01', 'https://example.test/proof/A01'],
+    ['https://example.test/qa/%41', 'https://example.test/qa/%41']
+  ]) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = first;
+    data.cases[1].evidenceRef = second;
+    assert.equal(run(data).status, 1, 'canonical duplicate HTTPS evidence must fail');
+  }
+  const separateUrls = structuredClone(base);
+  separateUrls.cases[0].evidenceRef = 'https://example.test/qa/A01';
+  separateUrls.cases[1].evidenceRef = 'https://example.test/qa/A02';
+  assert.equal(run(separateUrls).status, 0, 'different HTTPS evidence paths remain distinct');
   const reusedWhitespace = structuredClone(base);
   reusedWhitespace.cases[1].evidenceRef = ' ' + reusedWhitespace.cases[0].evidenceRef + ' ';
   assert.equal(run(reusedWhitespace).status, 1, 'whitespace cannot bypass evidence uniqueness');
