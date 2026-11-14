@@ -114,12 +114,14 @@ for (const id of ids) {
         (a[0] === 203 && a[1] === 0 && a[2] === 113));
       // RFC 3849 2001:db8::/32 is reserved for examples, not evidence hosting.
       const documentationIpv6 = ipv6 && /^2001:0?db8(?::|$)/i.test(ipv6);
+      // Multicast (224/4) and limited broadcast (255.255.255.255) cannot host independently auditable HTTPS evidence.
+      const nonUnicastIpv4 = a => a && a[0] >= 224;
       const privateMapped = mappedOctets && (mappedOctets[0] === 0 || mappedOctets[0] === 10 || mappedOctets[0] === 127 ||
         (mappedOctets[0] === 172 && mappedOctets[1] >= 16 && mappedOctets[1] <= 31) ||
         (mappedOctets[0] === 192 && mappedOctets[1] === 168) ||
         (mappedOctets[0] === 169 && mappedOctets[1] === 254) ||
         (mappedOctets[0] === 100 && mappedOctets[1] >= 64 && mappedOctets[1] <= 127));
-      if (privateMapped || privateIpv6 || documentationIpv6 || documentationIpv4(octets) || documentationIpv4(mappedOctets) || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
+      if (nonUnicastIpv4(octets) || nonUnicastIpv4(mappedOctets) || privateMapped || privateIpv6 || documentationIpv6 || documentationIpv4(octets) || documentationIpv4(mappedOctets) || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
           (octets && (octets[0] === 10 || octets[0] === 0 || octets[0] === 127 ||
           (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
           (octets[0] === 192 && octets[1] === 168) ||
