@@ -97,12 +97,13 @@ for (const id of ids) {
       // Private, link-local and documentation-only network hosts are not independently reachable audit references.
       const host = url.hostname.toLowerCase().replace(/\.$/, ''); // DNS trailing dot is equivalent to the same hostname without it.
       const octets = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)?.slice(1).map(Number);
-      // IPv6 ULA (fc00::/7) and link-local (fe80::/10) are not remotely auditable.
+      // IPv6 ULA (fc00::/7), link-local (fe80::/10), and multicast (ff00::/8) are not remotely auditable.
       // WHATWG URL.hostname encloses IPv6 literals in brackets.
       const ipv6 = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : null;
       const firstHextet = ipv6 ? parseInt(ipv6.split(':')[0], 16) : NaN;
       const privateIpv6 = ipv6 === '::' || (Number.isFinite(firstHextet) &&
-        ((firstHextet & 0xfe00) === 0xfc00 || (firstHextet & 0xffc0) === 0xfe80));
+        ((firstHextet & 0xfe00) === 0xfc00 || (firstHextet & 0xffc0) === 0xfe80 ||
+        (firstHextet & 0xff00) === 0xff00));
       // IPv4-mapped IPv6 (::ffff:a.b.c.d) can hide loopback/private IPv4 from dotted-host checks.
       // WHATWG URL canonicalizes dotted mapped literals to two hexadecimal hextets.
       const mapped = ipv6 && /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(ipv6);
