@@ -20,9 +20,12 @@ jobs:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
-        with: {node-version: '22', cache: npm}
+        with:
+          node-version: '22'
+          cache: npm
       - name: Verify only a safe in-app education change
         shell: bash
         run: |
@@ -59,7 +62,9 @@ jobs:
       - run: node scripts/validate-mobile-safety-v123.js
       - run: npm run export:android
       - uses: expo/expo-github-action@v8
-        with: {eas-version: 27.9.0, token: ${{ secrets.EXPO_TOKEN }}}
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
       - name: Load unchanged production public configuration
         shell: bash
         run: |
