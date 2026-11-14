@@ -95,7 +95,13 @@ for (const id of ids) {
       // Private, link-local and documentation-only network hosts are not independently reachable audit references.
       const host = url.hostname.toLowerCase();
       const octets = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)?.slice(1).map(Number);
-      if (host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
+      // IPv6 ULA (fc00::/7) and link-local (fe80::/10) are not remotely auditable.
+      // WHATWG URL.hostname encloses IPv6 literals in brackets.
+      const ipv6 = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : null;
+      const firstHextet = ipv6 ? parseInt(ipv6.split(':')[0], 16) : NaN;
+      const privateIpv6 = Number.isFinite(firstHextet) &&
+        ((firstHextet & 0xfe00) === 0xfc00 || (firstHextet & 0xffc0) === 0xfe80);
+      if (privateIpv6 || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
           (octets && (octets[0] === 10 || octets[0] === 0 || octets[0] === 127 ||
           (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
           (octets[0] === 192 && octets[1] === 168) ||
