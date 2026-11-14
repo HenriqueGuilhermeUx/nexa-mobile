@@ -111,7 +111,8 @@ for (const id of ids) {
       const privateMapped = mappedOctets && (mappedOctets[0] === 0 || mappedOctets[0] === 10 || mappedOctets[0] === 127 ||
         (mappedOctets[0] === 172 && mappedOctets[1] >= 16 && mappedOctets[1] <= 31) ||
         (mappedOctets[0] === 192 && mappedOctets[1] === 168) ||
-        (mappedOctets[0] === 169 && mappedOctets[1] === 254));
+        (mappedOctets[0] === 169 && mappedOctets[1] === 254) ||
+        (mappedOctets[0] === 100 && mappedOctets[1] >= 64 && mappedOctets[1] <= 127));
       if (privateMapped || privateIpv6 || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
           (octets && (octets[0] === 10 || octets[0] === 0 || octets[0] === 127 ||
           (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
