@@ -1,0 +1,95 @@
+name: Central Nexa — approved user first deposit guide Android OTA
+on:
+  push:
+    branches:
+      - release/central-nexa-pix-usdc-guide-v148-20261114
+    paths:
+      - '.github/workflows/central-nexa-first-deposit-guide-ota.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-central-android-first-deposit-guide
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - name: Verify only a safe in-app education change
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only 7d471e5fcd68fe79d7d12fb9000be65065e2ea4b...HEAD | sort > /tmp/changed
+          printf '.github/workflows/central-nexa-first-deposit-guide-ota.yml\napp/central-nexa.tsx\n' | sort > /tmp/allowed
+          diff -u /tmp/allowed /tmp/changed
+          for path in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts; do
+            git show 7d471e5fcd68fe79d7d12fb9000be65065e2ea4b:"$path" | cmp - "$path"
+          done
+          node - <<'NODE'
+          const fs=require('fs'),exec=require('child_process').execFileSync;
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||
+             app.runtimeVersion.policy!=='appVersion'||
+             app.android.package!=='br.com.trynexa.app')
+            throw Error('Native identity mismatch');
+          const source=fs.readFileSync('app/central-nexa.tsx','utf8');
+          const old=exec('git',['show','7d471e5fcd68fe79d7d12fb9000be65065e2ea4b:app/central-nexa.tsx'],{encoding:'utf8'});
+          if(!source.includes("identityStage === 'approved'")||
+            !source.includes('Conhecer opções de depósito')||
+            !source.includes('Depositar é opcional')||
+            !source.includes('onPress={() => void openUrl(PORTAL_URL)}')||
+            !source.includes('não')||
+            !old.includes('Verificação de identidade disponível')||
+            !source.includes('Verificação de identidade disponível'))
+            throw Error('Approved-only optional deposit education verification failed');
+          console.log('SAFE_EDUCATIONAL_CENTRAL_CHANGE_VERIFIED');
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node scripts/validate-central-nexa-v148.js
+      - run: node scripts/validate-central-nexa-push-optin-v148.js
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with: {eas-version: 27.9.0, token: ${{ secrets.EXPO_TOKEN }}}
+      - name: Load unchanged production public configuration
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string')
+              throw Error('Unexpected public release configuration');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Stop if production EAS branch changed since last tested OTA
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform group}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)});
+            const j=await r.json();
+            if(!r.ok||j.errors?.length)throw Error('Expo inventory unavailable');
+            const app=j.data?.app?.byId,branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[],
+              latest=app?.updateBranchByName?.updates?.find(x=>x.platform==='android');
+            if(branches.length!==1||branches[0]!=='production'||
+              latest?.group!=='880001aa-028c-48e9-8946-48e0dba691b9'||
+              latest?.id!=='01a1d68c-5a0a-7abe-8f1f-bc6f91e193de')
+              throw Error('A newer production Android OTA exists; stop before publishing');
+            console.log('ANDROID_PRODUCTION_BASELINE_VERIFIED='+latest.id);
+          })().catch(e=>{console.error('BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish optional deposit guide to compatible Android devices
+        run: eas update --branch production --platform android --message "Central Nexa v148 approved Pix and USDC onboarding guide" --non-interactive
