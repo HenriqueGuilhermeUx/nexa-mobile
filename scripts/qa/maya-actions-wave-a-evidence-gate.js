@@ -130,6 +130,12 @@ for (const id of ids) {
           (octets[0] === 192 && octets[1] === 168) ||
           (octets[0] === 169 && octets[1] === 254) ||
           (octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127)))) failures.push(id + ': private-network evidence URL is not allowed');
+      // RFC 2606 reserved example/test/invalid DNS names cannot substantiate real device evidence.
+      // Suffix checks also reject subdomains and canonical trailing-dot spellings.
+      if (['test', 'example', 'invalid'].some(suffix => host === suffix || host.endsWith('.' + suffix)) ||
+          ['example.com', 'example.net', 'example.org'].some(name => host === name || host.endsWith('.' + name))) {
+        failures.push(id + ': reserved example-domain evidence URL is not allowed');
+      }
       // Query strings and fragments may carry access tokens or mutable viewer state; store a stable proof URL only.
       if (url.search || url.hash || /[?#]/.test(c.evidenceRef)) failures.push(id + ': evidence URL must not contain query or fragment');
     } catch { failures.push(id + ': malformed evidence URL'); }
