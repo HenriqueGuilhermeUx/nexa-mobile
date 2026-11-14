@@ -196,6 +196,16 @@ try {
     data.cases[0].evidenceRef = privateIpv6Url;
     assert.equal(run(data).status, 1, 'private IPv6 evidence URL must fail: ' + privateIpv6Url);
   }
+  // IPv6 multicast ff00::/8 cannot be used as an independently reachable HTTPS proof host.
+  for (const multicastIpv6 of ['https://[ff00::1]/evidence/A01', 'https://[ff02::1]/evidence/A01',
+    'https://[ffff::1]/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = multicastIpv6;
+    assert.equal(run(data).status, 1, 'IPv6 multicast evidence URL must fail: ' + multicastIpv6);
+  }
+  const adjacentIpv6 = structuredClone(base);
+  adjacentIpv6.cases[0].evidenceRef = 'https://[feff::1]/evidence/A01';
+  assert.equal(run(adjacentIpv6).status, 0, 'adjacent non-multicast IPv6 remains syntactically admissible');
   // The unspecified IPv6 address is not a reachable evidence endpoint.
   const unspecifiedIpv6 = structuredClone(base);
   unspecifiedIpv6.cases[0].evidenceRef = 'https://[::]/evidence/A01';
