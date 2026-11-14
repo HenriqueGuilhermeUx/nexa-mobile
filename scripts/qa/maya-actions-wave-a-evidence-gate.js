@@ -103,7 +103,16 @@ for (const id of ids) {
       const firstHextet = ipv6 ? parseInt(ipv6.split(':')[0], 16) : NaN;
       const privateIpv6 = Number.isFinite(firstHextet) &&
         ((firstHextet & 0xfe00) === 0xfc00 || (firstHextet & 0xffc0) === 0xfe80);
-      if (privateIpv6 || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
+      // IPv4-mapped IPv6 (::ffff:a.b.c.d) can hide loopback/private IPv4 from dotted-host checks.
+      // WHATWG URL canonicalizes dotted mapped literals to two hexadecimal hextets.
+      const mapped = ipv6 && /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(ipv6);
+      const mappedOctets = mapped ? [parseInt(mapped[1], 16) >> 8, parseInt(mapped[1], 16) & 255,
+        parseInt(mapped[2], 16) >> 8, parseInt(mapped[2], 16) & 255] : null;
+      const privateMapped = mappedOctets && (mappedOctets[0] === 0 || mappedOctets[0] === 10 || mappedOctets[0] === 127 ||
+        (mappedOctets[0] === 172 && mappedOctets[1] >= 16 && mappedOctets[1] <= 31) ||
+        (mappedOctets[0] === 192 && mappedOctets[1] === 168) ||
+        (mappedOctets[0] === 169 && mappedOctets[1] === 254));
+      if (privateMapped || privateIpv6 || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
           (octets && (octets[0] === 10 || octets[0] === 0 || octets[0] === 127 ||
           (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
           (octets[0] === 192 && octets[1] === 168) ||
