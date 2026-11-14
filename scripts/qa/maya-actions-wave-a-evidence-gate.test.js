@@ -164,6 +164,17 @@ try {
     data.cases[0].evidenceRef = privateUrl;
     assert.equal(run(data).status, 1, 'private-network evidence URL must fail: ' + privateUrl);
   }
+  // CGNAT 100.64.0.0/10 is shared carrier space, not independently reachable proof hosting.
+  for (const cgnatUrl of ['https://100.64.0.1/evidence/A01', 'https://100.127.255.254/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = cgnatUrl;
+    assert.equal(run(data).status, 1, 'CGNAT evidence URL must fail: ' + cgnatUrl);
+  }
+  for (const outsideCgnat of ['https://100.63.255.255/evidence/A01', 'https://100.128.0.1/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = outsideCgnat;
+    assert.equal(run(data).status, 0, 'adjacent IPv4 addresses remain syntactically admissible');
+  }
   // IPv6 private and link-local ranges must not be treated as public evidence endpoints.
   for (const privateIpv6Url of ['https://[fc00::1]/evidence/A01', 'https://[fd12:3456::1]/evidence/A01', 'https://[fe80::1]/evidence/A01', 'https://[febf::1]/evidence/A01']) {
     const data = structuredClone(base);
