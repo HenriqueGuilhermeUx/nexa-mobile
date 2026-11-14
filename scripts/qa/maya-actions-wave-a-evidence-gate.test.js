@@ -172,6 +172,19 @@ try {
     data.cases[0].evidenceRef = urlWithSecretOrFragment;
     assert.equal(run(data).status, 1, 'query/fragment evidence URL must fail: ' + urlWithSecretOrFragment);
   }
+  // RFC-reserved example domains are not independently verifiable physical evidence hosts.
+  for (const reservedDomain of [
+    'https://qa.invalid/evidence/A01', 'https://qa.invalid./evidence/A01',
+    'https://example.com/evidence/A01', 'https://proof.example.net/evidence/A01',
+    'https://example.org/evidence/A01'
+  ]) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = reservedDomain;
+    assert.equal(run(data).status, 1, 'reserved DNS host must fail: ' + reservedDomain);
+  }
+  const ordinaryDns = structuredClone(base);
+  ordinaryDns.cases[0].evidenceRef = 'https://qa.example-company.com/evidence/A01';
+  assert.equal(run(ordinaryDns).status, 0, 'non-reserved hostname remains syntactically admissible');
   // Loopback HTTPS URLs cannot independently substantiate a QA device run.
   for (const loopbackUrl of ['https://localhost/evidence/A01', 'https://127.0.0.1/evidence/A01', 'https://[::1]/evidence/A01']) {
     const data = structuredClone(base);
