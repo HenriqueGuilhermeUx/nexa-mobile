@@ -230,6 +230,16 @@ try {
     data.cases[0].evidenceRef = publicUrl;
     assert.equal(run(data).status, 0, 'public IPv4 evidence URL must remain syntactically valid');
   }
+  // Multicast and broadcast IPs are not unicast HTTPS evidence hosts (including IPv4-mapped IPv6).
+  for (const nonUnicast of ['https://224.0.0.1/evidence/A01', 'https://239.255.255.255/evidence/A01',
+    'https://255.255.255.255/evidence/A01', 'https://[::ffff:224.0.0.1]/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = nonUnicast;
+    assert.equal(run(data).status, 1, 'non-unicast evidence URL must fail: ' + nonUnicast);
+  }
+  const upperUnicast = structuredClone(base);
+  upperUnicast.cases[0].evidenceRef = 'https://223.255.255.255/evidence/A01';
+  assert.equal(run(upperUnicast).status, 0, 'unicast boundary remains syntactically admissible');
   const insecureUrl = structuredClone(base);
   insecureUrl.cases[0].evidenceRef = 'http://example.test/private/evidence/A01';
   assert.equal(run(insecureUrl).status, 1, 'remote evidence references must use HTTPS');
