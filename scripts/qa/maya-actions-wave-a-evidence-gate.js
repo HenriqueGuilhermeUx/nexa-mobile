@@ -149,7 +149,15 @@ for (const id of ids) {
 }
 // Each physical test must point to its own evidence; normalize canonically equivalent Unicode to prevent duplicate-proof bypasses.
 const refs = cases.filter(c => c && typeof c.evidenceRef === 'string' && c.evidenceRef.trim())
-  .map(c => c.evidenceRef.trim().normalize('NFC'));
+  .map(c => {
+    const ref = c.evidenceRef.trim().normalize('NFC');
+    // WHATWG canonicalizes HTTPS host casing, default ports and dot segments.
+    // Distinct spellings of the same URL must not count as independent physical proof.
+    if (/^https:\/\//i.test(ref)) {
+      try { return new URL(ref).href; } catch { /* malformed URLs fail separately above */ }
+    }
+    return ref;
+  });
 if (new Set(refs).size !== refs.length) failures.push('duplicate evidence reference');
 if (cases.some(c => !ids.includes(c?.id))) failures.push('unknown case ID');
 if (failures.length) {
