@@ -247,6 +247,16 @@ try {
     data.cases[0].evidenceRef = nonUnicast;
     assert.equal(run(data).status, 1, 'non-unicast evidence URL must fail: ' + nonUnicast);
   }
+  // Reserved Class E (240.0.0.0/4) is not valid unicast proof hosting, including mapped IPv6.
+  // Reserved Class E boundary regression: test the first and last addresses, not only multicast.
+  for (const reservedClassE of [
+    'https://240.0.0.0/evidence/A01', 'https://254.255.255.255/evidence/A01',
+    'https://[::ffff:240.0.0.0]/evidence/A01', 'https://[::ffff:254.255.255.255]/evidence/A01'
+  ]) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = reservedClassE;
+    assert.equal(run(data).status, 1, 'reserved Class E evidence URL must fail: ' + reservedClassE);
+  }
   const upperUnicast = structuredClone(base);
   upperUnicast.cases[0].evidenceRef = 'https://223.255.255.255/evidence/A01';
   assert.equal(run(upperUnicast).status, 0, 'unicast boundary remains syntactically admissible');
