@@ -164,6 +164,17 @@ try {
     data.cases[0].evidenceRef = privateUrl;
     assert.equal(run(data).status, 1, 'private-network evidence URL must fail: ' + privateUrl);
   }
+  // IPv6 private and link-local ranges must not be treated as public evidence endpoints.
+  for (const privateIpv6Url of ['https://[fc00::1]/evidence/A01', 'https://[fd12:3456::1]/evidence/A01', 'https://[fe80::1]/evidence/A01', 'https://[febf::1]/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = privateIpv6Url;
+    assert.equal(run(data).status, 1, 'private IPv6 evidence URL must fail: ' + privateIpv6Url);
+  }
+  for (const publicIpv6Url of ['https://[2001:4860::1]/evidence/A01', 'https://[fec0::1]/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = publicIpv6Url;
+    assert.equal(run(data).status, 0, 'non-private IPv6 reference must remain syntactically valid');
+  }
   for (const publicUrl of ['https://172.32.0.1/evidence/A01', 'https://192.169.1.1/evidence/A01']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = publicUrl;
