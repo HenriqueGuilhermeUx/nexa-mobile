@@ -72,6 +72,11 @@ try {
     data.cases[0].device = badDevice;
     assert.equal(run(data).status, 1, 'unsafe device metadata must fail');
   }
+  for (const paddedDevice of [' Android QA', 'Android QA ', ' Android QA ']) {
+    const data = structuredClone(base);
+    data.cases[0].device = paddedDevice;
+    assert.equal(run(data).status, 1, 'padded device identifier must fail');
+  }
   const notPassed = structuredClone(base);
   notPassed.cases[0].status = 'PENDING';
   assert.equal(run(notPassed).status, 1, 'pending physical test must fail');
