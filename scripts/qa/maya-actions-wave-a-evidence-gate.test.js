@@ -170,6 +170,15 @@ try {
     data.cases[0].evidenceRef = privateIpv6Url;
     assert.equal(run(data).status, 1, 'private IPv6 evidence URL must fail: ' + privateIpv6Url);
   }
+  // IPv4-mapped IPv6 must not bypass the private/loopback network restriction.
+  for (const mappedPrivate of ['https://[::ffff:127.0.0.1]/evidence/A01', 'https://[::ffff:10.1.2.3]/evidence/A01', 'https://[::ffff:192.168.1.1]/evidence/A01', 'https://[::ffff:169.254.1.1]/evidence/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = mappedPrivate;
+    assert.equal(run(data).status, 1, 'private mapped IPv4 evidence must fail: ' + mappedPrivate);
+  }
+  const mappedPublic = structuredClone(base);
+  mappedPublic.cases[0].evidenceRef = 'https://[::ffff:8.8.8.8]/evidence/A01';
+  assert.equal(run(mappedPublic).status, 0, 'public mapped IPv4 reference remains syntactically valid');
   for (const publicIpv6Url of ['https://[2001:4860::1]/evidence/A01', 'https://[fec0::1]/evidence/A01']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = publicIpv6Url;
