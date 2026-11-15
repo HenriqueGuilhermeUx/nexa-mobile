@@ -44,6 +44,10 @@ try {
     ['invalid April 31', data => { data.cases[0].testedAt = '2026-04-31T12:00:00Z'; }],
     ['invalid November 31', data => { data.cases[0].testedAt = '2026-11-31T12:00:00Z'; }],
     ['invalid second 60', data => { data.cases[0].testedAt = '2026-11-06T12:00:60Z'; }],
+    ['non-leap February 29', data => { data.cases[0].testedAt = '2026-02-29T12:00:00Z'; }],
+    ['month zero', data => { data.cases[0].testedAt = '2026-00-06T12:00:00Z'; }],
+    ['month thirteen', data => { data.cases[0].testedAt = '2026-13-06T12:00:00Z'; }],
+    ['day zero', data => { data.cases[0].testedAt = '2026-11-00T12:00:00Z'; }],
     ['invalid negative timezone offset', data => { data.cases[0].testedAt = '2026-11-06T12:00:00-14:30'; }],
     ['timezone beyond 14 hours', data => { data.cases[0].testedAt = '2026-11-06T12:00:00+15:00'; }],
     ['wrong frozen candidate SHA', data => { data.candidateSha = '0'.repeat(40); }],
@@ -68,7 +72,7 @@ try {
   assert.equal(check(boundary).status, 0, 'valid maximum positive UTC offset must parse');
   boundary.cases[0].testedAt = '2026-11-06T12:00:00-14:00';
   assert.equal(check(boundary).status, 0, 'valid maximum negative UTC offset must parse');
-  console.log('QA A cardinality regression: 22 synthetic rejection, 1 future-date rejection and 2 timezone boundary acceptance cases passed (not device QA).');
+  console.log('QA A cardinality regression: 26 synthetic rejection, 1 future-date rejection and 2 timezone boundary acceptance cases passed (not device QA).');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
