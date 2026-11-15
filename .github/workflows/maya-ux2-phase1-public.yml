@@ -1,0 +1,87 @@
+name: Maya UX2 Phase1 — gated Android public canary
+on:
+  push:
+    branches: [release/maya-ux2-phase1-public-v148-20261115]
+    paths: ['.github/workflows/maya-ux2-phase1-public.yml']
+permissions:
+  contents: read
+concurrency:
+  group: nexa-activation-ota-production
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 4fcdb9333c5aff02b11ae9976ac30a5e0beb7b55
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm code is exact approved QA candidate and JS only
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "4fcdb9333c5aff02b11ae9976ac30a5e0beb7b55"
+          git merge-base --is-ancestor cac9ea18a995f5d63c434ed92d07096ca77f2378 HEAD
+          for path in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts app/index.tsx app/kyc.tsx app/sign-in.tsx app/central-nexa.tsx src/components/AlignedLegacyApp.tsx src/lib/nexaSupportLinks.ts src/lib/nexaCentralPush.ts; do
+            git show cac9ea18a995f5d63c434ed92d07096ca77f2378:"$path" | cmp - "$path"
+          done
+          node - <<'NODE'
+          const fs=require('node:fs'), cp=require('node:child_process');
+          const paths=cp.execFileSync('git',['diff','--name-only','cac9ea18a995f5d63c434ed92d07096ca77f2378','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          const allowed=['app/assistant.tsx','src/components/NexaAssistantOpenFinance.tsx','scripts/validate-maya-actions-v1.js','scripts/validate-maya-planning-v1.js','.github/workflows/maya-ux2-phase1-ota.yml'];
+          if(paths.some(x=>!allowed.includes(x)))throw Error('Production source diff includes other areas: '+paths.join(','));
+          const a=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          if(a.version!=='2.0.43'||a.android.versionCode!==148||a.android.package!=='br.com.trynexa.app')throw Error('Native identity changed');
+          const c=fs.readFileSync('src/components/NexaAssistantOpenFinance.tsx','utf8');
+          if(!c.includes('parseRecurringFundingIntent')||!c.includes('useSpeechRecognitionEvent')||!c.includes('parseMayaLocalActionIntent'))throw Error('Existing Maya routing absent');
+          console.log('SAFE_PHASE1_PUBLIC_SOURCE='+JSON.stringify(paths));
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Validate critical workflows and export using production environment
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'), env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          if(env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL!=='production'||env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='true')throw Error('Production flag mismatch');
+          for(const [k,v] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(k)||typeof v!=='string')throw Error('Bad env');
+            fs.appendFileSync(process.env.GITHUB_ENV,k+'='+v+'\n');
+          }
+          NODE
+      - name: Run production regressions
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          for t in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js; do node "$t"; done
+          npm run typecheck
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Verify live baseline and identical QA candidate
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}} qa:updateBranchByName(name:"maya-ux2-phase1-qa"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const j=await r.json();if(!r.ok||j.errors?.length)throw Error('OTA inventory unavailable');
+            const a=j.data?.app?.byId, mapping=a?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const live=a?.prod?.updates?.find(x=>x.platform==='android'),qa=a?.qa?.updates?.find(x=>x.platform==='android');
+            if(mapping.length!==1||mapping[0]!=='production')throw Error('Channel mapping changed');
+            if(live?.id!=='01a1e138-3ac9-76e4-bbd7-be068a9c39da'||live?.gitCommitHash!=='cac9ea18a995f5d63c434ed92d07096ca77f2378')throw Error('Newer production release found; do not overwrite');
+            if(qa?.id!=='01a1e15f-8bb2-7393-b17c-8494f4de6952'||qa?.gitCommitHash!=='4fcdb9333c5aff02b11ae9976ac30a5e0beb7b55')throw Error('Expected QA candidate mismatch');
+            console.log('APPROVED_PHASE1_FROM_LIVE='+JSON.stringify({live,qa}));
+          })().catch(e=>{console.error('BLOCK: '+e.message);process.exitCode=1});
+          NODE
+      - name: Release Phase1 as guarded 10 percent Android OTA canary
+        run: eas update --branch production --platform android --rollout-percentage 10 --message "Maya UX2 Fase1 chat-first additive v148 4fcdb9333c5aff02b11ae9976ac30a5e0beb7b55" --non-interactive
