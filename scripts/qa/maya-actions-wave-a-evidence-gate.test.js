@@ -107,6 +107,15 @@ try {
     data.cases[0].device = paddedDevice;
     assert.equal(run(data).status, 1, 'padded device identifier must fail');
   }
+  // A physical PASS must carry a timestamp and a non-empty evidence reference.
+  for (const [field, value] of [['testedAt', undefined], ['testedAt', null], ['evidenceRef', undefined], ['evidenceRef', null], ['evidenceRef', '']]) {
+    const data = structuredClone(base);
+    if (value === undefined) delete data.cases[0][field];
+    else data.cases[0][field] = value;
+    const result = run(data);
+    assert.equal(result.status, 1, 'missing physical proof field must fail: ' + field);
+    assert.match(result.stderr, /NO-GO/, 'missing physical proof must not imply approval');
+  }
   const notPassed = structuredClone(base);
   notPassed.cases[0].status = 'PENDING';
   assert.equal(run(notPassed).status, 1, 'pending physical test must fail');
