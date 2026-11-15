@@ -83,6 +83,14 @@ try {
     assert.equal(result.status, 1, 'malformed case record must fail: ' + JSON.stringify(malformedCase));
     assert.match(result.stderr, /NO-GO/, 'malformed case must not imply device approval');
   }
+  // Case IDs are exact audit keys: aliases and malformed IDs must not satisfy A01-A16.
+  for (const badId of ['a01', 'A1', 'A001', ' A01', 'A01 ', null, 1]) {
+    const data = structuredClone(base);
+    data.cases[0].id = badId;
+    const result = run(data);
+    assert.equal(result.status, 1, 'invalid case ID must fail: ' + JSON.stringify(badId));
+    assert.match(result.stderr, /NO-GO/, 'invalid case ID must not imply approval');
+  }
   const unknown = structuredClone(base);
   unknown.cases.push({ ...unknown.cases[0], id: 'A17' });
   assert.equal(run(unknown).status, 1, 'unknown case must fail');
