@@ -1,0 +1,46 @@
+name: Central Nexa v148 — OTA Candidate CI
+on:
+  push:
+    branches:
+      - feat/central-nexa-v148-ota-20261112
+  pull_request:
+    paths:
+      - 'app/central-nexa.tsx'
+      - 'app/kyc.tsx'
+      - 'app/sign-in.tsx'
+      - 'src/components/AlignedLegacyApp.tsx'
+      - 'scripts/validate-central-nexa-v148.js'
+      - '.github/workflows/central-nexa-v148-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  central:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Contract and runtime safety
+        run: node scripts/validate-central-nexa-v148.js
+      - name: No native/financial changes compared to integration baseline
+        run: |
+          git fetch origin integration/maya-actions-v148 --depth=1
+          git diff --exit-code origin/integration/maya-actions-v148 HEAD -- app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Android JS export without publishing OTA
+        run: npm run export:android

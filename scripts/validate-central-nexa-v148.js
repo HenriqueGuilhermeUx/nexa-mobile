@@ -1,0 +1,37 @@
+'use strict';
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+
+const read = path => fs.readFileSync(path, 'utf8');
+const screen = read('app/central-nexa.tsx');
+const legacy = read('src/components/AlignedLegacyApp.tsx');
+const kyc = read('app/kyc.tsx');
+const signIn = read('app/sign-in.tsx');
+const config = JSON.parse(read('app.json'));
+const packageJson = JSON.parse(read('package.json'));
+
+assert.equal(config.expo.version, '2.0.43');
+assert.equal(config.expo.android.versionCode, 148);
+assert.equal(config.expo.runtimeVersion.policy, 'appVersion');
+assert.equal(config.expo.extra.releaseChannel, 'production');
+assert.ok(packageJson.dependencies['expo-notifications']);
+assert.ok(packageJson.dependencies['expo-updates']);
+assert.match(screen, /Central Nexa/);
+assert.match(screen, /loadNexaSession/);
+assert.match(screen, /getMyKycStatus/);
+assert.match(screen, /getMyGlobalKycStatus/);
+assert.match(screen, /pendingMessage\.current/);
+assert.match(screen, /clientMessageId: requestId/);
+assert.match(screen, /getMyGlobalKycStatus\(session\.accessToken\)/);
+assert.match(screen, /ensureNexaNotificationPermission/);
+assert.match(screen, /NEXA_TELEGRAM_SUPPORT_URL/);
+assert.match(screen, /nexaWhatsAppSupportUrl/);
+assert.match(screen, /portal\//);
+assert.doesNotMatch(screen, /getExpoPushTokenAsync|sendPushNotificationsAsync|registerForPushNotificationsAsync/);
+assert.match(screen, /caixa de entrada.*preparação/i);
+assert.match(legacy, /title="Central Nexa"/);
+assert.match(legacy, /router\.push\('\/central-nexa'/);
+assert.match(kyc, /Central Nexa · ajuda e mensagens/);
+assert.match(signIn, /Central Nexa · preciso de ajuda/);
+assert.doesNotMatch(screen, /Pix.{0,40}(?:transferir agora|depositar agora)|ganho garantido/i);
+console.log('Central Nexa OTA contract PASS: no backend push/marketing claim or financial changes.');

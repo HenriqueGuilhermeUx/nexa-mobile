@@ -173,6 +173,11 @@ export default function SignInScreen() {
         onPress={openPasswordRecovery}
       />
       <ActionButton
+        label="Central Nexa · preciso de ajuda"
+        variant="secondary"
+        onPress={() => router.push('/central-nexa' as any)}
+      />
+      <ActionButton
         label="Criar conta"
         variant="secondary"
         disabled={loading}

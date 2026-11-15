@@ -1821,9 +1821,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           ) : null}
           <MenuTile
             icon="◉"
-            title="Fale com a Nexa"
-            subtitle="Atendimento no WhatsApp"
-            onPress={openNexaSupport}
+            title="Central Nexa"
+            subtitle="Theo, mensagens e avisos"
+            onPress={() => router.push('/central-nexa' as any)}
             accent
           />
         </View>
@@ -2268,7 +2268,8 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
         <Card style={styles.profileSupportCard}>
           <Text style={[styles.staffEyebrow, isPremium ? styles.premiumAccentText : null]}>ATENDIMENTO</Text>
           <Text style={styles.highlightTitle}>Precisa de ajuda?</Text>
-          <Text style={styles.highlightText}>Fale com a Nexa pelo WhatsApp ou peça ajuda ao seu Assistente.</Text>
+          <Text style={styles.highlightText}>Abra a Central Nexa para orientações, novidades e escolha de atendimento.</Text>
+          <PrimaryButton title="Abrir Central Nexa" onPress={() => router.push('/central-nexa' as any)} />
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={[
