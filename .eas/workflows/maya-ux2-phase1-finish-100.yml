@@ -1,0 +1,10 @@
+name: Maya UX2 Phase1 — finish same existing Android OTA rollout
+on:
+  workflow_dispatch: {}
+jobs:
+  finish_android_rollout:
+    name: Complete existing Maya UX2 Phase1 OTA group
+    type: update-rollout
+    params:
+      update_group_id: 23045bd5-5ba0-471d-a5bb-1d5fb4e0387b
+      rollout_percentage: 100
