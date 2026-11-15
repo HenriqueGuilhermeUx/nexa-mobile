@@ -166,7 +166,11 @@ const refs = cases.filter(c => c && typeof c.evidenceRef === 'string' && c.evide
     if (/^https:\/\//i.test(ref)) {
       try { return new URL(ref).href; } catch { /* malformed URLs fail separately above */ }
     }
-    return ref;
+    // A downstream evidence viewer may decode percent escapes in local IDs.
+    // Normalize one safe decoding pass before duplicate detection; malformed
+    // escapes and encoded separators are rejected independently above.
+    try { return decodeURIComponent(ref).normalize('NFC'); }
+    catch { return ref; }
   });
 if (new Set(refs).size !== refs.length) failures.push('duplicate evidence reference');
 if (cases.some(c => !ids.includes(c?.id))) failures.push('unknown case ID');
