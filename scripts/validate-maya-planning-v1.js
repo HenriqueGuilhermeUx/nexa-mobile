@@ -11,6 +11,7 @@ assert(app.includes('savedCents: Math.min(goal.targetCents, goal.savedCents + ce
 assert(app.includes('function parseBrlCents('), 'Locale-specific money parser required');
 assert(app.includes("Não representa saldo real.") && app.includes('não faz depósitos'), 'Must not misrepresent local planning as account balance');
 assert(!/(sendPix|sendTransaction|createTransfer|executePayment|axios|fetch\()/.test(app), 'No payment initiation');
-assert(assistant.includes("router.push('/maya-planning'"), 'Missing assistant entry');
+const chat = fs.readFileSync('src/components/NexaAssistantOpenFinance.tsx','utf8');
+assert(assistant.includes('<NexaAssistantOpenFinance') && chat.includes("route: '/maya-planning'") && chat.includes('router.push(item.route as any)'), 'Missing assistant chat-first entry');
 assert(layout.includes('name="maya-planning"'), 'Missing navigation route');
 console.log('PASS Maya Planning 02: explicit local goals, user isolation, no payment execution');
