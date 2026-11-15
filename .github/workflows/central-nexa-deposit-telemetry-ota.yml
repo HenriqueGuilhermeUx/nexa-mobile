@@ -1,0 +1,96 @@
+name: Central Nexa — safe deposit guide telemetry Android OTA
+on:
+  push:
+    branches:
+      - feat/central-deposit-journey-event-v148-20261114
+    paths:
+      - '.github/workflows/central-nexa-deposit-telemetry-ota.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-central-android-deposit-telemetry
+  cancel-in-progress: false
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify isolated, owner-authenticated, non-financial change
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only fe5bca79133c5862f1dbf35771c17ca96b07e44d...HEAD | sort > /tmp/changed
+          printf '.github/workflows/central-nexa-deposit-telemetry-ota.yml\napp/central-nexa.tsx\n' | sort > /tmp/allowed
+          diff -u /tmp/allowed /tmp/changed
+          for path in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts; do
+            git show fe5bca79133c5862f1dbf35771c17ca96b07e44d:"$path" | cmp - "$path"
+          done
+          node - <<'NODE'
+          const fs=require('fs');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||
+             app.runtimeVersion.policy!=='appVersion'||
+             app.android.package!=='br.com.trynexa.app')
+            throw Error('Native identity changed');
+          const src=fs.readFileSync('app/central-nexa.tsx','utf8');
+          if(!src.includes("identityStage === 'approved'")||
+             !src.includes("stage:'guide_opened'")||
+             !src.includes("'/deposit-journey/event'")||
+             !src.includes("void openUrl(PORTAL_URL)"))
+            throw Error('Client telemetry is not safe or scoped to approved users');
+          console.log('DEPOSIT_GUIDE_TELEMETRY_SAFE');
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node scripts/validate-central-nexa-v148.js
+      - run: node scripts/validate-central-nexa-push-optin-v148.js
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Load original public config
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [k,v] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(k)||typeof v!=='string')
+              throw Error('Unexpected config');
+            fs.appendFileSync(process.env.GITHUB_ENV,k+'='+v+'\n');
+          }
+          NODE
+      - name: Guard exact last Android production update
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform group}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{
+              Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)});
+            const j=await r.json();if(!r.ok||j.errors?.length)throw Error('Cannot validate live app');
+            const app=j.data?.app?.byId,branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const latest=app?.updateBranchByName?.updates?.find(x=>x.platform==='android');
+            if(branches.length!==1||branches[0]!=='production'||
+              latest?.group!=='9e37d4ac-79d6-4c71-beaa-e61ee9eaa151'||
+              latest?.id!=='01a1dc2a-bef3-7582-b8d1-15b50377217c')
+              throw Error('Newer Android update exists. Do not overwrite.');
+            console.log('BASELINE_VERIFIED='+latest.id);
+          })().catch(e=>{console.error('BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish existing guide with passive telemetry
+        run: eas update --branch production --platform android --message "Central Nexa v148 first-deposit journey diagnostics" --non-interactive
