@@ -1,0 +1,87 @@
+name: Maya UX 2.0 Phase 1 — QA Android OTA on live production
+on:
+  push:
+    branches: [release/maya-ux2-phase1-chatfirst-v148-20261115]
+    paths: ['.github/workflows/maya-ux2-phase1-ota.yml']
+permissions:
+  contents: read
+concurrency:
+  group: nexa-maya-ux2-phase1-ota
+  cancel-in-progress: false
+jobs:
+  test-and-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Ensure JS-only scope and unchanged financial, KYC and Central Nexa behavior
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor cac9ea18a995f5d63c434ed92d07096ca77f2378 HEAD
+          node - <<'NODE'
+          const fs=require('node:fs'), cp=require('node:child_process');
+          const lines=cp.execFileSync('git',['diff','--name-only','cac9ea18a995f5d63c434ed92d07096ca77f2378','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          const allowed=['app/assistant.tsx','src/components/NexaAssistantOpenFinance.tsx','.github/workflows/maya-ux2-phase1-ota.yml'];
+          if(lines.some(x=>!allowed.includes(x)))throw Error('Unexpected changes: '+lines.join(','));
+          const c=fs.readFileSync('src/components/NexaAssistantOpenFinance.tsx','utf8');
+          if(!c.includes('useSpeechRecognitionEvent')||!c.includes('parseRecurringFundingIntent')||!c.includes('parseMayaLocalActionIntent')||!c.includes('NexaAssistantOpenFinance'))throw Error('Core Maya voice/finance routing changed');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||app.android.package!=='br.com.trynexa.app')throw Error('Android version changed');
+          console.log('PHASE1_JS_ONLY_SAFE_DIFF='+JSON.stringify(lines));
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Test critical modules and UX structural regression
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          for t in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js; do node "$t"; done
+          npm run typecheck
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Abort if production has changed since prior Maya release
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:10){id group gitCommitHash platform}}}}}';
+            const res=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await res.json();if(!res.ok||data.errors?.length)throw Error('OTA metadata unavailable');
+            const a=data.data?.app?.byId;
+            const mapping=a?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const live=a?.prod?.updates?.find(x=>x.platform==='android');
+            if(mapping.length!==1||mapping[0]!=='production'||live?.id!=='01a1e138-3ac9-76e4-bbd7-be068a9c39da'||live?.gitCommitHash!=='cac9ea18a995f5d63c434ed92d07096ca77f2378')throw Error('New production OTA: rebase before publication');
+            console.log('PRODUCTION_BASE_STILL_VALID='+JSON.stringify(live));
+          })().catch(e=>{console.error('BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish Phase 1 to isolated Android QA OTA only
+        env:
+          EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_DOCWALLET_URL: https://trydocwallet.com
+          EXPO_PUBLIC_NEXA_HEALTHWALLET_URL: https://mydatamed.com/healthwallet
+          EXPO_PUBLIC_NEXA_DOCWALLET_PLAY_STORE_URL: https://play.google.com/store/apps/details?id=br.com.alternativeventures.docwalletdocs
+          EXPO_PUBLIC_NEXA_HEALTHWALLET_PLAY_STORE_URL: https://play.google.com/store/apps/details?id=br.com.healthwallet.app
+        run: eas update --branch maya-ux2-phase1-qa --platform android --message "Maya UX2 Phase 1 chat-first on cumulative v148 $(git rev-parse --short HEAD)" --non-interactive
