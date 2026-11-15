@@ -16,6 +16,17 @@ type IdentityStage = 'loading' | 'signed_out' | 'pending' | 'review' | 'approved
 type InboxState = 'loading' | 'signed_out' | 'unavailable' | 'ready';
 type CentralMessage = { id: string; direction: 'inbound' | 'theo' | 'nexa'; topic: string; body: string; createdAt: string };
 type CentralPreferences = { servicePushOptIn: boolean; offersOptIn: boolean; marketingPushOptIn: boolean };
+type ExternalChannel = 'whatsapp' | 'telegram';
+type ExternalPurpose = 'service' | 'marketing';
+type ChannelConsent = { channel: ExternalChannel; purpose: ExternalPurpose; optedIn: boolean };
+type ChannelConsentKey = `${ExternalChannel}:${ExternalPurpose}`;
+const CONSENT_NOTICE_VERSION = 'nexa-channel-v1';
+const CHANNEL_OPTIONS: ReadonlyArray<{channel:ExternalChannel;purpose:ExternalPurpose;label:string}> = [
+  {channel:'whatsapp',purpose:'service',label:'WhatsApp — orientações e suporte'},
+  {channel:'telegram',purpose:'service',label:'Telegram — orientações e suporte'},
+  {channel:'whatsapp',purpose:'marketing',label:'WhatsApp — notícias e novidades'},
+  {channel:'telegram',purpose:'marketing',label:'Telegram — notícias e novidades'},
+];
 
 const PORTAL_URL = 'https://trynexa.com.br/portal/';
 const GUIDE_URL = 'https://trynexa.com.br/insights/primeira-utilizacao-nexa.html';
@@ -41,6 +52,9 @@ export default function CentralNexaScreen() {
   const [inboxState, setInboxState] = useState<InboxState>('loading');
   const [messages, setMessages] = useState<CentralMessage[]>([]);
   const [preferences, setPreferences] = useState<CentralPreferences | null>(null);
+  const [channelConsents, setChannelConsents] = useState<Partial<Record<ChannelConsentKey, boolean>>>({});
+  const [channelConsentState, setChannelConsentState] = useState<'loading' | 'unavailable' | 'ready'>('loading');
+  const [channelConsentSaving, setChannelConsentSaving] = useState<ChannelConsentKey | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const pendingMessage = useRef<{ text: string; requestId: string } | null>(null);
@@ -97,6 +111,64 @@ export default function CentralNexaScreen() {
   }
 
   useEffect(() => { void refreshInbox(); }, []);
+
+  // Separate, authenticated consent endpoint. A login or a push permission
+  // never counts as WhatsApp / Telegram consent. Fail closed if unavailable.
+  async function refreshChannelConsents() {
+    try {
+      const session = await loadNexaSession();
+      if (!session) { setChannelConsentState('unavailable'); return; }
+      const base = config.apiUrl.endsWith('/') ? config.apiUrl.slice(0,-1) : config.apiUrl;
+      const response = await fetch(base + '/central-nexa/channel-consents', {
+        headers: { Authorization:'Bearer ' + session.accessToken },
+      });
+      if (!response.ok) { setChannelConsentState('unavailable'); return; }
+      const body = await response.json();
+      if (!Array.isArray(body?.consents) || body.noticeVersion !== CONSENT_NOTICE_VERSION) {
+        setChannelConsentState('unavailable'); return;
+      }
+      const stored:Partial<Record<ChannelConsentKey, boolean>> = {};
+      for (const consent of body.consents as ChannelConsent[]) {
+        const allowed = CHANNEL_OPTIONS.some(option => option.channel === consent.channel && option.purpose === consent.purpose);
+        if (allowed && consent.optedIn === true) stored[`${consent.channel}:${consent.purpose}`] = true;
+      }
+      setChannelConsents(stored);
+      setChannelConsentState('ready');
+    } catch {
+      setChannelConsentState('unavailable');
+    }
+  }
+
+  useEffect(() => { void refreshChannelConsents(); }, []);
+
+  async function setChannelConsent(channel:ExternalChannel,purpose:ExternalPurpose,optedIn:boolean) {
+    if (channelConsentState !== 'ready' || channelConsentSaving) return;
+    const key:ChannelConsentKey = `${channel}:${purpose}`;
+    const session = await loadNexaSession();
+    if (!session) { setChannelConsentState('unavailable'); return; }
+    setChannelConsentSaving(key);
+    try {
+      const base = config.apiUrl.endsWith('/') ? config.apiUrl.slice(0,-1) : config.apiUrl;
+      const response = await fetch(base + '/central-nexa/channel-consents', {
+        method:'POST',
+        headers:{Authorization:'Bearer ' + session.accessToken,'Content-Type':'application/json'},
+        body:JSON.stringify({channel,purpose,optedIn,noticeVersion:CONSENT_NOTICE_VERSION}),
+      });
+      if (!response.ok) throw new Error('consent persistence failed');
+      const body = await response.json();
+      if (!Array.isArray(body?.consents)) throw new Error('consent confirmation missing');
+      const found = (body.consents as ChannelConsent[]).find(x=>x.channel===channel && x.purpose===purpose);
+      if (!found || found.optedIn !== optedIn) throw new Error('consent confirmation mismatch');
+      setChannelConsents(current=>({...current,[key]:optedIn}));
+      setNotice(optedIn
+        ? 'Sua escolha foi registrada. Mensagens externas dependem da confirmação do canal; nenhum disparo automático foi ativado.'
+        : 'Autorização retirada na Nexa. Para mensagens já recebidas, também use a opção de parar no canal.');
+    } catch {
+      setNotice('Não conseguimos confirmar sua escolha. Nada foi alterado nesta tela.');
+    } finally {
+      setChannelConsentSaving(null);
+    }
+  }
 
   async function sendInternalMessage() {
     if (sending || inboxState !== 'ready') return;
@@ -335,6 +407,32 @@ export default function CentralNexaScreen() {
           </>
         ) : (
           <Text style={styles.paragraph}>Os avisos push estão em preparação. Quando estiverem disponíveis, você poderá escolher ativá-los aqui.</Text>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Converse com a Nexa onde preferir</Text>
+        <Text style={styles.paragraph}>
+          Quer orientações de cadastro, KYC e depósitos pelo WhatsApp ou Telegram?
+          Você escolhe cada canal e pode retirar a autorização quando quiser.
+          Notícias sobre cripto e ofertas são opcionais e exigem escolha separada.
+          A Nexa não pede senhas, códigos nem documentos pelo chat.
+        </Text>
+        {channelConsentState === 'ready' ? (
+          <>
+            {CHANNEL_OPTIONS.map(option => {
+              const key:ChannelConsentKey = `${option.channel}:${option.purpose}`;
+              const enabled = channelConsents[key] === true;
+              return <Action key={key}
+                title={option.label + (enabled ? ': autorizado' : ': não autorizado')}
+                detail={channelConsentSaving === key ? 'Salvando escolha…' : enabled ? 'Toque para revogar' : 'Toque para autorizar'}
+                onPress={() => { if (!channelConsentSaving) void setChannelConsent(option.channel,option.purpose,!enabled); }}
+              />;
+            })}
+            <Text style={styles.footnote}>Autorizar mensagens não vincula automaticamente o número ou o Telegram à sua conta. O canal precisa ser verificado antes de qualquer envio.</Text>
+          </>
+        ) : (
+          <Text style={styles.paragraph}>As preferências de WhatsApp e Telegram estão em preparação. Quando estiverem disponíveis, você poderá autorizar ou recusar cada tipo de mensagem aqui.</Text>
         )}
       </View>
 
