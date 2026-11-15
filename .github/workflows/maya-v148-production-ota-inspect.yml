@@ -35,6 +35,22 @@ jobs:
           eas update:list --branch production --platform android --limit 5 --non-interactive
           echo "Branch update list exit $?"
           exit 0
+      - name: Verify live OTA source commit and exact runtime with read-only metadata
+        run: |
+          node - <<'NODE'
+          (async () => {
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){name updateBranches(offset:0,limit:10){name}} updateBranchByName(name:"production"){name updates(offset:0,limit:8){id gitCommitHash platform group createdAt}}}}}';
+            const res=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(20000)});
+            const payload=await res.json();
+            if(!res.ok||payload.errors?.length)throw Error('Read-only OTA metadata unavailable: '+JSON.stringify(payload.errors||[]).slice(0,300));
+            const obj=payload.data?.app?.byId;
+            const names=obj?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(names.length!==1||names[0]!=='production')throw Error('Unsafe production channel mapping: '+names.join(','));
+            const latest=obj?.updateBranchByName?.updates?.filter(x=>x.platform==='android')||[];
+            if(!latest.length||!latest[0].gitCommitHash)throw Error('No verified Android production source hash');
+            console.log('PRODUCTION_OTA_AUDIT='+JSON.stringify({mapping:names,android:latest}));
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
       - name: No changes
         run: |
           echo 'Read-only audit: no build, no update publication'
