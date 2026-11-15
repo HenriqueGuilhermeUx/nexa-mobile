@@ -164,7 +164,16 @@ const refs = cases.filter(c => c && typeof c.evidenceRef === 'string' && c.evide
     // WHATWG canonicalizes HTTPS host casing, default ports and dot segments.
     // Distinct spellings of the same URL must not count as independent physical proof.
     if (/^https:\/\//i.test(ref)) {
-      try { return new URL(ref).href; } catch { /* malformed URLs fail separately above */ }
+      try {
+        const url = new URL(ref);
+        // Normalize safe percent-encoded unreserved path bytes: /proof/A and
+        // /proof/%41 refer to the same evidence and must not count twice.
+        url.pathname = url.pathname.replace(/%([0-9a-f]{2})/gi, (escape, hex) => {
+          const char = String.fromCharCode(parseInt(hex, 16));
+          return /[A-Za-z0-9._~-]/.test(char) ? char : escape.toUpperCase();
+        });
+        return url.href;
+      } catch { /* malformed URLs fail separately above */ }
     }
     // A downstream evidence viewer may decode percent escapes in local IDs.
     // Normalize one safe decoding pass before duplicate detection; malformed
