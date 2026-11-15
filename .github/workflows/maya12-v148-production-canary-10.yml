@@ -38,7 +38,7 @@ jobs:
           const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
           if(app.version!=='2.0.43'||app.android.versionCode!==148||app.android.package!=='br.com.trynexa.app'||app.runtimeVersion?.policy!=='appVersion'||app.extra?.eas?.projectId!=='b3faabec-283a-4ba2-88b5-f096304e68aa')throw Error('Production Android native identity mismatch');
           const files=p.execFileSync('git',['diff','--name-only','3d75dc1df7b2f40751507d711cf73fde541da1af','HEAD'],{encoding:'utf8'}).trim().split('\n');
-          const allowed=x=>x.startsWith('app/maya-')||x.startsWith('src/maya-actions/')||x.startsWith('scripts/validate-maya-')||x==='src/lib/mayaWebActionContracts.ts'||x==='src/components/NexaAssistantOpenFinance.tsx'||x==='app/assistant.tsx'||x==='app/_layout.tsx';
+          const allowed=x=>x.startsWith('app/maya-')||x.startsWith('src/maya-actions/')||x.startsWith('scripts/validate-maya-')||x==='src/lib/mayaWebActionContracts.ts'||x==='src/components/NexaAssistantOpenFinance.tsx'||x==='app/assistant.tsx'||x==='app/_layout.tsx'||x==='.github/workflows/maya12-v148-live-baseline-qa.yml';
           const unexpected=files.filter(x=>!allowed(x));
           if(unexpected.length)throw Error('Unapproved live source changes: '+unexpected.join(', '));
           if(fs.readFileSync('app/maya-actions.tsx','utf8').includes('OTA QA · 13/11 · atualização recebida'))throw Error('QA canary marker must not be released');
