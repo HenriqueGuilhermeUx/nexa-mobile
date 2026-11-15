@@ -29,17 +29,17 @@ jobs:
           git merge-base --is-ancestor 191bc32958ef40c7bc217babf781f3172f89c415 HEAD
           node - <<'NODE'
           const fs=require('node:fs'),cp=require('node:child_process');
-          const allowed=['app/maya-hoje.tsx','app/_layout.tsx','src/components/NexaAssistantOpenFinance.tsx','scripts/validate-maya-hoje-v1.js','.github/workflows/maya-ux2-phase3a-qa.yml'];
+          const allowed=['src/components/NexaAssistantOpenFinance.tsx','scripts/validate-maya-action-cards-v1.js','.github/workflows/maya-ux2-phase3a-qa.yml'];
           const changed=cp.execFileSync('git',['diff','--name-only','191bc32958ef40c7bc217babf781f3172f89c415','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
           if(changed.some(x=>!allowed.includes(x)))throw Error('Non-UI changes: '+changed.join(','));
           const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
           if(app.version!=='2.0.43'||app.android.versionCode!==148||app.android.package!=='br.com.trynexa.app')throw Error('Native app identity changed');
           const today=fs.readFileSync('app/maya-hoje.tsx','utf8');
           if(today.includes('AsyncStorage.setItem')||today.includes('sendTransaction('))throw Error('Today must be read-only');
-          console.log('PHASE2_JS_ONLY='+JSON.stringify(changed));
+          console.log('PHASE3A_JS_ONLY='+JSON.stringify(changed));
           NODE
       - run: npm ci --no-audit --no-fund
-      - name: Full regression on cumulative Phase1 plus Meu dia
+      - name: Full regression on cumulative Phase2 plus action review
         run: |
           set -euo pipefail
           node scripts/validate-maya-action-cards-v1.js
@@ -63,10 +63,10 @@ jobs:
             const j=await res.json();if(!res.ok||j.errors?.length)throw Error('Inventory unavailable');
             const a=j.data?.app?.byId,m=a?.updateChannelByName?.updateBranches?.map(x=>x.name)||[],prod=a?.prod?.updates?.find(x=>x.platform==='android');
             if(m.length!==1||m[0]!=='production'||prod?.id!=='01a1e16c-8865-7c97-bead-f448ab6d0398'||prod?.gitCommitHash!=='191bc32958ef40c7bc217babf781f3172f89c415')throw Error('Production changed since Phase2: rebase required');
-            console.log('PRODUCTION_PHASE1_STILL_LIVE='+JSON.stringify(prod));
+            console.log('PRODUCTION_PHASE2_STILL_LIVE='+JSON.stringify(prod));
           })().catch(e=>{console.error('BLOCK:'+e.message);process.exitCode=1});
           NODE
-      - name: Publish additive Phase2 Android QA only
+      - name: Prepare additive Phase3A Android QA only
         run: |
           node - <<'NODE'
           const fs=require('node:fs'),env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
