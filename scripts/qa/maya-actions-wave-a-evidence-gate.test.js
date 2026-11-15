@@ -75,6 +75,14 @@ try {
     data.cases[0].status = invalidStatus;
     assert.equal(run(data).status, 1, 'only explicit PASS is admissible');
   }
+  // Malformed per-case records must fail closed rather than throw or count as device proof.
+  for (const malformedCase of [null, false, 0, 'A01', [], {}]) {
+    const data = structuredClone(base);
+    data.cases[0] = malformedCase;
+    const result = run(data);
+    assert.equal(result.status, 1, 'malformed case record must fail: ' + JSON.stringify(malformedCase));
+    assert.match(result.stderr, /NO-GO/, 'malformed case must not imply device approval');
+  }
   const unknown = structuredClone(base);
   unknown.cases.push({ ...unknown.cases[0], id: 'A17' });
   assert.equal(run(unknown).status, 1, 'unknown case must fail');
