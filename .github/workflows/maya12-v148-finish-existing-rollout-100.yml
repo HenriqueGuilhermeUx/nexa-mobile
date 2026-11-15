@@ -1,0 +1,85 @@
+name: Maya 12 — promote existing Android OTA from 10 to 100 percent
+on:
+  push:
+    branches: [release/maya12-v148-finish-existing-rollout-100-20261115]
+    paths:
+      - '.github/workflows/maya12-v148-finish-existing-rollout-100.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-activation-ota-production
+  cancel-in-progress: false
+jobs:
+  promote-same-tested-update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify exact published source and no business or native changes
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor cac9ea18a995f5d63c434ed92d07096ca77f2378 HEAD
+          git diff --name-only cac9ea18a995f5d63c434ed92d07096ca77f2378 HEAD > /tmp/changed-files
+          printf '.eas/workflows/maya12-v148-finish-rollout-100.yml\n.github/workflows/maya12-v148-finish-existing-rollout-100.yml\n' | sort > /tmp/allowed-files
+          sort /tmp/changed-files > /tmp/actual-files
+          diff -u /tmp/allowed-files /tmp/actual-files
+          node - <<'NODE'
+          const assert=require('node:assert/strict'),fs=require('node:fs');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          assert.equal(app.version,'2.0.43');
+          assert.equal(app.android.versionCode,148);
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.runtimeVersion.policy,'appVersion');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          assert.equal(env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL,'production');
+          const workflow=fs.readFileSync('.eas/workflows/maya12-v148-finish-rollout-100.yml','utf8');
+          assert.match(workflow,/update_group_id: 3c791e7a-91d9-4a98-99d2-9c3ce2f769d4/);
+          assert.match(workflow,/rollout_percentage: 100/);
+          console.log('SAME_RELEASE_NO_SOURCE_CHANGES');
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Fail closed if production channel or target group has changed
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform group createdAt}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const j=await r.json();if(!r.ok||j.errors?.length)throw Error('Cannot validate live production');
+            const a=j.data?.app?.byId, mapping=a?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const live=a?.prod?.updates?.find(x=>x.platform==='android');
+            if(mapping.length!==1||mapping[0]!=='production')throw Error('Production channel mapping differs');
+            if(live?.id!=='01a1e138-3ac9-76e4-bbd7-be068a9c39da'||live?.group!=='3c791e7a-91d9-4a98-99d2-9c3ce2f769d4'||live?.gitCommitHash!=='cac9ea18a995f5d63c434ed92d07096ca77f2378')throw Error('Production changed: refuse to promote unknown update');
+            console.log('APPROVED_SAME_EXISTING_GROUP='+JSON.stringify(live));
+          })().catch(e=>{console.error('PROMOTION_BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Verify exact current rollout is 10 percent
+        run: |
+          set -euo pipefail
+          eas update:view 01a1e138-3ac9-76e4-bbd7-be068a9c39da | tee /tmp/update-before.txt
+          grep -E 'Rollout Percentage[[:space:]]+10%' /tmp/update-before.txt
+          grep -F '3c791e7a-91d9-4a98-99d2-9c3ce2f769d4' /tmp/update-before.txt
+      - name: Validate native update-rollout workflow
+        run: eas workflow:validate .eas/workflows/maya12-v148-finish-rollout-100.yml --non-interactive
+      - name: Complete SAME existing update group (no new bundle)
+        run: eas workflow:run .eas/workflows/maya12-v148-finish-rollout-100.yml --non-interactive --wait
+      - name: Verify 100 percent rollout reached and production source unchanged
+        run: |
+          set -euo pipefail
+          eas update:view 01a1e138-3ac9-76e4-bbd7-be068a9c39da | tee /tmp/update-after.txt
+          grep -E 'Rollout Percentage[[:space:]]+100%' /tmp/update-after.txt
+          grep -F '3c791e7a-91d9-4a98-99d2-9c3ce2f769d4' /tmp/update-after.txt
+          echo 'SAME_MAYA_RELEASE_FULLY_ROLLED_OUT'
