@@ -172,6 +172,9 @@ const refs = cases.filter(c => c && typeof c.evidenceRef === 'string' && c.evide
           const char = String.fromCharCode(parseInt(hex, 16));
           return /[A-Za-z0-9._~-]/.test(char) ? char : escape.toUpperCase();
         });
+        // DNS treats a trailing root dot as equivalent to the same hostname.
+        // Canonicalize it for duplicate-proof detection, not network access.
+        if (url.hostname.endsWith('.')) url.hostname = url.hostname.slice(0, -1);
         return url.href;
       } catch { /* malformed URLs fail separately above */ }
     }
