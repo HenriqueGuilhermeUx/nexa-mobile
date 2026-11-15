@@ -1,0 +1,66 @@
+name: Maya UX2 Phase1 — confirm and complete 10 to 100 percent
+on:
+  push:
+    branches: [release/maya-ux2-phase1-finish-100-v148-20261115]
+    paths: ['.github/workflows/maya-ux2-phase1-finish-100.yml']
+permissions:
+  contents: read
+concurrency:
+  group: nexa-activation-ota-production
+  cancel-in-progress: false
+jobs:
+  finish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Ensure no code changes since Phase1 public canary
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 4fcdb9333c5aff02b11ae9976ac30a5e0beb7b55 HEAD
+          git diff --name-only 4fcdb9333c5aff02b11ae9976ac30a5e0beb7b55 HEAD | sort >/tmp/diff
+          printf '.eas/workflows/maya-ux2-phase1-finish-100.yml\n.github/workflows/maya-ux2-phase1-finish-100.yml\n' | sort >/tmp/allowed
+          diff -u /tmp/allowed /tmp/diff
+          node - <<'NODE'
+          const fs=require('node:fs'), app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||app.android.package!=='br.com.trynexa.app')throw Error('Android identity changed');
+          const y=fs.readFileSync('.eas/workflows/maya-ux2-phase1-finish-100.yml','utf8');
+          if(!y.includes('23045bd5-5ba0-471d-a5bb-1d5fb4e0387b')||!y.includes('rollout_percentage: 100'))throw Error('Unexpected rollout target');
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with: {eas-version: 27.9.0, token: ${{ secrets.EXPO_TOKEN }}}
+      - name: Confirm live exact canary and no newer production OTA
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform group}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const j=await r.json();if(!r.ok||j.errors?.length)throw Error('Cannot verify current OTA');
+            const app=j.data?.app?.byId,m=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const live=app?.prod?.updates?.find(x=>x.platform==='android');
+            if(m.length!==1||m[0]!=='production'||live?.id!=='01a1e162-8b48-7cab-bec1-e3b6a353bb80'||live?.gitCommitHash!=='4fcdb9333c5aff02b11ae9976ac30a5e0beb7b55'||live?.group!=='23045bd5-5ba0-471d-a5bb-1d5fb4e0387b')throw Error('A different OTA is active: STOP');
+            console.log('MATCHED_PHASE1_CANARY='+JSON.stringify(live));
+          })().catch(e=>{console.error('BLOCKED:'+e.message);process.exitCode=1});
+          NODE
+      - name: Confirm active 10 percent
+        run: |
+          eas update:view 01a1e162-8b48-7cab-bec1-e3b6a353bb80 | tee /tmp/before
+          grep -E 'Rollout Percentage[[:space:]]+10%' /tmp/before
+      - name: Validate known update-rollout workflow
+        run: eas workflow:validate .eas/workflows/maya-ux2-phase1-finish-100.yml --non-interactive
+      - name: Complete same existing Android OTA group
+        run: eas workflow:run .eas/workflows/maya-ux2-phase1-finish-100.yml --non-interactive --wait
+      - name: Verify no partial rollout remains
+        run: |
+          eas update:view 01a1e162-8b48-7cab-bec1-e3b6a353bb80 | tee /tmp/after
+          grep -F '23045bd5-5ba0-471d-a5bb-1d5fb4e0387b' /tmp/after
+          grep -E 'Rollout Percentage[[:space:]]+(N/A|100%)' /tmp/after
+          echo 'MAYA_UX2_PHASE1_ROLLOUT_COMPLETED'
