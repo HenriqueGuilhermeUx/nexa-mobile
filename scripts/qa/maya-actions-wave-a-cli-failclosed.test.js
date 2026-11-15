@@ -34,3 +34,31 @@ test('malformed JSON blocks, without success output', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('JSON null blocks as an invalid manifest without a crash', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maya-qa-a-null-'));
+  const file = path.join(dir, 'null.json');
+  try {
+    fs.writeFileSync(file, 'null', { mode: 0o600 });
+    const result = invoke([file]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /NO-GO: evidence manifest must be a JSON object/);
+    assert.doesNotMatch(result.stdout, /structurally complete/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('JSON array blocks as an invalid manifest without a success signal', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maya-qa-a-array-'));
+  const file = path.join(dir, 'array.json');
+  try {
+    fs.writeFileSync(file, '[]', { mode: 0o600 });
+    const result = invoke([file]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /NO-GO: evidence manifest must be a JSON object/);
+    assert.doesNotMatch(result.stdout, /structurally complete/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
