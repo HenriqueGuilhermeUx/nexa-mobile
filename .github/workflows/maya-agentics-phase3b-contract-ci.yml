@@ -23,12 +23,13 @@ jobs:
           node - <<'NODE'
           const cp=require('node:child_process');
           const diff=cp.execFileSync('git',['diff','--name-only','47d09e55b3f8e4045e530402cb92c32327595031','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
-          const allowed=['src/maya-actions/agenticsTaskContracts.ts','scripts/validate-maya-agentics-task-contracts-v1.js','docs/maya-agentics-phase3b-release-gates.md','.github/workflows/maya-agentics-phase3b-contract-ci.yml'];
+          const allowed=['src/maya-actions/agenticsTaskContracts.ts','src/maya-actions/agenticsReadiness.ts','scripts/validate-maya-agentics-task-contracts-v1.js','scripts/validate-maya-agentics-readiness-v1.js','docs/maya-agentics-phase3b-release-gates.md','.github/workflows/maya-agentics-phase3b-contract-ci.yml'];
           if(diff.some(f=>!allowed.includes(f)))throw Error('Unexpected live app changes: '+diff.join(','));
           console.log('ONLY_CONTRACT_FILES='+JSON.stringify(diff));
           NODE
       - run: npm ci --no-audit --no-fund
       - run: node scripts/validate-maya-agentics-task-contracts-v1.js
+      - run: node scripts/validate-maya-agentics-readiness-v1.js
       - run: npm run typecheck
       - name: Confirm release status
         run: echo 'Contracts validated, no Agentics actions executed, no OTA or production deployment authorized.'
