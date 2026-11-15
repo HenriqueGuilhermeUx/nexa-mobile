@@ -42,6 +42,8 @@ try {
     ['invalid timezone offset', data => { data.cases[0].testedAt = '2026-11-06T12:00:00+14:30'; }],
     ['invalid hour', data => { data.cases[0].testedAt = '2026-11-06T24:00:00Z'; }],
     ['invalid April 31', data => { data.cases[0].testedAt = '2026-04-31T12:00:00Z'; }],
+    ['non-leap February 29', data => { data.cases[0].testedAt = '2027-02-29T12:00:00Z'; }],
+    ['invalid second 60', data => { data.cases[0].testedAt = '2026-11-06T12:00:60Z'; }],
     ['invalid negative timezone offset', data => { data.cases[0].testedAt = '2026-11-06T12:00:00-14:30'; }],
     ['timezone beyond 14 hours', data => { data.cases[0].testedAt = '2026-11-06T12:00:00+15:00'; }],
     ['wrong frozen candidate SHA', data => { data.candidateSha = '0'.repeat(40); }],
@@ -57,12 +59,16 @@ try {
     assert.equal(result.status, 1, name + ' must be rejected');
     assert.match(result.stderr, /NO-GO/, name + ' must report NO-GO');
   }
+  const leapBoundary = structuredClone(base);
+  leapBoundary.cases[0].testedAt = '2028-02-29T12:00:00Z';
+  // This date is in the future during 2026; the gate must reject it until a real test occurs.
+  assert.equal(check(leapBoundary).status, 1, 'future leap-day evidence must not be accepted');
   const boundary = structuredClone(base);
   boundary.cases[0].testedAt = '2026-11-06T12:00:00+14:00';
   assert.equal(check(boundary).status, 0, 'valid maximum positive UTC offset must parse');
   boundary.cases[0].testedAt = '2026-11-06T12:00:00-14:00';
   assert.equal(check(boundary).status, 0, 'valid maximum negative UTC offset must parse');
-  console.log('QA A cardinality regression: 20 synthetic rejection and 2 timezone boundary acceptance cases passed (not device QA).');
+  console.log('QA A cardinality regression: 22 synthetic rejection, 1 future-date rejection and 2 timezone boundary acceptance cases passed (not device QA).');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
