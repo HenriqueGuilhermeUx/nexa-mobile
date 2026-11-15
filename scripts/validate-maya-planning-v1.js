@@ -1,0 +1,16 @@
+const assert = require('assert');
+const fs = require('fs');
+const app = fs.readFileSync('app/maya-planning.tsx','utf8');
+const assistant = fs.readFileSync('app/assistant.tsx','utf8');
+const layout = fs.readFileSync('app/_layout.tsx','utf8');
+assert(app.includes("const storageKey = 'maya-planning-v1:' + id"), 'Separate goal storage per authenticated account');
+assert(app.includes('loadNexaSession()') && app.includes('nexaApi.me('), 'Authenticated user identity required');
+assert(app.includes('AsyncStorage.setItem(key, JSON.stringify(next))'), 'Goals must persist only after explicit user interaction');
+assert(app.includes('MAX_GOALS = 20'), 'Bound local data');
+assert(app.includes('savedCents: Math.min(goal.targetCents, goal.savedCents + cents)'), 'Progress cannot exceed goal');
+assert(app.includes('function parseBrlCents('), 'Locale-specific money parser required');
+assert(app.includes("Não representa saldo real.") && app.includes('não faz depósitos'), 'Must not misrepresent local planning as account balance');
+assert(!/(sendPix|sendTransaction|createTransfer|executePayment|axios|fetch\()/.test(app), 'No payment initiation');
+assert(assistant.includes("router.push('/maya-planning'"), 'Missing assistant entry');
+assert(layout.includes('name="maya-planning"'), 'Missing navigation route');
+console.log('PASS Maya Planning 02: explicit local goals, user isolation, no payment execution');
