@@ -163,6 +163,20 @@ export default function CentralNexaScreen() {
     }
   }
 
+  // Best effort, owner-authenticated telemetry. Never block the portal or
+  // send amounts, documents, wallet addresses, or payment details.
+  async function noteDepositGuideOpened() {
+    try {
+      const session = await loadNexaSession();
+      if (!session) return;
+      await fetch((config.apiUrl.endsWith('/') ? config.apiUrl.slice(0,-1) : config.apiUrl) + '/deposit-journey/event', {
+        method:'POST',
+        headers:{Authorization:'Bearer '+session.accessToken,'Content-Type':'application/json'},
+        body:JSON.stringify({stage:'guide_opened',eventId:Crypto.randomUUID()}),
+      });
+    } catch { /* Telemetry is optional and cannot block the customer. */ }
+  }
+
   async function openUrl(url: string) {
     try {
       await Linking.openURL(url);
@@ -299,7 +313,7 @@ export default function CentralNexaScreen() {
           <Action
             title="Conhecer opções de depósito"
             detail="Abrir o portal Nexa e consultar valores, custos e condições"
-            onPress={() => void openUrl(PORTAL_URL)}
+            onPress={() => { void noteDepositGuideOpened(); void openUrl(PORTAL_URL); }}
           />
           <Action
             title="Preciso de ajuda com depósito"
