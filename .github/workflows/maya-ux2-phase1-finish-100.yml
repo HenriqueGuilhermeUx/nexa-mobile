@@ -36,7 +36,9 @@ jobs:
           NODE
       - run: npm ci --no-audit --no-fund
       - uses: expo/expo-github-action@v8
-        with: {eas-version: 27.9.0, token: ${{ secrets.EXPO_TOKEN }}}
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
       - name: Confirm live exact canary and no newer production OTA
         run: |
           node - <<'NODE'
