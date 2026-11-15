@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
+import { parseMayaLocalActionIntent } from '@/maya-actions/chatIntent';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import {
@@ -250,6 +251,28 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
       ]);
       if (autoSpeak || fromVoice) await speak(response);
       router.push('/open-finance');
+      return;
+    }
+
+    const action = parseMayaLocalActionIntent(message);
+    if (action) {
+      const response = action.kind === 'shopping_search'
+        ? 'Vou abrir uma pesquisa de preços para você revisar. A busca externa só abre quando você confirmar; nenhuma compra será realizada.'
+        : action.kind === 'communication_draft'
+          ? 'Vou abrir um rascunho para você escrever e revisar. A Maya não envia mensagens automaticamente.'
+          : 'Vou preparar seu lembrete. Você escolhe a data e confirma antes de qualquer agendamento.';
+      setMessages((current) => [
+        ...current,
+        { role: 'assistant', content: response },
+      ]);
+      if (autoSpeak || fromVoice) await speak(response);
+      if (action.kind === 'shopping_search') {
+        router.push({ pathname: '/maya-shopping', params: { query: action.query } });
+      } else if (action.kind === 'communication_draft') {
+        router.push({ pathname: '/maya-comunicacao', params: { request: action.request } });
+      } else {
+        router.push({ pathname: '/maya-actions', params: { task: action.description } });
+      }
       return;
     }
 
