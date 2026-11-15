@@ -278,6 +278,30 @@ export default function CentralNexaScreen() {
     }
   }
 
+  async function sendPushSelfTest() {
+    if (pushState !== 'granted') {
+      setNotice('Primeiro autorize avisos de serviço e registre seu aparelho.');
+      return;
+    }
+    const session=await loadNexaSession();
+    if (!session) { setNotice('Entre na Nexa para testar notificações.');return; }
+    try {
+      const base=config.apiUrl.endsWith('/') ? config.apiUrl.slice(0,-1) : config.apiUrl;
+      const response=await fetch(base+'/central-nexa/push/test-me',{
+        method:'POST',headers:{Authorization:'Bearer '+session.accessToken},
+      });
+      if(!response.ok) throw new Error('push_test_unavailable');
+      const result=await response.json();
+      setNotice(result?.acceptedForDelivery===true
+        ? 'Pedido de teste registrado. Feche o app normalmente para conferir a notificação. A entrega ainda depende do serviço de push do aparelho.'
+        : result?.reason==='already_requested_today'
+          ? 'Você já pediu um teste hoje. Confira a Central Nexa e as notificações do aparelho.'
+          : 'Teste registrado na Central, mas a entrega remota ainda não está disponível.');
+    }catch {
+      setNotice('O teste de push ainda não está liberado no servidor. Nenhum aviso foi disparado.');
+    }
+  }
+
   async function disablePush() {
     setPushState('loading');
     try {
@@ -401,6 +425,11 @@ export default function CentralNexaScreen() {
         {inboxState === 'ready' ? (
           <>
             <Action title={pushState === 'granted' ? 'Avisos de serviço: aparelho registrado' : pushState === 'loading' ? 'Verificando aparelho…' : 'Ativar avisos de serviço'} detail="Registra o aparelho para avisos de serviço; não autoriza publicidade." onPress={() => { if (pushState !== 'loading' && pushState !== 'granted') void enablePush(); }} />
+            {pushState === 'granted' ? (
+              <Action title="Testar notificação neste celular"
+                detail="Envia no máximo um teste por dia, somente após seu pedido e autorização"
+                onPress={() => void sendPushSelfTest()} />
+            ) : null}
             {pushState === 'granted' || preferences?.servicePushOptIn ? (
               <Action title="Desativar avisos neste aparelho" detail="Revoga o dispositivo e a preferência de serviço" onPress={() => { if (pushState !== 'loading') void disablePush(); }} />
             ) : null}
