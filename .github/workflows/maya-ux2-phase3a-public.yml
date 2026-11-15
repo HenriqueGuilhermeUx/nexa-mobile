@@ -36,7 +36,7 @@ jobs:
           node - <<'NODE'
           const fs=require('node:fs'), cp=require('node:child_process');
           const paths=cp.execFileSync('git',['diff','--name-only','191bc32958ef40c7bc217babf781f3172f89c415','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
-          const allowed=['app/maya-hoje.tsx','app/_layout.tsx','src/components/NexaAssistantOpenFinance.tsx','scripts/validate-maya-hoje-v1.js','.github/workflows/maya-ux2-phase3a-qa.yml'];
+          const allowed=['src/components/NexaAssistantOpenFinance.tsx','scripts/validate-maya-action-cards-v1.js','.github/workflows/maya-ux2-phase3a-qa.yml'];
           if(paths.some(x=>!allowed.includes(x)))throw Error('Production source diff includes other areas: '+paths.join(','));
           const a=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
           if(a.version!=='2.0.43'||a.android.versionCode!==148||a.android.package!=='br.com.trynexa.app')throw Error('Native identity changed');
