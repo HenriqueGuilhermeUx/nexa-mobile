@@ -21,3 +21,14 @@ Maya continua sendo entrada por texto/voz. A Nexa Agentics é camada opcional de
 
 ## Escopo desta branch
 Apenas contratos e testes sem efeitos; nenhum fetch, nenhuma chamada a Agentics, nenhuma OTA e nenhum deploy de produção. Alterações da plataforma Agentics são mantidas na conversa/repositório próprios.
+
+## Bloqueio de integração confirmado ao estudar o servidor Agentics atual
+
+`HenriqueGuilhermeUx/agentics-platform/backend/server.mjs` (branch `main`, 15/11/2026) exige Bearer de operador/revisor/administrador ou chave pessoal `agx_...` para as rotas autenticadas. A listagem `GET /api/v1/jobs` chama `listJobs(tenantId,30)` sem filtro obrigatório `ownerUserId`. Criar jobs exige papel operador. Isso **não é equivalente a autenticação Nexa por usuário** e não deve ser chamado diretamente pela Maya Android, nem repassando segredo de operador, tenant ou chave `agx_` ao cliente.
+
+Adicionamos `agenticsReadiness.ts`, um parser **sem network** que recusa disponibilizar a experiência de Agentics se o backend não garantir explicitamente:
+- contrato `nexa-maya-agentics-bridge-v1`;
+- autenticação de Nexa, `actorUserId` igual ao usuário logado, `userScopedJobs=true`;
+- `review_only`, `externalEffects=false`, `financialExecution=false` e lista autorizada de intenções.
+
+A próxima integração funcional necessita de **gateway server-side** com sessão Nexa validada, escopo de tarefas por usuário e tenant, políticas de delegação e testes adversariais contra vazamentos entre usuários. Não é seguro publicar endpoints existentes da Agentics diretamente no app. Esta branch não toca Agentics nem ativa nada no app.
