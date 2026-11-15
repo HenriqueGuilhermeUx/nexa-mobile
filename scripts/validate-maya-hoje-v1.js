@@ -1,0 +1,18 @@
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+const screen=fs.readFileSync('app/maya-hoje.tsx','utf8');
+const nav=fs.readFileSync('app/_layout.tsx','utf8');
+const chat=fs.readFileSync('src/components/NexaAssistantOpenFinance.tsx','utf8');
+assert.match(nav,/name="maya-hoje"/);
+assert.match(chat,/route: '\/maya-hoje'/);
+assert.match(screen,/loadNexaSession\(\)/);
+assert.match(screen,/nexaApi\.me\(session\.accessToken\)/);
+assert.match(screen,/maya-actions-v1:/);
+assert.match(screen,/maya-planning-v1:/);
+assert.match(screen,/AsyncStorage\.getItem/);
+assert.doesNotMatch(screen,/AsyncStorage\.setItem|AsyncStorage\.removeItem|scheduleNexaReminder|cancelNexaReminder|executePayment|sendPix|sendTransaction|createTransfer|axios\.|fetch\(/);
+assert.match(screen,/não sincroniza dados entre aparelhos/);
+assert.match(screen,/não representa saldo/);
+assert.match(screen,/Nenhuma movimentação é executada/);
+assert.match(screen,/useFocusEffect/);
+console.log('PASS Maya UX2 Phase2: read-only, authenticated, user-scoped Meu dia does not mutate prior tasks/goals');
