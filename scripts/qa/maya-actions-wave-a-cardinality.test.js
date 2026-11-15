@@ -38,6 +38,9 @@ try {
     ['duplicate A16 with different proof', data => data.cases.push({ ...data.cases[15], evidenceRef: 'another-a16-proof' })],
     ['extra malformed case record', data => data.cases.push(null)],
     ['extra noncanonical case ID', data => data.cases.push({ ...data.cases[0], id: 'a01', evidenceRef: 'another-lowercase-proof' })],
+    ['impossible calendar date', data => { data.cases[0].testedAt = '2026-02-30T12:00:00Z'; }],
+    ['invalid timezone offset', data => { data.cases[0].testedAt = '2026-11-06T12:00:00+14:30'; }],
+    ['invalid hour', data => { data.cases[0].testedAt = '2026-11-06T24:00:00Z'; }],
     ['wrong frozen candidate SHA', data => { data.candidateSha = '0'.repeat(40); }],
     ['wrong runtime', data => { data.runtime = '2.0.44'; }],
     ['standalone package is not EAS QA proof', data => { data.packageId = 'br.com.trynexa.mayaqa'; }],
@@ -51,7 +54,7 @@ try {
     assert.equal(result.status, 1, name + ' must be rejected');
     assert.match(result.stderr, /NO-GO/, name + ' must report NO-GO');
   }
-  console.log('QA A cardinality regression: 14 synthetic rejection cases passed (not device QA).');
+  console.log('QA A cardinality regression: 17 synthetic rejection cases passed (not device QA).');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
