@@ -103,6 +103,12 @@ try {
     data.cases[1].evidenceRef = second;
     assert.equal(run(data).status, 1, 'canonical duplicate HTTPS evidence must fail');
   }
+  // Percent-encoded control bytes are unsafe even when literal control characters are rejected.
+  for (const encoded of ['qa/proof%00A01', 'qa/proof%0aA01', 'qa/proof%1fA01', 'qa/proof%7fA01', 'https://example.test/qa/%0dA01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = encoded;
+    assert.equal(run(data).status, 1, 'encoded control byte must fail: ' + encoded);
+  }
   const separateUrls = structuredClone(base);
   separateUrls.cases[0].evidenceRef = 'https://example.test/qa/A01';
   separateUrls.cases[1].evidenceRef = 'https://example.test/qa/A02';
