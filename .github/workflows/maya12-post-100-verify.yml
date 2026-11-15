@@ -1,0 +1,45 @@
+name: Maya 12 — verify finished Android production rollout (read-only)
+on:
+  push:
+    branches: [audit/maya12-v148-after-full-rollout-20261115]
+    paths: ['.github/workflows/maya12-post-100-verify.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Independently check existing production update identity and channel
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform group}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const j=await r.json();if(!r.ok||j.errors?.length)throw Error('Cannot read live OTA metadata');
+            const a=j.data?.app?.byId,m=a?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const live=a?.prod?.updates?.find(x=>x.platform==='android');
+            if(m.length!==1||m[0]!=='production')throw Error('Unexpected production channel mapping');
+            if(live?.id!=='01a1e138-3ac9-76e4-bbd7-be068a9c39da'||live?.group!=='3c791e7a-91d9-4a98-99d2-9c3ce2f769d4'||live?.gitCommitHash!=='cac9ea18a995f5d63c434ed92d07096ca77f2378')throw Error('A different Android OTA is live');
+            console.log('EXACT_LIVE_RELEASE_CONFIRMED='+JSON.stringify(live));
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Verify rollout no longer in progress for original update
+        run: |
+          set -euo pipefail
+          eas update:view 01a1e138-3ac9-76e4-bbd7-be068a9c39da | tee /tmp/current.txt
+          grep -F '3c791e7a-91d9-4a98-99d2-9c3ce2f769d4' /tmp/current.txt
+          grep -E 'Rollout Percentage[[:space:]]+N/A' /tmp/current.txt
+          echo 'UPDATE_PRESENT_NO_ACTIVE_PARTIAL_ROLLOUT'
