@@ -1,0 +1,89 @@
+name: Maya 12 production canary — safety and live rollout audit (read-only)
+on:
+  push:
+    branches: [audit/maya12-canary-confidence-20261115]
+    paths: ['.github/workflows/maya12-canary-confidence.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  production-canary-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cac9ea18a995f5d63c434ed92d07096ca77f2378
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Protect unchanged public baseline code and production identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "cac9ea18a995f5d63c434ed92d07096ca77f2378"
+          git merge-base --is-ancestor 3d75dc1df7b2f40751507d711cf73fde541da1af HEAD
+          for path in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts app/index.tsx app/kyc.tsx app/sign-in.tsx app/central-nexa.tsx src/components/AlignedLegacyApp.tsx src/lib/nexaSupportLinks.ts src/lib/nexaCentralPush.ts; do
+            git show 3d75dc1df7b2f40751507d711cf73fde541da1af:"$path" | cmp - "$path"
+          done
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const cfg=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          assert.equal(cfg.version,'2.0.43');
+          assert.equal(cfg.android.versionCode,148);
+          assert.equal(cfg.android.package,'br.com.trynexa.app');
+          assert.equal(cfg.runtimeVersion.policy,'appVersion');
+          assert.equal(env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL,'production');
+          assert.equal(env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED,'true');
+          assert.notEqual(env.EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED,'true');
+          for(const screen of ['app/maya-actions.tsx','app/maya-actions-financas.tsx','app/maya-comunicacao.tsx','app/maya-planning.tsx','app/maya-shopping.tsx'])assert.ok(fs.existsSync(screen),'Missing Maya: '+screen);
+          const whole=fs.readFileSync('app/maya-actions.tsx','utf8');
+          assert.ok(!whole.includes('OTA QA · 13/11 · atualização recebida'),'QA marker cannot be public');
+          console.log('PASS known-good source identity and critical business modules unmodified');
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Validate financial boundary, Central Nexa, Maya and safety
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          for test in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js scripts/validate-maya-web-forms-v1.js scripts/validate-maya-web-quotes-v1.js scripts/validate-maya-verified-comparison-v1.js scripts/validate-maya-quote-evidence-v1.js; do node "$test"; done
+          npm run typecheck
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Confirm latest OTA metadata and correct channel mapping, without publishing
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform group createdAt}}}}}';
+            const res=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(20000)});
+            const j=await res.json();
+            if(!res.ok||j.errors?.length)throw Error('No trustworthy live OTA metadata');
+            const app=j.data?.app?.byId;
+            const names=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(names.length!==1||names[0]!=='production')throw Error('production channel mapping changed');
+            const android=app?.prod?.updates?.filter(x=>x.platform==='android')||[];
+            if(android[0]?.id!=='01a1e138-3ac9-76e4-bbd7-be068a9c39da'||android[0]?.gitCommitHash!=='cac9ea18a995f5d63c434ed92d07096ca77f2378'||android[0]?.group!=='3c791e7a-91d9-4a98-99d2-9c3ce2f769d4')throw Error('Unknown newer OTA: investigate before any promotion');
+            const hasBase=android.some(x=>x.id==='01a1dcfa-c118-7de0-a075-91741632123a');
+            if(!hasBase)throw Error('Previous public update not returned by recent history');
+            console.log('LIVE_CANARY_OTA_CONFIRMED='+JSON.stringify({latest:android[0],previous:android.find(x=>x.id==='01a1dcfa-c118-7de0-a075-91741632123a'),mapping:names}));
+          })().catch(e=>{console.error('BLOCK: '+e.message);process.exitCode=1});
+          NODE
+      - name: Inspect staged rollout metadata via established CLI (read-only)
+        run: |
+          eas update:view 01a1e138-3ac9-76e4-bbd7-be068a9c39da --non-interactive
+      - name: Decision boundary
+        run: |
+          echo "Automated source, JS export and OTA routing tests passed."
+          echo "NOT PROVEN: on-device production behavior, crash-free session rate, real client activation/conversion. Do NOT promote automatically."
