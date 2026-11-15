@@ -41,6 +41,9 @@ try {
     ['impossible calendar date', data => { data.cases[0].testedAt = '2026-02-30T12:00:00Z'; }],
     ['invalid timezone offset', data => { data.cases[0].testedAt = '2026-11-06T12:00:00+14:30'; }],
     ['invalid hour', data => { data.cases[0].testedAt = '2026-11-06T24:00:00Z'; }],
+    ['invalid April 31', data => { data.cases[0].testedAt = '2026-04-31T12:00:00Z'; }],
+    ['invalid negative timezone offset', data => { data.cases[0].testedAt = '2026-11-06T12:00:00-14:30'; }],
+    ['timezone beyond 14 hours', data => { data.cases[0].testedAt = '2026-11-06T12:00:00+15:00'; }],
     ['wrong frozen candidate SHA', data => { data.candidateSha = '0'.repeat(40); }],
     ['wrong runtime', data => { data.runtime = '2.0.44'; }],
     ['standalone package is not EAS QA proof', data => { data.packageId = 'br.com.trynexa.mayaqa'; }],
@@ -54,7 +57,12 @@ try {
     assert.equal(result.status, 1, name + ' must be rejected');
     assert.match(result.stderr, /NO-GO/, name + ' must report NO-GO');
   }
-  console.log('QA A cardinality regression: 17 synthetic rejection cases passed (not device QA).');
+  const boundary = structuredClone(base);
+  boundary.cases[0].testedAt = '2026-11-06T12:00:00+14:00';
+  assert.equal(check(boundary).status, 0, 'valid maximum positive UTC offset must parse');
+  boundary.cases[0].testedAt = '2026-11-06T12:00:00-14:00';
+  assert.equal(check(boundary).status, 0, 'valid maximum negative UTC offset must parse');
+  console.log('QA A cardinality regression: 20 synthetic rejection and 2 timezone boundary acceptance cases passed (not device QA).');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
