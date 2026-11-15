@@ -77,6 +77,8 @@ for (const id of ids) {
   if (typeof c.evidenceRef === 'string' && /%(?:2f|5c)/i.test(c.evidenceRef)) failures.push(id + ': encoded path separator is not allowed');
   // Query/fragment delimiters are not stable local audit IDs; downstream viewers may strip them.
   if (typeof c.evidenceRef === 'string' && !/^[a-z][a-z0-9+.-]*:/i.test(c.evidenceRef) && /[?#]/.test(c.evidenceRef)) failures.push(id + ': local evidence reference contains query or fragment delimiter');
+  // A decoded ? or # can truncate a scheme-free proof ID in downstream URL viewers.
+  if (typeof c.evidenceRef === 'string' && !/^[a-z][a-z0-9+.-]*:/i.test(c.evidenceRef) && /%(?:3f|23)/i.test(c.evidenceRef)) failures.push(id + ': encoded local query or fragment delimiter is not allowed');
   // Reject malformed percent escapes: downstream decoders disagree on their interpretation.
   if (typeof c.evidenceRef === 'string' && /%(?![0-9a-f]{2})/i.test(c.evidenceRef)) failures.push(id + ': malformed percent escape in evidence reference');
   // Encoded control bytes may become NUL/newlines after decoding in downstream evidence viewers.
