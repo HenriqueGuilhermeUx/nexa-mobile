@@ -65,3 +65,9 @@ All comparisons use `integration/maya-actions-v148` as base. The shared HEAD for
 - Pre-commit comparison to integration: 136 ahead / 7 behind; integration SHA `6f1c9fd1bf16fc0046228993a83118390da62760`; no merge.
 - PR search surfaced #142 (QA D) and #136 (09C review-only); neither authorizes QA A or production. PR-filtered workflow runs for prior QA SHA returned none, which is not evidence of green CI.
 - Wave SHAs remain as listed above until individually refreshed. QA A A01–A16 physical proofs remain pending. Backend 09 not homologated; wave 10 review-only. **Production NO-GO.**
+
+## QA A incremental checkpoint — malformed case records (2026-11-15)
+- Regression-only commit `4e7505ae4aab1232dbae8265326ace771338da36` adds six negative synthetic per-case inputs (`null`, boolean, number, string, array, empty object). The gate must return exit code 1 and `NO-GO` for each; test execution/CI is not yet verified.
+- Integration comparison before this increment: `6f1c9fd1bf16fc0046228993a83118390da62760` base, QA branch 138 ahead / 7 behind; no merge or production OTA.
+- QA SHA `feba41cd80070c422caee51257a217f5238522a6`: PR-triggered workflow runs empty; combined commit statuses empty; PR #142 reviews empty. These results are inconclusive for full Actions/check-run coverage, not a green CI verdict.
+- Wave 01/02 A01–A16 device proofs remain unverified; wave 09 backend not homologated; wave 10 review only. Individual branch SHAs are last verified values in the table above, not refreshed in this checkpoint. **Production NO-GO.**
