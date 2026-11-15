@@ -137,7 +137,7 @@ export default function AaveInfoScreen() {
     // Educational local arithmetic: no API flag, wallet, oracle, protocol or transaction.
     setSimulation(null); setSimulationIssue('');
     if (!onlyAmount(collateral) || !onlyAmount(debt) ||
-      !/^\\d{1,3}$/.test(drop) || Number(drop) > 100 || Number(collateral) <= 0) {
+      !/^\d{1,3}$/.test(drop) || Number(drop) > 100 || Number(collateral) <= 0) {
       setSimulationIssue('Confira os valores: garantia maior que zero, dívida não negativa e queda de 0 a 100%.');
       return;
     }
