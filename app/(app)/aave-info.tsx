@@ -3,6 +3,7 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, T
 import { config } from '@/config';
 import { loadNexaSession } from '@/lib/session';
 import { aaveReserveEligibleForPlanning } from '@/lib/aaveReserveEligibility';
+import { simulateAaveEducationalScenario, type AaveEducationalResult } from '@/lib/aaveEducationalSimulation';
 import { colors } from '@/theme';
 
 type Status = {
@@ -34,11 +35,7 @@ type PositionResponse = {
 };
 type AavePlan = { success: true; informationalOnly: true; executionEnabled: false; signatureRequired: true; state: string; action: string; };
 type ApiReadResult = { data: any; status: number };
-type Simulation = {
-  success: true; informationalOnly: true; executionEnabled: false;
-  stressedCollateralUsd: number; stressedLtvPercent: number | null;
-  outsideReferenceLtv: boolean;
-};
+type Simulation = AaveEducationalResult;
 
 const API = config.apiUrl.replace(/\/$/, '');
 // Match Android identity headers used by Nexa API; missing values lead to HTTP 426.
@@ -59,11 +56,14 @@ export default function AaveInfoScreen() {
   const [position, setPosition] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [marketIssue, setMarketIssue] = useState('');
+  const [positionIssue, setPositionIssue] = useState('');
+  const [planIssue, setPlanIssue] = useState('');
+  const [simulationIssue, setSimulationIssue] = useState('');
   const [collateral, setCollateral] = useState('1000');
   const [debt, setDebt] = useState('400');
   const [drop, setDrop] = useState('25');
   const [simulation, setSimulation] = useState<Simulation | null>(null);
-  const [simulating, setSimulating] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState('');
   const [action, setAction] = useState<'SUPPLY' | 'BORROW' | 'REPAY' | 'WITHDRAW'>('SUPPLY');
   const [amount, setAmount] = useState('10');
@@ -75,6 +75,7 @@ export default function AaveInfoScreen() {
     const controller = new AbortController();
     async function load() {
       setLoading(true); setMessage(''); setMarkets(null); setPosition(null);
+      setMarketIssue(''); setPositionIssue(''); setPlanIssue('');
       try {
         const session = await loadNexaSession();
         if (!session?.accessToken) throw new Error('Entre na sua conta Nexa para consultar.');
@@ -96,7 +97,8 @@ export default function AaveInfoScreen() {
         if (controller.signal.aborted) return;
         setStatus(rawStatus as Status);
         if (!rawStatus.readOnlyConfigured) {
-          setMessage('Consultas blockchain em preparação. Nenhum investimento ou empréstimo está habilitado.');
+          setMarketIssue('O backend Nexa ainda não habilitou a leitura blockchain Aave nesta rede. A consulta real de mercados depende da validação de rede, RPC e Pool; nenhum dado será inventado.');
+          setPositionIssue('A posição ainda não foi consultada: a leitura blockchain do servidor está desabilitada. Isso não significa que sua carteira tenha saldo zero.');
           return;
         }
         const [marketsResult, positionResult] = await Promise.all([read('aave/markets'), read('aave/me')]);
@@ -104,24 +106,22 @@ export default function AaveInfoScreen() {
         const rawPosition = positionResult.data;
         if (controller.signal.aborted) return;
         if (rawMarkets?.informationalOnly === true && rawMarkets?.executionEnabled === false &&
-          Array.isArray(rawMarkets.reserves)) setMarkets(rawMarkets as MarketResponse);
+          Array.isArray(rawMarkets.reserves)) {
+          setMarkets(rawMarkets as MarketResponse);
+        } else {
+          setMarketIssue(marketsResult.status === 503
+            ? 'Mercados Aave: leitura blockchain indisponível (HTTP 503). É preciso conferir a configuração RPC/Pool no backend de homologação.'
+            : 'Mercados Aave: consulta não disponível (HTTP ' + marketsResult.status + ').');
+        }
         if (rawPosition?.informationalOnly === true && rawPosition?.position?.source === 'AAVE_V3_POOL' &&
-          rawPosition?.position?.executableQuote === false) setPosition(rawPosition.position as Account);
-        if (!rawMarkets || !rawPosition || rawMarkets.executionEnabled !== false || rawPosition.position?.source !== 'AAVE_V3_POOL') {
-          // Distinguish infrastructure failure from a wallet without a verified Privy link.
-          // Never call a failed read an empty Aave balance.
-          const reasons: string[] = [];
-          if (!rawMarkets || !Array.isArray(rawMarkets.reserves) || rawMarkets.executionEnabled !== false) {
-            reasons.push(marketsResult.status === 503
-              ? 'Mercados Aave: leitura blockchain indisponível (HTTP 503); revisar RPC/Pool no backend.'
-              : 'Mercados Aave: consulta não disponível (HTTP ' + marketsResult.status + ').');
-          }
-          if (!rawPosition || rawPosition.position?.source !== 'AAVE_V3_POOL') {
-            reasons.push(positionResult.status === 403
-              ? 'Minha posição: carteira Privy com titularidade verificada necessária.'
+          rawPosition?.position?.executableQuote === false) {
+          setPosition(rawPosition.position as Account);
+        } else {
+          setPositionIssue(positionResult.status === 403
+            ? 'Minha posição: carteira Privy com titularidade verificada necessária (HTTP 403). Nenhum saldo foi inferido.'
+            : positionResult.status === 503
+              ? 'Minha posição: leitura RPC/Pool indisponível (HTTP 503). Nenhum saldo foi inferido.'
               : 'Minha posição: consulta não disponível (HTTP ' + positionResult.status + ').');
-          }
-          if (reasons.length) setMessage(reasons.join(' '));
         }
       } catch (e) {
         if (!controller.signal.aborted) setMessage(e instanceof Error ? e.message : 'Consulta indisponível.');
@@ -133,53 +133,45 @@ export default function AaveInfoScreen() {
     return () => controller.abort();
   }, [reloadKey]);
 
-  async function simulate() {
+  function simulate() {
+    // Educational local arithmetic: no API flag, wallet, oracle, protocol or transaction.
+    setSimulation(null); setSimulationIssue('');
     if (!onlyAmount(collateral) || !onlyAmount(debt) ||
       !/^\d{1,3}$/.test(drop) || Number(drop) > 100 || Number(collateral) <= 0) {
-      setMessage('Confira valores da garantia, dívida e queda percentual.'); return;
+      setSimulationIssue('Confira os valores: garantia maior que zero, dívida não negativa e queda de 0 a 100%.');
+      return;
     }
-    setSimulating(true); setSimulation(null); setMessage('');
     try {
-      const session = await loadNexaSession();
-      if (!session?.accessToken) throw new Error('Entre novamente na Nexa.');
-      const params = new URLSearchParams({
-        collateralUsd: collateral, borrowUsd: debt,
-        referenceLtvPercent: '60', priceDropPercent: drop,
-      });
-      const response = await fetch(API + '/invest-credit/simulate-collateral?' + params.toString(), {
-        headers: aaveRequestHeaders(session.accessToken),
-      });
-      if (response.status === 426) throw new Error('Build de teste não aceito pela Nexa. Instale a versão de homologação atualizada.');
-      if (!response.ok) throw new Error('Simulador indisponível (HTTP ' + response.status + ').');
-      const data = await response.json();
-      if (data?.success !== true || data?.informationalOnly !== true || data?.executionEnabled !== false) {
-        throw new Error('Resposta de simulação inválida.');
-      }
-      setSimulation(data as Simulation);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Simulação indisponível.');
-    } finally { setSimulating(false); }
+      setSimulation(simulateAaveEducationalScenario({
+        collateralUsd: Number(collateral),
+        borrowUsd: Number(debt),
+        priceDropPercent: Number(drop),
+        referenceLtvPercent: 60,
+      }));
+    } catch {
+      setSimulationIssue('Não foi possível calcular este cenário com os valores informados.');
+    }
   }
 
   async function preparePlan(reserve: Reserve) {
-    setPlan(null);
+    setPlan(null); setPlanIssue('');
     if (!markets || !Number.isSafeInteger(markets.chainId) ||
         !Number.isInteger(reserve.decimals) || reserve.decimals < 0 || reserve.decimals > 36 ||
         !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(amount)) {
-      setMessage('Escolha um ativo e informe uma quantidade válida.'); return;
+      setPlanIssue('Escolha um ativo e informe uma quantidade válida.'); return;
     }
     if (!aaveReserveEligibleForPlanning(reserve, action)) {
-      setMessage('Esta reserva não está elegível para a operação selecionada.'); return;
+      setPlanIssue('Esta reserva não está elegível para a operação selecionada.'); return;
     }
     const [whole, frac = ''] = amount.split('.');
     if (frac.length > reserve.decimals || amount.length > 78) {
-      setMessage('Quantidade com casas decimais acima do permitido pelo ativo.'); return;
+      setPlanIssue('Quantidade com casas decimais acima do permitido pelo ativo.'); return;
     }
     const baseUnits = BigInt(whole + frac.padEnd(reserve.decimals, '0'));
     if (baseUnits <= 0n || baseUnits > (1n << 256n) - 1n) {
-      setMessage('Quantidade fora do limite permitido.'); return;
+      setPlanIssue('Quantidade fora do limite permitido.'); return;
     }
-    setPlanning(true); setMessage('');
+    setPlanning(true); setPlanIssue('');
     try {
       const session = await loadNexaSession();
       if (!session?.accessToken) throw new Error('Entre novamente na Nexa.');
@@ -197,7 +189,7 @@ export default function AaveInfoScreen() {
       }
       setPlan(data as AavePlan);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Não foi possível preparar.');
+      setPlanIssue(e instanceof Error ? e.message : 'Não foi possível preparar.');
     } finally { setPlanning(false); }
   }
 
@@ -234,7 +226,7 @@ export default function AaveInfoScreen() {
             <Text style={styles.detail}>Saúde da posição: {position.healthFactor ?? 'Sem dívida registrada'}</Text>
             <Text style={styles.small}>Garantia / dívida (unidades-base do protocolo): {position.totalCollateralBase} / {position.totalDebtBase}</Text>
           </>
-        ) : !loading && <Text style={styles.small}>Nenhuma posição disponível para consulta nesta conta.</Text>}
+        ) : !loading && <Text style={styles.small}>{positionIssue || 'Ainda não há dados de posição disponíveis nesta consulta. Não foi confirmado saldo zero.'}</Text>}
         {message ? <Text style={styles.notice}>{message}</Text> : null}
         <Pressable accessibilityRole="button" style={styles.button} onPress={() => setReloadKey((v) => v + 1)}>
           <Text style={styles.buttonText}>Atualizar consultas</Text>
@@ -243,20 +235,23 @@ export default function AaveInfoScreen() {
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Mercados Aave observados</Text>
         <Text style={styles.small}>Informações lidas do protocolo; não são ofertas, cotação de juros nem autorização para investir.</Text>
+        {marketIssue ? <Text style={styles.notice}>{marketIssue}</Text> : null}
         {usable.length ? usable.slice(0, 8).map((reserve) => (
           <View key={reserve.asset} style={styles.market}>
             <Text style={styles.detail}>{prettyAddress(reserve.asset)}</Text>
             <Text style={styles.small}>LTV: {reserve.ltvBps / 100}% · Limiar de liquidação: {reserve.liquidationThresholdBps / 100}%</Text>
             <Text style={styles.tag}>{reserve.borrowingEnabled ? 'Empréstimo previsto no protocolo' : 'Empréstimo desativado'}</Text>
           </View>
-        )) : <Text style={styles.small}>Mercados ainda não disponíveis nesta rede.</Text>}
+        )) : !loading && !marketIssue && <Text style={styles.small}>
+          {markets ? 'Consulta concluída na rede ' + markets.chainId + ', mas nenhuma reserva ativa e disponível foi retornada.' : 'Mercados ainda não consultados nesta rede.'}
+        </Text>}
       </View>
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Preparar uma operação</Text>
         <Text style={styles.small}>A Nexa verifica sua intenção com o backend. Nenhuma quantia é movimentada nem é solicitada assinatura.</Text>
         <View style={styles.grid}>
           {([['SUPPLY', 'Aplicar'], ['BORROW', 'Crédito'], ['REPAY', 'Amortizar'], ['WITHDRAW', 'Retirar']] as const).map(([key, title]) => (
-            <Pressable key={key} accessibilityRole="button" onPress={() => { setAction(key); setPlan(null); }}
+            <Pressable key={key} accessibilityRole="button" onPress={() => { setAction(key); setPlan(null); setPlanIssue(''); }}
               style={[styles.option, action === key && { borderWidth: 1, borderColor: colors.cyan }]}>
               <Text style={styles.optionTitle}>{title}</Text>
             </Pressable>
@@ -264,37 +259,46 @@ export default function AaveInfoScreen() {
         </View>
         {actionReserves.slice(0, 8).map((reserve) => (
           <Pressable key={reserve.asset} accessibilityRole="button" style={styles.market}
-            onPress={() => { setSelectedAsset(reserve.asset); setPlan(null); }}>
+            onPress={() => { setSelectedAsset(reserve.asset); setPlan(null); setPlanIssue(''); }}>
             <Text style={styles.detail}>{chosen?.asset === reserve.asset ? '◉' : '○'} {prettyAddress(reserve.asset)}</Text>
             <Text style={styles.small}>{reserve.decimals} casas decimais · rede {markets?.chainId}</Text>
           </Pressable>
         ))}
         <Text style={styles.detail}>Quantidade do ativo</Text>
         <TextInput style={styles.input} keyboardType="decimal-pad" accessibilityLabel="Quantidade de ativo"
-          value={amount} onChangeText={(v) => { setAmount(v); setPlan(null); }} />
-        <Pressable accessibilityRole="button" disabled={planning || !chosen} style={styles.button}
+          value={amount} onChangeText={(v) => { setAmount(v); setPlan(null); setPlanIssue(''); }} />
+        <Pressable accessibilityRole="button" disabled={planning || !chosen} accessibilityState={{ disabled: planning || !chosen }}
+          style={[styles.button, !chosen && styles.buttonDisabled]}
           onPress={() => { if (chosen) void preparePlan(chosen); }}>
           <Text style={styles.buttonText}>{planning ? 'Verificando…' : 'Verificar intenção'}</Text>
         </Pressable>
+        {planIssue ? <Text style={styles.notice}>{planIssue}</Text> : null}
         {plan && <Text style={styles.notice}>Intenção validada. Para executar serão necessários cotação de risco atualizada, autorização expressa da carteira e habilitação do serviço. Nenhuma operação foi executada.</Text>}
-        {!chosen && <Text style={styles.small}>Nenhuma reserva elegível para esta operação na consulta atual. A execução continua desativada.</Text>}
+        {!chosen && <Text style={styles.small}>{marketIssue
+          ? 'Verificar intenção está desativado porque não há mercado real consultado. ' + marketIssue
+          : 'Nenhuma reserva elegível para esta operação na consulta atual. Verificar intenção está desativado; execução também permanece desativada.'}</Text>}
       </View>
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Teste o risco antes de decidir</Text>
-        <Text style={styles.small}>Simulação educativa com referência hipotética de LTV de 60%. Não utiliza o preço de mercado ao vivo.</Text>
+        <Text style={styles.small}>Simulação local educativa, disponível mesmo sem conexão com o Aave. Referência hipotética de LTV de 60%; não utiliza preços de mercado, oráculo Chainlink nem parâmetros reais de crédito.</Text>
         <Text style={styles.detail}>Garantia hipotética (USD)</Text>
-        <TextInput style={styles.input} keyboardType="decimal-pad" value={collateral} onChangeText={setCollateral} accessibilityLabel="Garantia em dólares" />
+        <TextInput style={styles.input} keyboardType="decimal-pad" value={collateral} onChangeText={(v) => { setCollateral(v); setSimulation(null); setSimulationIssue(''); }} accessibilityLabel="Garantia em dólares" />
         <Text style={styles.detail}>Dívida hipotética (USD)</Text>
-        <TextInput style={styles.input} keyboardType="decimal-pad" value={debt} onChangeText={setDebt} accessibilityLabel="Dívida em dólares" />
+        <TextInput style={styles.input} keyboardType="decimal-pad" value={debt} onChangeText={(v) => { setDebt(v); setSimulation(null); setSimulationIssue(''); }} accessibilityLabel="Dívida em dólares" />
         <Text style={styles.detail}>Queda simulada (%)</Text>
-        <TextInput style={styles.input} keyboardType="number-pad" value={drop} onChangeText={setDrop} accessibilityLabel="Queda percentual" />
-        <Pressable accessibilityRole="button" disabled={simulating} style={styles.button} onPress={() => void simulate()}>
-          <Text style={styles.buttonText}>{simulating ? 'Calculando…' : 'Simular cenário'}</Text>
+        <TextInput style={styles.input} keyboardType="number-pad" value={drop} onChangeText={(v) => { setDrop(v); setSimulation(null); setSimulationIssue(''); }} accessibilityLabel="Queda percentual" />
+        <Pressable accessibilityRole="button" style={styles.button} onPress={simulate}>
+          <Text style={styles.buttonText}>Simular cenário</Text>
         </Pressable>
-        {simulation && <Text style={styles.detail}>
-          Garantia após queda: US$ {simulation.stressedCollateralUsd.toFixed(2)}. LTV projetado: {typeof simulation.stressedLtvPercent === 'number' && Number.isFinite(simulation.stressedLtvPercent) ? simulation.stressedLtvPercent.toFixed(1) + '%' : 'não calculável'}.
-          {simulation.outsideReferenceLtv ? ' Acima da referência educativa.' : ' Dentro da referência educativa.'}
-        </Text>}
+        {simulationIssue ? <Text style={styles.notice}>{simulationIssue}</Text> : null}
+        {simulation && <View style={styles.market}>
+          <Text style={styles.optionTitle}>Resultado da simulação hipotética</Text>
+          <Text style={styles.detail}>Garantia após queda: US$ {simulation.stressedCollateralUsd.toFixed(2)}</Text>
+          <Text style={styles.detail}>LTV inicial: {simulation.originalLtvPercent.toFixed(1)}%</Text>
+          <Text style={styles.detail}>LTV após queda: {simulation.stressedLtvPercent === null ? 'sem garantia restante para cobrir a dívida' : simulation.stressedLtvPercent.toFixed(1) + '%'}</Text>
+          <Text style={styles.notice}>{simulation.outsideReferenceLtv ? 'O cenário ultrapassa a referência hipotética de 60%.' : 'O cenário está dentro da referência hipotética de 60%.'}</Text>
+          <Text style={styles.small}>Não é cotação, recomendação de crédito ou cálculo real de liquidação Aave.</Text>
+        </View>}
       </View>
       <Text style={styles.foot}>Esta versão não assina transações, não aplica, não empresta e não movimenta ativos. Rendimento não é garantido. Crédito tem risco de liquidação. A disponibilidade do protocolo não representa aprovação regulatória ou elegibilidade pessoal.</Text>
     </ScrollView>
@@ -316,6 +320,7 @@ const styles = StyleSheet.create({
   detail: { color: colors.text, fontSize: 14, lineHeight: 22 },
   notice: { color: colors.cyan, fontSize: 13, lineHeight: 20 },
   button: { padding: 12, borderRadius: 10, backgroundColor: '#145A7B', alignItems: 'center' },
+  buttonDisabled: { opacity: 0.45 },
   buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   input: { color: colors.text, borderColor: '#475569', borderWidth: 1, borderRadius: 9, padding: 10, fontSize: 16 },
   market: { borderTopWidth: 1, borderTopColor: '#334155', paddingTop: 11, gap: 4 },
