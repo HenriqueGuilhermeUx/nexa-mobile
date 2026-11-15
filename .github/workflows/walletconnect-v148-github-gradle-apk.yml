@@ -12,6 +12,7 @@ on:
       - app/sign-up-country.tsx
       - src/components/ForceUpdateGate.tsx
       - src/lib/externalWalletReownGate.ts
+      - src/components/StagedExternalWalletConnect.tsx
       - scripts/walletconnect-v148-reown-qa-gate.test.cjs
   workflow_dispatch:
   pull_request:
