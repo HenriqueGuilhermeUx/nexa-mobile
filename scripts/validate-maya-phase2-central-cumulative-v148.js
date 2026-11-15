@@ -34,6 +34,6 @@ for(const marker of ['CHANNEL_OPTIONS','refreshChannelConsents',
 const layout=fs.readFileSync('app/_layout.tsx','utf8');
 assert(layout.includes('getLastNotificationResponseAsync'));
 assert(layout.includes('addNotificationResponseReceivedListener'));
-assert(layout.includes("route === '/central-nexa'"));
+assert(/route\s*===\s*['"]\/central-nexa['"]/.test(layout),'Central route must be strict allowlist');
 assert(layout.includes('<AppLockGate>'));
 console.log('MAYA_CENTRAL_CUMULATIVE_SAFE: '+JSON.stringify({base,changed}));
