@@ -35,3 +35,27 @@ Individual feature-branch head SHAs were not retrieved in this checkpoint and ar
 5. Then prioritize wave 09 real quotes via isolated, authenticated, read-only backend and wave 10 form preparation without submission.
 
 No production OTA, staged OTA, merge, payment, purchase, reservation or external send was performed by this checkpoint. PR #185 is out of scope.
+
+## Follow-up verified checkpoint — 2026-11-15
+
+- QA-only validator fix: `52e3bda0d6e781d9ee73a66b55145c9c54f34133`; regression additions: `cdcda14f92cb6f12bb84cb46ddfc895d907ddc1c`. Percent-encoded local proof references now normalize before duplicate detection; distinct IDs remain admissible. Tests committed, execution/CI not yet verified.
+- Integration HEAD checked: `6f1c9fd1bf16fc0046228993a83118390da62760`. Before these changes, QA branch was 132 ahead / 7 behind, 12 QA-only changed paths. No promotion.
+- PR #142 reviews: none returned. Previous QA checkpoint SHA `2106e9f0`: PR-filtered workflow runs and combined statuses returned empty; this is **not** a complete CI verdict.
+- Branch HEADs below were individually fetched from GitHub; SHA is branch state, **not** approval:
+
+| Wave | Verified branch HEAD | Integration comparison (ahead/behind) | Gate |
+|---|---|---|---|
+| 01 | `a367f5fd9cb6993f0447ad31124df9330d92c4f7` | 43 / 25 | QA A A01–A16 pending |
+| 02 | `7936a51573a72603aa40fa7fe5e566ba86cb4adb` | 163 / 20 | QA A A01–A16 pending |
+| 03 | `7f0f3eb84df6ecfdd490b678c10d1de2924e183d` | 7 / 10 | Read-only; QA pending |
+| 04 | `2c34a4b787c786fc040102e6e25c32c7db9a880f` | 14 / 11 | QA C manual-share only |
+| 05 | `79d298f94f48316ae20a6f08116af6363ff37cb2` | 0 / 25 | Preflight not approved |
+| 06 | `79d298f94f48316ae20a6f08116af6363ff37cb2` | 0 / 25 | Financial execution blocked |
+| 07 | `79d298f94f48316ae20a6f08116af6363ff37cb2` | 0 / 25 | Scheduler/consent pending |
+| 08 | `79d298f94f48316ae20a6f08116af6363ff37cb2` | 0 / 25 | Integrations pending |
+| 09 | `d6cf4af665040ae4bb2dd33526d9562a144a7f22` | 6 / 23 | Real quote backend not homologated |
+| 10 | `31d0d19da3d9206d8e21107c1dd422b8df3b048b` | 4 / 17 | Review only; no submissions |
+| 11 | `fa2348ca821fbb2d5ff1fb9e17a356e16e39589f` | 1 / 23 | Checkout blocked |
+| 12 | `23c1f210e437f196564a1ff2e2e0de789f44375f` | 1 / 23 | Reservations blocked |
+
+All comparisons use `integration/maya-actions-v148` as base. The shared HEAD for 05–08 reflects branches without independent advances relative to their common base; it does not authorize implementation or merging. **Production NO-GO.**
