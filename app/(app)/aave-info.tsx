@@ -33,6 +33,7 @@ type PositionResponse = {
   success: true; informationalOnly: true; position: Account;
 };
 type AavePlan = { success: true; informationalOnly: true; executionEnabled: false; signatureRequired: true; state: string; action: string; };
+type ApiReadResult = { data: any; status: number };
 type Simulation = {
   success: true; informationalOnly: true; executionEnabled: false;
   stressedCollateralUsd: number; stressedLtvPercent: number | null;
@@ -82,10 +83,12 @@ export default function AaveInfoScreen() {
         const read = async (route: string) => {
           const response = await fetch(API + '/invest-credit/' + route, { headers, signal: controller.signal });
           if (response.status === 426) throw new Error('Versão do aplicativo não autorizada pela API Nexa. Atualize o aplicativo de testes.');
-          if (!response.ok) return null;
-          return response.json();
+          if (response.status === 401) throw new Error('Sessão Nexa expirada. Entre novamente para consultar o Aave.');
+          if (!response.ok) return { data: null, status: response.status } as ApiReadResult;
+          return { data: await response.json(), status: response.status } as ApiReadResult;
         };
-        const rawStatus = await read('aave/status');
+        const statusResult = await read('aave/status');
+        const rawStatus = statusResult.data;
         if (!rawStatus || rawStatus.success !== true || rawStatus.mode !== 'INFORMATION_ONLY' ||
           rawStatus.executionEnabled !== false || rawStatus.supplyEnabled !== false ||
           rawStatus.borrowEnabled !== false || rawStatus.repayEnabled !== false ||
@@ -96,14 +99,29 @@ export default function AaveInfoScreen() {
           setMessage('Consultas blockchain em preparação. Nenhum investimento ou empréstimo está habilitado.');
           return;
         }
-        const [rawMarkets, rawPosition] = await Promise.all([read('aave/markets'), read('aave/me')]);
+        const [marketsResult, positionResult] = await Promise.all([read('aave/markets'), read('aave/me')]);
+        const rawMarkets = marketsResult.data;
+        const rawPosition = positionResult.data;
         if (controller.signal.aborted) return;
         if (rawMarkets?.informationalOnly === true && rawMarkets?.executionEnabled === false &&
           Array.isArray(rawMarkets.reserves)) setMarkets(rawMarkets as MarketResponse);
         if (rawPosition?.informationalOnly === true && rawPosition?.position?.source === 'AAVE_V3_POOL' &&
           rawPosition?.position?.executableQuote === false) setPosition(rawPosition.position as Account);
-        if (!rawMarkets && !rawPosition) {
-          setMessage('Mercados indisponíveis ou carteira Privy ainda não verificada. Sem operação financeira.');
+        if (!rawMarkets || !rawPosition || rawMarkets.executionEnabled !== false || rawPosition.position?.source !== 'AAVE_V3_POOL') {
+          // Distinguish infrastructure failure from a wallet without a verified Privy link.
+          // Never call a failed read an empty Aave balance.
+          const reasons: string[] = [];
+          if (!rawMarkets || !Array.isArray(rawMarkets.reserves) || rawMarkets.executionEnabled !== false) {
+            reasons.push(marketsResult.status === 503
+              ? 'Mercados Aave: leitura blockchain indisponível (HTTP 503); revisar RPC/Pool no backend.'
+              : 'Mercados Aave: consulta não disponível (HTTP ' + marketsResult.status + ').');
+          }
+          if (!rawPosition || rawPosition.position?.source !== 'AAVE_V3_POOL') {
+            reasons.push(positionResult.status === 403
+              ? 'Minha posição: carteira Privy com titularidade verificada necessária.'
+              : 'Minha posição: consulta não disponível (HTTP ' + positionResult.status + ').');
+          }
+          if (reasons.length) setMessage(reasons.join(' '));
         }
       } catch (e) {
         if (!controller.signal.aborted) setMessage(e instanceof Error ? e.message : 'Consulta indisponível.');
@@ -131,7 +149,8 @@ export default function AaveInfoScreen() {
       const response = await fetch(API + '/invest-credit/simulate-collateral?' + params.toString(), {
         headers: aaveRequestHeaders(session.accessToken),
       });
-      if (!response.ok) throw new Error('Simulador ainda não habilitado.');
+      if (response.status === 426) throw new Error('Build de teste não aceito pela Nexa. Instale a versão de homologação atualizada.');
+      if (!response.ok) throw new Error('Simulador indisponível (HTTP ' + response.status + ').');
       const data = await response.json();
       if (data?.success !== true || data?.informationalOnly !== true || data?.executionEnabled !== false) {
         throw new Error('Resposta de simulação inválida.');
@@ -169,7 +188,8 @@ export default function AaveInfoScreen() {
         headers: { ...aaveRequestHeaders(session.accessToken), 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, chainId: markets.chainId, asset: reserve.asset, amountBaseUnits: baseUnits.toString() }),
       });
-      if (!response.ok) throw new Error('Planejamento não habilitado para esta conta.');
+      if (response.status === 426) throw new Error('Build de teste não aceito pela Nexa. Instale a versão de homologação atualizada.');
+      if (!response.ok) throw new Error('Planejamento Aave indisponível (HTTP ' + response.status + ').');
       const data = await response.json();
       if (data?.success !== true || data?.informationalOnly !== true || data?.executionEnabled !== false ||
           data?.signatureRequired !== true || data?.state !== 'REQUIRES_FRESH_RISK_QUOTE_AND_WALLET_CONFIRMATION') {
