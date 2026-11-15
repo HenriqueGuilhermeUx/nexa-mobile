@@ -77,3 +77,9 @@ All comparisons use `integration/maya-actions-v148` as base. The shared HEAD for
 - Regression commit `e4790a917d865ad0b8bbc77462e34377b3743b1c`: synthetic duplicate-path rejection and distinct-path acceptance. CI/test execution not independently confirmed.
 - Fresh comparison before change: QA evidence branch 140 ahead / 7 behind integration `6f1c9fd1bf16fc0046228993a83118390da62760`; QA-only paths. PR #142 reviews returned none; PR-filtered workflows and combined statuses for prior SHA `c8743d55` returned empty. Neither result proves green CI.
 - 12-wave SHAs remain last verified values in table above, not newly revalidated. QA A physical A01–A16 proofs pending. No merge, staged/production OTA, payment, purchase, reservation or external submission. **Production NO-GO.**
+
+## QA A incremental checkpoint — canonical case IDs (2026-11-15)
+- Regression-only commit `3a0eca28474d51eff942d1672b1da11a42f179b7` adds seven negative checks for `a01`, `A1`, `A001`, padded `A01`, null and numeric case IDs. Expected exit 1 with explicit `NO-GO`; execution/CI remains unverified.
+- Fresh pre-change comparison: QA branch **143 ahead / 7 behind** integration `6f1c9fd1bf16fc0046228993a83118390da62760`, 12 QA-only paths. Do not merge the diverged branch wholesale.
+- PR #142 review query returned no reviews; PR-triggered runs and combined statuses for previous QA SHA `53011a865d4f6f40c7b785a2e4774af11923f58d` returned empty arrays. These endpoints cannot establish overall CI approval.
+- Individual wave SHAs remain the last verified values above; no fresh SHA assertion. Physical A01–A16 proofs are pending. Wave 09 backend is not homologated; wave 10 is review-only. **Production NO-GO**. No merge, staged/production OTA, or external operation.
