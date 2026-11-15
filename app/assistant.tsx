@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import NexaAssistantOpenFinance from '@/components/NexaAssistantOpenFinance';
 import { nexaApi } from '@/lib/api';
@@ -71,27 +71,12 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.mayaHeader}>
-        <Text style={styles.mayaTitle}>Maya</Text>
-        <Text style={styles.mayaSubtitle}>Sua assistente inteligente</Text>
-      </View>
-      <Pressable accessibilityRole="button" onPress={() => router.push('/maya-actions' as any)} style={styles.mayaAction}>
-        <Text style={styles.mayaActionText}>Maya Actions · Tarefas e lembretes</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" onPress={() => router.push('/maya-planning' as any)} style={styles.mayaAction}>
-        <Text style={styles.mayaActionText}>Maya · Planejar metas</Text>
-      </Pressable>
       <NexaAssistantOpenFinance token={token} firstName={firstName} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  mayaHeader: { marginBottom: spacing.md },
-  mayaTitle: { color: colors.text, fontSize: 24, fontWeight: '800' },
-  mayaSubtitle: { color: colors.muted, marginTop: 3 },
-  mayaAction: { padding: 12, borderRadius: 10, backgroundColor: '#16456C', marginBottom: 10 },
-  mayaActionText: { color: '#FFFFFF', textAlign: 'center', fontWeight: '700' },
   screen: {
     flex: 1,
     backgroundColor: colors.background,
