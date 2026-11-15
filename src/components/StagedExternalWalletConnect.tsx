@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, Linking, Modal, Platform, Pressable, Text, View } from 'react-native';
 import { AppKit, AppKitProvider, useAccount, useAppKit, useProvider } from '@reown/appkit-react-native';
 
 import { ExternalWalletProofPanel } from './ExternalWalletProofPanel';
@@ -34,6 +34,53 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
   const [error, setError] = useState('');
   const [balance, setBalance] = useState<{address:string;balanceUsdc:string}|null>(null);
   const requestEpoch = useRef(0);
+  const [showManualOpen, setShowManualOpen] = useState(false);
+  const [manualError, setManualError] = useState('');
+  const launchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (launchTimeout.current) clearTimeout(launchTimeout.current); }, []);
+  useEffect(() => {
+    if (isConnected) {
+      setShowManualOpen(false);
+      if (launchTimeout.current) clearTimeout(launchTimeout.current);
+    }
+  }, [isConnected]);
+
+  function startWalletConnect() {
+    requestEpoch.current++;
+    setBusy(false);
+    setValidated(null);
+    setBalance(null);
+    setError('');
+    setManualError('');
+    setShowManualOpen(false);
+    if (launchTimeout.current) clearTimeout(launchTimeout.current);
+    // Automatic deep linking is performed by AppKit. Only show a fallback if
+    // Android never left the Nexa foreground to open the wallet.
+    launchTimeout.current = setTimeout(() => {
+      if (AppState.currentState === 'active') setShowManualOpen(true);
+    }, 12000);
+    void open({view:'Connect'});
+  }
+
+  async function openPendingMetaMaskPairing() {
+    setManualError('');
+    try {
+      // Only a Reown-generated, currently pending pairing URI is accepted.
+      const {WcController} = require('@reown/appkit-core-react-native') as {
+        WcController: {state:{wcUri?:string}}
+      };
+      const uri = WcController.state.wcUri;
+      if (!uri || !/^wc:\S{8,2048}$/.test(uri) || !uri.includes('@2?')) {
+        throw new Error('Nenhuma conexão WalletConnect válida está pendente. Feche esta janela e tente de novo.');
+      }
+      // Do not log, save, copy or display the secret-bearing pairing URI.
+      await Linking.openURL('metamask://wc?uri=' + encodeURIComponent(uri));
+      setShowManualOpen(false);
+    } catch (e) {
+      setManualError(e instanceof Error ? e.message : 'Falha ao abrir a MetaMask.');
+    }
+  }
+
 
   // Disconnects, account switches and network switches invalidate prior
   // read-only confirmations, even if the provider object is reused.
@@ -137,7 +184,7 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
       <Text>{isConnected ? `Endereço: ${address ?? 'indisponível'}` : 'Carteira não conectada'}</Text>
       {isConnected ? <Text>Rede: {String(chainId)} ({String(namespace)})</Text> : null}
       <Pressable accessibilityRole="button" disabled={busy}
-        onPress={() => { requestEpoch.current++; setBusy(false); setValidated(null); setBalance(null); setError(''); void open({ view: 'Connect' }); }}
+        onPress={startWalletConnect}
         style={{ backgroundColor: '#263b63', padding: 14, borderRadius: 8 }}>
         <Text style={{ color: 'white' }}>Conectar carteira</Text>
       </Pressable>
@@ -186,6 +233,33 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
         </>
       ) : null}
       {error ? <Text accessibilityRole="alert">{error}</Text> : null}
+      {Platform.OS === 'android' && !isConnected ? (
+        <Modal visible={showManualOpen} transparent animationType="fade"
+          onRequestClose={() => setShowManualOpen(false)}>
+          <View style={{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,0.60)',padding:18}}>
+            <View style={{backgroundColor:'#182338',padding:20,borderRadius:16,gap:14}}>
+              <Text style={{color:'white',fontSize:19,fontWeight:'700'}}>MetaMask não abriu?</Text>
+              <Text style={{color:'white'}}>
+                O Android continuou na Nexa. Vamos tentar abrir a MetaMask
+                com o pedido de conexão atual do Reown, sem realizar transferências.
+              </Text>
+              <Pressable accessibilityRole="button"
+                onPress={() => {void openPendingMetaMaskPairing();}}
+                style={{padding:14,borderRadius:9,backgroundColor:'#295e48'}}>
+                <Text style={{color:'white',textAlign:'center',fontWeight:'700'}}>
+                  Abrir MetaMask com pedido de conexão
+                </Text>
+              </Pressable>
+              {manualError ? <Text accessibilityRole="alert" style={{color:'#ffb5b5'}}>{manualError}</Text> : null}
+              <Pressable accessibilityRole="button"
+                onPress={() => setShowManualOpen(false)} style={{padding:10}}>
+                <Text style={{color:'white',textAlign:'center'}}>Voltar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+
     </View>
   );
 }
