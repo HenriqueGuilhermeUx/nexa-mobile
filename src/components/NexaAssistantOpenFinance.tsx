@@ -340,6 +340,7 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shortcutsScroll} contentContainerStyle={styles.shortcutsRow} keyboardShouldPersistTaps="handled">
         {([
+          { label: 'Meu dia', route: '/maya-hoje' },
           { label: 'Tarefas', route: '/maya-actions' },
           { label: 'Metas', route: '/maya-planning' },
           { label: 'Movimentações', route: '/maya-actions-financas' },
