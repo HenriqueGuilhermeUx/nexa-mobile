@@ -258,6 +258,21 @@ try {
     data.cases[0].evidenceRef = privateUrl;
     assert.equal(run(data).status, 1, 'private-network evidence URL must fail: ' + privateUrl);
   }
+  // Multicast/broadcast and RFC 2544 benchmarking networks cannot host independent device evidence.
+  for (const unroutableUrl of [
+    'https://224.0.0.1/evidence/A01',
+    'https://239.255.255.250/evidence/A01',
+    'https://255.255.255.255/evidence/A01',
+    'https://198.18.0.1/evidence/A01',
+    'https://198.19.255.254/evidence/A01',
+    'https://[::ffff:198.18.0.1]/evidence/A01'
+  ]) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = unroutableUrl;
+    const result = run(data);
+    assert.equal(result.status, 1, 'non-public evidence host must fail: ' + unroutableUrl);
+    assert.match(result.stderr, /NO-GO/, 'non-public host must not imply device approval');
+  }
   // CGNAT 100.64.0.0/10 is shared carrier space, not independently reachable proof hosting.
   for (const cgnatUrl of ['https://100.64.0.1/evidence/A01', 'https://100.127.255.254/evidence/A01']) {
     const data = structuredClone(base);
