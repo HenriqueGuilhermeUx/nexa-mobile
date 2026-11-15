@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { parseMayaLocalActionIntent } from '@/maya-actions/chatIntent';
+import { parseMayaLocalActionIntent, type MayaLocalActionIntent } from '@/maya-actions/chatIntent';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import {
@@ -48,6 +48,7 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
   const insets = useSafeAreaInsets();
   const [capabilities, setCapabilities] = useState<AssistantCapabilities | null>(null);
   const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
+  const [pendingAction, setPendingAction] = useState<MayaLocalActionIntent | null>(null);
   const [attention, setAttention] = useState<StaffAttentionItem[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -257,22 +258,16 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
     const action = parseMayaLocalActionIntent(message);
     if (action) {
       const response = action.kind === 'shopping_search'
-        ? 'Vou abrir uma pesquisa de preços para você revisar. A busca externa só abre quando você confirmar; nenhuma compra será realizada.'
+        ? 'Preparei uma pesquisa de preços. Revise a ação abaixo antes de abrir uma busca externa. Nenhuma compra será realizada.'
         : action.kind === 'communication_draft'
-          ? 'Vou abrir um rascunho para você escrever e revisar. A Maya não envia mensagens automaticamente.'
-          : 'Vou preparar seu lembrete. Você escolhe a data e confirma antes de qualquer agendamento.';
+          ? 'Preparei uma ação de comunicação. Revise o rascunho abaixo antes de compartilhar; nada será enviado automaticamente.'
+          : 'Preparei o rascunho de um lembrete. Revise a ação abaixo, escolha o horário e confirme para agendar.';
       setMessages((current) => [
         ...current,
         { role: 'assistant', content: response },
       ]);
       if (autoSpeak || fromVoice) await speak(response);
-      if (action.kind === 'shopping_search') {
-        router.push({ pathname: '/maya-shopping', params: { query: action.query } });
-      } else if (action.kind === 'communication_draft') {
-        router.push({ pathname: '/maya-comunicacao', params: { request: action.request } });
-      } else {
-        router.push({ pathname: '/maya-actions', params: { task: action.description } });
-      }
+      setPendingAction(action);
       return;
     }
 
@@ -439,6 +434,41 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
             </View>
           ))
         )}
+        {pendingAction ? (
+          <View style={styles.pendingCard}>
+            <Text style={styles.pendingLabel}>AGUARDANDO SUA REVISÃO</Text>
+            <Text style={styles.pendingTitle}>
+              {pendingAction.kind === 'shopping_search' ? 'Pesquisa de preços' :
+                pendingAction.kind === 'communication_draft' ? 'Rascunho de comunicação' : 'Lembrete'}
+            </Text>
+            <Text style={styles.pendingDescription} numberOfLines={3}>
+              {pendingAction.kind === 'shopping_search' ? pendingAction.query :
+                pendingAction.kind === 'communication_draft' ? pendingAction.request : pendingAction.description}
+            </Text>
+            <Text style={styles.pendingHint}>A Maya não enviou nada, não abriu sites e não movimentou recursos.</Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Revisar ação preparada"
+              style={styles.pendingButton}
+              onPress={() => {
+                const actionToReview = pendingAction;
+                setPendingAction(null);
+                if (actionToReview.kind === 'shopping_search') {
+                  router.push({ pathname: '/maya-shopping', params: { query: actionToReview.query } });
+                } else if (actionToReview.kind === 'communication_draft') {
+                  router.push({ pathname: '/maya-comunicacao', params: { request: actionToReview.request } });
+                } else {
+                  router.push({ pathname: '/maya-actions', params: { task: actionToReview.description } });
+                }
+              }}
+            >
+              <Text style={styles.pendingButtonText}>Revisar e continuar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Descartar ação preparada" onPress={() => setPendingAction(null)}>
+              <Text style={styles.pendingCancel}>Descartar ação</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {loading ? (
           <View style={[styles.bubble, styles.assistantBubble, styles.loading]}>
             <ActivityIndicator size="small" />
@@ -618,6 +648,14 @@ const styles = StyleSheet.create({
   loading: { flexDirection: 'row', alignItems: 'center' },
   error: { color: '#fca5a5', marginTop: 6, lineHeight: 19 },
   voiceError: { color: '#fdba74', marginTop: 6, lineHeight: 19 },
+  pendingCard: { padding: 13, borderRadius: 16, borderWidth: 1, borderColor: '#315277', backgroundColor: '#0c1d30', marginBottom: 12, gap: 8 },
+  pendingLabel: { color: '#31d7ff', fontWeight: '800', letterSpacing: 0.7, fontSize: 10 },
+  pendingTitle: { color: '#f8fafc', fontWeight: '800', fontSize: 15 },
+  pendingDescription: { color: '#e2e8f0', fontSize: 13, lineHeight: 19 },
+  pendingHint: { color: '#94a3b8', fontSize: 11, lineHeight: 17 },
+  pendingButton: { minHeight: 44, borderRadius: 12, backgroundColor: '#16456C', alignItems: 'center', justifyContent: 'center' },
+  pendingButtonText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  pendingCancel: { color: '#cbd5e1', fontWeight: '700', textAlign: 'center', paddingVertical: 8 },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
