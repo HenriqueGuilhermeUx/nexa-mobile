@@ -1,0 +1,66 @@
+name: Nexa Central v148 consent and push — QA-only OTA
+on:
+  push:
+    branches:
+      - release/central-nexa-v148-consent-push-qa-20261115
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: nexa-central-v148-consent-push-qa-only
+  cancel-in-progress: false
+jobs:
+  contract-and-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Guard all released native, finance, auth and existing UI files
+        run: node scripts/validate-central-nexa-v148-consent-push-qa.js
+      - name: Install immutable release dependencies
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript and Android OTA bundle validation
+        run: |
+          npm run typecheck
+          node scripts/validate-central-channel-consents-v148.js || test ! -f scripts/validate-central-channel-consents-v148.js
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Verify QA branch is NOT the production channel branch
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)});
+            const data=await response.json();
+            if(!response.ok||data.errors?.length)throw Error('Cannot validate EAS production mapping');
+            const mapping=data.data?.app?.byId?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(mapping.length!==1||mapping[0]!=='production')throw Error('Production channel mapping changed; STOP');
+            console.log('Validated: production channel exclusively maps to production branch');
+          })().catch(e=>{console.error('QA BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish to UNLINKED QA Expo branch, Android only
+        run: eas update --branch central-nexa-v148-consent-push-qa --platform android --message "Central Nexa v148 opt-in + push selftest QA $(git rev-parse --short HEAD)" --non-interactive
+      - name: Confirm no production publication action was executed
+        run: |
+          echo 'QA ONLY. No eas update to production, no channel relink, no rollout promotion.'

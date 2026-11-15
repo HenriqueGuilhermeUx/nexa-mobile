@@ -1,6 +1,7 @@
 import { PrivyProvider } from '@privy-io/expo';
 import { PrivyElements } from '@privy-io/expo/ui';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -19,6 +20,18 @@ export default function RootLayout() {
     void initializeNexaNotifications().catch((error) => {
       console.warn('Nexa notifications initialization failed', error);
     });
+  }, []);
+
+  useEffect(() => {
+    // Only open the authenticated Central screen, never an arbitrary push URL.
+    const navigate = (response: Notifications.NotificationResponse | null | undefined) => {
+      if (response?.notification?.request?.content?.data?.route === '/central-nexa') {
+        router.push('/central-nexa' as any);
+      }
+    };
+    const subscription=Notifications.addNotificationResponseReceivedListener(navigate);
+    void Notifications.getLastNotificationResponseAsync().then(navigate).catch(()=>{});
+    return () => subscription.remove();
   }, []);
 
   return (
