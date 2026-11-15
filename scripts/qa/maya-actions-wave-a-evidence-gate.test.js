@@ -113,6 +113,22 @@ try {
   separateUrls.cases[0].evidenceRef = 'https://example.test/qa/A01';
   separateUrls.cases[1].evidenceRef = 'https://example.test/qa/A02';
   assert.equal(run(separateUrls).status, 0, 'different HTTPS evidence paths remain distinct');
+  // Percent-encoded local IDs may be decoded by evidence viewers: one proof
+  // must never count twice under encoded and decoded spellings.
+  for (const [first, second] of [
+    ['qa/proof%20A01', 'qa/proof A01'],
+    ['qa/proof%41', 'qa/proofA'],
+    ['qa/prova-e%CC%81', 'qa/prova-\\u00e9']
+  ]) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = first;
+    data.cases[1].evidenceRef = second;
+    assert.equal(run(data).status, 1, 'decoded local evidence duplicate must fail: ' + first);
+  }
+  const distinctEncodedLocal = structuredClone(base);
+  distinctEncodedLocal.cases[0].evidenceRef = 'qa/proof%20A01';
+  distinctEncodedLocal.cases[1].evidenceRef = 'qa/proof%20A02';
+  assert.equal(run(distinctEncodedLocal).status, 0, 'distinct encoded local proofs remain admissible');
   const reusedWhitespace = structuredClone(base);
   reusedWhitespace.cases[1].evidenceRef = ' ' + reusedWhitespace.cases[0].evidenceRef + ' ';
   assert.equal(run(reusedWhitespace).status, 1, 'whitespace cannot bypass evidence uniqueness');
