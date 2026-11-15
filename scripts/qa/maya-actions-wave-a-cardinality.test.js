@@ -52,6 +52,7 @@ try {
     ['timezone beyond 14 hours', data => { data.cases[0].testedAt = '2026-11-06T12:00:00+15:00'; }],
     ['duplicate HTTPS proof with canonical host and default port', data => { data.cases[0].evidenceRef = 'https://QA-PROOFS.example.test:443/A01'; data.cases[1].evidenceRef = 'https://qa-proofs.example.test/A01'; }],
     ['duplicate HTTPS proof with unreserved percent encoding', data => { data.cases[0].evidenceRef = 'https://qa-proofs.example.test/A01'; data.cases[1].evidenceRef = 'https://qa-proofs.example.test/%41%30%31'; }],
+    ['duplicate HTTPS proof with trailing DNS dot', data => { data.cases[0].evidenceRef = 'https://qa-proofs.example.test./A01'; data.cases[1].evidenceRef = 'https://qa-proofs.example.test/A01'; }],
     ['wrong frozen candidate SHA', data => { data.candidateSha = '0'.repeat(40); }],
     ['wrong runtime', data => { data.runtime = '2.0.44'; }],
     ['standalone package is not EAS QA proof', data => { data.packageId = 'br.com.trynexa.mayaqa'; }],
