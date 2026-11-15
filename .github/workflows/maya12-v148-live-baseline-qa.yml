@@ -1,0 +1,99 @@
+name: Maya 12 — existing Nexa 2.0.43 production-based cumulative QA OTA
+on:
+  push:
+    branches: [release/maya12-on-live-production-v148-20261115]
+    paths: ['.github/workflows/maya12-v148-live-baseline-qa.yml']
+permissions:
+  contents: read
+concurrency:
+  group: nexa-maya12-live-baseline-qa
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Guard exact latest known Android production source
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 3d75dc1df7b2f40751507d711cf73fde541da1af HEAD
+          for path in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts app/index.tsx app/kyc.tsx app/sign-in.tsx app/central-nexa.tsx src/components/AlignedLegacyApp.tsx src/lib/nexaSupportLinks.ts src/lib/nexaCentralPush.ts; do
+            git show 3d75dc1df7b2f40751507d711cf73fde541da1af:"$path" | cmp - "$path"
+          done
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||app.android.package!=='br.com.trynexa.app'||app.runtimeVersion.policy!=='appVersion'||app.extra.eas.projectId!=='b3faabec-283a-4ba2-88b5-f096304e68aa')throw Error('Android production binary identity changed');
+          const changed=require('node:child_process').execFileSync('git',['diff','--name-only','3d75dc1df7b2f40751507d711cf73fde541da1af','HEAD'],{encoding:'utf8'}).trim().split('\n');
+          const allowed = path => path.startsWith('app/maya-')||path.startsWith('src/maya-actions/')||path.startsWith('scripts/validate-maya-')||path==='src/lib/mayaWebActionContracts.ts'||path==='src/components/NexaAssistantOpenFinance.tsx'||path==='app/assistant.tsx'||path==='app/_layout.tsx'||path==='.github/workflows/maya12-v148-live-baseline-qa.yml';
+          const unexpected=changed.filter(x=>!allowed(x));
+          if(unexpected.length)throw Error('Unexpected changes to live Nexa: '+unexpected.join(', '));
+          console.log('LIVE_PRODUCTION_OTA_BASE_AND_DIFF_SAFE');
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Regress Maya actions, Central Nexa and security
+        run: |
+          set -euo pipefail
+          for file in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js scripts/validate-maya-web-forms-v1.js scripts/validate-maya-web-quotes-v1.js scripts/validate-maya-verified-comparison-v1.js scripts/validate-maya-quote-evidence-v1.js; do
+            node "$file"
+          done
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+      - run: npm run typecheck
+      - run: npm run export:android
+  qa-update:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Guard current release before QA OTA
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./app.json').expo.version")" = "2.0.43"
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} updateBranchByName(name:"production"){updates(offset:0,limit:5){gitCommitHash platform group id}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const j=await response.json();if(!response.ok||j.errors?.length)throw Error('Live OTA channel query failed');
+            const app=j.data?.app?.byId,names=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const latest=app?.updateBranchByName?.updates?.find(x=>x.platform==='android');
+            if(names.length!==1||names[0]!=='production'||latest?.gitCommitHash!=='3d75dc1df7b2f40751507d711cf73fde541da1af')throw Error('Production moved! Abort QA candidate preparation to rebase latest source');
+            console.log('LIVE_SOURCE_STILL='+latest.gitCommitHash+' GROUP='+latest.group);
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Publish read-only Maya composite to existing QA OTA branch only
+        env:
+          EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'false'
+          EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: qa
+          EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+          EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+        run: eas update --branch maya-actions-v148-qa --platform android --message "Maya 12 additive on real Central Nexa production base $(git rev-parse --short HEAD), QA only" --non-interactive
