@@ -37,4 +37,5 @@ jobs:
           echo "Channel update list exit $?"
           exit 0
       - name: No changes
-        run: echo 'Read-only audit: no build, no update publication'
+        run: |
+          echo 'Read-only audit: no build, no update publication'
