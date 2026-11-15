@@ -1,0 +1,48 @@
+name: Maya 12 ondas — production OTA read-only audit
+on:
+  push:
+    branches: [audit/maya-12-ondas-public-release-v148-20261115]
+    paths: ['.github/workflows/maya-12-waves-production-ota-readonly-audit.yml']
+permissions:
+  contents: read
+jobs:
+  audit-channel-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Audit EAS production and QA channel mappings without changing anything
+        run: |
+          set -euo pipefail
+          eas whoami
+          eas channel:view production --json --non-interactive > "$RUNNER_TEMP/production-channel.json"
+          eas channel:view maya-actions-v148-qa --json --non-interactive > "$RUNNER_TEMP/qa-channel.json"
+          node - "$RUNNER_TEMP/production-channel.json" "$RUNNER_TEMP/qa-channel.json" <<'NODE'
+          const fs=require('node:fs');
+          const prod=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          const qa=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));
+          const asJSON=x=>JSON.stringify(x);
+          const p=asJSON(prod),q=asJSON(qa);
+          if (p.includes('maya-actions-v148-qa')) throw new Error('Production channel references Maya QA branch: STOP');
+          if (!q.includes('maya-actions-v148-qa')) throw new Error('QA mapping not confirmed: STOP');
+          console.log('READ-ONLY EAS production channel configuration:',JSON.stringify(prod,null,2));
+          console.log('READ-ONLY EAS QA channel configuration:',JSON.stringify(qa,null,2));
+          console.log('PASS: channels do not cross-reference the Maya QA branch.');
+          NODE
+      - name: Audit current production Android OTA history (read-only)
+        continue-on-error: true
+        run: |
+          eas update:list --channel production --platform android --limit 5 --non-interactive
+      - name: Confirm no production update operation was invoked
+        run: echo 'Audit completed; no EAS updates, branch changes or builds were performed.'
