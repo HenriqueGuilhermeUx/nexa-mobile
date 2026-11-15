@@ -1,0 +1,11 @@
+name: Maya 12 — finish SAME existing Android v148 update rollout
+on:
+  workflow_dispatch: {}
+
+jobs:
+  finish_android_rollout:
+    name: Promote existing Maya Android update group from 10% to 100%
+    type: update-rollout
+    params:
+      update_group_id: 3c791e7a-91d9-4a98-99d2-9c3ce2f769d4
+      rollout_percentage: 100
