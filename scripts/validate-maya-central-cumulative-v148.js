@@ -7,7 +7,8 @@ const changed=cp.execFileSync('git',['diff','--name-only',base+'...HEAD'],{encod
 const allowed=['app/central-nexa.tsx','app/_layout.tsx',
 'scripts/validate-maya-central-cumulative-v148.js',
 '.github/workflows/maya-central-cumulative-qa.yml',
-'docs/maya-central-cumulative-release-20261115.md'];
+'docs/maya-central-cumulative-release-20261115.md',
+'.github/workflows/maya-central-cumulative-canary.yml'];
 assert.deepEqual(changed.filter(x=>!allowed.includes(x)),[], 'Unexpected changes to Maya / financial / app core: '+changed.join(', '));
 for(const file of ['app.json','eas.json','package.json','package-lock.json',
   'src/components/NexaAssistantOpenFinance.tsx','app/assistant.tsx','src/lib/api.ts',
