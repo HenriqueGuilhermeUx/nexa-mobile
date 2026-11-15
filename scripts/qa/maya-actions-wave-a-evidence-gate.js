@@ -79,6 +79,8 @@ for (const id of ids) {
   if (typeof c.evidenceRef === 'string' && !/^[a-z][a-z0-9+.-]*:/i.test(c.evidenceRef) && /[?#]/.test(c.evidenceRef)) failures.push(id + ': local evidence reference contains query or fragment delimiter');
   // Reject malformed percent escapes: downstream decoders disagree on their interpretation.
   if (typeof c.evidenceRef === 'string' && /%(?![0-9a-f]{2})/i.test(c.evidenceRef)) failures.push(id + ': malformed percent escape in evidence reference');
+  // Encoded control bytes may become NUL/newlines after decoding in downstream evidence viewers.
+  if (typeof c.evidenceRef === 'string' && /%(?:0[0-9a-f]|1[0-9a-f]|7f)/i.test(c.evidenceRef)) failures.push(id + ': encoded control byte is not allowed');
   // Reject encoded percent signs: a second decoding pass could reveal %2e, %2f or %5c traversal.
   if (typeof c.evidenceRef === 'string' && /%25/i.test(c.evidenceRef)) failures.push(id + ': double-encoded evidence reference is not allowed');
   // Do not allow credentials embedded in private evidence URLs to enter QA audit logs.
