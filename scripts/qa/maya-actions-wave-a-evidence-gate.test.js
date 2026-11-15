@@ -61,6 +61,20 @@ try {
     data[field] = value;
     assert.equal(run(data).status, 1, 'must reject mismatched ' + field);
   }
+  // A successful synthetic parse must never mask missing physical case records.
+  for (const invalidCases of [undefined, null, {}, [], 'A01-A16']) {
+    const data = structuredClone(base);
+    if (invalidCases === undefined) delete data.cases;
+    else data.cases = invalidCases;
+    const result = run(data);
+    assert.equal(result.status, 1, 'missing or non-array cases must fail closed: ' + String(invalidCases));
+    assert.match(result.stderr, /NO-GO/, 'incomplete manifest must not report approval');
+  }
+  for (const invalidStatus of ['pass', 'APPROVED', true, null]) {
+    const data = structuredClone(base);
+    data.cases[0].status = invalidStatus;
+    assert.equal(run(data).status, 1, 'only explicit PASS is admissible');
+  }
   const unknown = structuredClone(base);
   unknown.cases.push({ ...unknown.cases[0], id: 'A17' });
   assert.equal(run(unknown).status, 1, 'unknown case must fail');
