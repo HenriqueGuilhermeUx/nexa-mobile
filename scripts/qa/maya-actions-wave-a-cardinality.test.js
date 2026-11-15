@@ -34,7 +34,10 @@ try {
     ['unknown A17', data => data.cases.push({ ...data.cases[0], id: 'A17', evidenceRef: 'another-proof' })],
     ['renamed A16', data => { data.cases[15].id = 'A17'; }],
     ['missing device', data => { delete data.cases[0].device; }],
-    ['missing timestamp', data => { delete data.cases[0].testedAt; }]
+    ['missing timestamp', data => { delete data.cases[0].testedAt; }],
+    ['duplicate A16 with different proof', data => data.cases.push({ ...data.cases[15], evidenceRef: 'another-a16-proof' })],
+    ['extra malformed case record', data => data.cases.push(null)],
+    ['extra noncanonical case ID', data => data.cases.push({ ...data.cases[0], id: 'a01', evidenceRef: 'another-lowercase-proof' })]
   ];
   for (const [name, mutate] of mutations) {
     const data = structuredClone(base);
@@ -43,7 +46,7 @@ try {
     assert.equal(result.status, 1, name + ' must be rejected');
     assert.match(result.stderr, /NO-GO/, name + ' must report NO-GO');
   }
-  console.log('QA A cardinality regression: 6 synthetic rejection cases passed (not device QA).');
+  console.log('QA A cardinality regression: 9 synthetic rejection cases passed (not device QA).');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
