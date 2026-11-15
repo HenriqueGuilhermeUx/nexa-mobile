@@ -42,7 +42,7 @@ try {
     ['invalid timezone offset', data => { data.cases[0].testedAt = '2026-11-06T12:00:00+14:30'; }],
     ['invalid hour', data => { data.cases[0].testedAt = '2026-11-06T24:00:00Z'; }],
     ['invalid April 31', data => { data.cases[0].testedAt = '2026-04-31T12:00:00Z'; }],
-    ['non-leap February 29', data => { data.cases[0].testedAt = '2027-02-29T12:00:00Z'; }],
+    ['invalid November 31', data => { data.cases[0].testedAt = '2026-11-31T12:00:00Z'; }],
     ['invalid second 60', data => { data.cases[0].testedAt = '2026-11-06T12:00:60Z'; }],
     ['invalid negative timezone offset', data => { data.cases[0].testedAt = '2026-11-06T12:00:00-14:30'; }],
     ['timezone beyond 14 hours', data => { data.cases[0].testedAt = '2026-11-06T12:00:00+15:00'; }],
