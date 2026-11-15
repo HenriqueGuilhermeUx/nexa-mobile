@@ -71,3 +71,9 @@ All comparisons use `integration/maya-actions-v148` as base. The shared HEAD for
 - Integration comparison before this increment: `6f1c9fd1bf16fc0046228993a83118390da62760` base, QA branch 138 ahead / 7 behind; no merge or production OTA.
 - QA SHA `feba41cd80070c422caee51257a217f5238522a6`: PR-triggered workflow runs empty; combined commit statuses empty; PR #142 reviews empty. These results are inconclusive for full Actions/check-run coverage, not a green CI verdict.
 - Wave 01/02 A01–A16 device proofs remain unverified; wave 09 backend not homologated; wave 10 review only. Individual branch SHAs are last verified values in the table above, not refreshed in this checkpoint. **Production NO-GO.**
+
+## QA A incremental checkpoint — canonical HTTPS evidence paths (2026-11-15)
+- QA-only validator commit `a0063f3d10538ac0d8bd02ca86a8436b20ef9133`: normalizes percent-encoded unreserved characters in HTTPS URL paths before duplicate-proof comparison. This prevents `A01` and `%41%30%31` from being counted as separate physical proofs at the same HTTPS host/path.
+- Regression commit `e4790a917d865ad0b8bbc77462e34377b3743b1c`: synthetic duplicate-path rejection and distinct-path acceptance. CI/test execution not independently confirmed.
+- Fresh comparison before change: QA evidence branch 140 ahead / 7 behind integration `6f1c9fd1bf16fc0046228993a83118390da62760`; QA-only paths. PR #142 reviews returned none; PR-filtered workflows and combined statuses for prior SHA `c8743d55` returned empty. Neither result proves green CI.
+- 12-wave SHAs remain last verified values in table above, not newly revalidated. QA A physical A01–A16 proofs pending. No merge, staged/production OTA, payment, purchase, reservation or external submission. **Production NO-GO.**
