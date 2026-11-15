@@ -59,3 +59,9 @@ No production OTA, staged OTA, merge, payment, purchase, reservation or external
 | 12 | `23c1f210e437f196564a1ff2e2e0de789f44375f` | 1 / 23 | Reservations blocked |
 
 All comparisons use `integration/maya-actions-v148` as base. The shared HEAD for 05–08 reflects branches without independent advances relative to their common base; it does not authorize implementation or merging. **Production NO-GO.**
+
+## Incremental checkpoint — 2026-11-15 (missing-case gate)
+- QA-only regression commit `e60c4797a70087e0dc8aad3239cf494545ab9be2`: synthetic negative cases for missing/null/object/empty/string `cases` and non-`PASS` statuses. This adds tests only; **execution remains unverified**.
+- Pre-commit comparison to integration: 136 ahead / 7 behind; integration SHA `6f1c9fd1bf16fc0046228993a83118390da62760`; no merge.
+- PR search surfaced #142 (QA D) and #136 (09C review-only); neither authorizes QA A or production. PR-filtered workflow runs for prior QA SHA returned none, which is not evidence of green CI.
+- Wave SHAs remain as listed above until individually refreshed. QA A A01–A16 physical proofs remain pending. Backend 09 not homologated; wave 10 review-only. **Production NO-GO.**
