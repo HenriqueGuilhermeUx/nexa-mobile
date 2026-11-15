@@ -31,7 +31,7 @@ jobs:
           node - <<'NODE'
           const fs=require('node:fs'), cp=require('node:child_process');
           const lines=cp.execFileSync('git',['diff','--name-only','cac9ea18a995f5d63c434ed92d07096ca77f2378','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
-          const allowed=['app/assistant.tsx','src/components/NexaAssistantOpenFinance.tsx','scripts/validate-maya-actions-v1.js','.github/workflows/maya-ux2-phase1-ota.yml'];
+          const allowed=['app/assistant.tsx','src/components/NexaAssistantOpenFinance.tsx','scripts/validate-maya-actions-v1.js','scripts/validate-maya-planning-v1.js','.github/workflows/maya-ux2-phase1-ota.yml'];
           if(lines.some(x=>!allowed.includes(x)))throw Error('Unexpected changes: '+lines.join(','));
           const c=fs.readFileSync('src/components/NexaAssistantOpenFinance.tsx','utf8');
           if(!c.includes('useSpeechRecognitionEvent')||!c.includes('parseRecurringFundingIntent')||!c.includes('parseMayaLocalActionIntent')||!c.includes('NexaAssistantOpenFinance'))throw Error('Core Maya voice/finance routing changed');
