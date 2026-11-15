@@ -82,7 +82,7 @@ jobs:
           NODE
       - name: Inspect staged rollout metadata via established CLI (read-only)
         run: |
-          eas update:view 01a1e138-3ac9-76e4-bbd7-be068a9c39da --non-interactive
+          eas update:view 01a1e138-3ac9-76e4-bbd7-be068a9c39da
       - name: Decision boundary
         run: |
           echo "Automated source, JS export and OTA routing tests passed."
