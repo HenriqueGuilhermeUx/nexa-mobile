@@ -37,7 +37,12 @@ try {
     ['missing timestamp', data => { delete data.cases[0].testedAt; }],
     ['duplicate A16 with different proof', data => data.cases.push({ ...data.cases[15], evidenceRef: 'another-a16-proof' })],
     ['extra malformed case record', data => data.cases.push(null)],
-    ['extra noncanonical case ID', data => data.cases.push({ ...data.cases[0], id: 'a01', evidenceRef: 'another-lowercase-proof' })]
+    ['extra noncanonical case ID', data => data.cases.push({ ...data.cases[0], id: 'a01', evidenceRef: 'another-lowercase-proof' })],
+    ['wrong frozen candidate SHA', data => { data.candidateSha = '0'.repeat(40); }],
+    ['wrong runtime', data => { data.runtime = '2.0.44'; }],
+    ['standalone package is not EAS QA proof', data => { data.packageId = 'br.com.trynexa.mayaqa'; }],
+    ['wrong EAS branch', data => { data.easBranch = 'production'; }],
+    ['wrong Android EAS update', data => { data.androidUpdateId = '00000000-0000-0000-0000-000000000000'; }]
   ];
   for (const [name, mutate] of mutations) {
     const data = structuredClone(base);
@@ -46,7 +51,7 @@ try {
     assert.equal(result.status, 1, name + ' must be rejected');
     assert.match(result.stderr, /NO-GO/, name + ' must report NO-GO');
   }
-  console.log('QA A cardinality regression: 9 synthetic rejection cases passed (not device QA).');
+  console.log('QA A cardinality regression: 14 synthetic rejection cases passed (not device QA).');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
