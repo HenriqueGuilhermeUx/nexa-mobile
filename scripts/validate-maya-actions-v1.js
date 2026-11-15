@@ -10,6 +10,7 @@ assert(source.includes('Confirmar e salvar tarefa'), 'Require explicit save');
 assert(source.includes('Marcar como concluída'), 'Completion action missing');
 assert(source.includes('Excluir tarefa'), 'Deletion action missing');
 assert(!/eas update|fetch\(|axios\.|executePayment|sendPix|sendTransaction/.test(source), 'No remote or financial execution in v1');
-assert(assistant.includes("router.push('/maya-actions'"), 'Assistant must link to Actions');
+const chat = fs.readFileSync('src/components/NexaAssistantOpenFinance.tsx', 'utf8');
+assert(assistant.includes('<NexaAssistantOpenFinance') && chat.includes("route: '/maya-actions'") && chat.includes('router.push(item.route as any)'), 'Assistant chat must offer accessible Actions shortcut');
 assert(layout.includes('name="maya-actions"'), 'Actions route missing');
 console.log('PASS Maya Actions V1 local-only execution safety contracts');
