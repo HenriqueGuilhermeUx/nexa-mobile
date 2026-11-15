@@ -447,6 +447,15 @@ try {
   unicodeDistinct.cases[0].evidenceRef = 'qa/caf\u00e9/A01';
   unicodeDistinct.cases[1].evidenceRef = 'qa/cafe/A02';
   assert.equal(run(unicodeDistinct).status, 0, 'different local Unicode evidence IDs remain admissible');
+  // URL path percent escapes for unreserved bytes cannot create a second proof.
+  const encodedUrlDuplicate = structuredClone(base);
+  encodedUrlDuplicate.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
+  encodedUrlDuplicate.cases[1].evidenceRef = 'https://example.test/private/evidence/%41%30%31';
+  assert.equal(run(encodedUrlDuplicate).status, 1, 'encoded and plain HTTPS paths must not count as two proofs');
+  const encodedUrlDistinct = structuredClone(base);
+  encodedUrlDistinct.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
+  encodedUrlDistinct.cases[1].evidenceRef = 'https://example.test/private/evidence/%41%30%32';
+  assert.equal(run(encodedUrlDistinct).status, 0, 'distinct HTTPS proof paths remain admissible');
   const safeUrl = structuredClone(base);
   safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
   assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
