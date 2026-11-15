@@ -321,10 +321,10 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
     >
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.eyebrow}>ASSISTENTE NEXA</Text>
-          <Text style={styles.title}>Vida, rotina e dinheiro</Text>
+          <Text style={styles.eyebrow}>MAYA · NEXA</Text>
+          <Text style={styles.title}>Como posso ajudar?</Text>
           <Text style={styles.subtitle}>
-            Converse por texto ou voz. A Nexa pode entender seu contexto e preparar ações para você revisar.
+            Peça por texto ou voz. Prepare tarefas e acompanhe suas finanças sem sair da conversa.
           </Text>
         </View>
         <TouchableOpacity
@@ -337,6 +337,26 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
           <Text style={styles.voiceToggleText}>{autoSpeak ? '🔊' : '🔇'}</Text>
         </TouchableOpacity>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shortcutsScroll} contentContainerStyle={styles.shortcutsRow} keyboardShouldPersistTaps="handled">
+        {([
+          { label: 'Tarefas', route: '/maya-actions' },
+          { label: 'Metas', route: '/maya-planning' },
+          { label: 'Movimentações', route: '/maya-actions-financas' },
+          { label: 'Pesquisar', route: '/maya-shopping' },
+          { label: 'Mensagens', route: '/maya-comunicacao' },
+        ] as const).map((item) => (
+          <TouchableOpacity
+            key={item.route}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir Maya: ${item.label}`}
+            style={styles.shortcutChip}
+            onPress={() => router.push(item.route as any)}
+          >
+            <Text style={styles.shortcutText}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       <View style={styles.safetyBox}>
         <Text style={styles.safetyText}>
@@ -469,6 +489,10 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 2 },
   headerRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  shortcutsScroll: { flexGrow: 0, marginBottom: 8 },
+  shortcutsRow: { alignItems: 'center', gap: 8, paddingRight: 8 },
+  shortcutChip: { minHeight: 42, paddingHorizontal: 13, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: '#334155', backgroundColor: '#0f172a' },
+  shortcutText: { color: '#e2e8f0', fontSize: 13, fontWeight: '700' },
   eyebrow: {
     color: '#8b5cf6',
     fontSize: 11,
