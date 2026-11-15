@@ -393,6 +393,16 @@ try {
     data.cases[0].evidenceRef = 'https://' + adjacentHost + '/evidence/A01';
     assert.equal(run(data).status, 0, 'adjacent non-benchmark IP remains syntactically admissible: ' + adjacentHost);
   }
+  // Canonically equivalent Unicode local IDs must not count as independent device proof.
+  // Keep the synthetic fixture distinct: this is only an offline duplicate-detection test.
+  const unicodeDuplicate = structuredClone(base);
+  unicodeDuplicate.cases[0].evidenceRef = 'qa/caf\u00e9/A01';
+  unicodeDuplicate.cases[1].evidenceRef = 'qa/cafe\u0301/A01';
+  assert.equal(run(unicodeDuplicate).status, 1, 'NFC-equivalent local evidence IDs must not be reused');
+  const unicodeDistinct = structuredClone(base);
+  unicodeDistinct.cases[0].evidenceRef = 'qa/caf\u00e9/A01';
+  unicodeDistinct.cases[1].evidenceRef = 'qa/cafe/A02';
+  assert.equal(run(unicodeDistinct).status, 0, 'different local Unicode evidence IDs remain admissible');
   const safeUrl = structuredClone(base);
   safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
   assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
