@@ -452,6 +452,14 @@ try {
     data.cases[0].evidenceRef = encodedDelimiter;
     assert.equal(run(data).status, 1, 'encoded local delimiter must fail: ' + encodedDelimiter);
   }
+  // Local proof IDs must not decode into URI schemes in downstream evidence viewers.
+  for (const encodedScheme of ['https%3A//proof.example.test/A01', 'javascript%3Aalert(1)', 'qa/proof%3AA01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = encodedScheme;
+    const result = run(data);
+    assert.equal(result.status, 1, 'encoded scheme delimiter must fail: ' + encodedScheme);
+    assert.match(result.stderr, /NO-GO/, 'encoded scheme must never imply physical QA approval');
+  }
   const nestedLocal = structuredClone(base);
   nestedLocal.cases[0].evidenceRef = 'qa/a01/proof';
   assert.equal(run(nestedLocal).status, 0, 'safe nested local audit reference must remain valid');
