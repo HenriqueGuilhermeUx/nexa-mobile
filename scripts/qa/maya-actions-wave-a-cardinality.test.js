@@ -34,6 +34,9 @@ try {
     ['unknown A17', data => data.cases.push({ ...data.cases[0], id: 'A17', evidenceRef: 'another-proof' })],
     ['renamed A16', data => { data.cases[15].id = 'A17'; }],
     ['missing device', data => { delete data.cases[0].device; }],
+    ['explicit failed physical case', data => { data.cases[0].status = 'FAIL'; }],
+    ['empty evidence reference', data => { data.cases[0].evidenceRef = ''; }],
+    ['reused local proof across cases', data => { data.cases[1].evidenceRef = data.cases[0].evidenceRef; }],
     ['missing timestamp', data => { delete data.cases[0].testedAt; }],
     ['duplicate A16 with different proof', data => data.cases.push({ ...data.cases[15], evidenceRef: 'another-a16-proof' })],
     ['extra malformed case record', data => data.cases.push(null)],
@@ -75,7 +78,7 @@ try {
   assert.equal(check(boundary).status, 0, 'valid maximum positive UTC offset must parse');
   boundary.cases[0].testedAt = '2026-11-06T12:00:00-14:00';
   assert.equal(check(boundary).status, 0, 'valid maximum negative UTC offset must parse');
-  console.log('QA A cardinality regression: 28 synthetic rejection, 1 future-date rejection and 2 timezone boundary acceptance cases passed (not device QA).');
+  console.log('QA A cardinality regression: 31 synthetic rejection, 1 future-date rejection and 2 timezone boundary acceptance cases passed (not device QA).');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
