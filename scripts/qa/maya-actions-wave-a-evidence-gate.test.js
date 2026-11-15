@@ -376,6 +376,12 @@ try {
     data.cases[0].evidenceRef = ambiguousLocal;
     assert.equal(run(data).status, 1, 'local query/fragment delimiter must fail: ' + ambiguousLocal);
   }
+  // Encoded local delimiters become ? or # in downstream viewers and may truncate evidence IDs.
+  for (const encodedDelimiter of ['qa/proof%3FA01', 'qa/proof%3fA01', 'qa/proof%23A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = encodedDelimiter;
+    assert.equal(run(data).status, 1, 'encoded local delimiter must fail: ' + encodedDelimiter);
+  }
   const nestedLocal = structuredClone(base);
   nestedLocal.cases[0].evidenceRef = 'qa/a01/proof';
   assert.equal(run(nestedLocal).status, 0, 'safe nested local audit reference must remain valid');
