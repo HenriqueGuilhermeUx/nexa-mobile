@@ -22,9 +22,7 @@ type ChannelConsent = { channel: ExternalChannel; purpose: ExternalPurpose; opte
 type ChannelConsentKey = `${ExternalChannel}:${ExternalPurpose}`;
 const CONSENT_NOTICE_VERSION = 'nexa-channel-v1';
 const CHANNEL_OPTIONS: ReadonlyArray<{channel:ExternalChannel;purpose:ExternalPurpose;label:string}> = [
-  {channel:'whatsapp',purpose:'service',label:'WhatsApp — orientações e suporte'},
   {channel:'telegram',purpose:'service',label:'Telegram — orientações e suporte'},
-  {channel:'whatsapp',purpose:'marketing',label:'WhatsApp — notícias e novidades'},
   {channel:'telegram',purpose:'marketing',label:'Telegram — notícias e novidades'},
 ];
 
@@ -52,6 +50,8 @@ export default function CentralNexaScreen() {
   const [inboxState, setInboxState] = useState<InboxState>('loading');
   const [messages, setMessages] = useState<CentralMessage[]>([]);
   const [preferences, setPreferences] = useState<CentralPreferences | null>(null);
+  const [educationEmail, setEducationEmail] = useState<'loading'|'unavailable'|'opted_in'|'opted_out'>('loading');
+  const [educationEmailSaving, setEducationEmailSaving] = useState(false);
   const [channelConsents, setChannelConsents] = useState<Partial<Record<ChannelConsentKey, boolean>>>({});
   const [channelConsentState, setChannelConsentState] = useState<'loading' | 'unavailable' | 'ready'>('loading');
   const [channelConsentSaving, setChannelConsentSaving] = useState<ChannelConsentKey | null>(null);
@@ -111,6 +111,53 @@ export default function CentralNexaScreen() {
   }
 
   useEffect(() => { void refreshInbox(); }, []);
+
+  // Existing authenticated lifecycle endpoint is the only email opt-in source
+  // of truth. It is independent from push, WhatsApp, Telegram and marketing.
+  async function refreshEducationEmail() {
+    try {
+      const session=await loadNexaSession();
+      if(!session) {setEducationEmail('unavailable');return;}
+      const base=config.apiUrl.replace(/\\/$/,'');
+      const response=await fetch(base+'/lifecycle/me',{
+        headers:{Authorization:'Bearer '+session.accessToken,'Cache-Control':'no-store'},
+      });
+      if(!response.ok)throw new Error('education preferences unavailable');
+      const body=await response.json();
+      if(typeof body?.educationalEmail?.optedIn!=='boolean')throw new Error('invalid preference');
+      setEducationEmail(body.educationalEmail.optedIn?'opted_in':'opted_out');
+    }catch {
+      setEducationEmail('unavailable');
+    }
+  }
+  useEffect(()=>{void refreshEducationEmail();},[]);
+
+  async function changeEducationEmail(optedIn:boolean) {
+    if(educationEmailSaving||!['opted_in','opted_out'].includes(educationEmail))return;
+    const session=await loadNexaSession();
+    if(!session){setEducationEmail('unavailable');return;}
+    setEducationEmailSaving(true);
+    try {
+      const base=config.apiUrl.replace(/\\/$/,'');
+      const response=await fetch(base+'/lifecycle/preferences',{
+        method:'POST',headers:{
+          Authorization:'Bearer '+session.accessToken,
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify({educationalEmailOptIn:optedIn,emailFrequency:'weekly'}),
+      });
+      if(!response.ok)throw new Error('not saved');
+      const result=await response.json();
+      if(result?.success!==true||result?.optedIn!==optedIn)
+        throw new Error('invalid server confirmation');
+      setEducationEmail(optedIn?'opted_in':'opted_out');
+      setNotice(optedIn
+        ? 'E-mails educativos semanais autorizados. Você poderá cancelar quando quiser nas preferências da Nexa.'
+        : 'E-mails educativos desativados. Sua preferência foi registrada.');
+    }catch{
+      setNotice('Não conseguimos confirmar a alteração de e-mail. A preferência anterior foi mantida.');
+    }finally{setEducationEmailSaving(false);}
+  }
 
   // Separate, authenticated consent endpoint. A login or a push permission
   // never counts as WhatsApp / Telegram consent. Fail closed if unavailable.
@@ -437,6 +484,23 @@ export default function CentralNexaScreen() {
         ) : (
           <Text style={styles.paragraph}>Os avisos push estão em preparação. Quando estiverem disponíveis, você poderá escolher ativá-los aqui.</Text>
         )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Orientações por e-mail</Text>
+        <Text style={styles.paragraph}>
+          Receba, se quiser, até uma orientação educativa por semana sobre a Nexa:
+          como concluir a verificação, entender Pix e USDC e acompanhar sua conta.
+          Não são ofertas de investimento. Você pode cancelar a qualquer momento.
+        </Text>
+        {educationEmail==='opted_in'||educationEmail==='opted_out' ? (
+          <Action
+            title={educationEmail==='opted_in'?'E-mails educativos: autorizados':'E-mails educativos: desativados'}
+            detail={educationEmailSaving?'Salvando…':educationEmail==='opted_in'
+              ? 'Toque para desativar os e-mails semanais':'Toque para autorizar os e-mails semanais'}
+            onPress={()=>{if(!educationEmailSaving)void changeEducationEmail(educationEmail!=='opted_in');}}
+          />
+        ) : <Text style={styles.paragraph}>As preferências de e-mail estão temporariamente indisponíveis. Nenhuma autorização será presumida.</Text>}
       </View>
 
       <View style={styles.section}>
