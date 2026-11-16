@@ -168,7 +168,7 @@ export function DirectMetaMaskSignClientQa() {
       const chain=createPublicClient({chain:polygon,
         transport:http('https://polygon-bor-rpc.publicnode.com',{timeout:16000})});
       const amount=await chain.readContract({address:USDC,abi:ABI,
-        functionName:'balanceOf',args:[session.address as '0x'+string]});
+        functionName:'balanceOf',args:[session.address as `0x${string}`]});
       // Refresh the session from SignClient before associating a blockchain result.
       const current=clientRef.current?.session.get(session.topic);
       if(!current?.topic || !current.namespaces?.eip155?.accounts?.includes('eip155:137:'+session.address)){
