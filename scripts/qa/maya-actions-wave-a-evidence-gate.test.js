@@ -153,6 +153,15 @@ try {
   const notPassed = structuredClone(base);
   notPassed.cases[0].status = 'PENDING';
   assert.equal(run(notPassed).status, 1, 'pending physical test must fail');
+  // Case order is not proof identity: all 16 distinct PASS records must remain
+  // admissible when a device exporter serializes them in reverse order.
+  // This is synthetic parser coverage, not physical QA approval.
+  const reordered = structuredClone(base);
+  reordered.cases.reverse();
+  assert.equal(run(reordered).status, 0, 'case order alone must not block a complete manifest');
+  const reorderedPending = structuredClone(reordered);
+  reorderedPending.cases[0].status = 'PENDING';
+  assert.equal(run(reorderedPending).status, 1, 'reordered manifest must still reject pending proof');
   const duplicate = structuredClone(base);
   duplicate.cases[1].id = 'A01';
   assert.equal(run(duplicate).status, 1, 'duplicate/missing case must fail');
