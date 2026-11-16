@@ -1599,6 +1599,14 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             <Text style={styles.moveTitle}>Adicionar</Text>
             <Text style={styles.moveText}>Comece com Pix e receba USDC na sua wallet.</Text>
           </TouchableOpacity>
+          {externalWalletFeaturesEnabled() ? (
+            <TouchableOpacity style={styles.moveCard}
+              onPress={() => router.push('/(app)/external-wallets' as any)} activeOpacity={0.82}>
+              <View style={styles.moveIcon}><NexaIcon name="receive" color="#31D7FF" size={24} /></View>
+              <Text style={styles.moveTitle}>Carteira cripto</Text>
+              <Text style={styles.moveText}>Acompanhe USDC de outra carteira e veja como trazer à Nexa.</Text>
+            </TouchableOpacity>
+          ) : null}
           {config.efiOpenFinanceEnabled ? (
             <TouchableOpacity style={styles.moveCard} onPress={openUsdcSubscription} activeOpacity={0.82}>
               <View style={styles.moveIcon}><NexaIcon name="receive" color="#31D7FF" size={24} /></View>
@@ -1792,6 +1800,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
         <Text style={styles.menuSectionLabel}>MOVIMENTAR</Text>
         <View style={styles.menuGrid}>
           <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
+          {externalWalletFeaturesEnabled() ? (
+            <MenuTile icon="◈" title="Carteira cripto" subtitle="Outra wallet → Nexa" onPress={() => router.push('/(app)/external-wallets' as any)} />
+          ) : null}
           <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
           <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
           <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
