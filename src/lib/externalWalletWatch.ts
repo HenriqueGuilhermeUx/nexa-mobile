@@ -139,6 +139,8 @@ export async function readExternalUsdcBalance(
 }
 
 export function externalWalletFeaturesEnabled() {
-  // Off by default; this is not an entitlement for financial transactions.
-  return process.env.EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED === 'true';
+  // Public-address monitoring is a read-only feature. The feature is
+  // enabled after the 2026-11 rollout but can be disabled via the explicit
+  // production kill switch without changing financial execution permissions.
+  return process.env.EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED !== 'false';
 }
