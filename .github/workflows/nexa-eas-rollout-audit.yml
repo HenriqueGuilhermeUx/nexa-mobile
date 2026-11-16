@@ -29,5 +29,9 @@ jobs:
         run: eas whoami --non-interactive
       - name: Inspect active ten-percent production rollout
         run: eas update:view 01a1e1e4-fad5-7525-aa66-d8563198f726 --json
+      - name: Install pinned dependencies needed by EAS config resolver
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Inspect recent production updates (read-only)
         run: eas update:list --branch production --platform android --runtime-version 2.0.43 --limit 6 --json --non-interactive
+      - name: Inspect current Maya 3A rollout adoption and stability (read-only)
+        run: eas update:insights d2cca8d3-7438-4908-b6f9-2999ba4b1647 --platform android --days 1 --json --non-interactive
