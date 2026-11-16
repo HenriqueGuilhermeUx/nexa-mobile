@@ -141,6 +141,15 @@ try {
     assert.equal(result.status, 1, 'non-string physical evidence field must fail: ' + field + '=' + JSON.stringify(value));
     assert.match(result.stderr, /NO-GO/, 'invalid physical metadata must not imply approval');
   }
+  // A single pending case anywhere in A01-A16 must block QA A, not only A01.
+  // These are synthetic fixtures, not evidence that a device test was performed.
+  for (let caseIndex = 0; caseIndex < 16; caseIndex++) {
+    const data = structuredClone(base);
+    data.cases[caseIndex].status = 'PENDING';
+    const result = run(data);
+    assert.equal(result.status, 1, 'pending case must block QA A: A' + String(caseIndex + 1).padStart(2, '0'));
+    assert.match(result.stderr, /NO-GO/, 'all incomplete physical cases require explicit NO-GO');
+  }
   const notPassed = structuredClone(base);
   notPassed.cases[0].status = 'PENDING';
   assert.equal(run(notPassed).status, 1, 'pending physical test must fail');
