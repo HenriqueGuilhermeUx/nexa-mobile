@@ -31,6 +31,9 @@ assert.match(screen,/link\.metamask\.io\/dapp/);
 assert.match(layout,/name="external-wallets"/);
 assert.match(shell,/externalWalletFeaturesEnabled\(\)/);
 assert.match(shell,/Adicionar carteira externa/);
+assert.match(shell,/title="Carteira cripto"/);
+assert.match(shell,/Outra wallet → Nexa/);
+assert.match(shell,/Acompanhe USDC de outra carteira/);
 assert.match(docs,/financialExecutionAllowed=false/);
 assert.match(docs,/conciliação/);
 
