@@ -20,7 +20,7 @@ import {
 import { colors, radius, spacing } from '@/theme';
 
 const METAMASK_NEXA_BROWSER =
-  'https://link.metamask.io/dapp/trynexa.com.br/wallet-v148.html';
+  'https://link.metamask.io/dapp/trynexa.com.br/wallet-v148.html?tab=externalWallet';
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.';
