@@ -55,7 +55,7 @@ const card=[
 '          </Card>',
 '        ) : null}'
 ].join('\n');
-patch(legacy,'        <View style={styles.quickActionsRow}>',card+'\n        <View style={styles.quickActionsRow}>');
+patch(legacy,'        ) : null}\n\n        <View style={styles.quickActionsRow}>','        ) : null}\n\n'+card+'\n        <View style={styles.quickActionsRow}>');
 const all=fs.readFileSync(legacy,'utf8');
 const watch=fs.readFileSync(lib,'utf8');
 const screen=fs.readFileSync(page,'utf8');
