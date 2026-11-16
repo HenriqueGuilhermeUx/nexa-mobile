@@ -14,6 +14,8 @@ on:
       - src/lib/externalWalletReownGate.ts
       - src/components/StagedExternalWalletConnect.tsx
       - src/components/DirectMetaMaskQa.tsx
+      - src/components/DirectMetaMaskSignClientQa.tsx
+      - app/(app)/external-wallet-connect.tsx
       - package.json
       - package-lock.json
       - scripts/walletconnect-v148-reown-qa-gate.test.cjs
