@@ -11,7 +11,7 @@ const docs = fs.readFileSync('docs/nexa-external-wallet-simple-and-usdc-to-pix-2
 assert.equal(appConfig.android.package,'br.com.trynexa.app');
 assert.equal(appConfig.android.versionCode,148);
 assert.equal(appConfig.ios.bundleIdentifier,'br.com.trynexa.app');
-assert.match(util,/EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED === 'true'/);
+assert.match(util,/EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED !== 'false'/);
 assert.match(util,/SHA256/);
 assert.match(util,/SecureStore\.setItemAsync/);
 assert.match(util,/MAX_WALLETS = 5/);
@@ -48,4 +48,4 @@ for (const token of forbidden) {
 }
 console.log('PASS: authentic Nexa user + per-user local address storage; public USDC Polygon read only');
 console.log('PASS: existing verified wallet receive route, MetaMask browser fallback, no send/sign/ledger or Pix');
-console.log('PASS: production identifiers preserved; feature disabled by default');
+console.log('PASS: production identifiers preserved; public-address watch enabled with explicit kill switch');
