@@ -19,3 +19,12 @@ Escopo: somente QA A, ondas 01/02. Este checkpoint nao constitui aprovacao de re
 
 ## Estado das ondas
 01/02: QA fisico A01-A16 pendente; 03/04: integradas historicamente, sem novo aceite; 09: backend de cotacoes reais nao homologado; 10: revisao sem submissao; 05-08/11-12: sem liberacao nova. Nenhum envio externo, reserva, compra ou pagamento autorizado por este documento.
+
+## Verificacao adicional de CI — 2026-11-16
+- Consulta direta da colecao GitHub Actions filtrada por `head_branch=qa/maya-actions-wave-a-evidence-20261111` identificou execucoes reais que nao apareciam na consulta limitada a PRs. Corrige a incerteza de CI acima, sem alterar o historico daquela consulta.
+- SHA `af39d7ee8f1b6de0b257fd2a55cb3008612b2e15`: workflow QA A offline **success**, run https://github.com/HenriqueGuilhermeUx/nexa-mobile/actions/runs/43951749774.
+- SHA `7099b1f6d011030ac50f66be4d0863c626cc8d2f`: **success**, run https://github.com/HenriqueGuilhermeUx/nexa-mobile/actions/runs/43951733060.
+- SHA `b1fdee763f1e44e83173cc18d6fd46955c0479fd`: **success**, run https://github.com/HenriqueGuilhermeUx/nexa-mobile/actions/runs/43942334296.
+- SHA `37bca614b50180264dc0c73810d92d161682006f`: **success**, run https://github.com/HenriqueGuilhermeUx/nexa-mobile/actions/runs/43921057958.
+- Integracao permanece no SHA `19725132972c8dc943d90a51b60a35e251934081`; comparacao atual: branch QA 180 ahead / 17 behind. Nao promover a branch integralmente.
+- **Limite da prova:** resultados sao exclusivamente do workflow sintetico/offline; A01-A16 fisicos, regressao em dispositivo, telemetria, EAS production e backend real da onda 09 continuam sem aprovacao comprovada. Nenhum merge ou OTA autorizado.
