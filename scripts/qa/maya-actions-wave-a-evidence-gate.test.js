@@ -193,6 +193,17 @@ try {
     data.cases[1].evidenceRef = second;
     assert.equal(run(data).status, 1, 'canonical duplicate HTTPS evidence must fail');
   }
+  // Percent escapes must represent valid UTF-8, not truncated or invalid byte sequences.
+  for (const invalidUtf8 of ['qa/proof%FF', 'qa/proof%C3%28', 'qa/proof%E2%82', 'https://evidence.github.com/qa/%ED%A0%80']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = invalidUtf8;
+    const result = run(data);
+    assert.equal(result.status, 1, 'invalid UTF-8 evidence escape must fail: ' + invalidUtf8);
+    assert.match(result.stderr, /NO-GO/);
+  }
+  const validUtf8 = structuredClone(base);
+  validUtf8.cases[0].evidenceRef = 'qa/prova-%C3%A9';
+  assert.equal(run(validUtf8).status, 0, 'valid UTF-8 percent escapes remain admissible');
   // Percent-encoded control bytes are unsafe even when literal control characters are rejected.
   for (const encoded of ['qa/proof%00A01', 'qa/proof%0aA01', 'qa/proof%1fA01', 'qa/proof%7fA01', 'https://evidence.github.com/qa/%0dA01']) {
     const data = structuredClone(base);
