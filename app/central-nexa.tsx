@@ -176,7 +176,8 @@ export default function CentralNexaScreen() {
       }
       const stored:Partial<Record<ChannelConsentKey, boolean>> = {};
       for (const consent of body.consents as ChannelConsent[]) {
-        const allowed = CHANNEL_OPTIONS.some(option => option.channel === consent.channel && option.purpose === consent.purpose) ||\n          (consent.channel === 'whatsapp' && (consent.purpose === 'service' || consent.purpose === 'marketing'));
+        const allowed = CHANNEL_OPTIONS.some(option => option.channel === consent.channel && option.purpose === consent.purpose) ||
+          (consent.channel === 'whatsapp' && (consent.purpose === 'service' || consent.purpose === 'marketing'));
         if (allowed && consent.optedIn === true) stored[`${consent.channel}:${consent.purpose}`] = true;
       }
       setChannelConsents(stored);
