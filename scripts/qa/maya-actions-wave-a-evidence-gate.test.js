@@ -159,6 +159,14 @@ try {
   const reused = structuredClone(base);
   reused.cases[1].evidenceRef = reused.cases[0].evidenceRef;
   assert.equal(run(reused).status, 1, 'reused evidence reference must fail');
+  // Reject local proof paths with blank components that appear non-empty before trimming.
+  for (const blankSegment of ['qa/ /A01', 'qa/  /A01', 'qa/\t/A01']) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = blankSegment;
+    const result = run(data);
+    assert.equal(result.status, 1, 'whitespace-only local path segment must fail');
+    assert.match(result.stderr, /NO-GO/);
+  }
   // Do not silently normalize padded audit references; the recorded proof ID must match exactly.
   for (const padded of [' qa/proof-A01', 'qa/proof-A01 ', '\\tqa/proof-A01']) {
     const data = structuredClone(base);
