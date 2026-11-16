@@ -1,0 +1,93 @@
+name: Nexa v148 — external wallet funding production OTA, preserving cumulative release
+on:
+  push:
+    branches: [release/nexa-2.0.43-v148-brasil]
+    paths: ['.github/workflows/nexa-external-wallet-v148-production-ota.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexa-activation-ota-production
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_URL: https://trydocwallet.com
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_URL: https://mydatamed.com/healthwallet
+      EXPO_PUBLIC_NEXA_DOCWALLET_PLAY_STORE_URL: https://play.google.com/store/apps/details?id=br.com.alternativeventures.docwalletdocs
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_PLAY_STORE_URL: https://play.google.com/store/apps/details?id=br.com.healthwallet.app
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Copy pinned production scripts and watch-only sources before detaching to release base
+        run: |
+          cp scripts/nexa-theo-v148-compose.sh "$RUNNER_TEMP/nexa-theo-v148-compose.sh"
+          cp scripts/nexa-theo-v148-ota-overlay.js "$RUNNER_TEMP/nexa-theo-v148-ota-overlay.js"
+          cp scripts/nexa-external-wallet-v148-ota-overlay.cjs "$RUNNER_TEMP/wallet-overlay.cjs"
+          cp src/lib/externalWalletWatch.ts "$RUNNER_TEMP/externalWalletWatch.ts"
+          cp 'app/(app)/external-wallets.tsx' "$RUNNER_TEMP/external-wallets.tsx"
+      - name: Reconstruct last approved activation Maya PJ Theo production bundle
+        run: bash "$RUNNER_TEMP/nexa-theo-v148-compose.sh"
+      - name: Add verified public-address watch-only entrance
+        run: |
+          cp "$RUNNER_TEMP/externalWalletWatch.ts" src/lib/externalWalletWatch.ts
+          cp "$RUNNER_TEMP/external-wallets.tsx" 'app/(app)/external-wallets.tsx'
+          node "$RUNNER_TEMP/wallet-overlay.cjs"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Confirm app and OTA release boundary
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const eas=JSON.parse(fs.readFileSync('eas.json','utf8'));
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||pkg.version!=='2.0.43')throw Error('Wrong v148 runtime');
+          if(app.android.package!=='br.com.trynexa.app'||app.runtimeVersion?.policy!=='appVersion'||eas.build.production.channel!=='production')throw Error('Wrong OTA target');
+          if(process.env.EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED!=='true')throw Error('Watch disabled');
+          NODE
+      - name: Install unchanged pinned v148 dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate full cumulative release and old financial guards
+        run: |
+          npm run typecheck
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+      - name: Export Android bundle before any publication
+        run: npm run export:android
+      - name: Confirm Expo credentials
+        run: test -n "$EXPO_TOKEN"
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Confirm EAS production channel
+        run: |
+          eas whoami --non-interactive
+          eas channel:view production --non-interactive
+      - name: Publish cumulative v148 Android OTA, no APK or native changes
+        run: |
+          eas update --channel production --platform android --message "Nexa 2.0.43: Carteira cripto ao lado de Pix e Open Finance; Maya PJ Theo preservados" --non-interactive
