@@ -31,6 +31,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Check offline gate and test file syntax
+        run: |
+          node --check scripts/qa/maya-actions-wave-a-evidence-gate.js
+          node --check scripts/qa/maya-actions-wave-a-evidence-gate.test.js
+          node --check scripts/qa/maya-actions-wave-a-cli-failclosed.test.js
+          node --check scripts/qa/maya-actions-wave-a-cardinality.test.js
       - name: Run synthetic evidence regression checks
         id: synthetic
         run: node --test scripts/qa/maya-actions-wave-a-evidence-gate.test.js scripts/qa/maya-actions-wave-a-cli-failclosed.test.js scripts/qa/maya-actions-wave-a-cardinality.test.js
