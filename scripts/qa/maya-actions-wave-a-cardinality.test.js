@@ -58,6 +58,8 @@ try {
     ['duplicate HTTPS proof with trailing DNS dot', data => { data.cases[0].evidenceRef = 'https://qa-proofs.example.test./A01'; data.cases[1].evidenceRef = 'https://qa-proofs.example.test/A01'; }],
     ['duplicate Unicode NFC proof', data => { data.cases[0].evidenceRef = 'proof-caf\u00e9'; data.cases[1].evidenceRef = 'proof-cafe\u0301'; }],
     ['duplicate local proof after safe percent decoding', data => { data.cases[0].evidenceRef = 'proof-A01'; data.cases[1].evidenceRef = 'proof-%41%30%31'; }],
+    ['reserved example HTTPS host cannot substantiate physical proof', data => { data.cases[0].evidenceRef = 'https://proofs.example.test/A01'; }],
+    ['private IPv4 HTTPS host cannot substantiate physical proof', data => { data.cases[0].evidenceRef = 'https://192.168.1.20/A01'; }],
     ['wrong frozen candidate SHA', data => { data.candidateSha = '0'.repeat(40); }],
     ['wrong runtime', data => { data.runtime = '2.0.44'; }],
     ['standalone package is not EAS QA proof', data => { data.packageId = 'br.com.trynexa.mayaqa'; }],
@@ -80,7 +82,7 @@ try {
   assert.equal(check(boundary).status, 0, 'valid maximum positive UTC offset must parse');
   boundary.cases[0].testedAt = '2026-11-06T12:00:00-14:00';
   assert.equal(check(boundary).status, 0, 'valid maximum negative UTC offset must parse');
-  console.log('QA A cardinality regression: 33 synthetic rejection, 1 future-date rejection and 2 timezone boundary acceptance cases passed (not device QA).');
+  console.log('QA A cardinality regression: 35 synthetic rejection, 1 future-date rejection and 2 timezone boundary acceptance cases passed (not device QA).');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
