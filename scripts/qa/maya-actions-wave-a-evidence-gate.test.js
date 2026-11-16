@@ -530,6 +530,18 @@ try {
   encodedUrlDistinct.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
   encodedUrlDistinct.cases[1].evidenceRef = 'https://example.test/private/evidence/%41%30%32';
   assert.equal(run(encodedUrlDistinct).status, 0, 'distinct HTTPS proof paths remain admissible');
+  // Reserved DNS names must never be presented as independently auditable physical proof.
+  // Include trailing-root-dot and subdomain variants to prevent hostname normalization bypasses.
+  for (const reservedDnsHost of [
+    'example.com', 'example.net', 'example.org', 'proof.example.com',
+    'example.com.', 'proof.example.org.', 'invalid', 'qa.invalid', 'qa.invalid.'
+  ]) {
+    const data = structuredClone(base);
+    data.cases[0].evidenceRef = 'https://' + reservedDnsHost + '/evidence/A01';
+    const result = run(data);
+    assert.equal(result.status, 1, 'reserved DNS evidence host must fail: ' + reservedDnsHost);
+    assert.match(result.stderr, /NO-GO/, 'reserved DNS host must never imply physical QA approval');
+  }
   const safeUrl = structuredClone(base);
   safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
   assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
