@@ -1,0 +1,82 @@
+name: Maya Phase3A + Central — exact-source Android 10 percent canary
+on:
+  push:
+    branches:
+      - release/maya-ux2-phase3a-central-cumulative-v148-20261115
+    paths:
+      - '.github/workflows/maya-phase3a-central-cumulative-canary.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: nexa-production-android-central-cumulative-v148-canary
+  cancel-in-progress: false
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Reject any native, wallet, Maya or financial code changes
+        run: node scripts/validate-maya-phase3a-central-cumulative-v148.js
+      - name: Load published production build environment unchanged
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [k,v] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(k)||typeof v!=='string')throw Error('Invalid production env');
+            fs.appendFileSync(process.env.GITHUB_ENV,k+'='+v+'\n');
+          }
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Re-test Maya / Central / Android compatibility
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          for test in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js; do node "$test"; done
+          npm run typecheck
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Demand exact SHA in QA and current Maya Phase3A production
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:10){id group gitCommitHash platform}} qa:updateBranchByName(name:"maya-phase3a-central-cumulative-v148-qa"){updates(offset:0,limit:10){id group gitCommitHash platform}}}}}';
+            const res=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const payload=await res.json();
+            if(!res.ok||payload.errors?.length)throw Error('Expo inventory query failed; do not publish');
+            const app=payload.data?.app?.byId;
+            const mapping=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(mapping.length!==1||mapping[0]!=='production')throw Error('Production mapping unexpected; STOP');
+            const live=app?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            if(live?.id!=='01a1e175-abf0-7b34-a70f-5e2731c61809'||
+              live?.group!=='195d4f7d-0fee-47ef-96f4-7b161154bae3'||
+              live?.gitCommitHash!=='47d09e55b3f8e4045e530402cb92c32327595031')
+              throw Error('A newer production OTA exists; do not overwrite it');
+            if(qa?.gitCommitHash!==process.env.GITHUB_SHA)
+              throw Error('Matching current commit not yet released in QA; STOP');
+            console.log('EXACT_CUMULATIVE_3A_CANARY_APPROVED='+JSON.stringify({live,qa,head:process.env.GITHUB_SHA}));
+          })().catch(e=>{console.error('SAFETY_GATE: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish Android-only 10 percent (blocked by Expo if another rollout is active)
+        run: eas update --branch production --platform android --rollout-percentage 10 --message "Maya UX2 Phase3A + Central Nexa cumulative Android v148 $(git rev-parse --short HEAD)" --non-interactive
+      - name: No full promotion, no iOS, no native build
+        run: echo 'Canary only; promotion requires separate verification.'
