@@ -128,6 +128,19 @@ try {
     assert.equal(result.status, 1, 'missing physical proof field must fail: ' + field);
     assert.match(result.stderr, /NO-GO/, 'missing physical proof must not imply approval');
   }
+  // Physical evidence metadata must be typed, not coerced from JSON scalars or arrays.
+  // All sixteen cases remain synthetically PASS; malformed proof metadata must still block.
+  for (const [field, value] of [
+    ['testedAt', 1762430400000], ['testedAt', true], ['testedAt', []],
+    ['device', null], ['device', 148], ['device', {}],
+    ['evidenceRef', 123], ['evidenceRef', false], ['evidenceRef', []]
+  ]) {
+    const data = structuredClone(base);
+    data.cases[0][field] = value;
+    const result = run(data);
+    assert.equal(result.status, 1, 'non-string physical evidence field must fail: ' + field + '=' + JSON.stringify(value));
+    assert.match(result.stderr, /NO-GO/, 'invalid physical metadata must not imply approval');
+  }
   const notPassed = structuredClone(base);
   notPassed.cases[0].status = 'PENDING';
   assert.equal(run(notPassed).status, 1, 'pending physical test must fail');
