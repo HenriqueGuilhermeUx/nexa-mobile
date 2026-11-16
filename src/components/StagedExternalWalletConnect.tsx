@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, AppState, Linking, Modal, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { AppKit, AppKitProvider, useAccount, useAppKit, useProvider } from '@reown/appkit-react-native';
 import { CoreHelperUtil, RouterController, WcController } from '@reown/appkit-core-react-native';
 
@@ -9,6 +9,7 @@ import { validateReownExternalConnection, type ReownExternalConnection } from '.
 import { initializeExternalWalletAppKit } from '../lib/reownExternalWalletAppKit';
 import { readConnectedExternalUsdc } from '../lib/externalWalletUsdcBalance';
 import { ExternalUsdcReceiveReviewPanel } from './ExternalUsdcReceiveReviewPanel';
+import { DirectMetaMaskQa } from './DirectMetaMaskQa';
 
 /**
  * Isolated Reown staging UI. ONLY mount from a gated, authenticated testing
@@ -235,15 +236,17 @@ function ExternalWalletConnectionScreen({ accessToken, instance, market, mode }:
   }
 
   return (
-    <View style={{ flex: 1, padding: 20, gap: 12 }}>
+    <ScrollView style={{flex:1}} contentContainerStyle={{padding:20,gap:14,paddingBottom:55}}>
       <Text style={{ fontSize: 22, fontWeight: '700' }}>Carteira externa — Nexa {market === 'GLOBAL' ? 'Global' : 'Brasil'} (homologação)</Text>
       <Text>{mode === 'view-only' ? 'Conecte MetaMask ou outra carteira WalletConnect para consultar seu endereço e saldo externo. Nenhuma assinatura, transferência, Pix ou vínculo permanente é solicitado neste piloto.' : 'Conecte MetaMask ou outra carteira WalletConnect. Apenas a assinatura de titularidade será solicitada; nenhuma transferência é executada.'}</Text>
       <Text>{isConnected ? `Endereço: ${address ?? 'indisponível'}` : 'Carteira não conectada'}</Text>
       {isConnected ? <Text>Rede: {String(chainId)} ({String(namespace)})</Text> : null}
+      <DirectMetaMaskQa />
+      <Text style={{color:'#cbd9e9',fontWeight:'700'}}>Outras carteiras — seleção pelo Reown (experimental)</Text>
       <Pressable accessibilityRole="button" disabled={busy}
         onPress={startWalletConnect}
         style={{ backgroundColor: '#263b63', padding: 14, borderRadius: 8 }}>
-        <Text style={{ color: 'white' }}>Conectar carteira</Text>
+        <Text style={{ color: 'white' }}>Selecionar outra carteira</Text>
       </Pressable>
       {isConnected ? (
         <Pressable accessibilityRole="button" disabled={busy}
@@ -317,6 +320,6 @@ function ExternalWalletConnectionScreen({ accessToken, instance, market, mode }:
         </Modal>
       ) : null}
 
-    </View>
+    </ScrollView>
   );
 }
