@@ -78,7 +78,7 @@ function ExternalWalletConnectionScreen({ accessToken, instance, market, mode }:
       }
 
       let uri = WcController.state.wcUri;
-      const isUsable = (value: string | undefined) =>
+      const isUsable = (value: string | undefined): value is string =>
         typeof value === 'string' &&
         (/^wc:[^\s]{8,2048}@2\?/.test(value) ||
           (value.startsWith('https://') && value.includes('wc_ev')));
