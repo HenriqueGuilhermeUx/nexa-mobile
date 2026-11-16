@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Redirect, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { nexaApi } from '@/lib/api';
 import { config } from '@/config';
 import { loadNexaSession } from '@/lib/session';
+import { DirectMetaMaskSignClientQa } from '@/components/DirectMetaMaskSignClientQa';
 
 /**
  * Staging-only Expo Router page, deliberately NOT linked from the home menu.
@@ -12,8 +13,9 @@ import { loadNexaSession } from '@/lib/session';
  * EXPO_PUBLIC flags are UX controls, never financial authorization.
  */
 export default function ExternalWalletConnectStagingRoute() {
-  const params = useLocalSearchParams<{market?: string}>();
+  const params = useLocalSearchParams<{market?: string; connector?: string}>();
   const market: 'BR' | 'GLOBAL' = params.market === 'GLOBAL' ? 'GLOBAL' : 'BR';
+  const showReown = params.connector === 'reown';
   const [token, setToken] = useState<string | null | undefined>(undefined);
   const [authError, setAuthError] = useState('');
   const qaChannel = config.releaseChannel === 'wallet-inbound-lab' &&
@@ -51,7 +53,7 @@ export default function ExternalWalletConnectStagingRoute() {
 
   const result = useMemo(() => {
     // Do not initialize third-party wallet SDK before Nexa auth is verified.
-    if (!token || !qaChannel) return { instance: null, Component: null, error: 'QA_AUTH_REQUIRED' };
+    if (!token || !qaChannel || !showReown) return { instance: null, Component: null, error: 'QA_AUTH_REQUIRED' };
     try {
       // The EVM SDK is never evaluated before Nexa authenticates the session
       // and the non-financial QA channel is explicitly active.
@@ -75,11 +77,33 @@ export default function ExternalWalletConnectStagingRoute() {
     } catch (e) {
       return { instance: null, Component: null, error: e instanceof Error ? e.message : 'WALLET_CONNECTION_DISABLED' };
     }
-  }, [token, qaChannel]);
+  }, [token, qaChannel, showReown]);
 
   if (authError) return <View style={{padding: 24}}><Text>{authError}</Text></View>;
   if (token === undefined) return <View style={{padding: 24}}><ActivityIndicator accessibilityLabel="Verificando sessão Nexa" /></View>;
   if (!token) return <Redirect href="/sign-in" />;
+  // Main QA flow runs SignClient by itself: no AppKit, EthersAdapter,
+  // UniversalProvider or Reown modal may initialize in parallel.
+  if (!showReown) {
+    return (
+      <ScrollView style={{flex:1,backgroundColor:'#061626'}}
+        contentContainerStyle={{padding:18,paddingBottom:60,gap:16}}>
+        <Text style={{fontSize:23,fontWeight:'800',color:'#ffffff'}}>
+          Conectar carteira externa — Nexa QA
+        </Text>
+        <Text style={{color:'#d3e3f4'}}>
+          Conecte sua MetaMask usando somente o SignClient. Sem operações financeiras neste teste.
+        </Text>
+        <DirectMetaMaskSignClientQa />
+        <Pressable accessibilityRole="button" onPress={()=>router.replace({
+          pathname:'/(app)/external-wallet-connect',
+          params:{market,connector:'reown'},
+        } as any)} style={{padding:15,backgroundColor:'#1a3655',borderRadius:10}}>
+          <Text style={{color:'white',textAlign:'center'}}>Testar outras carteiras (Reown experimental)</Text>
+        </Pressable>
+      </ScrollView>
+    );
+  }
   if (!result.instance || !result.Component) {
     return (
       <View style={{padding: 24, gap: 12}}>
