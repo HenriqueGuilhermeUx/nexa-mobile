@@ -210,6 +210,17 @@ try {
   distinctEncodedLocal.cases[0].evidenceRef = 'qa/proof%20A01';
   distinctEncodedLocal.cases[1].evidenceRef = 'qa/proof%20A02';
   assert.equal(run(distinctEncodedLocal).status, 0, 'distinct encoded local proofs remain admissible');
+  // Every pair of physical cases must have independent proof, not only A01/A02.
+  // Synthetic fixtures check the fail-closed gate without claiming device execution.
+  for (let i = 0; i < 16; i++) {
+    for (let j = i + 1; j < 16; j++) {
+      const data = structuredClone(base);
+      data.cases[j].evidenceRef = data.cases[i].evidenceRef;
+      const result = run(data);
+      assert.equal(result.status, 1, 'reused proof must block cases ' + data.cases[i].id + '/' + data.cases[j].id);
+      assert.match(result.stderr, /NO-GO/, 'duplicate proof must explicitly block release');
+    }
+  }
   const reusedWhitespace = structuredClone(base);
   reusedWhitespace.cases[1].evidenceRef = ' ' + reusedWhitespace.cases[0].evidenceRef + ' ';
   assert.equal(run(reusedWhitespace).status, 1, 'whitespace cannot bypass evidence uniqueness');
