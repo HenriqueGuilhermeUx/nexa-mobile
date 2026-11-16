@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { ActivityIndicator, AppState, Linking, Modal, Platform, Pressable, Text, View } from 'react-native';
 import { AppKit, AppKitProvider, useAccount, useAppKit, useProvider } from '@reown/appkit-react-native';
+import { CoreHelperUtil, RouterController, WcController } from '@reown/appkit-core-react-native';
 
 import { ExternalWalletProofPanel } from './ExternalWalletProofPanel';
 import { validateReownExternalConnection, type ReownExternalConnection } from '../lib/reownConnectedWalletBridge';
@@ -17,7 +18,7 @@ type ReownInstance = ReturnType<typeof initializeExternalWalletAppKit>;
 export function StagedExternalWalletConnect(props: { accessToken: string; instance: ReownInstance; market?: 'BR' | 'GLOBAL'; mode?: 'proof' | 'view-only' }) {
   return (
     <AppKitProvider instance={props.instance}>
-      <ExternalWalletConnectionScreen accessToken={props.accessToken} market={props.market ?? 'BR'} mode={props.mode ?? 'view-only'} />
+      <ExternalWalletConnectionScreen accessToken={props.accessToken} instance={props.instance} market={props.market ?? 'BR'} mode={props.mode ?? 'view-only'} />
       <View style={{ position: 'absolute', width: '100%', height: '100%' }} pointerEvents="box-none">
         <AppKit />
       </View>
@@ -25,7 +26,7 @@ export function StagedExternalWalletConnect(props: { accessToken: string; instan
   );
 }
 
-function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessToken: string; market: 'BR' | 'GLOBAL'; mode: 'proof' | 'view-only' }) {
+function ExternalWalletConnectionScreen({ accessToken, instance, market, mode }: { accessToken: string; instance: ReownInstance; market: 'BR' | 'GLOBAL'; mode: 'proof' | 'view-only' }) {
   const { open, disconnect } = useAppKit();
   const { address, chainId, namespace, isConnected } = useAccount();
   const { provider, providerType } = useProvider();
@@ -36,6 +37,7 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
   const requestEpoch = useRef(0);
   const [showManualOpen, setShowManualOpen] = useState(false);
   const [manualError, setManualError] = useState('');
+  const [manualBusy, setManualBusy] = useState(false);
   const launchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (launchTimeout.current) clearTimeout(launchTimeout.current); }, []);
   useEffect(() => {
@@ -52,6 +54,7 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
     setBalance(null);
     setError('');
     setManualError('');
+    setManualBusy(false);
     setShowManualOpen(false);
     if (launchTimeout.current) clearTimeout(launchTimeout.current);
     // Automatic deep linking is performed by AppKit. Only show a fallback if
@@ -63,24 +66,78 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
   }
 
   async function openPendingMetaMaskPairing() {
+    if (manualBusy) return;
     setManualError('');
+    setManualBusy(true);
     try {
-      // Only a Reown-generated, currently pending pairing URI is accepted.
-      const {WcController} = require('@reown/appkit-core-react-native') as {
-        WcController: {state:{wcUri?:string}}
-      };
-      const uri = WcController.state.wcUri;
-      if (!uri || !/^wc:\S{8,2048}$/.test(uri) || !uri.includes('@2?')) {
-        throw new Error('Nenhuma conexão WalletConnect válida está pendente. Feche esta janela e tente de novo.');
+      // Only recover the wallet explicitly selected in the Reown modal.
+      // Never open an unrelated installed wallet using a secret pairing URI.
+      const wallet = RouterController.state.data?.wallet;
+      if (!wallet || !/metamask/i.test(wallet.name || '')) {
+        throw new Error('Selecione MetaMask no Reown antes de tentar novamente.');
       }
-      // Do not log, save, copy or display the secret-bearing pairing URI.
-      await Linking.openURL('metamask://wc?uri=' + encodeURIComponent(uri));
+
+      let uri = WcController.state.wcUri;
+      const isUsable = (value: string | undefined) =>
+        typeof value === 'string' &&
+        (/^wc:[^\s]{8,2048}@2\?/.test(value) ||
+          (value.startsWith('https://') && value.includes('wc_ev')));
+      const expired = CoreHelperUtil.isPairingExpired(WcController.state.wcPairingExpiry);
+
+      if (!isUsable(uri) || expired) {
+        // The previous "no valid pairing" message came from this situation.
+        // Subscribe BEFORE asking the Reown connector to create a fresh URI.
+        WcController.clearUri();
+        let stopListening: (() => void) | undefined;
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const freshUri = new Promise<string>((resolve, reject) => {
+          stopListening = WcController.subscribeKey('wcUri', value => {
+            if (typeof value === 'string' && value) {
+              if (timeoutId) clearTimeout(timeoutId);
+              stopListening?.();
+              resolve(value);
+            }
+          });
+          timeoutId = setTimeout(() => {
+            stopListening?.();
+            reject(new Error('O Reown não gerou um novo pedido de conexão em 15 segundos. Verifique a rede ou o projeto WalletConnect.'));
+          }, 15000);
+        });
+        // Reown's connect() waits for wallet approval; don't await that promise
+        // before retrieving display_uri or the UI will deadlock.
+        const connection = instance.connect({ wallet });
+        WcController.setWcPromise(connection);
+        void connection.catch(() => {
+          // The SDK owns the session error UI. Never log or expose the URI.
+        });
+        uri = await freshUri;
+        // The SDK also attempts an automatic wallet launch upon display_uri.
+        // Only use our fallback if the Android app stays in the foreground.
+        await new Promise(resolve => setTimeout(resolve, 1800));
+        if (AppState.currentState !== 'active') {
+          setShowManualOpen(false);
+          return;
+        }
+      }
+
+      if (!isUsable(uri) || CoreHelperUtil.isPairingExpired(WcController.state.wcPairingExpiry)) {
+        throw new Error('O pedido de conexão está inválido ou expirou. Tente novamente pela lista de carteiras.');
+      }
+
+      // Use Reown's own formatter, which also supports WalletConnect Link Mode
+      // (HTTPS wc_ev links). A hardcoded wc: URI validator rejected that mode.
+      const { redirect } = CoreHelperUtil.formatNativeUrl(wallet.mobile_link || 'metamask://', uri);
+      if (!redirect.startsWith('metamask://') && !redirect.startsWith('https://')) {
+        throw new Error('Endereço de abertura da MetaMask não reconhecido.');
+      }
+      await Linking.openURL(redirect);
       setShowManualOpen(false);
     } catch (e) {
       setManualError(e instanceof Error ? e.message : 'Falha ao abrir a MetaMask.');
+    } finally {
+      setManualBusy(false);
     }
   }
-
 
   // Disconnects, account switches and network switches invalidate prior
   // read-only confirmations, even if the provider object is reused.
@@ -243,11 +300,11 @@ function ExternalWalletConnectionScreen({ accessToken, market, mode }: { accessT
                 O Android continuou na Nexa. Vamos tentar abrir a MetaMask
                 com o pedido de conexão atual do Reown, sem realizar transferências.
               </Text>
-              <Pressable accessibilityRole="button"
+              <Pressable accessibilityRole="button" disabled={manualBusy}
                 onPress={() => {void openPendingMetaMaskPairing();}}
-                style={{padding:14,borderRadius:9,backgroundColor:'#295e48'}}>
+                style={{padding:14,borderRadius:9,backgroundColor:'#295e48',opacity:manualBusy?0.6:1}}>
                 <Text style={{color:'white',textAlign:'center',fontWeight:'700'}}>
-                  Abrir MetaMask com pedido de conexão
+                  {manualBusy ? 'Preparando conexão Reown…' : 'Abrir MetaMask com pedido de conexão'}
                 </Text>
               </Pressable>
               {manualError ? <Text accessibilityRole="alert" style={{color:'#ffb5b5'}}>{manualError}</Text> : null}
