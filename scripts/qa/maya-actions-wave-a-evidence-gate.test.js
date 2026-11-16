@@ -61,6 +61,18 @@ try {
     data[field] = value;
     assert.equal(run(data).status, 1, 'must reject mismatched ' + field);
   }
+  // Exact OTA identity must be present, not merely truthy or approximately matching.
+  // These synthetic cases must remain NO-GO even if all A01-A16 are marked PASS.
+  for (const field of ['candidateSha', 'runtime', 'packageId', 'easBranch', 'androidUpdateId']) {
+    for (const invalid of [undefined, null, '', ' ']) {
+      const data = structuredClone(base);
+      if (invalid === undefined) delete data[field];
+      else data[field] = invalid;
+      const result = run(data);
+      assert.equal(result.status, 1, 'missing/blank OTA identity must fail: ' + field + '=' + String(invalid));
+      assert.match(result.stderr, /NO-GO/, 'OTA identity failure must explicitly block release');
+    }
+  }
   // A successful synthetic parse must never mask missing physical case records.
   for (const invalidCases of [undefined, null, {}, [], 'A01-A16']) {
     const data = structuredClone(base);
