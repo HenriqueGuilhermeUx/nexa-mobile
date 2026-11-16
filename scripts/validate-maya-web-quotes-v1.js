@@ -21,6 +21,9 @@ const q = {
   availability: 'available'
 };
 assert.strictEqual(comparableTotal(q), 2050);
+assert.strictEqual(comparableTotal({ ...q, itemPrice: 0.1, shippingPrice: 0.2, taxes: 0.3 }), 0.6);
+assert.strictEqual(comparableTotal({ ...q, itemPrice: Number.MAX_VALUE }), null);
+assert.strictEqual(comparableTotal({ ...q, itemPrice: Number.MAX_SAFE_INTEGER }), null);
 assert.strictEqual(comparableTotal({ ...q, shippingPrice: undefined }), null);
 assert.strictEqual(comparableTotal({ ...q, availability: 'unconfirmed' }), null);
 assert.strictEqual(comparableTotal({ ...q, currency: 'USD' }), null);
