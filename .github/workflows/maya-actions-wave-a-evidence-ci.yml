@@ -32,8 +32,10 @@ jobs:
         with:
           node-version: '20'
       - name: Run synthetic evidence regression checks
+        id: synthetic
         run: node --test scripts/qa/maya-actions-wave-a-evidence-gate.test.js scripts/qa/maya-actions-wave-a-cli-failclosed.test.js scripts/qa/maya-actions-wave-a-cardinality.test.js
       - name: Verify fail-closed without physical evidence
+        id: fail_closed
         shell: bash
         run: |
           set +e
@@ -42,3 +44,21 @@ jobs:
           set -e
           test "$status" -eq 2
           grep -q 'BLOCKED:' gate.log
+
+      - name: Record offline QA evidence gate provenance
+        if: always()
+        shell: bash
+        env:
+          TEST_OUTCOME: ${{ steps.synthetic.outcome }}
+          FAIL_CLOSED_OUTCOME: ${{ steps.fail_closed.outcome }}
+        run: |
+          {
+            echo '### Maya Actions QA A — offline CI provenance'
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Ref: \`$GITHUB_REF\`"
+            echo "- Node: \`$(node --version)\`"
+            echo "- Synthetic regression: \`$TEST_OUTCOME\`"
+            echo "- Missing-evidence fail-closed: \`$FAIL_CLOSED_OUTCOME\`"
+            echo '- Physical A01–A16 verification: **not performed by this workflow**'
+            echo '- OTA production authorization: **not granted**'
+          } >> "$GITHUB_STEP_SUMMARY"
