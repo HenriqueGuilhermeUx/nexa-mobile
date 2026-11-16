@@ -167,9 +167,9 @@ try {
   }
   // HTTPS spelling differences must not reuse the same physical evidence.
   for (const [first, second] of [
-    ['https://EXAMPLE.test:443/qa/A01', 'https://example.test/qa/A01'],
-    ['https://example.test/qa/../proof/A01', 'https://example.test/proof/A01'],
-    ['https://example.test/qa/%41', 'https://example.test/qa/%41']
+    ['https://EXAMPLE.test:443/qa/A01', 'https://evidence.github.com/qa/A01'],
+    ['https://evidence.github.com/qa/../proof/A01', 'https://evidence.github.com/proof/A01'],
+    ['https://evidence.github.com/qa/%41', 'https://evidence.github.com/qa/%41']
   ]) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = first;
@@ -177,14 +177,14 @@ try {
     assert.equal(run(data).status, 1, 'canonical duplicate HTTPS evidence must fail');
   }
   // Percent-encoded control bytes are unsafe even when literal control characters are rejected.
-  for (const encoded of ['qa/proof%00A01', 'qa/proof%0aA01', 'qa/proof%1fA01', 'qa/proof%7fA01', 'https://example.test/qa/%0dA01']) {
+  for (const encoded of ['qa/proof%00A01', 'qa/proof%0aA01', 'qa/proof%1fA01', 'qa/proof%7fA01', 'https://evidence.github.com/qa/%0dA01']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = encoded;
     assert.equal(run(data).status, 1, 'encoded control byte must fail: ' + encoded);
   }
   const separateUrls = structuredClone(base);
-  separateUrls.cases[0].evidenceRef = 'https://example.test/qa/A01';
-  separateUrls.cases[1].evidenceRef = 'https://example.test/qa/A02';
+  separateUrls.cases[0].evidenceRef = 'https://evidence.github.com/qa/A01';
+  separateUrls.cases[1].evidenceRef = 'https://evidence.github.com/qa/A02';
   assert.equal(run(separateUrls).status, 0, 'different HTTPS evidence paths remain distinct');
   // Percent-encoded local IDs may be decoded by evidence viewers: one proof
   // must never count twice under encoded and decoded spellings.
@@ -251,17 +251,17 @@ try {
   const oversizedRef = structuredClone(base);
   oversizedRef.cases[0].evidenceRef = 'E'.repeat(513);
   assert.equal(run(oversizedRef).status, 1, 'oversized evidence reference must fail');
-  for (const unsafeUrl of ['https://user:secret@example.test/evidence', 'https://user@example.test/evidence', 'https://%ZZ@example.test/evidence']) {
+  for (const unsafeUrl of ['https://user:secret@evidence.github.com/evidence', 'https://user@evidence.github.com/evidence', 'https://%ZZ@evidence.github.com/evidence']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = unsafeUrl;
     assert.equal(run(data).status, 1, 'credential-bearing or malformed evidence URL must fail');
   }
   // URLs with query/fragment may leak signed access tokens or unstable viewer state into audit trails.
   for (const urlWithSecretOrFragment of [
-    'https://example.test/private/evidence/A01?token=synthetic',
-    'https://example.test/private/evidence/A01#view',
-    'https://example.test/private/evidence/A01?',
-    'https://example.test/private/evidence/A01#'
+    'https://evidence.github.com/private/evidence/A01?token=synthetic',
+    'https://evidence.github.com/private/evidence/A01#view',
+    'https://evidence.github.com/private/evidence/A01?',
+    'https://evidence.github.com/private/evidence/A01#'
   ]) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = urlWithSecretOrFragment;
@@ -399,33 +399,33 @@ try {
   upperUnicast.cases[0].evidenceRef = 'https://223.255.255.255/evidence/A01';
   assert.equal(run(upperUnicast).status, 0, 'unicast boundary remains syntactically admissible');
   const insecureUrl = structuredClone(base);
-  insecureUrl.cases[0].evidenceRef = 'http://example.test/private/evidence/A01';
+  insecureUrl.cases[0].evidenceRef = 'http://evidence.github.com/private/evidence/A01';
   assert.equal(run(insecureUrl).status, 1, 'remote evidence references must use HTTPS');
   // Remote evidence cannot bypass transport checks with a non-HTTP URI scheme.
-  for (const unsafeScheme of ['ftp://example.test/evidence/A01', 'file:///tmp/evidence/A01', 'ws://example.test/evidence/A01']) {
+  for (const unsafeScheme of ['ftp://evidence.github.com/evidence/A01', 'file:///tmp/evidence/A01', 'ws://evidence.github.com/evidence/A01']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = unsafeScheme;
     assert.equal(run(data).status, 1, 'remote evidence must reject unsupported URI scheme: ' + unsafeScheme);
   }
-  for (const protocolRelative of ['//example.test/evidence/A01', '  //example.test/evidence/A01']) {
+  for (const protocolRelative of ['//evidence.github.com/evidence/A01', '  //evidence.github.com/evidence/A01']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = protocolRelative;
     assert.equal(run(data).status, 1, 'protocol-relative evidence must fail closed');
   }
   // Opaque schemes have no // delimiter; they must not masquerade as local audit IDs.
-  for (const opaqueScheme of ['javascript:alert(1)', 'data:text/plain,proof', 'mailto:qa@example.test', 'urn:qa:evidence:A01']) {
+  for (const opaqueScheme of ['javascript:alert(1)', 'data:text/plain,proof', 'mailto:qa@evidence.github.com', 'urn:qa:evidence:A01']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = opaqueScheme;
     assert.equal(run(data).status, 1, 'opaque URI scheme must fail closed: ' + opaqueScheme);
   }
   // WHATWG URL parsing may normalize backslashes into slashes; audit refs must remain unambiguous.
-  for (const ambiguousRef of ['https:\\example.test/evidence/A01', 'https:\\\\example.test/evidence/A01', 'qa\\proof-A01']) {
+  for (const ambiguousRef of ['https:\\evidence.github.com/evidence/A01', 'https:\\\\evidence.github.com/evidence/A01', 'qa\\proof-A01']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = ambiguousRef;
     assert.equal(run(data).status, 1, 'backslash in evidence reference must fail closed');
   }
   // WHATWG URL accepts scheme-without-authority forms; audit URLs must be explicit HTTPS://.
-  for (const ambiguousHttps of ['https:example.test/evidence/A01', 'https:/example.test/evidence/A01']) {
+  for (const ambiguousHttps of ['https:evidence.github.com/evidence/A01', 'https:/evidence.github.com/evidence/A01']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = ambiguousHttps;
     assert.equal(run(data).status, 1, 'HTTPS evidence must include explicit // authority');
@@ -487,7 +487,7 @@ try {
     assert.equal(run(data).status, 1, 'encoded local delimiter must fail: ' + encodedDelimiter);
   }
   // Local proof IDs must not decode into URI schemes in downstream evidence viewers.
-  for (const encodedScheme of ['https%3A//proof.example.test/A01', 'javascript%3Aalert(1)', 'qa/proof%3AA01']) {
+  for (const encodedScheme of ['https%3A//proof.evidence.github.com/A01', 'javascript%3Aalert(1)', 'qa/proof%3AA01']) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = encodedScheme;
     const result = run(data);
@@ -523,18 +523,19 @@ try {
   assert.equal(run(unicodeDistinct).status, 0, 'different local Unicode evidence IDs remain admissible');
   // URL path percent escapes for unreserved bytes cannot create a second proof.
   const encodedUrlDuplicate = structuredClone(base);
-  encodedUrlDuplicate.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
-  encodedUrlDuplicate.cases[1].evidenceRef = 'https://example.test/private/evidence/%41%30%31';
+  encodedUrlDuplicate.cases[0].evidenceRef = 'https://evidence.github.com/private/evidence/A01';
+  encodedUrlDuplicate.cases[1].evidenceRef = 'https://evidence.github.com/private/evidence/%41%30%31';
   assert.equal(run(encodedUrlDuplicate).status, 1, 'encoded and plain HTTPS paths must not count as two proofs');
   const encodedUrlDistinct = structuredClone(base);
-  encodedUrlDistinct.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
-  encodedUrlDistinct.cases[1].evidenceRef = 'https://example.test/private/evidence/%41%30%32';
+  encodedUrlDistinct.cases[0].evidenceRef = 'https://evidence.github.com/private/evidence/A01';
+  encodedUrlDistinct.cases[1].evidenceRef = 'https://evidence.github.com/private/evidence/%41%30%32';
   assert.equal(run(encodedUrlDistinct).status, 0, 'distinct HTTPS proof paths remain admissible');
   // Reserved DNS names must never be presented as independently auditable physical proof.
   // Include trailing-root-dot and subdomain variants to prevent hostname normalization bypasses.
   for (const reservedDnsHost of [
     'example.com', 'example.net', 'example.org', 'proof.example.com',
-    'example.com.', 'proof.example.org.', 'invalid', 'qa.invalid', 'qa.invalid.'
+    'example.com.', 'proof.example.org.', 'invalid', 'qa.invalid', 'qa.invalid.',
+    'test', 'qa.test', 'qa.test.', 'example', 'qa.example', 'qa.example.'
   ]) {
     const data = structuredClone(base);
     data.cases[0].evidenceRef = 'https://' + reservedDnsHost + '/evidence/A01';
@@ -543,7 +544,7 @@ try {
     assert.match(result.stderr, /NO-GO/, 'reserved DNS host must never imply physical QA approval');
   }
   const safeUrl = structuredClone(base);
-  safeUrl.cases[0].evidenceRef = 'https://example.test/private/evidence/A01';
+  safeUrl.cases[0].evidenceRef = 'https://evidence.github.com/private/evidence/A01';
   assert.equal(run(safeUrl).status, 0, 'credential-free evidence URL must remain valid');
   const missing = structuredClone(base);
   missing.cases[0].evidenceRef = '';
