@@ -1,0 +1,47 @@
+name: Nexa external wallets — simple address QA
+
+on:
+  push:
+    branches:
+      - feat/nexa-simple-external-wallet-v148-20261116
+    paths:
+      - '.github/workflows/nexa-external-wallet-simple-qa.yml'
+      - 'app/(app)/external-wallets.tsx'
+      - 'app/(app)/_layout.tsx'
+      - 'src/lib/externalWalletWatch.ts'
+      - 'src/components/AlignedLegacyApp.tsx'
+      - 'scripts/validate-nexa-external-wallet-simple.cjs'
+      - 'docs/nexa-external-wallet-simple-and-usdc-to-pix-20261116.md'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-wallet-qa:
+    name: Compile and verify read-only wallet without touching production
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.19.4'
+          cache: npm
+      - name: Verify release v148 baseline and simple-wallet safety
+        run: node scripts/validate-nexa-external-wallet-simple.cjs
+      - name: Install pinned app dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Typecheck mobile application
+        run: npm run typecheck
+      - name: Bundle Android JavaScript for QA (no APK/deploy)
+        run: npx expo export --platform android --output-dir dist-external-wallet-qa

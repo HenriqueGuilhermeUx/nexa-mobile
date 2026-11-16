@@ -1,0 +1,86 @@
+name: Nexa v148 — crypto wallet additive cumulative QA (no publish)
+on:
+  push:
+    branches: [feat/nexa-simple-external-wallet-v148-20261116]
+    paths:
+      - '.github/workflows/nexa-external-wallet-v148-composite-qa.yml'
+      - 'scripts/nexa-external-wallet-v148-ota-overlay.cjs'
+      - 'src/lib/externalWalletWatch.ts'
+      - 'app/(app)/external-wallets.tsx'
+      - 'src/components/AlignedLegacyApp.tsx'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexa-wallet-simple-v148-compose-qa
+  cancel-in-progress: true
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_URL: https://trydocwallet.com
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_URL: https://mydatamed.com/healthwallet
+      EXPO_PUBLIC_NEXA_DOCWALLET_PLAY_STORE_URL: https://play.google.com/store/apps/details?id=br.com.alternativeventures.docwalletdocs
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_PLAY_STORE_URL: https://play.google.com/store/apps/details?id=br.com.healthwallet.app
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Save additive wallet files and immutable published composite scripts
+        run: |
+          cp scripts/nexa-theo-v148-compose.sh "$RUNNER_TEMP/nexa-theo-v148-compose.sh"
+          cp scripts/nexa-theo-v148-ota-overlay.js "$RUNNER_TEMP/nexa-theo-v148-ota-overlay.js"
+          cp scripts/nexa-external-wallet-v148-ota-overlay.cjs "$RUNNER_TEMP/wallet-overlay.cjs"
+          cp src/lib/externalWalletWatch.ts "$RUNNER_TEMP/externalWalletWatch.ts"
+          cp 'app/(app)/external-wallets.tsx' "$RUNNER_TEMP/external-wallets.tsx"
+      - name: Reconstruct exact last published v148 Maya PJ Theo + activation bundle
+        run: bash "$RUNNER_TEMP/nexa-theo-v148-compose.sh"
+      - name: Overlay ONLY public-address watch and its menu
+        run: |
+          cp "$RUNNER_TEMP/externalWalletWatch.ts" src/lib/externalWalletWatch.ts
+          cp "$RUNNER_TEMP/external-wallets.tsx" 'app/(app)/external-wallets.tsx'
+          node "$RUNNER_TEMP/wallet-overlay.cjs"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked v148 runtime
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck approved cumulative bundle
+        run: npm run typecheck
+      - name: Verify previously approved security and financial guards
+        run: |
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-wallet-first-exit-flow.js
+          node scripts/validate-wallet-first-user-actions.js
+      - name: Ensure additive watch-only sources and known app identity
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const p=fs.readFileSync('app/(app)/external-wallets.tsx','utf8');
+          const u=fs.readFileSync('src/lib/externalWalletWatch.ts','utf8');
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||app.android.package!=='br.com.trynexa.app')throw Error('Wrong app/runtime');
+          if(!p.includes('carteira externa')||!u.includes('POLYGON_NATIVE_USDC'))throw Error('Missing wallet entry');
+          if(process.env.EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED!=='true')throw Error('Watch feature not enabled in QA bundle');
+          if(fs.readFileSync('src/components/AlignedLegacyApp.tsx','utf8').match(/Carteira cripto/g).length<2)throw Error('Entry missing beside Pix / Open Finance');
+          console.log('PASS preserved v148 + read-only address entry');
+          NODE
+      - name: Export actual Android JS bundle, without publishing or building APK
+        run: npm run export:android
