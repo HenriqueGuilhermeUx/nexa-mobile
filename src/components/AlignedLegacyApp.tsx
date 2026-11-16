@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
 import { config } from '@/config';
+import { externalWalletFeaturesEnabled } from '@/lib/externalWalletWatch';
 import { nexaApi } from '@/lib/api';
 import { futureFinancialFeatures } from '@/lib/futureFinancialFeatures';
 import {
@@ -1268,6 +1269,23 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           </Text>
         </Card>
 
+        {externalWalletFeaturesEnabled() ? (
+          <Card>
+            <Text style={styles.sectionKicker}>CARTEIRAS EXTERNAS</Text>
+            <Text style={styles.highlightTitle}>MetaMask e outras wallets, sem complicação.</Text>
+            <Text style={styles.highlightText}>
+              Acompanhe USDC de endereços públicos, sem vincular chaves
+              nem precisar de WalletConnect. Envie para a Nexa a partir
+              da carteira de origem quando o recebimento estiver habilitado.
+            </Text>
+            <PrimaryButton
+              title="Adicionar carteira externa"
+              onPress={() => router.push('/(app)/external-wallets' as any)}
+              secondary
+            />
+          </Card>
+        ) : null}
+
         <View style={styles.quickActionsRow}>
           <QuickAction icon="plus" title="Adicionar" onPress={openWalletFirstDeposit} primary />
           <QuickAction icon="swap" title="Converter" onPress={openWalletFirstAssets} />
@@ -1765,6 +1783,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           <MenuTile icon="↕" title="Movimentações" subtitle="Histórico" onPress={() => setPage('history')} />
           <MenuTile icon="ID" title="Nexa ID" subtitle={nexaId || handle} onPress={() => setPage('nexaId')} />
           <MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage('wallet')} />
+          {externalWalletFeaturesEnabled() ? (
+            <MenuTile icon="⇄" title="Carteiras externas" subtitle="Acompanhar USDC na Polygon" onPress={() => router.push('/(app)/external-wallets' as any)} />
+          ) : null}
           <MenuTile icon="PJ" title="Nexa Empresa" subtitle="Acessar ou cadastrar CNPJ" onPress={() => router.push('/(app)/pj-entry' as any)} />
         </View>
 
