@@ -72,3 +72,64 @@ jobs:
         run: eas update --branch maya-phase3a-central-cumulative-v148-qa --platform android --message "Maya UX2 + Nexa Central consent push QA $(git rev-parse --short HEAD)" --non-interactive
       - name: Explicitly no production change
         run: echo 'QA ONLY — no production release, rollout or channel remap.'
+
+  production-canary:
+    name: Cumulative Central 10 percent only after same-commit QA
+    if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release(central): canary-10')"
+    needs: qa
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Check exact Maya 3A cumulative no-financial native diff
+        run: node scripts/validate-maya-phase3a-central-cumulative-v148.js
+      - name: Use exact existing production feature flag configuration
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string')throw Error('Unsafe env');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Demand identical QA HEAD and unchanged last live Maya OTA
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:10){id group gitCommitHash platform}} qa:updateBranchByName(name:"maya-phase3a-central-cumulative-v148-qa"){updates(offset:0,limit:10){id group gitCommitHash platform}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await response.json();
+            if(!response.ok||data.errors?.length)throw Error('Expo validation unavailable');
+            const app=data.data?.app?.byId, mapping=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const live=app?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            if(mapping.length!==1||mapping[0]!=='production')throw Error('Production channel mapping mismatch');
+            if(live?.id!=='01a1e175-abf0-7b34-a70f-5e2731c61809'||
+                live?.group!=='195d4f7d-0fee-47ef-96f4-7b161154bae3'||
+                live?.gitCommitHash!=='47d09e55b3f8e4045e530402cb92c32327595031')
+                throw Error('Production updated by Maya or another release; abort');
+            if(qa?.gitCommitHash!==process.env.GITHUB_SHA)
+                throw Error('QA was not published at exact candidate SHA; abort');
+            console.log('MAYA3A_CUMULATIVE_RELEASE_SAFE='+JSON.stringify({live,qa,candidate:process.env.GITHUB_SHA}));
+          })().catch(e=>{console.error('BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish guarded 10-percent Android OTA canary (never 100%)
+        run: eas update --branch production --platform android --rollout-percentage 10 --message "Maya 3A + Central Nexa complete v148 canary $(git rev-parse --short HEAD)" --non-interactive
+      - name: Confirm no unconditional full release
+        run: echo 'Only 10 percent, separate review before full rollout'
