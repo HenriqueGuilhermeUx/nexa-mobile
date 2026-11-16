@@ -1,0 +1,33 @@
+name: Nexa EAS rollout audit — read-only, no publish
+on:
+  push:
+    branches: [release/nexa-2.0.43-v148-brasil]
+    paths: ['.github/workflows/nexa-eas-rollout-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.8.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Confirm EAS account
+        run: eas whoami --non-interactive
+      - name: Inspect active ten-percent production rollout
+        run: eas update:view 01a1e1e4-fad5-7525-aa66-d8563198f726 --json
+      - name: Inspect recent production updates (read-only)
+        run: eas update:list --branch production --platform android --runtime-version 2.0.43 --limit 6 --json --non-interactive
