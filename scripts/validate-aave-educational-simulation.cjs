@@ -36,13 +36,16 @@ for (const invalid of [
 ]) assert.throws(() => simulate(invalid), /Invalid educational scenario/);
 const screen = fs.readFileSync(path.resolve(__dirname, '../app/(app)/aave-info.tsx'), 'utf8');
 for (const needed of [
-  'simulateAaveEducationalScenario', 'Resultado da simulação hipotética',
+  'simulateAaveEducationalScenario', 'Resultado do seu exemplo',
   'simulationIssue', 'marketIssue', 'positionIssue',
-  'Verificar intenção está desativado',
+  'Ainda não é possível escolher um ativo',
 ]) assert.ok(screen.includes(needed), 'Missing explicit local scenario/diagnostic marker: ' + needed);
 assert.ok(!screen.includes("fetch(API + '/invest-credit/simulate-collateral"), 'Simulation must be independent of live API flags');
 for (const forbidden of ['sendTransaction(', 'signTransaction(', 'eth_sendRawTransaction', 'walletClient.writeContract']) {
   assert.ok(!screen.includes(forbidden));
   assert.ok(!source.includes(forbidden));
 }
-console.log('Aave QA local educational simulation PASS; zero RPC/signing/execution.');
+assert.ok(screen.indexOf('E se minha cripto perder valor?') < screen.indexOf('Meus valores no Aave'), 'Risk demo must precede unavailable on-chain reads');
+assert.ok(screen.includes('Ver detalhes técnicos das consultas'), 'Technical HTTP errors should remain accessible');
+assert.ok(screen.includes('chosen ? <>'), 'Hide disabled quantity form without real reserves');
+console.log('Aave QA educational simulation and simple-language preview PASS; zero RPC/signing/execution.');

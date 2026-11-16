@@ -60,6 +60,7 @@ export default function AaveInfoScreen() {
   const [positionIssue, setPositionIssue] = useState('');
   const [planIssue, setPlanIssue] = useState('');
   const [simulationIssue, setSimulationIssue] = useState('');
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [collateral, setCollateral] = useState('1000');
   const [debt, setDebt] = useState('400');
   const [drop, setDrop] = useState('25');
@@ -204,38 +205,64 @@ export default function AaveInfoScreen() {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>NEXA · INVESTIMENTOS E CRÉDITO</Text>
       <Text style={styles.heading}>Seu dinheiro, mais possibilidades</Text>
-      <Text style={styles.body}>Explore investimentos, crédito com garantia e a sua posição Aave sem sair da Nexa.</Text>
+      <Text style={styles.body}>Conheça formas de aproveitar suas criptos e teste situações de risco. Consultas e operações reais ainda estão em preparação.</Text>
       <View style={styles.grid}>
-        {[['Fazer render', 'Consultar ativos e condições do mercado'],
-          ['Obter crédito', 'Entender a garantia e o risco'],
-          ['Movimentar', 'Aplicar, amortizar ou retirar — após habilitação'],
-          ['Acompanhar', 'Ver posição e saúde da carteira']].map(([title, description]) => (
+        {[['Fazer render', 'Explorar possibilidades de rendimento', 'Em preparação'],
+          ['Crédito com cripto', 'Entender empréstimos usando cripto como garantia', 'Em preparação'],
+          ['Simular riscos', 'Veja um exemplo antes de decidir', 'Disponível neste teste'],
+          ['Acompanhar', 'Consultar seus valores aplicados e empréstimos', 'Consulta em preparação']].map(([title, description, state]) => (
           <View key={title} style={styles.option}>
             <Text style={styles.optionTitle}>{title}</Text>
             <Text style={styles.small}>{description}</Text>
-            <Text style={styles.tag}>{title === 'Acompanhar' ? 'Consulta' : 'Sem execução'}</Text>
+            <Text style={styles.tag}>{state}</Text>
           </View>
         ))}
       </View>
       <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Minha posição na blockchain</Text>
+        <Text style={styles.panelTitle}>E se minha cripto perder valor?</Text>
+        <Text style={styles.small}>Imagine que você use criptomoedas como garantia de um empréstimo. Veja o que aconteceria se o valor delas caísse. É apenas um exemplo, sem preços reais ou oferta de crédito.</Text>
+        <Text style={styles.detail}>Valor da cripto dada como garantia (US$)</Text>
+        <TextInput style={styles.input} keyboardType="decimal-pad" value={collateral} onChangeText={(v) => { setCollateral(v); setSimulation(null); setSimulationIssue(''); }} accessibilityLabel="Garantia em dólares" />
+        <Text style={styles.detail}>Valor do empréstimo (US$)</Text>
+        <TextInput style={styles.input} keyboardType="decimal-pad" value={debt} onChangeText={(v) => { setDebt(v); setSimulation(null); setSimulationIssue(''); }} accessibilityLabel="Dívida em dólares" />
+        <Text style={styles.detail}>Se a cripto perder (%)</Text>
+        <TextInput style={styles.input} keyboardType="number-pad" value={drop} onChangeText={(v) => { setDrop(v); setSimulation(null); setSimulationIssue(''); }} accessibilityLabel="Queda percentual" />
+        <Pressable accessibilityRole="button" style={styles.button} onPress={simulate}>
+          <Text style={styles.buttonText}>Simular cenário</Text>
+        </Pressable>
+        {simulationIssue ? <Text style={styles.notice}>{simulationIssue}</Text> : null}
+        {simulation && <View style={styles.market}>
+          <Text style={styles.optionTitle}>Resultado do seu exemplo</Text>
+          <Text style={styles.detail}>Sua garantia passaria a valer US$ {simulation.stressedCollateralUsd.toFixed(2)}</Text>
+          <Text style={styles.detail}>Antes, a dívida representava {simulation.originalLtvPercent.toFixed(1)}% da garantia.</Text>
+          <Text style={styles.detail}>Depois, ela representaria {simulation.stressedLtvPercent === null ? 'mais do que o valor restante da garantia' : simulation.stressedLtvPercent.toFixed(1) + '% da garantia'}.</Text>
+          <Text style={styles.notice}>{simulation.outsideReferenceLtv
+            ? 'Atenção: neste exemplo, a dívida superou a referência educativa de 60%.'
+            : 'Neste exemplo, a dívida ficou abaixo da referência educativa de 60%, mas ainda existem riscos.'}</Text>
+          <Text style={styles.small}>Referência de 60% apenas para aprendizado, não é um limite real de empréstimo ou liquidação da Aave.</Text>
+        </View>}
+      </View>
+      <View style={styles.panel}>
+        <Text style={styles.panelTitle}>Meus valores no Aave</Text>
         {loading && <ActivityIndicator color={colors.cyan} />}
         {position ? (
           <>
             <Text style={styles.detail}>Rede: {position.chainId} · Carteira: {prettyAddress(position.walletAddress)}</Text>
-            <Text style={styles.detail}>Saúde da posição: {position.healthFactor ?? 'Sem dívida registrada'}</Text>
-            <Text style={styles.small}>Garantia / dívida (unidades-base do protocolo): {position.totalCollateralBase} / {position.totalDebtBase}</Text>
+            <Text style={styles.detail}>Indicador de segurança da posição: {position.healthFactor ?? 'Sem dívida registrada'}</Text>
+            <Text style={styles.small}>Informações do protocolo em unidades-base (não são valores em reais ou dólares): {position.totalCollateralBase} / {position.totalDebtBase}</Text>
           </>
-        ) : !loading && <Text style={styles.small}>{positionIssue || 'Ainda não há dados de posição disponíveis nesta consulta. Não foi confirmado saldo zero.'}</Text>}
+        ) : !loading && <Text style={styles.small}>
+          {positionIssue ? 'Ainda não conseguimos consultar sua posição. Isso não significa que sua carteira esteja vazia.' : 'Nenhuma posição foi confirmada nesta consulta.'}
+        </Text>}
         {message ? <Text style={styles.notice}>{message}</Text> : null}
         <Pressable accessibilityRole="button" style={styles.button} onPress={() => setReloadKey((v) => v + 1)}>
-          <Text style={styles.buttonText}>Atualizar consultas</Text>
+          <Text style={styles.buttonText}>Tentar consultar novamente</Text>
         </Pressable>
       </View>
       <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Mercados Aave observados</Text>
-        <Text style={styles.small}>Informações lidas do protocolo; não são ofertas, cotação de juros nem autorização para investir.</Text>
-        {marketIssue ? <Text style={styles.notice}>{marketIssue}</Text> : null}
+        <Text style={styles.panelTitle}>Opções disponíveis no Aave</Text>
+        <Text style={styles.small}>Aqui aparecerão as opções de mercado após validarmos a conexão. Por enquanto, não há nenhuma oferta disponível na Nexa.</Text>
+        {marketIssue ? <Text style={styles.notice}>Ainda não conseguimos consultar os mercados. Não vamos mostrar valores ou oportunidades sem confirmação.</Text> : null}
         {usable.length ? usable.slice(0, 8).map((reserve) => (
           <View key={reserve.asset} style={styles.market}>
             <Text style={styles.detail}>{prettyAddress(reserve.asset)}</Text>
@@ -247,8 +274,8 @@ export default function AaveInfoScreen() {
         </Text>}
       </View>
       <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Preparar uma operação</Text>
-        <Text style={styles.small}>A Nexa verifica sua intenção com o backend. Nenhuma quantia é movimentada nem é solicitada assinatura.</Text>
+        <Text style={styles.panelTitle}>Como funcionariam as operações</Text>
+        <Text style={styles.small}>Você poderá explorar aplicar, pedir crédito, pagar ou retirar quando o serviço estiver habilitado. Neste teste, não há movimentação de dinheiro.</Text>
         <View style={styles.grid}>
           {([['SUPPLY', 'Aplicar'], ['BORROW', 'Crédito'], ['REPAY', 'Amortizar'], ['WITHDRAW', 'Retirar']] as const).map(([key, title]) => (
             <Pressable key={key} accessibilityRole="button" onPress={() => { setAction(key); setPlan(null); setPlanIssue(''); }}
@@ -264,43 +291,31 @@ export default function AaveInfoScreen() {
             <Text style={styles.small}>{reserve.decimals} casas decimais · rede {markets?.chainId}</Text>
           </Pressable>
         ))}
-        <Text style={styles.detail}>Quantidade do ativo</Text>
-        <TextInput style={styles.input} keyboardType="decimal-pad" accessibilityLabel="Quantidade de ativo"
-          value={amount} onChangeText={(v) => { setAmount(v); setPlan(null); setPlanIssue(''); }} />
-        <Pressable accessibilityRole="button" disabled={planning || !chosen} accessibilityState={{ disabled: planning || !chosen }}
-          style={[styles.button, !chosen && styles.buttonDisabled]}
-          onPress={() => { if (chosen) void preparePlan(chosen); }}>
-          <Text style={styles.buttonText}>{planning ? 'Verificando…' : 'Verificar intenção'}</Text>
-        </Pressable>
+        {chosen ? <>
+          <Text style={styles.detail}>Quantidade do ativo</Text>
+          <TextInput style={styles.input} keyboardType="decimal-pad" accessibilityLabel="Quantidade de ativo"
+            value={amount} onChangeText={(v) => { setAmount(v); setPlan(null); setPlanIssue(''); }} />
+          <Pressable accessibilityRole="button" disabled={planning} accessibilityState={{ disabled: planning }}
+            style={styles.button}
+            onPress={() => void preparePlan(chosen)}>
+            <Text style={styles.buttonText}>{planning ? 'Verificando…' : 'Verificar intenção'}</Text>
+          </Pressable>
+        </> : null}
         {planIssue ? <Text style={styles.notice}>{planIssue}</Text> : null}
         {plan && <Text style={styles.notice}>Intenção validada. Para executar serão necessários cotação de risco atualizada, autorização expressa da carteira e habilitação do serviço. Nenhuma operação foi executada.</Text>}
-        {!chosen && <Text style={styles.small}>{marketIssue
-          ? 'Verificar intenção está desativado porque não há mercado real consultado. ' + marketIssue
-          : 'Nenhuma reserva elegível para esta operação na consulta atual. Verificar intenção está desativado; execução também permanece desativada.'}</Text>}
+        {!chosen && <Text style={styles.small}>Ainda não é possível escolher um ativo ou preparar uma operação. Primeiro precisamos confirmar os mercados reais. Nenhum dinheiro será movimentado neste teste.</Text>}
       </View>
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Teste o risco antes de decidir</Text>
-        <Text style={styles.small}>Simulação local educativa, disponível mesmo sem conexão com o Aave. Referência hipotética de LTV de 60%; não utiliza preços de mercado, oráculo Chainlink nem parâmetros reais de crédito.</Text>
-        <Text style={styles.detail}>Garantia hipotética (USD)</Text>
-        <TextInput style={styles.input} keyboardType="decimal-pad" value={collateral} onChangeText={(v) => { setCollateral(v); setSimulation(null); setSimulationIssue(''); }} accessibilityLabel="Garantia em dólares" />
-        <Text style={styles.detail}>Dívida hipotética (USD)</Text>
-        <TextInput style={styles.input} keyboardType="decimal-pad" value={debt} onChangeText={(v) => { setDebt(v); setSimulation(null); setSimulationIssue(''); }} accessibilityLabel="Dívida em dólares" />
-        <Text style={styles.detail}>Queda simulada (%)</Text>
-        <TextInput style={styles.input} keyboardType="number-pad" value={drop} onChangeText={(v) => { setDrop(v); setSimulation(null); setSimulationIssue(''); }} accessibilityLabel="Queda percentual" />
-        <Pressable accessibilityRole="button" style={styles.button} onPress={simulate}>
-          <Text style={styles.buttonText}>Simular cenário</Text>
-        </Pressable>
-        {simulationIssue ? <Text style={styles.notice}>{simulationIssue}</Text> : null}
-        {simulation && <View style={styles.market}>
-          <Text style={styles.optionTitle}>Resultado da simulação hipotética</Text>
-          <Text style={styles.detail}>Garantia após queda: US$ {simulation.stressedCollateralUsd.toFixed(2)}</Text>
-          <Text style={styles.detail}>LTV inicial: {simulation.originalLtvPercent.toFixed(1)}%</Text>
-          <Text style={styles.detail}>LTV após queda: {simulation.stressedLtvPercent === null ? 'sem garantia restante para cobrir a dívida' : simulation.stressedLtvPercent.toFixed(1) + '%'}</Text>
-          <Text style={styles.notice}>{simulation.outsideReferenceLtv ? 'O cenário ultrapassa a referência hipotética de 60%.' : 'O cenário está dentro da referência hipotética de 60%.'}</Text>
-          <Text style={styles.small}>Não é cotação, recomendação de crédito ou cálculo real de liquidação Aave.</Text>
-        </View>}
-      </View>
-      <Text style={styles.foot}>Esta versão não assina transações, não aplica, não empresta e não movimenta ativos. Rendimento não é garantido. Crédito tem risco de liquidação. A disponibilidade do protocolo não representa aprovação regulatória ou elegibilidade pessoal.</Text>
+      <Pressable accessibilityRole="button" onPress={() => setShowTechnicalDetails((v) => !v)} style={styles.technicalToggle}>
+        <Text style={styles.small}>{showTechnicalDetails ? 'Ocultar detalhes técnicos' : 'Ver detalhes técnicos das consultas'}</Text>
+      </Pressable>
+      {showTechnicalDetails ? <View style={styles.panel}>
+        <Text style={styles.panelTitle}>Diagnóstico técnico</Text>
+        <Text style={styles.small}>{positionIssue || 'Posição: sem falhas de leitura registradas.'}</Text>
+        <Text style={styles.small}>{marketIssue || 'Mercados: sem falhas de leitura registradas.'}</Text>
+        <Text style={styles.small}>{message || 'Nenhuma falha geral registrada.'}</Text>
+        <Text style={styles.small}>Aave V3: consultas somente leitura. Chainlink não alimenta este simulador e não substitui o oráculo de risco Aave.</Text>
+      </View> : null}
+      <Text style={styles.foot}>Versão de testes: não faz investimentos, empréstimos ou transferências. Rendimento não é garantido e crédito com cripto pode gerar perdas e liquidação. As condições reais dependem do mercado e das verificações necessárias.</Text>
     </ScrollView>
   );
 }
@@ -325,4 +340,5 @@ const styles = StyleSheet.create({
   input: { color: colors.text, borderColor: '#475569', borderWidth: 1, borderRadius: 9, padding: 10, fontSize: 16 },
   market: { borderTopWidth: 1, borderTopColor: '#334155', paddingTop: 11, gap: 4 },
   foot: { color: colors.text, opacity: 0.7, fontSize: 12, lineHeight: 19 },
+  technicalToggle: { padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#334155', alignItems: 'center' },
 });
