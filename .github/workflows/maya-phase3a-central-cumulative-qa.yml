@@ -1,0 +1,74 @@
+name: Maya Phase3A + Central Nexa — cumulative Android QA only
+on:
+  push:
+    branches:
+      - release/maya-ux2-phase3a-central-cumulative-v148-20261115
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: nexa-maya-phase3a-central-cumulative-v148-qa
+  cancel-in-progress: false
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Exact Maya deployed source cumulative diff gate
+        run: node scripts/validate-maya-phase3a-central-cumulative-v148.js
+      - name: Set identical production feature flags from eas.json
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [k,v] of Object.entries(env)) {
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(k)||typeof v!=='string')throw Error('Invalid production release env');
+            fs.appendFileSync(process.env.GITHUB_ENV,k+'='+v+'\n');
+          }
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Maya all existing features and Central regression tests
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          for test in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js; do node "$test"; done
+          npm run typecheck
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Read only Expo production canary audit before QA
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:8){id group gitCommitHash platform createdAt}}}}}';
+            const res=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await res.json();
+            if(!res.ok||data.errors?.length)throw Error('Cannot verify current Expo production source');
+            const app=data.data?.app?.byId;
+            const mapping=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(mapping.length!==1||mapping[0]!=='production')throw Error('Production mapping has changed; QA blocked');
+            const live=app?.prod?.updates?.find(x=>x.platform==='android');
+            if(!live)throw Error('No current production Android update; QA blocked');
+            console.log('READ_ONLY_PRODUCTION_BASE='+JSON.stringify(live));
+          })().catch(e=>{console.error('BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish Android JS-only OTA to isolated QA branch
+        run: eas update --branch maya-phase3a-central-cumulative-v148-qa --platform android --message "Maya UX2 + Nexa Central consent push QA $(git rev-parse --short HEAD)" --non-interactive
+      - name: Explicitly no production change
+        run: echo 'QA ONLY — no production release, rollout or channel remap.'
