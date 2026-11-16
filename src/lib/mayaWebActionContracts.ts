@@ -36,7 +36,10 @@ export function comparableTotal(quote: MayaMerchantQuote): number | null {
   if (quote.currency !== 'BRL' || quote.availability !== 'available') return null;
   const prices = [quote.itemPrice, quote.shippingPrice, quote.taxes];
   if (prices.some(value => value === undefined || !Number.isFinite(value) || Number(value) < 0)) return null;
-  return Math.round((Number(quote.itemPrice) + Number(quote.shippingPrice) + Number(quote.taxes)) * 100) / 100;
+  // Reject malformed/overflowing totals rather than displaying an unsafe price.
+  const totalCents = prices.reduce((sum, value) => sum + Math.round(Number(value) * 100), 0);
+  if (!Number.isSafeInteger(totalCents) || totalCents < 0) return null;
+  return totalCents / 100;
 }
 
 /** The backend must additionally enforce DNS/IP/redirect restrictions and site policy. */
