@@ -32,6 +32,7 @@ jobs:
         with:
           node-version: '20'
       - name: Check offline gate and test file syntax
+        id: syntax
         run: |
           node --check scripts/qa/maya-actions-wave-a-evidence-gate.js
           node --check scripts/qa/maya-actions-wave-a-evidence-gate.test.js
@@ -55,6 +56,7 @@ jobs:
         if: always()
         shell: bash
         env:
+          SYNTAX_OUTCOME: ${{ steps.syntax.outcome }}
           TEST_OUTCOME: ${{ steps.synthetic.outcome }}
           FAIL_CLOSED_OUTCOME: ${{ steps.fail_closed.outcome }}
         run: |
@@ -63,6 +65,7 @@ jobs:
             echo "- Commit: \`$GITHUB_SHA\`"
             echo "- Ref: \`$GITHUB_REF\`"
             echo "- Node: \`$(node --version)\`"
+            echo "- Syntax validation: \`$SYNTAX_OUTCOME\`"
             echo "- Synthetic regression: \`$TEST_OUTCOME\`"
             echo "- Missing-evidence fail-closed: \`$FAIL_CLOSED_OUTCOME\`"
             echo '- Physical A01–A16 verification: **not performed by this workflow**'
