@@ -5,7 +5,6 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { nexaApi } from '@/lib/api';
 import { config } from '@/config';
 import { loadNexaSession } from '@/lib/session';
-import { DirectMetaMaskSignClientQa } from '@/components/DirectMetaMaskSignClientQa';
 
 /**
  * Staging-only Expo Router page, deliberately NOT linked from the home menu.
@@ -53,7 +52,8 @@ export default function ExternalWalletConnectStagingRoute() {
 
   const result = useMemo(() => {
     // Do not initialize third-party wallet SDK before Nexa auth is verified.
-    if (!token || !qaChannel || !showReown) return { instance: null, Component: null, error: 'QA_AUTH_REQUIRED' };
+    if (!token || !qaChannel) return { instance: null, Component: null, error: 'QA_AUTH_REQUIRED' };
+    if (!showReown) return { instance: null, Component: null, error: 'DIRECT_SIGN_CLIENT_QA' };
     try {
       // The EVM SDK is never evaluated before Nexa authenticates the session
       // and the non-financial QA channel is explicitly active.
@@ -85,6 +85,8 @@ export default function ExternalWalletConnectStagingRoute() {
   // Main QA flow runs SignClient by itself: no AppKit, EthersAdapter,
   // UniversalProvider or Reown modal may initialize in parallel.
   if (!showReown) {
+    // SignClient SDK is loaded only after Nexa identity is verified.
+    const { DirectMetaMaskSignClientQa } = require('../../src/components/DirectMetaMaskSignClientQa') as typeof import('@/components/DirectMetaMaskSignClientQa');
     return (
       <ScrollView style={{flex:1,backgroundColor:'#061626'}}
         contentContainerStyle={{padding:18,paddingBottom:60,gap:16}}>
