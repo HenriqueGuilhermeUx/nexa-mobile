@@ -9,7 +9,7 @@ import { nexaApi } from '@/lib/api';
 import { ensureNexaNotificationPermission } from '@/lib/nexaNotifications';
 import { registerNexaCentralServicePush, revokeNexaCentralServicePush } from '@/lib/nexaCentralPush';
 import { loadNexaSession } from '@/lib/session';
-import { NEXA_TELEGRAM_SUPPORT_URL, nexaWhatsAppSupportUrl } from '@/lib/nexaSupportLinks';
+import { NEXA_TELEGRAM_SUPPORT_URL } from '@/lib/nexaSupportLinks';
 import { colors, radius, spacing } from '@/theme';
 
 type IdentityStage = 'loading' | 'signed_out' | 'pending' | 'review' | 'approved' | 'unavailable';
@@ -176,7 +176,7 @@ export default function CentralNexaScreen() {
       }
       const stored:Partial<Record<ChannelConsentKey, boolean>> = {};
       for (const consent of body.consents as ChannelConsent[]) {
-        const allowed = CHANNEL_OPTIONS.some(option => option.channel === consent.channel && option.purpose === consent.purpose);
+        const allowed = CHANNEL_OPTIONS.some(option => option.channel === consent.channel && option.purpose === consent.purpose) ||\n          (consent.channel === 'whatsapp' && (consent.purpose === 'service' || consent.purpose === 'marketing'));
         if (allowed && consent.optedIn === true) stored[`${consent.channel}:${consent.purpose}`] = true;
       }
       setChannelConsents(stored);
@@ -434,7 +434,7 @@ export default function CentralNexaScreen() {
             ? 'Entre na conta para usar o chat privado. O atendimento externo continua disponível.'
             : 'Estamos preparando o chat dentro do aplicativo. Enquanto isso, escolha um canal oficial para conversar com o Theo.'}</Text>
         )}
-        <Action title="Theo no WhatsApp" detail="Atendimento por mensagem, iniciado por você" onPress={() => void openUrl(nexaWhatsAppSupportUrl())} />
+        <Action title="Suporte no portal Nexa" detail="Atendimento por canal autenticado, sem enviar documentos por chat" onPress={() => void openUrl(PORTAL_URL)} />
         <Action title="Theo no Telegram" detail="Abrir @NexaTheoBot" onPress={() => void openUrl(NEXA_TELEGRAM_SUPPORT_URL)} />
       </View>
 
@@ -460,8 +460,8 @@ export default function CentralNexaScreen() {
           />
           <Action
             title="Preciso de ajuda com depósito"
-            detail="Conversar com Theo pelo WhatsApp, sem enviar dados financeiros"
-            onPress={() => void openUrl(nexaWhatsAppSupportUrl())}
+            detail="Abra o portal Nexa para solicitar atendimento seguro"
+            onPress={() => void openUrl(PORTAL_URL)}
           />
         </View>
       ) : null}
@@ -522,10 +522,20 @@ export default function CentralNexaScreen() {
                 onPress={() => { if (!channelConsentSaving) void setChannelConsent(option.channel,option.purpose,!enabled); }}
               />;
             })}
-            <Text style={styles.footnote}>Autorizar mensagens não vincula automaticamente o número ou o Telegram à sua conta. O canal precisa ser verificado antes de qualquer envio.</Text>
+            {(['service','marketing'] as const).map(purpose => {
+              const key:ChannelConsentKey=`whatsapp:${purpose}`;
+              return channelConsents[key] === true ? (
+                <Action key={key}
+                  title={'WhatsApp: revogar autorização anterior (' + (purpose==='service'?'atendimento':'novidades') + ')'}
+                  detail="Este canal não está liberado para mensagens sobre Pix/USDC ou KYC"
+                  onPress={() => { if (!channelConsentSaving) void setChannelConsent('whatsapp',purpose,false); }}
+                />
+              ) : null;
+            })}
+            <Text style={styles.footnote}>Telegram exige vínculo verificado. O WhatsApp permanece indisponível para mensagens sobre Pix/USDC e KYC, mesmo com opt-in, até confirmação formal de elegibilidade.</Text>
           </>
         ) : (
-          <Text style={styles.paragraph}>As preferências de WhatsApp e Telegram estão em preparação. Quando estiverem disponíveis, você poderá autorizar ou recusar cada tipo de mensagem aqui.</Text>
+          <Text style={styles.paragraph}>As preferências de Telegram estão em preparação. Enquanto isso, use o portal autenticado ou os e-mails educativos autorizados.</Text>
         )}
       </View>
 
