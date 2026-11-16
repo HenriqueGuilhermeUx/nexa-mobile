@@ -118,7 +118,7 @@ export default function CentralNexaScreen() {
     try {
       const session=await loadNexaSession();
       if(!session) {setEducationEmail('unavailable');return;}
-      const base=config.apiUrl.replace(/\\/$/,'');
+      const base=config.apiUrl.endsWith('/') ? config.apiUrl.slice(0,-1) : config.apiUrl;
       const response=await fetch(base+'/lifecycle/me',{
         headers:{Authorization:'Bearer '+session.accessToken,'Cache-Control':'no-store'},
       });
@@ -138,7 +138,7 @@ export default function CentralNexaScreen() {
     if(!session){setEducationEmail('unavailable');return;}
     setEducationEmailSaving(true);
     try {
-      const base=config.apiUrl.replace(/\\/$/,'');
+      const base=config.apiUrl.endsWith('/') ? config.apiUrl.slice(0,-1) : config.apiUrl;
       const response=await fetch(base+'/lifecycle/preferences',{
         method:'POST',headers:{
           Authorization:'Bearer '+session.accessToken,
@@ -506,8 +506,8 @@ export default function CentralNexaScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Converse com a Nexa onde preferir</Text>
         <Text style={styles.paragraph}>
-          Quer orientações de cadastro, KYC e depósitos pelo WhatsApp ou Telegram?
-          Você escolhe cada canal e pode retirar a autorização quando quiser.
+          As preferências do Telegram são separadas por finalidade e dependem de vínculo verificado.
+          A Nexa não utiliza WhatsApp para mensagens de Pix, USDC ou KYC sem liberação expressa da política aplicável.
           Notícias sobre cripto e ofertas são opcionais e exigem escolha separada.
           A Nexa não pede senhas, códigos nem documentos pelo chat.
         </Text>
