@@ -1,0 +1,56 @@
+name: Nexa Central consented-email UX — isolated QA
+on:
+  push:
+    branches:
+      - feat/central-nexa-consented-email-preferences-v148-20261115
+  pull_request:
+    paths:
+      - 'app/central-nexa.tsx'
+      - '.github/workflows/central-nexa-consented-email-qa.yml'
+permissions:
+  contents: read
+jobs:
+  consent-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify zero changes to Maya, financial, auth or native code
+        run: |
+          node - <<'NODE'
+          const cp=require('node:child_process'),fs=require('node:fs'),assert=require('node:assert/strict');
+          const base='1f6ed324fcf0cfdbef322be1910962dddfe6715e';
+          const changed=cp.execFileSync('git',['diff','--name-only',base+'...HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          const allowed=['app/central-nexa.tsx','.github/workflows/central-nexa-consented-email-qa.yml'];
+          assert.deepEqual(changed.filter(x=>!allowed.includes(x)),[],'Unexpected changes outside Nexa Central');
+          for(const path of ['app.json','eas.json','package.json','package-lock.json','app/assistant.tsx',
+             'app/_layout.tsx','src/components/NexaAssistantOpenFinance.tsx','src/lib/api.ts',
+             'src/lib/nexaNotifications.ts','src/lib/nexaCentralPush.ts','app/kyc.tsx','app/sign-in.tsx']) {
+             assert.deepEqual(fs.readFileSync(path),cp.execFileSync('git',['show',base+':'+path]),'Changed protected '+path);
+          }
+          const screen=fs.readFileSync('app/central-nexa.tsx','utf8');
+          for(const term of ['refreshEducationEmail','changeEducationEmail','/lifecycle/preferences',
+            'educationalEmailOptIn:optedIn','emailFrequency:\'weekly\'',
+            'result?.optedIn!==optedIn','sendPushSelfTest','CHANNEL_OPTIONS',
+            'registerNexaCentralServicePush','noteDepositGuideOpened']) {
+            assert(screen.includes(term),'Missing Central continuity '+term);
+          }
+          assert(!screen.includes('nexaWhatsAppSupportUrl'), 'Disallowed financial WhatsApp support link');
+          console.log('PASS: Maya3A/financial/native preserved; explicit email opt-in and revoke');
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Verify Expo Android JS bundle and TypeScript
+        run: |
+          npm run typecheck
+          npm run export:android
+      - name: No Expo OTA publication
+        run: echo 'QA ONLY — no EAS update, production channel untouched.'

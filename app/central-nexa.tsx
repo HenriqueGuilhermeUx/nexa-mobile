@@ -9,7 +9,7 @@ import { nexaApi } from '@/lib/api';
 import { ensureNexaNotificationPermission } from '@/lib/nexaNotifications';
 import { registerNexaCentralServicePush, revokeNexaCentralServicePush } from '@/lib/nexaCentralPush';
 import { loadNexaSession } from '@/lib/session';
-import { NEXA_TELEGRAM_SUPPORT_URL, nexaWhatsAppSupportUrl } from '@/lib/nexaSupportLinks';
+import { NEXA_TELEGRAM_SUPPORT_URL } from '@/lib/nexaSupportLinks';
 import { colors, radius, spacing } from '@/theme';
 
 type IdentityStage = 'loading' | 'signed_out' | 'pending' | 'review' | 'approved' | 'unavailable';
@@ -22,9 +22,7 @@ type ChannelConsent = { channel: ExternalChannel; purpose: ExternalPurpose; opte
 type ChannelConsentKey = `${ExternalChannel}:${ExternalPurpose}`;
 const CONSENT_NOTICE_VERSION = 'nexa-channel-v1';
 const CHANNEL_OPTIONS: ReadonlyArray<{channel:ExternalChannel;purpose:ExternalPurpose;label:string}> = [
-  {channel:'whatsapp',purpose:'service',label:'WhatsApp — orientações e suporte'},
   {channel:'telegram',purpose:'service',label:'Telegram — orientações e suporte'},
-  {channel:'whatsapp',purpose:'marketing',label:'WhatsApp — notícias e novidades'},
   {channel:'telegram',purpose:'marketing',label:'Telegram — notícias e novidades'},
 ];
 
@@ -52,6 +50,8 @@ export default function CentralNexaScreen() {
   const [inboxState, setInboxState] = useState<InboxState>('loading');
   const [messages, setMessages] = useState<CentralMessage[]>([]);
   const [preferences, setPreferences] = useState<CentralPreferences | null>(null);
+  const [educationEmail, setEducationEmail] = useState<'loading'|'unavailable'|'opted_in'|'opted_out'>('loading');
+  const [educationEmailSaving, setEducationEmailSaving] = useState(false);
   const [channelConsents, setChannelConsents] = useState<Partial<Record<ChannelConsentKey, boolean>>>({});
   const [channelConsentState, setChannelConsentState] = useState<'loading' | 'unavailable' | 'ready'>('loading');
   const [channelConsentSaving, setChannelConsentSaving] = useState<ChannelConsentKey | null>(null);
@@ -112,6 +112,53 @@ export default function CentralNexaScreen() {
 
   useEffect(() => { void refreshInbox(); }, []);
 
+  // Existing authenticated lifecycle endpoint is the only email opt-in source
+  // of truth. It is independent from push, WhatsApp, Telegram and marketing.
+  async function refreshEducationEmail() {
+    try {
+      const session=await loadNexaSession();
+      if(!session) {setEducationEmail('unavailable');return;}
+      const base=config.apiUrl.endsWith('/') ? config.apiUrl.slice(0,-1) : config.apiUrl;
+      const response=await fetch(base+'/lifecycle/me',{
+        headers:{Authorization:'Bearer '+session.accessToken,'Cache-Control':'no-store'},
+      });
+      if(!response.ok)throw new Error('education preferences unavailable');
+      const body=await response.json();
+      if(typeof body?.educationalEmail?.optedIn!=='boolean')throw new Error('invalid preference');
+      setEducationEmail(body.educationalEmail.optedIn?'opted_in':'opted_out');
+    }catch {
+      setEducationEmail('unavailable');
+    }
+  }
+  useEffect(()=>{void refreshEducationEmail();},[]);
+
+  async function changeEducationEmail(optedIn:boolean) {
+    if(educationEmailSaving||!['opted_in','opted_out'].includes(educationEmail))return;
+    const session=await loadNexaSession();
+    if(!session){setEducationEmail('unavailable');return;}
+    setEducationEmailSaving(true);
+    try {
+      const base=config.apiUrl.endsWith('/') ? config.apiUrl.slice(0,-1) : config.apiUrl;
+      const response=await fetch(base+'/lifecycle/preferences',{
+        method:'POST',headers:{
+          Authorization:'Bearer '+session.accessToken,
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify({educationalEmailOptIn:optedIn,emailFrequency:'weekly'}),
+      });
+      if(!response.ok)throw new Error('not saved');
+      const result=await response.json();
+      if(result?.success!==true||result?.optedIn!==optedIn)
+        throw new Error('invalid server confirmation');
+      setEducationEmail(optedIn?'opted_in':'opted_out');
+      setNotice(optedIn
+        ? 'E-mails educativos semanais autorizados. Você poderá cancelar quando quiser nas preferências da Nexa.'
+        : 'E-mails educativos desativados. Sua preferência foi registrada.');
+    }catch{
+      setNotice('Não conseguimos confirmar a alteração de e-mail. A preferência anterior foi mantida.');
+    }finally{setEducationEmailSaving(false);}
+  }
+
   // Separate, authenticated consent endpoint. A login or a push permission
   // never counts as WhatsApp / Telegram consent. Fail closed if unavailable.
   async function refreshChannelConsents() {
@@ -129,7 +176,8 @@ export default function CentralNexaScreen() {
       }
       const stored:Partial<Record<ChannelConsentKey, boolean>> = {};
       for (const consent of body.consents as ChannelConsent[]) {
-        const allowed = CHANNEL_OPTIONS.some(option => option.channel === consent.channel && option.purpose === consent.purpose);
+        const allowed = CHANNEL_OPTIONS.some(option => option.channel === consent.channel && option.purpose === consent.purpose) ||
+          (consent.channel === 'whatsapp' && (consent.purpose === 'service' || consent.purpose === 'marketing'));
         if (allowed && consent.optedIn === true) stored[`${consent.channel}:${consent.purpose}`] = true;
       }
       setChannelConsents(stored);
@@ -387,7 +435,7 @@ export default function CentralNexaScreen() {
             ? 'Entre na conta para usar o chat privado. O atendimento externo continua disponível.'
             : 'Estamos preparando o chat dentro do aplicativo. Enquanto isso, escolha um canal oficial para conversar com o Theo.'}</Text>
         )}
-        <Action title="Theo no WhatsApp" detail="Atendimento por mensagem, iniciado por você" onPress={() => void openUrl(nexaWhatsAppSupportUrl())} />
+        <Action title="Suporte no portal Nexa" detail="Atendimento por canal autenticado, sem enviar documentos por chat" onPress={() => void openUrl(PORTAL_URL)} />
         <Action title="Theo no Telegram" detail="Abrir @NexaTheoBot" onPress={() => void openUrl(NEXA_TELEGRAM_SUPPORT_URL)} />
       </View>
 
@@ -413,8 +461,8 @@ export default function CentralNexaScreen() {
           />
           <Action
             title="Preciso de ajuda com depósito"
-            detail="Conversar com Theo pelo WhatsApp, sem enviar dados financeiros"
-            onPress={() => void openUrl(nexaWhatsAppSupportUrl())}
+            detail="Abra o portal Nexa para solicitar atendimento seguro"
+            onPress={() => void openUrl(PORTAL_URL)}
           />
         </View>
       ) : null}
@@ -440,10 +488,27 @@ export default function CentralNexaScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Orientações por e-mail</Text>
+        <Text style={styles.paragraph}>
+          Receba, se quiser, até uma orientação educativa por semana sobre a Nexa:
+          como concluir a verificação, entender Pix e USDC e acompanhar sua conta.
+          Não são ofertas de investimento. Você pode cancelar a qualquer momento.
+        </Text>
+        {educationEmail==='opted_in'||educationEmail==='opted_out' ? (
+          <Action
+            title={educationEmail==='opted_in'?'E-mails educativos: autorizados':'E-mails educativos: desativados'}
+            detail={educationEmailSaving?'Salvando…':educationEmail==='opted_in'
+              ? 'Toque para desativar os e-mails semanais':'Toque para autorizar os e-mails semanais'}
+            onPress={()=>{if(!educationEmailSaving)void changeEducationEmail(educationEmail!=='opted_in');}}
+          />
+        ) : <Text style={styles.paragraph}>As preferências de e-mail estão temporariamente indisponíveis. Nenhuma autorização será presumida.</Text>}
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Converse com a Nexa onde preferir</Text>
         <Text style={styles.paragraph}>
-          Quer orientações de cadastro, KYC e depósitos pelo WhatsApp ou Telegram?
-          Você escolhe cada canal e pode retirar a autorização quando quiser.
+          As preferências do Telegram são separadas por finalidade e dependem de vínculo verificado.
+          A Nexa não utiliza WhatsApp para mensagens de Pix, USDC ou KYC sem liberação expressa da política aplicável.
           Notícias sobre cripto e ofertas são opcionais e exigem escolha separada.
           A Nexa não pede senhas, códigos nem documentos pelo chat.
         </Text>
@@ -458,10 +523,20 @@ export default function CentralNexaScreen() {
                 onPress={() => { if (!channelConsentSaving) void setChannelConsent(option.channel,option.purpose,!enabled); }}
               />;
             })}
-            <Text style={styles.footnote}>Autorizar mensagens não vincula automaticamente o número ou o Telegram à sua conta. O canal precisa ser verificado antes de qualquer envio.</Text>
+            {(['service','marketing'] as const).map(purpose => {
+              const key:ChannelConsentKey=`whatsapp:${purpose}`;
+              return channelConsents[key] === true ? (
+                <Action key={key}
+                  title={'WhatsApp: revogar autorização anterior (' + (purpose==='service'?'atendimento':'novidades') + ')'}
+                  detail="Este canal não está liberado para mensagens sobre Pix/USDC ou KYC"
+                  onPress={() => { if (!channelConsentSaving) void setChannelConsent('whatsapp',purpose,false); }}
+                />
+              ) : null;
+            })}
+            <Text style={styles.footnote}>Telegram exige vínculo verificado. O WhatsApp permanece indisponível para mensagens sobre Pix/USDC e KYC, mesmo com opt-in, até confirmação formal de elegibilidade.</Text>
           </>
         ) : (
-          <Text style={styles.paragraph}>As preferências de WhatsApp e Telegram estão em preparação. Quando estiverem disponíveis, você poderá autorizar ou recusar cada tipo de mensagem aqui.</Text>
+          <Text style={styles.paragraph}>As preferências de Telegram estão em preparação. Enquanto isso, use o portal autenticado ou os e-mails educativos autorizados.</Text>
         )}
       </View>
 
