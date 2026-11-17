@@ -28,3 +28,9 @@ Escopo: somente QA A, ondas 01/02. Este checkpoint nao constitui aprovacao de re
 - SHA `37bca614b50180264dc0c73810d92d161682006f`: **success**, run https://github.com/HenriqueGuilhermeUx/nexa-mobile/actions/runs/43921057958.
 - Integracao permanece no SHA `19725132972c8dc943d90a51b60a35e251934081`; comparacao atual: branch QA 180 ahead / 17 behind. Nao promover a branch integralmente.
 - **Limite da prova:** resultados sao exclusivamente do workflow sintetico/offline; A01-A16 fisicos, regressao em dispositivo, telemetria, EAS production e backend real da onda 09 continuam sem aprovacao comprovada. Nenhum merge ou OTA autorizado.
+
+## Confirmacao posterior do CI — 2026-11-16 23:40 UTC
+- SHA `ad99aa576ab2b76c7e6db7d49ffc81282b0933bd`: workflow `Maya Actions QA A evidence gate (offline)` concluido com `success`, run https://github.com/HenriqueGuilhermeUx/nexa-mobile/actions/runs/43981183846 (push; inicio 23:39:36 UTC; conclusao registrada 23:40:04 UTC). A consulta anterior `statuses=[]` nao refletia esse workflow de push.
+- Integracao `integration/maya-actions-v148` confirmada no SHA `19725132972c8dc943d90a51b60a35e251934081`; branch QA divergente em 182 ahead / 17 behind antes deste registro. Nao fazer merge integral.
+- Ondas 01/02: CI offline do SHA acima confirmado, mas A01-A16 fisicos e regressao de dispositivo nao comprovados. 03/04 historicamente integradas; 09 sem backend real homologado; 10 somente revisao; 05-08/11-12 sem nova aprovacao.
+- Este registro nao representa CI de aplicativo completo, teste fisico, aprovacao de release ou autorizacao para OTA. Production NO-GO para novas mudancas; nenhuma operacao externa ou financeira.
