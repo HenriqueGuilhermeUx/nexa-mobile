@@ -1,3 +1,4 @@
+import * as SecureStore from 'expo-secure-store';
 import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -26,6 +27,8 @@ type QuoteResponse=PilotQuote & {
   warning:string;
 };
 type Pending={hash:string;kind:string;to:string;owner:string};
+type Position={chainId:137;owner:string;usdcBalanceBaseUnits:string;aUsdcBalanceBaseUnits:string};
+const PENDING_KEY='nexa_aave_pending_confirm_v1';
 const API=config.apiUrl.replace(/\/$/,'');
 const ADDRESS=/^0x[a-fA-F0-9]{40}$/;
 
@@ -59,6 +62,7 @@ export default function AaveCustomerWalletScreen() {
   const [prepared,setPrepared]=useState<QuoteResponse|null>(null);
   const [pending,setPending]=useState<Pending|null>(null);
   const [lastHash,setLastHash]=useState('');
+  const [position,setPosition]=useState<Position|null>(null);
   const [notice,setNotice]=useState('');
   const [error,setError]=useState('');
 
@@ -97,6 +101,40 @@ export default function AaveCustomerWalletScreen() {
     }).finally(()=>{if(mounted)setLoading(false);});
     return()=>{mounted=false;};
   },[]);
+
+  useEffect(()=>{
+    let alive=true;
+    SecureStore.getItemAsync(PENDING_KEY).then(raw=>{
+      if(!alive||!raw)return;
+      const stored=JSON.parse(raw) as Pending;
+      if(/^0x[a-fA-F0-9]{64}$/.test(stored.hash) &&
+        ADDRESS.test(stored.owner) && ADDRESS.test(stored.to) &&
+        ['APPROVAL','SUPPLY','WITHDRAW'].includes(stored.kind)) {
+        setPending(stored);
+        setNotice('Há uma transação Aave anterior aguardando confirmação. Verifique antes de qualquer nova operação.');
+      }
+    }).catch(()=>{});
+    return()=>{alive=false;};
+  },[]);
+
+  async function refreshPosition(){
+    setWorking(true);
+    setError('');
+    try{
+      const data=await api('position') as Position & {success:boolean};
+      if(data.success!==true||data.chainId!==137||
+        !ADDRESS.test(data.owner) ||
+        !/^\d+$/.test(data.usdcBalanceBaseUnits)||
+        !/^\d+$/.test(data.aUsdcBalanceBaseUnits)) {
+        throw Error('Posição Aave não verificada');
+      }
+      walletFor(data.owner);
+      setPosition(data);
+    }catch(e){
+      setPosition(null);
+      setError(messageFrom(e));
+    }finally{setWorking(false);}
+  }
 
   function clearPlan(){
     setPrepared(null);
@@ -152,7 +190,9 @@ export default function AaveCustomerWalletScreen() {
       const hash=await sendOneAavePilotStep(provider,prepared,wallet.address,0);
       setLastHash(hash);
       setPrepared(null);
-      setPending({hash,kind:step.kind,to:step.to,owner:wallet.address});
+      const submitted={hash,kind:step.kind,to:step.to,owner:wallet.address};
+      setPending(submitted);
+      await SecureStore.setItemAsync(PENDING_KEY,JSON.stringify(submitted)).catch(()=>{});
       setNotice('Transação enviada. Não repita enquanto a blockchain confirma.');
     }catch(e){setError(messageFrom(e));}
     finally{setWorking(false);}
@@ -167,18 +207,34 @@ export default function AaveCustomerWalletScreen() {
       const outcome=await inspectAavePilotReceipt(provider,pending.hash,pending.owner,pending.to);
       if(outcome==='pending'){
         setNotice('Ainda aguardando confirmação na Polygon. Não envie novamente.');
-      }else if(outcome==='failed'){
-        setPending(null);
-        setNotice('A blockchain recusou a transação. O gás gasto pode não ser recuperado.');
-      }else {
-        const kind=pending.kind;
-        setPending(null);
-        setNotice(kind==='APPROVAL'
-          ? 'Autorização limitada confirmada. Revise novamente antes de aplicar USDC.'
-          : kind==='SUPPLY'
-            ? 'Depósito Aave confirmado na Polygon. Atualize sua posição para visualizar aTokens.'
-            : 'Retirada Aave confirmada na Polygon. O USDC retornou para sua carteira.');
+        return;
       }
+      if(outcome==='failed'){
+        setPending(null);
+        await SecureStore.deleteItemAsync(PENDING_KEY).catch(()=>{});
+        setNotice('A blockchain recusou a transação. O gás gasto pode não ser recuperado.');
+        return;
+      }
+      // Confirm with Nexa backend independently; it validates 32-block depth,
+      // owner, canonical calldata and pool/token events before success.
+      const attest=await api('receipt?txHash='+encodeURIComponent(pending.hash));
+      if(attest?.state!=='confirmed') {
+        setNotice('Transação executada; ainda aguardando confirmação adicional da Nexa. Não envie novamente.');
+        return;
+      }
+      if(attest.walletAddress?.toLowerCase()!==pending.owner.toLowerCase()||
+        attest.kind!==pending.kind||attest.onchainEventMatched!==true) {
+        throw Error('Comprovante Aave não corresponde à transação.');
+      }
+      const kind=pending.kind;
+      setPending(null);
+      await SecureStore.deleteItemAsync(PENDING_KEY).catch(()=>{});
+      setNotice(kind==='APPROVAL'
+        ?'Autorização limitada confirmada. Revise novamente para aplicar o USDC.'
+        :kind==='SUPPLY'
+          ?'Depósito Aave confirmado. Consulte seus aTokens atuais.'
+          :'Retirada Aave confirmada. USDC devolvido à sua carteira.');
+      if(kind!=='APPROVAL')await refreshPosition();
     }catch(e){setError(messageFrom(e));}
     finally{setWorking(false);}
   }
@@ -196,6 +252,16 @@ export default function AaveCustomerWalletScreen() {
           : status?.message||'A movimentação Aave ainda não está habilitada para esta conta.'}</Text>
         <Text style={styles.sub}>Crédito e amortização ainda não disponíveis.</Text>
       </View>
+      {status?.pilotEnabled?(
+        <View style={styles.card}>
+          <Text style={styles.head}>Posição real na Aave</Text>
+          <Text style={styles.sub}>USDC na carteira: {position?asUsdc(position.usdcBalanceBaseUnits):'a consultar'}</Text>
+          <Text style={styles.sub}>aUSDC na Aave: {position?asUsdc(position.aUsdcBalanceBaseUnits):'a consultar'}</Text>
+          <Pressable style={styles.button} disabled={working||!!pending} onPress={refreshPosition}>
+            <Text style={styles.buttonText}>Atualizar minha posição</Text>
+          </Pressable>
+        </View>
+      ):null}
       {status?.pilotEnabled?(
         <View style={styles.card}>
           <Text style={styles.head}>Qual operação deseja fazer?</Text>
