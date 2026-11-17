@@ -1,0 +1,40 @@
+name: Central Nexa Theo escalation — safe Android UI check
+on:
+  push:
+    branches:
+      - feat/central-nexa-human-review-feedback-20261117
+  pull_request:
+    paths:
+      - 'app/central-nexa.tsx'
+      - '.github/workflows/central-nexa-theo-escalation-qa.yml'
+permissions:
+  contents: read
+jobs:
+  central-theo-safe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify scope preserves distributed app identity and financial modules
+        run: |
+          node - <<'NODE'
+          const cp=require('node:child_process'),assert=require('node:assert/strict');
+          const paths=cp.execFileSync('git',['diff','--name-only','origin/feat/central-nexa-consented-email-preferences-v148-20261115...HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          const allowed=new Set(['app/central-nexa.tsx','.github/workflows/central-nexa-theo-escalation-qa.yml']);
+          assert.deepEqual(paths.filter(p=>!allowed.has(p)),[]);
+          console.log('Central-only diff, no payments, identity or app configuration changed');
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Validate React Native types
+        run: npm run typecheck
+      - name: Verify only safe human-review signaling
+        run: |
+          grep -q 'humanReviewRecommended' app/central-nexa.tsx
+          grep -q 'Nenhum chamado foi aberto automaticamente' app/central-nexa.tsx
+          ! grep -q 'humanTicketCreated: true' app/central-nexa.tsx
