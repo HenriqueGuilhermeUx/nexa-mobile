@@ -1,0 +1,94 @@
+name: Central Nexa current-live Android QA OTA
+on:
+  push:
+    branches:
+      - feat/nexa-central-current-ota-safe-handoff-20261117
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qa-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: central-nexa-current-live-qa
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Guard production baseline and exact diff
+        run: |
+          node - <<'NODE'
+          const cp=require('node:child_process'),fs=require('node:fs'),assert=require('node:assert/strict');
+          const baseline='b8bc4c65f08480f2a334be457ef47bcc1b20f49d';
+          const changed=cp.execFileSync('git',['diff','--name-only',baseline+'..HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          assert.deepEqual(changed.filter(x=>!['app/central-nexa.tsx','.github/workflows/central-nexa-current-live-qa.yml'].includes(x)),[]);
+          for(const path of ['app.json','eas.json','package.json','package-lock.json','src/lib/api.ts','src/lib/nexaNotifications.ts','src/lib/nexaCentralPush.ts']) {
+            assert.equal(fs.readFileSync(path,'utf8'),cp.execFileSync('git',['show',baseline+':'+path],{encoding:'utf8'}),path+' differs from live OTA');
+          }
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          assert.equal(app.version,'2.0.43');assert.equal(app.android.versionCode,148);
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.extra.eas.projectId,'b3faabec-283a-4ba2-88b5-f096304e68aa');
+          const src=fs.readFileSync('app/central-nexa.tsx','utf8');
+          assert(src.includes('humanReviewRecommended'));
+          assert(src.includes('Nenhum chamado foi aberto automaticamente'));
+          assert(src.includes('humanTicketCreated !== true'));
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run export:android
+  qa-ota:
+    needs: qa-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: central-nexa-current-live-qa
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Verify exact production OTA before isolated QA update
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)
+            });
+            const j=await r.json();if(!r.ok||j.errors?.length)throw Error('Expo verification unavailable');
+            const app=j.data?.app?.byId,branches=app?.updateChannelByName?.updateBranches?.map(z=>z.name)||[];
+            const prod=app?.prod?.updates?.find(z=>z.platform==='android');
+            if(branches.length!==1||branches[0]!=='production')throw Error('Production channel mapping changed');
+            if(prod?.gitCommitHash!=='b8bc4c65f08480f2a334be457ef47bcc1b20f49d')throw Error('Live OTA changed; rebaseline required');
+            console.log('Production mapping verified and untouched; publish to isolated QA ONLY');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Publish QA branch only; NEVER production
+        run: eas update --branch central-nexa-current-live-qa --platform android --message "Central Nexa current-live QA $(git rev-parse --short HEAD)" --non-interactive
