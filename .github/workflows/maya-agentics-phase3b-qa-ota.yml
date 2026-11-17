@@ -46,7 +46,7 @@ jobs:
           cp.execFileSync('git',['merge-base','--is-ancestor','47d09e55b3f8e4045e530402cb92c32327595031',head]);
           for(const p of ['src/maya-actions/agenticsReadiness.ts','src/maya-actions/agenticsReviewPreview.ts','src/maya-actions/agenticsPresentation.ts']){
             const s=fs.readFileSync(p,'utf8');
-            if(/fetch\\s*\\(|axios\\.|AGENTICS_API_TOKEN|AGENTICS_ADMIN_TOKEN|EXPO_PUBLIC_.*SECRET/.test(s))throw Error('Client may not call Agentics directly: '+p);
+            if(/fetch\s*\(|axios\.|AGENTICS_API_TOKEN|AGENTICS_ADMIN_TOKEN|EXPO_PUBLIC_.*SECRET/.test(s))throw Error('Client may not call Agentics directly: '+p);
           }
           console.log('MAYA_QA_SOURCE='+head.slice(0,12));
           NODE
