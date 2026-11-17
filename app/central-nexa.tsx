@@ -57,6 +57,7 @@ export default function CentralNexaScreen() {
   const [channelConsentSaving, setChannelConsentSaving] = useState<ChannelConsentKey | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [supportNextAction, setSupportNextAction] = useState<'authenticated_support'|'kyc_feedback'|null>(null);
   const pendingMessage = useRef<{ text: string; requestId: string } | null>(null);
 
   useEffect(() => {
@@ -262,10 +263,12 @@ export default function CentralNexaScreen() {
       setDraft('');
       await refreshInbox();
       if (result.humanReviewRecommended === true && result.humanTicketCreated !== true) {
+        setSupportNextAction(result.nextAction === 'kyc_feedback' ? 'kyc_feedback' : 'authenticated_support');
         setNotice(result.nextAction === 'kyc_feedback'
           ? 'A dificuldade com a verificação pode precisar de análise. Use "Encontrei dificuldade no KYC" abaixo. Nenhum chamado foi aberto automaticamente.'
           : 'Esse caso pode precisar de análise do suporte Nexa. Use "Suporte no portal Nexa" abaixo. Nenhum chamado foi aberto automaticamente.');
       } else {
+        setSupportNextAction(null);
         setNotice('');
       }
     } catch {
@@ -443,6 +446,11 @@ export default function CentralNexaScreen() {
             <Pressable accessibilityRole="button" disabled={sending || !draft.trim()} onPress={() => void sendInternalMessage()} style={styles.sendButton}>
               <Text style={styles.sendLabel}>{sending ? 'Enviando…' : 'Enviar ao Theo'}</Text>
             </Pressable>
+            {supportNextAction === 'kyc_feedback' ? (
+              <Action title="Informar dificuldade na verificação" detail="Abrir orientação oficial de KYC; nenhum chamado foi criado automaticamente" onPress={() => void openUrl(FEEDBACK_URL)} />
+            ) : supportNextAction === 'authenticated_support' ? (
+              <Action title="Pedir análise pelo suporte Nexa" detail="Abrir o atendimento oficial; este chat não abriu chamado automaticamente" onPress={() => void openUrl(PORTAL_URL)} />
+            ) : null}
           </>
         ) : (
           <Text style={styles.featureCopy}>{inboxState === 'signed_out'
