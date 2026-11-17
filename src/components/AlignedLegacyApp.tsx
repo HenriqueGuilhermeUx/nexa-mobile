@@ -1298,6 +1298,26 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           </TouchableOpacity>
         ) : null}
 
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Conhecer Aave, simular risco e consultar opções sem movimentar dinheiro"
+          style={styles.assistantHomeCard}
+          activeOpacity={0.84}
+          onPress={() => router.push('/(app)/aave-info' as any)}
+        >
+          <View style={styles.assistantHomeIcon}>
+            <Text style={styles.assistantHomeIconText}>◈</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.assistantHomeKicker}>AAVE NA NEXA · INFORMATIVO</Text>
+            <Text style={styles.assistantHomeTitle}>Explore rendimento e crédito</Text>
+            <Text style={styles.assistantHomeText}>
+              Entenda as opções e simule riscos. Aplicar e pedir crédito ainda não estão habilitados.
+            </Text>
+          </View>
+          <Text style={styles.assistantHomeArrow}>›</Text>
+        </TouchableOpacity>
+
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionKicker}>MINHA WALLET</Text>
