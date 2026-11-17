@@ -6,7 +6,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { nexaApi } from '@/lib/api';
 import { config } from '@/config';
-import { loadNexaSession } from '@/lib/session';
+import { loadNexaSession, saveNexaSession } from '@/lib/session';
 import {
   externalWalletFeaturesEnabled,
   forgetWatchedWallet,
@@ -56,7 +56,30 @@ export default function ExternalWalletsScreen() {
         if (!session?.accessToken || !session.email) {
           throw new Error('Entre na sua conta Nexa antes de adicionar uma carteira.');
         }
-        const response = await nexaApi.me(session.accessToken);
+        // An existing Nexa customer should not need to register again merely
+        // because the access token expired during an OTA/app restart.
+        let accessToken = session.accessToken;
+        let response;
+        try {
+          response = await nexaApi.me(accessToken);
+        } catch (error: any) {
+          if (error?.status !== 401 || !session.refreshToken) throw error;
+          const refreshed = await nexaApi.refresh(session.refreshToken);
+          const nextAccess =
+            refreshed.accessToken || refreshed.access_token ||
+            refreshed.token || refreshed.tokens?.accessToken;
+          const nextRefresh =
+            refreshed.refreshToken || refreshed.refresh_token ||
+            refreshed.tokens?.refreshToken || session.refreshToken;
+          if (!nextAccess) throw error;
+          accessToken = nextAccess;
+          await saveNexaSession({
+            accessToken,
+            refreshToken: nextRefresh,
+            email: session.email,
+          });
+          response = await nexaApi.me(accessToken);
+        }
         const profile = response?.user || response;
         const email = String(profile?.email || '').trim().toLowerCase();
         if (!email || email !== session.email.trim().toLowerCase()) {
@@ -71,14 +94,22 @@ export default function ExternalWalletsScreen() {
         // This is the existing authenticated wallet endpoint, never a
         // hardcoded address or one supplied by an untrusted external wallet.
         try {
-          const result = await fetch(config.apiUrl + '/wallet-v15/me', {
-            headers: {
-              Authorization: 'Bearer ' + session.accessToken,
-              Accept: 'application/json',
-            },
-          });
-          if (!result.ok) throw new Error('Wallet de recebimento indisponível.');
-          const body = await result.json();
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15_000);
+          let body;
+          try {
+            const result = await fetch(config.apiUrl + '/wallet-v15/me', {
+              headers: {
+                Authorization: 'Bearer ' + accessToken,
+                Accept: 'application/json',
+              },
+              signal: controller.signal,
+            });
+            if (!result.ok) throw new Error('Wallet de recebimento indisponível.');
+            body = await result.json();
+          } finally {
+            clearTimeout(timeout);
+          }
           if (!live) return;
           // Wallet V1.5 portfolio.address can be a configured outgoing
           // destinationWallet, not the Nexa-controlled wallet address.
