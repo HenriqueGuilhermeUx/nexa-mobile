@@ -138,6 +138,36 @@ export async function readExternalUsdcBalance(
   throw new Error('A Polygon não respondeu. Tente novamente; nenhum saldo foi alterado.');
 }
 
+/**
+ * A Wallet V1.5 portfolio address is NOT necessarily a funding address.
+ * The backend prefers the user's configured destinationWallet, which may
+ * belong to an external wallet. Only display a QR code if independently
+ * authenticated /user/me confirms the same Polygon Nexa-managed/Privy address.
+ * Fail closed: absence, network/provider mismatch or wallet not ready = no QR.
+ */
+export function verifiedNexaReceiveAddress(
+  userProfile: unknown,
+  walletV15Response: unknown,
+): Address | null {
+  const profile = userProfile as Record<string, any> | null;
+  const result = walletV15Response as Record<string, any> | null;
+  const identityWallet = profile?.wallet;
+  const portfolio = result?.portfolio;
+  if (result?.success !== true || portfolio?.walletReady !== true) return null;
+  const provider = String(identityWallet?.provider || '').trim().toLowerCase();
+  const network = String(identityWallet?.network || '').trim().toLowerCase();
+  const portfolioNetwork = String(portfolio?.network || '').trim().toLowerCase();
+  if (!['privy', 'nexa-managed'].includes(provider) ||
+      network !== 'polygon' || portfolioNetwork !== 'polygon') return null;
+  try {
+    const owned = parseExternalWalletAddress(String(identityWallet?.address || ''));
+    const displayed = parseExternalWalletAddress(String(portfolio?.address || ''));
+    return owned.toLowerCase() === displayed.toLowerCase() ? owned : null;
+  } catch {
+    return null;
+  }
+}
+
 export function externalWalletFeaturesEnabled() {
   // Public-address monitoring is a read-only feature. The feature is
   // enabled after the 2026-11 rollout but can be disabled via the explicit
