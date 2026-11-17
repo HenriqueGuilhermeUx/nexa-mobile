@@ -62,3 +62,19 @@ test('JSON array blocks as an invalid manifest without a success signal', () => 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('JSON scalar string and boolean manifests fail closed without success', () => {
+  for (const scalar of ['"approved"', 'true', 'false', '42']) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maya-qa-a-scalar-'));
+    const file = path.join(dir, 'scalar.json');
+    try {
+      fs.writeFileSync(file, scalar, { mode: 0o600 });
+      const result = invoke([file]);
+      assert.equal(result.status, 1, 'unexpected exit for ' + scalar);
+      assert.match(result.stderr, /NO-GO: evidence manifest must be a JSON object/);
+      assert.doesNotMatch(result.stdout, /structurally complete/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
