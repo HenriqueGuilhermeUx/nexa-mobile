@@ -14,6 +14,7 @@ import {
   readExternalUsdcBalance,
   readWatchedWallets,
   saveWatchedWallet,
+  verifiedNexaReceiveAddress,
   type ExternalUsdcBalance,
   type WatchedExternalWallet,
 } from '@/lib/externalWalletWatch';
@@ -79,18 +80,21 @@ export default function ExternalWalletsScreen() {
           if (!result.ok) throw new Error('Wallet de recebimento indisponível.');
           const body = await result.json();
           if (!live) return;
-          const chain = body?.chainId ?? body?.wallet?.chainId;
-          if (chain && Number(chain) !== 137) {
-            throw new Error('O servidor não confirmou o endereço para a rede Polygon.');
-          }
-          const proposed = body?.portfolio?.address || body?.wallet?.address || body?.walletAddress;
-          if (!proposed) {
-            setReceiveHint('Sua wallet Nexa ainda não possui endereço ativo de recebimento.');
+          // Wallet V1.5 portfolio.address can be a configured outgoing
+          // destinationWallet, not the Nexa-controlled wallet address.
+          // Never present an unverified destination as a receive QR.
+          const verifiedAddress = verifiedNexaReceiveAddress(profile, body);
+          if (verifiedAddress) {
+            setReceiveAddress(verifiedAddress);
+            setReceiveHint('');
           } else {
-            setReceiveAddress(parseExternalWalletAddress(String(proposed)));
+            setReceiveAddress('');
+            setReceiveHint(
+              'Recebimento protegido: não foi possível confirmar que o endereço pertence à sua wallet Nexa na Polygon. Nenhum QR foi liberado. Consulte sua Wallet e confirme o endereço antes de qualquer envio.',
+            );
           }
         } catch {
-          if (live) setReceiveHint('Consulte o endereço de recebimento na seção Minha Wallet da Nexa.');
+          if (live) setReceiveHint('Endereço de recebimento indisponível até confirmação da Wallet Nexa. Não envie fundos enquanto isso.');
         }
       } catch (error) {
         if (live) setAuthError(errorMessage(error));
