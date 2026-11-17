@@ -1,0 +1,131 @@
+name: Maya v148 — guarded Android production canary 10 percent
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/maya-v148-production-canary-from-qa.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexa-activation-ota-production
+  cancel-in-progress: false
+jobs:
+  maya-production-canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Checkout exact previously published and verified Maya QA source
+        uses: actions/checkout@v4
+        with:
+          ref: 8a09cad91fd89cc53b374c1cff42f36fdd618d5f
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Freeze Android runtime, wallet API, dependency and on-chain configuration
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "8a09cad91fd89cc53b374c1cff42f36fdd618d5f"
+          git merge-base --is-ancestor 3d75dc1df7b2f40751507d711cf73fde541da1af HEAD
+          for p in app.json app.config.js eas.json package.json package-lock.json src/lib/api.ts src/lib/nexaNotifications.ts app/index.tsx app/kyc.tsx app/sign-in.tsx app/central-nexa.tsx src/components/AlignedLegacyApp.tsx src/lib/nexaSupportLinks.ts src/lib/nexaCentralPush.ts; do
+            git show 3d75dc1df7b2f40751507d711cf73fde541da1af:"$p" | cmp - "$p"
+          done
+          node <<'NODE'
+          const fs=require('node:fs'),cp=require('node:child_process');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const eas=JSON.parse(fs.readFileSync('eas.json','utf8'));
+          if(app.version!=='2.0.43'||pkg.version!=='2.0.43'||app.android.versionCode!==148||
+             app.android.package!=='br.com.trynexa.app'||app.runtimeVersion?.policy!=='appVersion'||
+             app.extra?.eas?.projectId!=='b3faabec-283a-4ba2-88b5-f096304e68aa'||
+             eas.build.production.channel!=='production')throw Error('Wrong Android binary or Expo project');
+          const changed=cp.execFileSync('git',['diff','--name-only','3d75dc1df7b2f40751507d711cf73fde541da1af','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          const allowed=p=>p.startsWith('app/maya-')||p.startsWith('src/maya-actions/')||
+            p.startsWith('scripts/validate-maya-')||p.startsWith('.github/workflows/maya-')||
+            p.startsWith('docs/maya-')||p==='src/lib/mayaWebActionContracts.ts'||
+            p==='src/components/NexaAssistantOpenFinance.tsx'||p==='app/_layout.tsx';
+          const wrong=changed.filter(p=>!allowed(p));
+          if(wrong.length)throw Error('Unexpected financial, onboarding or release changes: '+wrong.join(', '));
+          if(process.env.EXPO_TOKEN?.length<20)throw Error('Missing EXPO_TOKEN');
+          console.log('PASS MAYA_PRODUCTION_FROZEN_SCOPE='+changed.length);
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Load the existing production build environment without modifications
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          if(env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='true'||
+             env.EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED!=='true'||
+             env.EXPO_PUBLIC_NEXA_RELEASE_CHANNEL!=='production'||
+             env.EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED==='true'||
+             env.EXPO_PUBLIC_NEXA_MAYA_AGENTICS_ENABLED==='true')throw Error('Production environment changed; abort');
+          for(const [k,v] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(k)||typeof v!=='string')throw Error('Invalid public environment');
+            fs.appendFileSync(process.env.GITHUB_ENV,k+'='+v+'\n');
+          }
+          fs.appendFileSync(process.env.GITHUB_ENV,'EXPO_PUBLIC_NEXA_MAYA_AGENTICS_ENABLED=false\n');
+          NODE
+      - name: Regress cumulative Maya, Nexa Central and financial safety before public canary
+        run: |
+          set -euo pipefail
+          for file in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js scripts/validate-maya-hoje-v1.js scripts/validate-maya-action-cards-v1.js scripts/validate-maya-agentics-task-contracts-v1.js scripts/validate-maya-agentics-readiness-v1.js scripts/validate-maya-agentics-presentation-v1.js scripts/validate-maya-agentics-review-preview-v1.js; do node "$file"; done
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          node scripts/validate-mobile-safety-v123.js
+          npm run typecheck
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Final real-time Expo hard gate — exact QA result and unchanged production
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} production:updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform group}} qa:updateBranchByName(name:"maya-v148-agentics-pinned-qa"){updates(offset:0,limit:10){id gitCommitHash platform group}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(16000)
+            });
+            const j=await r.json();
+            if(!r.ok||j.errors?.length)throw Error('Expo read-only verification failed');
+            const app=j.data?.app?.byId,names=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const live=app?.production?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            if(names.length!==1||names[0]!=='production')throw Error('Production channel mapping changed');
+            if(!live?.id||live.id!=='01a1ea37-0206-7450-9b3f-cba635e9bee2')throw Error('Production OTA advanced since successful QA; no automatic overwrite');
+            if(!qa||qa.id!=='01a1ea50-46a4-7664-b1ee-b5577f3b1fe8'||
+               qa.gitCommitHash!=='8a09cad91fd89cc53b374c1cff42f36fdd618d5f')throw Error('QA candidate drift; abort public release');
+            if(live.gitCommitHash!=='3d75dc1df7b2f40751507d711cf73fde541da1af')
+              throw Error('Live source differs from guarded baseline; requires new cumulative QA');
+            console.log('APPROVED_10_PERCENT_MAYA_CANARY='+JSON.stringify({liveId:live.id,liveCommit:live.gitCommitHash,qaId:qa.id,qaGroup:qa.group}));
+          })().catch(e=>{console.error('PRODUCTION_RELEASE_BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Release to Android production with 10 percent progressive rollout only
+        run: eas update --branch production --platform android --rollout-percentage 10 --message "Nexa Maya v148 reviewed productivity tools 10 percent safe canary — Agentics off" --non-interactive
+      - name: Verify Expo now records production Android canary candidate
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} production:updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000),
+            });
+            const j=await r.json(),app=j.data?.app?.byId;
+            const live=app?.production?.updates?.find(x=>x.platform==='android');
+            const mapping=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(!r.ok||j.errors?.length||live?.gitCommitHash!=='8a09cad91fd89cc53b374c1cff42f36fdd618d5f'||
+               mapping.length!==1||mapping[0]!=='production')throw Error('Cannot attest Android canary; inspect Expo immediately');
+            const text='### Maya Android canary published\n- Android QA tested: 01a1ea50-46a4-7664-b1ee-b5577f3b1fe8\n- Source: '+live.gitCommitHash+'\n- Production OTA: '+live.id+'\n- Requested rollout: 10% Android only\n- Agentics external actions: disabled\n';
+            require('node:fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,text);
+            console.log('MAYA_ANDROID_CANARY_10_PERCENT_PUBLISHED_UPDATE='+live.id);
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
