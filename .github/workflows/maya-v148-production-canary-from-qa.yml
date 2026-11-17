@@ -47,7 +47,7 @@ jobs:
           const changed=cp.execFileSync('git',['diff','--name-only','3d75dc1df7b2f40751507d711cf73fde541da1af','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
           const allowed=p=>p.startsWith('app/maya-')||p.startsWith('src/maya-actions/')||
             p.startsWith('scripts/validate-maya-')||p.startsWith('.github/workflows/maya-')||
-            p.startsWith('docs/maya-')||p==='src/lib/mayaWebActionContracts.ts'||
+            p.startsWith('docs/maya-')||p==='.github/workflows/maya12-v148-live-baseline-qa.yml'||p==='src/lib/mayaWebActionContracts.ts'||
             p==='src/components/NexaAssistantOpenFinance.tsx'||p==='app/_layout.tsx';
           const wrong=changed.filter(p=>!allowed(p));
           if(wrong.length)throw Error('Unexpected financial, onboarding or release changes: '+wrong.join(', '));
