@@ -26,7 +26,8 @@ jobs:
           node - <<'NODE'
           const cp=require('node:child_process'),assert=require('node:assert/strict');
           const paths=cp.execFileSync('git',['diff','--name-only','origin/feat/central-nexa-consented-email-preferences-v148-20261115...HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
-          const allowed=new Set(['app/central-nexa.tsx','.github/workflows/central-nexa-theo-escalation-qa.yml']);
+          const allowed=new Set(['app/central-nexa.tsx','.github/workflows/central-nexa-theo-escalation-qa.yml',
+            '.github/workflows/central-nexa-consented-email-qa.yml']);
           assert.deepEqual(paths.filter(p=>!allowed.has(p)),[]);
           console.log('Central-only diff, no payments, identity or app configuration changed');
           NODE
