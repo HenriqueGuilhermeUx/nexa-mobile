@@ -1,0 +1,62 @@
+name: Nexa v148 Aave user options — preserved features QA
+on:
+  push:
+    branches: [feat/aave-user-options-v148-safe-release-20261117]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aave-user-options-v148-safe-qa
+  cancel-in-progress: true
+jobs:
+  aave-safe-user-experience:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_NO_TELEMETRY: '1'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck whole mobile app, not just Aave
+        run: npm run typecheck
+      - name: Verify educational simulator and no financial execution
+        run: |
+          node scripts/validate-aave-educational-simulation.cjs
+          node scripts/validate-aave-eligibility.cjs
+          node scripts/validate-aave-android-headers.cjs
+          node scripts/validate-aave-diagnostics.cjs
+      - name: Protect v148 baseline, route, home and untouched wallet flows
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const app=require('./app.json').expo;
+          assert.equal(app.version,'2.0.43');
+          assert.equal(app.android.versionCode,148);
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.extra.financialExecutionEnabled,false);
+          const home=fs.readFileSync('src/components/AlignedLegacyApp.tsx','utf8');
+          const layout=fs.readFileSync('app/(app)/_layout.tsx','utf8');
+          const screen=fs.readFileSync('app/(app)/aave-info.tsx','utf8');
+          assert.ok(home.includes("router.push('/(app)/aave-info' as any)"));
+          assert.ok(home.includes('AAVE NA NEXA · INFORMATIVO'));
+          assert.ok(layout.includes('name="aave-info"'));
+          assert.ok(screen.includes('Simulador disponível'));
+          assert.ok(screen.includes('Consulta condicionada à verificação'));
+          assert.ok(screen.includes('Nenhuma operação foi executada'));
+          assert.ok(!screen.includes('writeContract('));
+          assert.ok(!screen.includes('sendTransaction('));
+          for (const existing of ['openWalletFirstDeposit','openWalletFirstWithdraw',
+            'openWalletFirstSend','openWalletFirstAssets']) {
+            assert.ok(home.includes(existing),'Wallet function lost: '+existing);
+          }
+          console.log('Nexa v148 preserved wallet actions, Aave informational home and safe preview PASS');
+          NODE
