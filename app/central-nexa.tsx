@@ -250,10 +250,24 @@ export default function CentralNexaScreen() {
         setNotice('Mensagem não enviada. Não inclua CPF, e-mail, telefone ou documentos. Você pode usar o atendimento externo.');
         return;
       }
+      // The Central signals a recommended next step, not a created support ticket.
+      // Older backends omit these fields and continue using the existing chat.
+      const result = await response.json() as {
+        humanReviewRecommended?: boolean;
+        reason?: string;
+        nextAction?: 'authenticated_support'|'kyc_feedback'|'self_service';
+        humanTicketCreated?: boolean;
+      };
       pendingMessage.current = null;
       setDraft('');
-      setNotice('');
       await refreshInbox();
+      if (result.humanReviewRecommended === true && result.humanTicketCreated !== true) {
+        setNotice(result.nextAction === 'kyc_feedback'
+          ? 'A dificuldade com a verificação pode precisar de análise. Use "Encontrei dificuldade no KYC" abaixo. Nenhum chamado foi aberto automaticamente.'
+          : 'Esse caso pode precisar de análise do suporte Nexa. Use "Suporte no portal Nexa" abaixo. Nenhum chamado foi aberto automaticamente.');
+      } else {
+        setNotice('');
+      }
     } catch {
       setNotice('Não foi possível enviar. Sua mensagem foi mantida para tentar novamente.');
     } finally {
