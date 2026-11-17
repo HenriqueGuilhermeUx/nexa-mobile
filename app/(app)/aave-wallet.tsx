@@ -27,7 +27,7 @@ type QuoteResponse=PilotQuote & {
   warning:string;
 };
 type Pending={hash:string;kind:string;to:string;owner:string};
-type Position={chainId:137;owner:string;usdcBalanceBaseUnits:string;aUsdcBalanceBaseUnits:string};
+type Position={chainId:137;owner:string;usdcBalanceBaseUnits:string;aUsdcBalanceBaseUnits:string;readAt:string;source:'POLYGON_AAVE_V3_NATIVE_USDC'};
 const PENDING_KEY='nexa_aave_pending_confirm_v1';
 const API=config.apiUrl.replace(/\/$/,'');
 const ADDRESS=/^0x[a-fA-F0-9]{40}$/;
@@ -117,13 +117,13 @@ export default function AaveCustomerWalletScreen() {
     return()=>{alive=false;};
   },[]);
 
-  async function refreshPosition(){
+  useEffect(()=>{\n    if(status?.pilotEnabled===true) void refreshPosition();\n  },[status?.pilotEnabled]);\n\n  async function refreshPosition(){
     setWorking(true);
     setError('');
     try{
       const data=await api('position') as Position & {success:boolean};
       if(data.success!==true||data.chainId!==137||
-        !ADDRESS.test(data.owner) ||
+        !ADDRESS.test(data.owner) ||\n        data.source!=='POLYGON_AAVE_V3_NATIVE_USDC' ||\n        !Number.isFinite(Date.parse(data.readAt)) ||
         !/^\d+$/.test(data.usdcBalanceBaseUnits)||
         !/^\d+$/.test(data.aUsdcBalanceBaseUnits)) {
         throw Error('Posição Aave não verificada');
@@ -256,7 +256,7 @@ export default function AaveCustomerWalletScreen() {
         <View style={styles.card}>
           <Text style={styles.head}>Posição real na Aave</Text>
           <Text style={styles.sub}>USDC na carteira: {position?asUsdc(position.usdcBalanceBaseUnits):'a consultar'}</Text>
-          <Text style={styles.sub}>aUSDC na Aave: {position?asUsdc(position.aUsdcBalanceBaseUnits):'a consultar'}</Text>
+          <Text style={styles.sub}>aUSDC na Aave: {position?asUsdc(position.aUsdcBalanceBaseUnits):'a consultar'}</Text>\n          <Text style={styles.sub}>Fonte: Polygon · Aave V3 · USDC nativo. {position?'Leitura: '+new Date(position.readAt).toLocaleString('pt-BR'):'Aguardando leitura on-chain.'} Valores variam e não são saldo do ledger Nexa.</Text>
           <Pressable style={styles.button} disabled={working||!!pending} onPress={refreshPosition}>
             <Text style={styles.buttonText}>Atualizar minha posição</Text>
           </Pressable>
