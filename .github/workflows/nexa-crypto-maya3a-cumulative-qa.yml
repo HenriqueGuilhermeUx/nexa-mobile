@@ -1,0 +1,87 @@
+name: Nexa external wallet + Maya3A — exact-source v148 QA
+on:
+  push:
+    branches:
+      - feat/nexa-crypto-funding-maya3a-v148-20261117
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexa-crypto-maya3a-qa
+  cancel-in-progress: true
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Confirm identical published canary and additive source-only changes
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),cp=require('node:child_process'),assert=require('node:assert/strict');
+          const base='1f6ed324fcf0cfdbef322be1910962dddfe6715e';
+          const allowed=new Set([
+           'app/(app)/external-wallets.tsx','app/(app)/_layout.tsx',
+           'src/lib/externalWalletWatch.ts','src/components/AlignedLegacyApp.tsx',
+           '.github/workflows/nexa-crypto-maya3a-cumulative-qa.yml',
+           '.github/workflows/nexa-crypto-maya3a-production-ota.yml'
+          ]);
+          const changed=cp.execFileSync('git',['diff','--name-only',base+'...HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          for(const p of changed)assert(allowed.has(p),'Unauthorized change: '+p);
+          for(const p of ['app.json','app.config.js','eas.json','package.json','package-lock.json',
+            'src/lib/api.ts','src/lib/session.ts','app/index.tsx','app/assistant.tsx',
+            'app/_layout.tsx','app/central-nexa.tsx','app/kyc.tsx','app/sign-in.tsx',
+            'src/components/NexaAssistantOpenFinance.tsx','src/lib/nexaNotifications.ts']){
+            const published=cp.execFileSync('git',['show',base+':'+p]);
+            assert.deepEqual(fs.readFileSync(p),published,'Published Maya3A/Central/financial file changed: '+p);
+          }
+          const app=require('./app.json').expo;
+          assert.equal(app.version,'2.0.43');assert.equal(app.android.versionCode,148);
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.runtimeVersion.policy,'appVersion');
+          const ui=fs.readFileSync('src/components/AlignedLegacyApp.tsx','utf8');
+          const page=fs.readFileSync('app/(app)/external-wallets.tsx','utf8');
+          const readonly=fs.readFileSync('src/lib/externalWalletWatch.ts','utf8');
+          for(const match of ['title="Carteira cripto"','Open Finance','Central Nexa','Carteiras externas','Adicionar carteira externa'])assert(ui.includes(match),'Missing entry: '+match);
+          for(const match of ['nexaApi.me','wallet-v15/me','readExternalUsdcBalance','loadNexaSession'])assert(page.includes(match),'Missing auth/watch: '+match);
+          for(const match of ['balanceOf','chainId !== 137','SecureStore','POLYGON_NATIVE_USDC'])assert(readonly.includes(match),'Missing readonly guard: '+match);
+          for(const token of ['eth_sendTransaction','signMessage(','writeContract(','@walletconnect','@reown']){
+            assert(!page.includes(token)&&!readonly.includes(token),'Unexpected money/signing code: '+token);
+          }
+          assert(fs.readFileSync('app/(app)/_layout.tsx','utf8').includes('name="external-wallets"'));
+          console.log('PASS: published Maya3A + Central + financial files byte-identical, only read-only wallet entries added');
+          NODE
+      - name: Load exact published v148 production feature flags
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string')throw Error('Production environment invalid: '+key);
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Restore exact locked v148 dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Existing Maya and Central regressions
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          for test in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js scripts/validate-maya-web-forms-v1.js; do node "$test"; done
+      - name: Typecheck complete additive mobile application
+        run: npm run typecheck
+      - name: Bundle Android Hermes JavaScript, no deploy
+        run: npm run export:android
