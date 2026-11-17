@@ -99,7 +99,7 @@ jobs:
             if(!response.ok||data.errors?.length)throw Error('Production OTA snapshot unavailable');
             const live=data.data?.app?.byId?.prod?.updates?.find(x=>x.platform==='android');
             if(!live?.id)throw Error('Missing production Android update; do not publish QA');
-            require('node:fs').appendFileSync(process.env.GITHUB_OUTPUT,'update_id='+live.id+'\\n');
+            require('node:fs').appendFileSync(process.env.GITHUB_OUTPUT,'update_id='+live.id+'\n');
             console.log('Captured live Android update identity for read-only comparison');
           })().catch(e=>{console.error(e.message);process.exitCode=1});
           NODE
@@ -134,7 +134,7 @@ jobs:
               '- Agentics and financial execution in this QA build: OFF',
               '- Customer production OTA released: NO',
               '',
-            ].join('\\n');
+            ].join('\n');
             require('node:fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,summary);
             console.log('PASS QA_UPDATE_ID='+qa.id+' PRODUCTION_UNCHANGED=true');
           })().catch(e=>{console.error(e.message);process.exitCode=1});
