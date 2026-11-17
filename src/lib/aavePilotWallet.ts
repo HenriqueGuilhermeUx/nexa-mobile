@@ -7,7 +7,7 @@ import { encodeFunctionData, parseAbi, getAddress } from 'viem';
  * ERC20 allowance. The server pilot flag is OFF unless approved separately.
  */
 export const PILOT_CHAIN_ID = 137;
-export const PILOT_USDC = getAddress('0x3c499c542cef5e3811e1192ce70d8cC03d5c3359');
+export const PILOT_USDC = getAddress('0x3c499c542cef5e3811e1192ce70d8cc03d5c3359');
 export const PILOT_POOL = getAddress('0x794a61358D6845594F94dc1DB02A252b5b4814aD');
 const TOKEN_ABI = parseAbi(['function approve(address spender,uint256 amount) returns (bool)']);
 const POOL_ABI = parseAbi([
