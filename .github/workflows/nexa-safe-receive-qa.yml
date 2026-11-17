@@ -1,0 +1,70 @@
+name: Nexa v148 wallet receive QR guard — isolated safety QA
+on:
+  push:
+    branches:
+      - fix/nexa-external-wallet-safe-receive-20261117
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexa-safe-receive-qa-v148
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm only the receive-address verification was modified
+        run: |
+          node <<'NODE'
+          const cp=require('node:child_process'),fs=require('node:fs'),assert=require('node:assert/strict');
+          const baseline='0c2701c9192948938df80aff29d72ea56bac1d19';
+          const allowed=new Set([
+            'src/lib/externalWalletWatch.ts','app/(app)/external-wallets.tsx',
+            'src/components/AlignedLegacyApp.tsx','scripts/test-external-wallet-receive-guard.cjs',
+            '.github/workflows/nexa-safe-receive-qa.yml'
+          ]);
+          const changed=cp.execFileSync('git',['diff','--name-only',baseline+'...HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          for(const name of changed)assert(allowed.has(name),'Unrelated live-feature change: '+name);
+          for(const name of [
+            'app.json','eas.json','package.json','package-lock.json',
+            'app/_layout.tsx','app/central-nexa.tsx','app/assistant.tsx',
+            'src/lib/api.ts','src/lib/session.ts','app/sign-in.tsx',
+            'src/components/NexaAssistantOpenFinance.tsx'
+          ])assert.deepEqual(fs.readFileSync(name),cp.execFileSync('git',['show',baseline+':'+name]),'Live Maya/Central/financial file changed: '+name);
+          console.log('PASS: current production Maya3A/Central/Nexa unchanged except receive-QR guard');
+          NODE
+      - name: Load exact production feature configuration
+        run: |
+          node <<'NODE'
+          const fs=require('fs'),env=require('./eas.json').build.production.env;
+          for(const [name,value] of Object.entries(env)) {
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(name)||typeof value!=='string')throw Error('Invalid EAS env');
+            fs.appendFileSync(process.env.GITHUB_ENV,name+'='+value+'\n');
+          }
+          NODE
+      - name: Restore pinned Android runtime
+        run: npm ci --no-audit --no-fund
+      - name: Test receiving address cross-check on 11 cases
+        run: node scripts/test-external-wallet-receive-guard.cjs
+      - name: Verify Maya, Central Nexa, TypeScript
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          npm run typecheck
+      - name: Generate Android bundle without publishing
+        run: npm run export:android
