@@ -6,7 +6,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { nexaApi } from '@/lib/api';
 import { config } from '@/config';
-import { loadNexaSession } from '@/lib/session';
+import { loadNexaSession, saveNexaSession } from '@/lib/session';
 import {
   externalWalletFeaturesEnabled,
   forgetWatchedWallet,
@@ -14,6 +14,7 @@ import {
   readExternalUsdcBalance,
   readWatchedWallets,
   saveWatchedWallet,
+  verifiedNexaReceiveAddress,
   type ExternalUsdcBalance,
   type WatchedExternalWallet,
 } from '@/lib/externalWalletWatch';
@@ -55,7 +56,30 @@ export default function ExternalWalletsScreen() {
         if (!session?.accessToken || !session.email) {
           throw new Error('Entre na sua conta Nexa antes de adicionar uma carteira.');
         }
-        const response = await nexaApi.me(session.accessToken);
+        // An existing Nexa customer should not need to register again merely
+        // because the access token expired during an OTA/app restart.
+        let accessToken = session.accessToken;
+        let response;
+        try {
+          response = await nexaApi.me(accessToken);
+        } catch (error: any) {
+          if (error?.status !== 401 || !session.refreshToken) throw error;
+          const refreshed = await nexaApi.refresh(session.refreshToken);
+          const nextAccess =
+            refreshed.accessToken || refreshed.access_token ||
+            refreshed.token || refreshed.tokens?.accessToken;
+          const nextRefresh =
+            refreshed.refreshToken || refreshed.refresh_token ||
+            refreshed.tokens?.refreshToken || session.refreshToken;
+          if (!nextAccess) throw error;
+          accessToken = nextAccess;
+          await saveNexaSession({
+            accessToken,
+            refreshToken: nextRefresh,
+            email: session.email,
+          });
+          response = await nexaApi.me(accessToken);
+        }
         const profile = response?.user || response;
         const email = String(profile?.email || '').trim().toLowerCase();
         if (!email || email !== session.email.trim().toLowerCase()) {
@@ -70,27 +94,38 @@ export default function ExternalWalletsScreen() {
         // This is the existing authenticated wallet endpoint, never a
         // hardcoded address or one supplied by an untrusted external wallet.
         try {
-          const result = await fetch(config.apiUrl + '/wallet-v15/me', {
-            headers: {
-              Authorization: 'Bearer ' + session.accessToken,
-              Accept: 'application/json',
-            },
-          });
-          if (!result.ok) throw new Error('Wallet de recebimento indisponível.');
-          const body = await result.json();
-          if (!live) return;
-          const chain = body?.chainId ?? body?.wallet?.chainId;
-          if (chain && Number(chain) !== 137) {
-            throw new Error('O servidor não confirmou o endereço para a rede Polygon.');
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15_000);
+          let body;
+          try {
+            const result = await fetch(config.apiUrl + '/wallet-v15/me', {
+              headers: {
+                Authorization: 'Bearer ' + accessToken,
+                Accept: 'application/json',
+              },
+              signal: controller.signal,
+            });
+            if (!result.ok) throw new Error('Wallet de recebimento indisponível.');
+            body = await result.json();
+          } finally {
+            clearTimeout(timeout);
           }
-          const proposed = body?.portfolio?.address || body?.wallet?.address || body?.walletAddress;
-          if (!proposed) {
-            setReceiveHint('Sua wallet Nexa ainda não possui endereço ativo de recebimento.');
+          if (!live) return;
+          // Wallet V1.5 portfolio.address can be a configured outgoing
+          // destinationWallet, not the Nexa-controlled wallet address.
+          // Never present an unverified destination as a receive QR.
+          const verifiedAddress = verifiedNexaReceiveAddress(profile, body);
+          if (verifiedAddress) {
+            setReceiveAddress(verifiedAddress);
+            setReceiveHint('');
           } else {
-            setReceiveAddress(parseExternalWalletAddress(String(proposed)));
+            setReceiveAddress('');
+            setReceiveHint(
+              'Recebimento protegido: não foi possível confirmar que o endereço pertence à sua wallet Nexa na Polygon. Nenhum QR foi liberado. Consulte sua Wallet e confirme o endereço antes de qualquer envio.',
+            );
           }
         } catch {
-          if (live) setReceiveHint('Consulte o endereço de recebimento na seção Minha Wallet da Nexa.');
+          if (live) setReceiveHint('Endereço de recebimento indisponível até confirmação da Wallet Nexa. Não envie fundos enquanto isso.');
         }
       } catch (error) {
         if (live) setAuthError(errorMessage(error));

@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
 import { config } from '@/config';
-import { externalWalletFeaturesEnabled } from '@/lib/externalWalletWatch';
+import { externalWalletFeaturesEnabled, verifiedNexaReceiveAddress } from '@/lib/externalWalletWatch';
 import { nexaApi } from '@/lib/api';
 import { futureFinancialFeatures } from '@/lib/futureFinancialFeatures';
 import {
@@ -1410,13 +1410,19 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
   }
 
   function Wallet() {
+    // Never confuse the configurable outgoing Wallet V1.5 destination with
+    // the authenticated Nexa-managed/Privy receive address.
+    const verifiedReceiveAddress = verifiedNexaReceiveAddress(user, walletFirst);
     const walletReady =
       walletFirst?.portfolio?.walletReady === true || Boolean(walletAddress);
 
     async function copyWalletAddress() {
-      if (!walletAddress) return;
-      await Clipboard.setStringAsync(walletAddress);
-      setMessage('Endereço da wallet copiado.');
+      if (!verifiedReceiveAddress) {
+        setMessage('Endereço de recebimento ainda não validado. Não envie fundos.');
+        return;
+      }
+      await Clipboard.setStringAsync(verifiedReceiveAddress);
+      setMessage('Endereço da wallet Nexa verificado e copiado.');
     }
 
     return (
@@ -1437,7 +1443,7 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           </Text>
         </Card>
 
-        {walletAddress ? (
+        {verifiedReceiveAddress ? (
           <Card>
             <Text style={styles.sectionKicker}>RECEBER USDC</Text>
             <Text style={styles.highlightTitle}>Seu endereço da wallet</Text>
@@ -1445,13 +1451,21 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
               Use este endereço para receber USDC diretamente na sua wallet.
             </Text>
             <View style={styles.walletQrWrap}>
-              <QRCode value={walletAddress} size={186} />
+              <QRCode value={verifiedReceiveAddress} size={186} />
             </View>
-            <Text selectable style={styles.walletAddressFull}>{walletAddress}</Text>
+            <Text selectable style={styles.walletAddressFull}>{verifiedReceiveAddress}</Text>
             <Text style={styles.walletNetwork}>Rede compatível: Polygon</Text>
             <PrimaryButton title="Copiar endereço" onPress={copyWalletAddress} secondary />
           </Card>
-        ) : null}
+        ) : (
+          <Card>
+            <Text style={styles.sectionKicker}>RECEBIMENTO EM VERIFICAÇÃO</Text>
+            <Text style={styles.highlightText}>
+              Não exibimos QR Code enquanto o endereço de recebimento da sua
+              wallet Nexa não puder ser confirmado. Não envie fundos ainda.
+            </Text>
+          </Card>
+        )}
 
         {externalWalletFeaturesEnabled() ? (
           <Card>
