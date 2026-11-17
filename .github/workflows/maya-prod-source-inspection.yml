@@ -1,0 +1,48 @@
+name: Maya — inspect current Android OTA production source (read only)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/maya-prod-source-inspection.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Read Expo production and QA source commits without publishing
+        run: |
+          node <<'NODE'
+          (async()=>{
+            if(!process.env.EXPO_TOKEN)throw Error('Missing read credentials');
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group createdAt}} qa:updateBranchByName(name:"maya-v148-agentics-pinned-qa"){updates(offset:0,limit:5){id gitCommitHash platform group createdAt}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)
+            });
+            const j=await r.json();
+            if(!r.ok||j.errors?.length)throw Error('Expo inventory query failed');
+            const app=j.data?.app?.byId;
+            const names=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(names.length!==1||names[0]!=='production')throw Error('Production channel no longer isolated');
+            const live=app?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            if(!live?.id||!live.gitCommitHash||!qa?.id||!qa.gitCommitHash)throw Error('Missing OTA provenance');
+            console.log('PRODUCTION_ANDROID_OTA_SOURCE='+JSON.stringify(live));
+            console.log('MAYA_APPROVED_QA_SOURCE='+JSON.stringify(qa));
+            console.log('READ_ONLY_AUDIT_NO_DEPLOY=true');
+            const lines=['## Expo Android read-only OTA source audit',
+              '- Production commit: '+live.gitCommitHash,
+              '- Production OTA id: '+live.id,
+              '- QA commit: '+qa.gitCommitHash,
+              '- QA OTA id: '+qa.id,
+              '- Published by inspection workflow: NO',
+              ''];
+            require('node:fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\n'));
+          })().catch(e=>{console.error('AUDIT_FAILED: '+e.message);process.exitCode=1});
+          NODE
