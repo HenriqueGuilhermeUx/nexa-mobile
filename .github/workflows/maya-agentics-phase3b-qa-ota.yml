@@ -1,0 +1,85 @@
+name: Maya Agentics Phase3B — Android isolated QA OTA (never production)
+on:
+  push:
+    branches: [feat/maya-agentics-phase3b-client-contracts-v148-20261115]
+    paths: ['.github/workflows/maya-agentics-phase3b-qa-ota.yml']
+permissions:
+  contents: read
+concurrency:
+  group: maya-agentics-phase3b-qa-android
+  cancel-in-progress: false
+jobs:
+  validate-and-stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: maya-agentics-phase3b-qa
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_MAYA_AGENTICS_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Enforce Android v148 and forbid accidental customer release
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs'),cp=require('node:child_process');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const eas=JSON.parse(fs.readFileSync('eas.json','utf8'));
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||
+             app.android.package!=='br.com.trynexa.app'||
+             app.runtimeVersion?.policy!=='appVersion')throw Error('Unapproved Android runtime');
+          if(eas.build.production.channel!=='production')throw Error('Production build changed');
+          if(process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false'||
+             process.env.EXPO_PUBLIC_NEXA_MAYA_AGENTICS_ENABLED!=='false')throw Error('Unsafe flags');
+          const head=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+          cp.execFileSync('git',['merge-base','--is-ancestor','47d09e55b3f8e4045e530402cb92c32327595031',head]);
+          for(const p of ['src/maya-actions/agenticsReadiness.ts','src/maya-actions/agenticsReviewPreview.ts','src/maya-actions/agenticsPresentation.ts']){
+            const s=fs.readFileSync(p,'utf8');
+            if(/fetch\\s*\\(|axios\\.|AGENTICS_API_TOKEN|AGENTICS_ADMIN_TOKEN|EXPO_PUBLIC_.*SECRET/.test(s))throw Error('Client may not call Agentics directly: '+p);
+          }
+          console.log('MAYA_QA_SOURCE='+head.slice(0,12));
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Cumulative Maya and wallet regression
+        run: |
+          set -euo pipefail
+          for f in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js scripts/validate-maya-hoje-v1.js scripts/validate-maya-action-cards-v1.js scripts/validate-maya-agentics-task-contracts-v1.js scripts/validate-maya-agentics-readiness-v1.js scripts/validate-maya-agentics-presentation-v1.js scripts/validate-maya-agentics-review-preview-v1.js; do node "$f"; done
+          node scripts/validate-mobile-safety-v123.js
+          npm run typecheck
+          npm run export:android
+      - name: Require isolated production channel mapping
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            if(!process.env.EXPO_TOKEN)throw Error('EXPO_TOKEN required');
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}}}}}';
+            const res=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(12000)
+            });
+            if(!res.ok)throw Error('EAS preflight failed');
+            const body=await res.json();
+            if(body.errors?.length)throw Error('EAS preflight denied');
+            const branches=body.data?.app?.byId?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(branches.length!==1||branches[0]!=='production')throw Error('Production channel mapping not isolated');
+            console.log('PASS production stays on production, QA branch is separate');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Publish to isolated Maya Agentics QA branch only
+        run: eas update --branch maya-agentics-phase3b-qa --platform android --message "Maya Phase3B offline review contracts QA $(git rev-parse --short HEAD)" --non-interactive
