@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { config } from '@/config';
@@ -205,7 +206,16 @@ export default function AaveInfoScreen() {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>NEXA · INVESTIMENTOS E CRÉDITO</Text>
       <Text style={styles.heading}>Seu dinheiro, mais possibilidades</Text>
-      <Text style={styles.body}>Conheça formas de aproveitar suas criptos e teste situações de risco. A simulação educativa está disponível. Consultas reais dependem de validação da carteira e da rede; nenhuma movimentação Aave está habilitada.</Text>
+      <Text style={styles.body}>Conheça formas de aproveitar suas criptos e teste situações de risco. A simulação educativa está disponível. Consultas reais dependem de validação da carteira e da rede; a movimentação real exige autorização específica da conta e da carteira.</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/(app)/aave-wallet' as any)}
+        style={{padding:18,borderRadius:16,borderWidth:1,borderColor:colors.cyan,backgroundColor:'#0C2A45',gap:7}}
+      >
+        <Text style={{color:colors.text,fontSize:18,fontWeight:'800'}}>Aplicar ou retirar USDC com minha carteira</Text>
+        <Text style={styles.small}>Acesse a operação real quando sua conta estiver autorizada. Cada aprovação e depósito exige confirmação na Privy. O piloto permanece indisponível para contas não habilitadas.</Text>
+        <Text style={{color:colors.cyan,fontWeight:'800'}}>Ver acesso à carteira Aave ›</Text>
+      </Pressable>
       <View style={styles.grid}>
         {[['Fazer render', 'Explorar possibilidades de rendimento', 'Conheça como funciona'],
           ['Crédito com cripto', 'Entender empréstimos usando cripto como garantia', 'Conheça os riscos'],
