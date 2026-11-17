@@ -1,0 +1,142 @@
+name: Nexa v148 Aave informational options — guarded production Android OTA
+on:
+  push:
+    branches: [release/nexa-v148-maya3a-crypto-funding-20261117]
+    paths:
+      - '.github/workflows/aave-user-options-v148-production-ota.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-production-android-central-cumulative-v148-canary
+  cancel-in-progress: false
+
+jobs:
+  publish-aave-education:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Assert exact previous live source, unchanged security/native boundaries, allowed Aave diff only
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),cp=require('node:child_process'),assert=require('node:assert/strict');
+          const previous='ed1ebddef7f3f038cfbe2d2daa19a290aa826589';
+          const allowed=new Set([
+            'app/(app)/aave-info.tsx',
+            'src/components/AlignedLegacyApp.tsx',
+            'src/lib/aaveEducationalSimulation.ts',
+            'src/lib/aaveReserveEligibility.ts',
+            'scripts/validate-aave-android-headers.cjs',
+            'scripts/validate-aave-diagnostics.cjs',
+            'scripts/validate-aave-educational-simulation.cjs',
+            'scripts/validate-aave-eligibility.cjs',
+            '.github/workflows/aave-user-options-v148-safe-qa.yml',
+            '.github/workflows/aave-user-options-v148-production-ota.yml'
+          ]);
+          const changed=cp.execFileSync('git',['diff','--name-only',previous+'...HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          if(changed.length!==allowed.size||new Set(changed).size!==changed.length)
+            throw Error('Unexpected Aave release file count or duplicates');
+          for(const file of changed) assert(allowed.has(file),'Unexpected change since v148 production OTA: '+file);
+          for(const unchanged of ['app.json','app.config.js','eas.json','package.json','package-lock.json',
+            'src/lib/api.ts','src/lib/session.ts','src/config.ts','app/_layout.tsx',
+            'app/assistant.tsx','app/sign-in.tsx','src/components/NexaAssistantOpenFinance.tsx',
+            'app/(app)/external-wallets.tsx','src/lib/externalWalletWatch.ts']){
+            assert.deepEqual(fs.readFileSync(unchanged),cp.execFileSync('git',['show',previous+':'+unchanged]),
+              'Previously live app asset unexpectedly changed: '+unchanged);
+          }
+          const app=require('./app.json').expo;
+          assert.equal(app.version,'2.0.43');
+          assert.equal(app.android.versionCode,148);
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.runtimeVersion.policy,'appVersion');
+          assert.equal(app.extra.eas.projectId,'b3faabec-283a-4ba2-88b5-f096304e68aa');
+          const home=fs.readFileSync('src/components/AlignedLegacyApp.tsx','utf8');
+          const screen=fs.readFileSync('app/(app)/aave-info.tsx','utf8');
+          for(const required of ['Central Nexa','Carteira cripto','Open Finance',
+            'RECEBIMENTO EM VERIFICAÇÃO','AAVE NA NEXA · INFORMATIVO']) {
+            assert(home.includes(required),'Preserved feature or safe Aave entry missing: '+required);
+          }
+          for(const required of ['Simulador disponível','Consulta condicionada à verificação',
+            'Nenhuma operação foi executada','readOnlyConfigured','aaveRequestHeaders']) {
+            assert(screen.includes(required),'Aave preview safety missing: '+required);
+          }
+          for(const forbidden of ['walletClient.writeContract','sendTransaction(','signTransaction(',
+            'eth_sendRawTransaction','writeContract(']){
+            assert(!screen.includes(forbidden),'Financial action accidentally introduced: '+forbidden);
+          }
+          console.log('PASS: exact live cumulative v148 baseline; only isolated informational Aave additions');
+          NODE
+      - name: Load unchanged production EAS flags from existing profile
+        run: |
+          node <<'NODE'
+          const fs=require('fs'),env=require('./eas.json').build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string')throw Error('Invalid production env');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate preserved wallet, central flows, typecheck and Aave read-only user experience
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          node scripts/validate-aave-educational-simulation.cjs
+          node scripts/validate-aave-eligibility.cjs
+          node scripts/validate-aave-android-headers.cjs
+          node scripts/validate-aave-diagnostics.cjs
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Check latest EAS production OTA exact group and absence of rollout conflicts
+        run: |
+          set -euo pipefail
+          eas whoami --non-interactive
+          eas update:list --branch production --platform android --runtime-version 2.0.43 --limit 2 --json --non-interactive > "$RUNNER_TEMP/expo-before.json"
+          node <<'NODE'
+          const fs=require('node:fs');
+          const latest=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/expo-before.json','utf8')).currentPage?.[0];
+          if(!latest ||
+            latest.group!=='95a81cd6-d476-45b0-8b28-724cca2dd99c' ||
+            latest.runtimeVersion!=='2.0.43' ||
+            !String(latest.message).includes('QR de recebimento verificado') ||
+            (latest.rolloutPercentage != null && latest.rolloutPercentage !== 100)) {
+            throw Error('Nexa production changed or partial rollout is active: Aave OTA ABORTED to preserve later changes');
+          }
+          console.log('PASS: current production matches exact previous verified wallet QR OTA; safe to add Aave information');
+          NODE
+      - name: Publish informational Aave options on the existing v148 Android runtime only
+        run: |
+          eas update --branch production --platform android --message "Nexa v148: Aave informativo + simulador de riscos, sem transações" --non-interactive
+      - name: Confirm published OTA is new, Android only, same runtime
+        run: |
+          set -euo pipefail
+          eas update:list --branch production --platform android --runtime-version 2.0.43 --limit 2 --json --non-interactive > "$RUNNER_TEMP/expo-after.json"
+          node <<'NODE'
+          const fs=require('node:fs');
+          const latest=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/expo-after.json','utf8')).currentPage?.[0];
+          if(!latest || latest.runtimeVersion!=='2.0.43' ||
+             latest.group==='95a81cd6-d476-45b0-8b28-724cca2dd99c' ||
+             !String(latest.message).includes('Aave informativo + simulador de riscos') ||
+             !String(latest.platforms).includes('android')) {
+            throw Error('Published Aave OTA could not be verified');
+          }
+          console.log('NEXA_AAVE_INFO_OTA_LIVE='+JSON.stringify(latest));
+          NODE
