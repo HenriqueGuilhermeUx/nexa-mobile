@@ -1,0 +1,88 @@
+name: Maya v148 pinned Android QA OTA — never production
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/maya-v148-agentics-qa-dispatch.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: maya-v148-agentics-qa-pinned
+  cancel-in-progress: false
+jobs:
+  validate-and-publish-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_MAYA_AGENTICS_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: maya-v148-agentics-pinned-qa
+    steps:
+      - name: Checkout exact signed-off v148 review-only candidate, never main v145
+        uses: actions/checkout@v4
+        with:
+          ref: 8a09cad91fd89cc53b374c1cff42f36fdd618d5f
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Prove pinned v148 identity and refuse any release flags
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs'),cp=require('node:child_process');
+          const sha=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+          if(sha!=='8a09cad91fd89cc53b374c1cff42f36fdd618d5f')throw Error('Unpinned source');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const eas=JSON.parse(fs.readFileSync('eas.json','utf8'));
+          if(app.version!=='2.0.43'||app.android.versionCode!==148||pkg.version!=='2.0.43'||
+             app.android.package!=='br.com.trynexa.app'||app.runtimeVersion?.policy!=='appVersion'||
+             eas.build.production.channel!=='production')throw Error('Not Android v148');
+          if(process.env.EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED!=='false'||
+             process.env.EXPO_PUBLIC_NEXA_MAYA_AGENTICS_ENABLED!=='false'||
+             process.env.EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED!=='false')throw Error('Unsafe QA flags');
+          for(const f of ['src/maya-actions/agenticsPresentation.ts','src/maya-actions/agenticsReviewPreview.ts']){
+            if(!fs.existsSync(f))throw Error('Missing Agentics review contract');
+          }
+          console.log('PASS PINNED_MAYA_QA_SHA='+sha);
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Run all Maya UI / review-only regressions and v148 Android export
+        run: |
+          set -euo pipefail
+          for f in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js scripts/validate-maya-hoje-v1.js scripts/validate-maya-action-cards-v1.js scripts/validate-maya-agentics-task-contracts-v1.js scripts/validate-maya-agentics-readiness-v1.js scripts/validate-maya-agentics-presentation-v1.js scripts/validate-maya-agentics-review-preview-v1.js; do node "$f"; done
+          node scripts/validate-mobile-safety-v123.js
+          npm run typecheck
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Read-only verify QA branch has no live production channel mapping
+        run: |
+          node <<'NODE'
+          (async()=>{
+            if(!process.env.EXPO_TOKEN)throw Error('Missing EXPO_TOKEN');
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)
+            });
+            if(!r.ok)throw Error('Expo production preflight unavailable');
+            const j=await r.json(),branches=j.data?.app?.byId?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            if(j.errors?.length||branches.length!==1||branches[0]!=='production')throw Error('QA would affect production mapping');
+            console.log('Expo production channel preserved');
+          })().catch(e=>{console.error('STOP: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish Android QA update ONLY, no production rollout
+        run: eas update --branch maya-v148-agentics-pinned-qa --platform android --message "Maya 2.0.43 v148 isolated QA, Agentics OFF, source 8a09cad9" --non-interactive
