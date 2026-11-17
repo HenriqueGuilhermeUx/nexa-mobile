@@ -1,0 +1,113 @@
+name: Nexa v148 — verified receive-address safety OTA
+on:
+  push:
+    branches:
+      - release/nexa-v148-maya3a-crypto-funding-20261117
+    paths:
+      - '.github/workflows/nexa-verified-receive-production-ota.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexa-production-android-central-cumulative-v148-canary
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify exact last published Android OTA and allowed incremental changes
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),cp=require('node:child_process'),assert=require('node:assert/strict');
+          const previous='0c2701c9192948938df80aff29d72ea56bac1d19';
+          const allowed=new Set([
+            'app/(app)/external-wallets.tsx','src/lib/externalWalletWatch.ts',
+            'src/components/AlignedLegacyApp.tsx','scripts/test-external-wallet-receive-guard.cjs',
+            '.github/workflows/nexa-safe-receive-qa.yml',
+            '.github/workflows/nexa-verified-receive-production-ota.yml'
+          ]);
+          const changed=cp.execFileSync('git',['diff','--name-only',previous+'...HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          for(const f of changed)assert(allowed.has(f),'Unexpected change since published OTA: '+f);
+          for(const f of ['app.json','eas.json','package.json','package-lock.json',
+            'src/lib/api.ts','src/lib/session.ts','app/_layout.tsx','app/central-nexa.tsx',
+            'app/assistant.tsx','app/sign-in.tsx','src/components/NexaAssistantOpenFinance.tsx']){
+            assert.deepEqual(fs.readFileSync(f),cp.execFileSync('git',['show',previous+':'+f]),'Live cumulative app changed: '+f);
+          }
+          const app=require('./app.json').expo;
+          assert.equal(app.version,'2.0.43');assert.equal(app.android.versionCode,148);
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.runtimeVersion.policy,'appVersion');
+          assert.equal(app.extra.eas.projectId,'b3faabec-283a-4ba2-88b5-f096304e68aa');
+          const ui=fs.readFileSync('src/components/AlignedLegacyApp.tsx','utf8');
+          for(const word of ['Carteira cripto','Central Nexa','Open Finance','RECEBIMENTO EM VERIFICAÇÃO'])
+            assert(ui.includes(word),'Missing legacy UX: '+word);
+          console.log('PASS: exact live Maya3A/Central baseline with only read-only receiving QR guard');
+          NODE
+      - name: Load unchanged EAS production flags
+        run: |
+          node <<'NODE'
+          const fs=require('fs'),env=require('./eas.json').build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string')throw Error('Invalid production env');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Test 11 receive-QR safety cases, old security, central, typecheck and Android JS bundle
+        run: |
+          set -euo pipefail
+          node scripts/test-external-wallet-receive-guard.cjs
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          npm run typecheck
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Confirm no newer OTA was published by another workstream
+        run: |
+          eas whoami --non-interactive
+          eas update:list --branch production --platform android --runtime-version 2.0.43 --limit 2 --json --non-interactive > "$RUNNER_TEMP/expo-before.json"
+          node <<'NODE'
+          const fs=require('fs');
+          const current=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/expo-before.json','utf8')).currentPage?.[0];
+          if(!current ||
+            current.group!=='01d4a9a0-77fd-4de7-9828-bfb418a52242' ||
+            current.runtimeVersion!=='2.0.43' ||
+            !String(current.message).includes('Maya3A Central + Carteira cripto read-only'))
+            throw Error('EAS production no longer matches known latest update; do not overwrite other work.');
+          if(current.rolloutPercentage != null && current.rolloutPercentage !== 100)
+            throw Error('A progressive rollout is active; do not override.');
+          console.log('PASS exact current production OTA verified before security correction');
+          NODE
+      - name: Publish Android-only verified receiving address correction, JS-only
+        run: |
+          eas update --branch production --platform android --message "Nexa 2.0.43 Maya3A Central + Carteira cripto: QR de recebimento verificado" --non-interactive
+      - name: Confirm latest production update contains the safety correction
+        run: |
+          eas update:list --branch production --platform android --runtime-version 2.0.43 --limit 2 --json --non-interactive > "$RUNNER_TEMP/expo-after.json"
+          node <<'NODE'
+          const fs=require('fs');
+          const latest=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/expo-after.json','utf8')).currentPage?.[0];
+          if(!latest || latest.runtimeVersion!=='2.0.43' ||
+             !String(latest.message).includes('QR de recebimento verificado') ||
+             latest.group==='01d4a9a0-77fd-4de7-9828-bfb418a52242')
+            throw Error('New safety OTA not confirmed');
+          console.log('NEXA_VERIFIED_RECEIVE_OTA_LIVE='+JSON.stringify(latest));
+          NODE
