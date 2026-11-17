@@ -497,6 +497,7 @@ export default function CentralNexaScreen() {
             <Action title={preferences.marketingPushOptIn ? 'Push promocional: autorizado' : 'Push promocional: desativado'} detail="Preferência independente da permissão do aparelho" onPress={() => void updatePreference('marketingPushOptIn', !preferences.marketingPushOptIn)} />
           </>
         ) : null}
+        <Action title="USDC, Bitcoin e ouro — entenda o cenário" detail="Conteúdo educativo com riscos e diferenças, sem recomendação de compra" onPress={() => void openUrl('https://trynexa.com.br/insights/usdc-bitcoin-ouro-como-avaliar-2026.html')} />
         <Action title="Guia de primeira utilização" detail="Entenda Pix, USDC, KYC e segurança" onPress={() => void openUrl(GUIDE_URL)} />
         <Action title="Abrir o portal Nexa" detail="Consulte informações da sua conta com segurança" onPress={() => void openUrl(PORTAL_URL)} />
       </View>
