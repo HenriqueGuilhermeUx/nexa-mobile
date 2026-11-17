@@ -84,5 +84,59 @@ jobs:
             console.log('Expo production channel preserved');
           })().catch(e=>{console.error('STOP: '+e.message);process.exitCode=1});
           NODE
+      - name: Preserve the exact production update identity before QA publishing
+        id: current-production
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){prod:updateBranchByName(name:"production"){updates(offset:0,limit:10){id gitCommitHash platform}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000),
+            });
+            const data=await response.json();
+            if(!response.ok||data.errors?.length)throw Error('Production OTA snapshot unavailable');
+            const live=data.data?.app?.byId?.prod?.updates?.find(x=>x.platform==='android');
+            if(!live?.id)throw Error('Missing production Android update; do not publish QA');
+            require('node:fs').appendFileSync(process.env.GITHUB_OUTPUT,'update_id='+live.id+'\\n');
+            console.log('Captured live Android update identity for read-only comparison');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
       - name: Publish Android QA update ONLY, no production rollout
         run: eas update --branch maya-v148-agentics-pinned-qa --platform android --message "Maya 2.0.43 v148 isolated QA, Agentics OFF, source 8a09cad9" --non-interactive
+      - name: Assert exact candidate published to QA and production stayed intact
+        env:
+          EXPECTED_PRODUCTION_UPDATE: ${{ steps.current-production.outputs.update_id }}
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){prod:updateBranchByName(name:"production"){updates(offset:0,limit:10){id platform}} qa:updateBranchByName(name:"maya-v148-agentics-pinned-qa"){updates(offset:0,limit:10){id gitCommitHash platform}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000),
+            });
+            const data=await response.json();
+            if(!response.ok||data.errors?.length)throw Error('Expo OTA verification unavailable');
+            const app=data.data?.app?.byId;
+            const production=app?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            if(!production||production.id!==process.env.EXPECTED_PRODUCTION_UPDATE)
+              throw Error('Production update changed; halt release');
+            if(!qa||qa.gitCommitHash!=='8a09cad91fd89cc53b374c1cff42f36fdd618d5f')
+              throw Error('QA update does not match pinned v148 candidate');
+            const summary=[
+              '## Nexa Maya v148 — QA publication evidence',
+              '- QA branch: maya-v148-agentics-pinned-qa',
+              '- Android source: '+qa.gitCommitHash,
+              '- Production OTA unchanged: YES',
+              '- Agentics and financial execution in this QA build: OFF',
+              '- Customer production OTA released: NO',
+              '',
+            ].join('\\n');
+            require('node:fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,summary);
+            console.log('PASS QA_UPDATE_ID='+qa.id+' PRODUCTION_UNCHANGED=true');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+
