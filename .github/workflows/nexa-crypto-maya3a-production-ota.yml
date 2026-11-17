@@ -1,0 +1,116 @@
+name: Nexa v148 Maya3A + carteira cripto — guarded Android OTA
+on:
+  push:
+    branches:
+      - release/maya-ux2-phase3a-central-cumulative-v148-20261115
+    paths:
+      - '.github/workflows/nexa-crypto-maya3a-production-ota.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexa-production-android-central-cumulative-v148-canary
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_EXTERNAL_WALLET_WATCH_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact Maya3A canary base and watch-only source boundary
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),cp=require('node:child_process'),assert=require('node:assert/strict');
+          const base='1f6ed324fcf0cfdbef322be1910962dddfe6715e';
+          const allowed=new Set([
+            'app/(app)/external-wallets.tsx','app/(app)/_layout.tsx',
+            'src/lib/externalWalletWatch.ts','src/components/AlignedLegacyApp.tsx',
+            '.github/workflows/nexa-crypto-maya3a-cumulative-qa.yml',
+            '.github/workflows/nexa-crypto-maya3a-production-ota.yml'
+          ]);
+          const files=cp.execFileSync('git',['diff','--name-only',base+'...HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          files.forEach(f=>assert(allowed.has(f),'Unexpected source mutation since current Maya canary: '+f));
+          const immutable=[
+            'app.json','app.config.js','eas.json','package.json','package-lock.json',
+            'src/lib/api.ts','src/lib/session.ts','app/index.tsx','app/assistant.tsx',
+            'app/_layout.tsx','app/central-nexa.tsx','app/kyc.tsx','app/sign-in.tsx',
+            'src/components/NexaAssistantOpenFinance.tsx','src/lib/nexaNotifications.ts'
+          ];
+          for(const p of immutable)assert.deepEqual(fs.readFileSync(p),cp.execFileSync('git',['show',base+':'+p]),'Maya/Central/wallet auth/native regression: '+p);
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          assert.equal(app.version,'2.0.43');assert.equal(app.android.versionCode,148);assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.runtimeVersion.policy,'appVersion');
+          assert.equal(app.extra.eas.projectId,'b3faabec-283a-4ba2-88b5-f096304e68aa');
+          const ui=fs.readFileSync('src/components/AlignedLegacyApp.tsx','utf8');
+          for(const needle of ['Carteira cripto','Central Nexa','Open Finance','Adicionar','Minha Wallet'])assert(ui.includes(needle),'Missing feature: '+needle);
+          const screen=fs.readFileSync('app/(app)/external-wallets.tsx','utf8');
+          const watch=fs.readFileSync('src/lib/externalWalletWatch.ts','utf8');
+          for(const forbidden of ['eth_sendTransaction','writeContract(','signMessage(','@walletconnect','@reown']){
+            assert(!screen.includes(forbidden)&&!watch.includes(forbidden),'Financial permission forbidden: '+forbidden);
+          }
+          assert(screen.includes('wallet-v15/me')&&screen.includes('loadNexaSession'));
+          assert(watch.includes('balanceOf')&&watch.includes('chainId !== 137'));
+          console.log('PASS exact published Maya3A canary with ONLY watch-only addition, existing full app preserved');
+          NODE
+      - name: Load official Android production feature flags unchanged
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),env=require('./eas.json').build.production.env;
+          for(const [k,v]of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(k)||typeof v!=='string')throw Error('Bad environment '+k);
+            fs.appendFileSync(process.env.GITHUB_ENV,k+'='+v+'\n');
+          }
+          NODE
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Reverify Maya, Central, wallet security and TypeScript
+        run: |
+          set -euo pipefail
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-central-nexa-v148.js
+          node scripts/validate-central-nexa-push-optin-v148.js
+          for test in scripts/validate-maya-actions-v1.js scripts/validate-maya-actions-agenda-v1.js scripts/validate-maya-chat-routing-v1.js scripts/validate-maya-comunicacao-v1.js scripts/validate-maya-financas-leitura-v1.js scripts/validate-maya-planning-v1.js scripts/validate-maya-shopping-v1.js; do node "$test"; done
+          npm run typecheck
+          npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Verify current 10-percent Maya3A canary is still the ONLY active production rollout
+        run: |
+          eas whoami --non-interactive
+          eas update:list --branch production --platform android --runtime-version 2.0.43 --limit 2 --json --non-interactive > "$RUNNER_TEMP/nexa-production-before.json"
+          node <<'NODE'
+          const fs=require('node:fs');
+          const data=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/nexa-production-before.json','utf8'));
+          const latest=data.currentPage?.[0];
+          if(latest?.group!=='d2cca8d3-7438-4908-b6f9-2999ba4b1647'||latest.rolloutPercentage!==10||
+             latest.runtimeVersion!=='2.0.43'||!latest.message.includes('Maya 3A + Central Nexa'))
+            throw Error('Production rollout changed. Do not end it or publish; re-audit EAS.');
+          console.log('Confirmed original live Maya3A 10% rollout, publishing fully cumulative additive fix.');
+          NODE
+      - name: Replace active 10-percent rollout with full cumulative Maya3A + wallet entrance
+        run: |
+          eas update --branch production --platform android --force-end-active-rollout --message "Nexa 2.0.43 Maya3A Central + Carteira cripto read-only ao lado Pix/Open Finance" --non-interactive
+      - name: Verify latest production OTA is the combined package
+        run: |
+          eas update:list --branch production --platform android --runtime-version 2.0.43 --limit 2 --json --non-interactive > "$RUNNER_TEMP/nexa-production-after.json"
+          node <<'NODE'
+          const fs=require('node:fs');
+          const data=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/nexa-production-after.json','utf8'));
+          const latest=data.currentPage?.[0];
+          if(latest?.runtimeVersion!=='2.0.43'||!latest.message?.includes('Carteira cripto read-only'))
+            throw Error('Combined OTA was not confirmed as latest EAS production');
+          console.log('NEXA_WALLET_LIVE_PRODUCTION='+JSON.stringify(latest));
+          NODE
