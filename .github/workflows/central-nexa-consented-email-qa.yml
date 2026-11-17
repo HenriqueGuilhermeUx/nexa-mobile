@@ -30,7 +30,10 @@ jobs:
           const cp=require('node:child_process'),fs=require('node:fs'),assert=require('node:assert/strict');
           const base='1f6ed324fcf0cfdbef322be1910962dddfe6715e';
           const changed=cp.execFileSync('git',['diff','--name-only',base+'...HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
-          const allowed=['app/central-nexa.tsx','.github/workflows/central-nexa-consented-email-qa.yml'];
+          // Permit only the dedicated downstream Central QA and this guard revision.
+          // Financial, auth, native and application configuration remain protected.
+          const allowed=['app/central-nexa.tsx','.github/workflows/central-nexa-consented-email-qa.yml',
+            '.github/workflows/central-nexa-theo-escalation-qa.yml'];
           assert.deepEqual(changed.filter(x=>!allowed.includes(x)),[],'Unexpected changes outside Nexa Central');
           for(const path of ['app.json','eas.json','package.json','package-lock.json','app/assistant.tsx',
              'app/_layout.tsx','src/components/NexaAssistantOpenFinance.tsx','src/lib/api.ts',
