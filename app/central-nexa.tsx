@@ -57,6 +57,7 @@ export default function CentralNexaScreen() {
   const [channelConsentSaving, setChannelConsentSaving] = useState<ChannelConsentKey | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [supportNextAction, setSupportNextAction] = useState<'authenticated_support'|'kyc_feedback'|null>(null);
   const pendingMessage = useRef<{ text: string; requestId: string } | null>(null);
 
   useEffect(() => {
@@ -202,10 +203,25 @@ export default function CentralNexaScreen() {
         setNotice('Mensagem não enviada. Não inclua CPF, e-mail, telefone ou documentos. Você pode usar o atendimento externo.');
         return;
       }
+      // Backend Theo may recommend human review. This is NOT a created ticket.
+      // Older backends omit these optional fields and keep existing chat behavior.
+      const outcome = await response.json() as {
+        humanReviewRecommended?: boolean;
+        nextAction?: 'authenticated_support'|'kyc_feedback'|'self_service';
+        humanTicketCreated?: boolean;
+      };
       pendingMessage.current = null;
       setDraft('');
-      setNotice('');
       await refreshInbox();
+      if (outcome.humanReviewRecommended === true && outcome.humanTicketCreated !== true) {
+        setSupportNextAction(outcome.nextAction === 'kyc_feedback' ? 'kyc_feedback' : 'authenticated_support');
+        setNotice(outcome.nextAction === 'kyc_feedback'
+          ? 'A dificuldade com a verificação pode precisar de análise. Use a orientação oficial abaixo. Nenhum chamado foi aberto automaticamente.'
+          : 'O Theo recomendou análise pelo suporte Nexa. Abra o canal oficial abaixo. Nenhum chamado foi aberto automaticamente.');
+      } else {
+        setSupportNextAction(null);
+        setNotice('');
+      }
     } catch {
       setNotice('Não foi possível enviar. Sua mensagem foi mantida para tentar novamente.');
     } finally {
@@ -381,6 +397,11 @@ export default function CentralNexaScreen() {
             <Pressable accessibilityRole="button" disabled={sending || !draft.trim()} onPress={() => void sendInternalMessage()} style={styles.sendButton}>
               <Text style={styles.sendLabel}>{sending ? 'Enviando…' : 'Enviar ao Theo'}</Text>
             </Pressable>
+            {supportNextAction === 'kyc_feedback' ? (
+              <Action title="Informar dificuldade no KYC" detail="Abrir orientação oficial; nenhum chamado foi aberto automaticamente" onPress={() => void openUrl(FEEDBACK_URL)} />
+            ) : supportNextAction === 'authenticated_support' ? (
+              <Action title="Solicitar ajuda pelo Theo no WhatsApp" detail="Iniciar atendimento oficial; não envia dados da conta" onPress={() => void openUrl(nexaWhatsAppSupportUrl())} />
+            ) : null}
           </>
         ) : (
           <Text style={styles.featureCopy}>{inboxState === 'signed_out'
