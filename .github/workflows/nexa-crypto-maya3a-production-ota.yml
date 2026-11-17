@@ -2,7 +2,7 @@ name: Nexa v148 Maya3A + carteira cripto — guarded Android OTA
 on:
   push:
     branches:
-      - release/maya-ux2-phase3a-central-cumulative-v148-20261115
+      - release/nexa-v148-maya3a-crypto-funding-20261117
     paths:
       - '.github/workflows/nexa-crypto-maya3a-production-ota.yml'
   workflow_dispatch:
