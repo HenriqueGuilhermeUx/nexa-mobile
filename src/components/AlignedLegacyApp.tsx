@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEmbeddedEthereumWallet, usePrivy } from '@privy-io/expo';
 
 import { config } from '@/config';
+import { externalWalletFeaturesEnabled } from '@/lib/externalWalletWatch';
 import { nexaApi } from '@/lib/api';
 import { futureFinancialFeatures } from '@/lib/futureFinancialFeatures';
 import {
@@ -1452,6 +1453,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           </Card>
         ) : null}
 
+        {externalWalletFeaturesEnabled() ? (
+          <Card>
+            <Text style={styles.sectionKicker}>CARTEIRAS EXTERNAS</Text>
+            <Text style={styles.highlightTitle}>MetaMask e outras wallets, sem complicação.</Text>
+            <Text style={styles.highlightText}>Acompanhe USDC na Polygon por endereço público. Para receber na Nexa, use o endereço autenticado da sua Wallet.</Text>
+            <PrimaryButton title="Adicionar carteira externa" onPress={() => router.push('/(app)/external-wallets' as any)} secondary />
+          </Card>
+        ) : null}
+
         <View style={styles.quickActionsRow}>
           <QuickAction icon="plus" title="Adicionar" onPress={openWalletFirstDeposit} primary />
           <QuickAction icon="swap" title="Converter" onPress={openWalletFirstAssets} />
@@ -1581,6 +1591,13 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
             <Text style={styles.moveTitle}>Adicionar</Text>
             <Text style={styles.moveText}>Comece com Pix e receba USDC na sua wallet.</Text>
           </TouchableOpacity>
+          {externalWalletFeaturesEnabled() ? (
+            <TouchableOpacity style={styles.moveCard} onPress={() => router.push('/(app)/external-wallets' as any)} activeOpacity={0.82}>
+              <View style={styles.moveIcon}><NexaIcon name="receive" color="#31D7FF" size={24} /></View>
+              <Text style={styles.moveTitle}>Carteira cripto</Text>
+              <Text style={styles.moveText}>Acompanhe USDC de outra carteira e veja como trazer à Nexa.</Text>
+            </TouchableOpacity>
+          ) : null}
           {config.efiOpenFinanceEnabled ? (
             <TouchableOpacity style={styles.moveCard} onPress={openUsdcSubscription} activeOpacity={0.82}>
               <View style={styles.moveIcon}><NexaIcon name="receive" color="#31D7FF" size={24} /></View>
@@ -1765,11 +1782,17 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
           <MenuTile icon="↕" title="Movimentações" subtitle="Histórico" onPress={() => setPage('history')} />
           <MenuTile icon="ID" title="Nexa ID" subtitle={nexaId || handle} onPress={() => setPage('nexaId')} />
           <MenuTile icon="◈" title="Carteira" subtitle="Ativos e carteira" onPress={() => setPage('wallet')} />
+          {externalWalletFeaturesEnabled() ? (
+            <MenuTile icon="◈" title="Carteiras externas" subtitle="Acompanhar USDC na Polygon" onPress={() => router.push('/(app)/external-wallets' as any)} />
+          ) : null}
         </View>
 
         <Text style={styles.menuSectionLabel}>MOVIMENTAR</Text>
         <View style={styles.menuGrid}>
           <MenuTile icon="＋" title="Adicionar" subtitle="Pix → USDC" onPress={openWalletFirstDeposit} />
+          {externalWalletFeaturesEnabled() ? (
+            <MenuTile icon="◈" title="Carteira cripto" subtitle="Outra wallet → Nexa" onPress={() => router.push('/(app)/external-wallets' as any)} />
+          ) : null}
           <MenuTile icon="↓" title="Sacar" subtitle="USDC → Pix" onPress={openWalletFirstWithdraw} />
           <MenuTile icon="↑" title="Enviar" subtitle="Nexa → Nexa" onPress={openWalletFirstSend} />
           <MenuTile icon="◇" title="Comprar" subtitle="BTC · ETH · Ouro" onPress={openWalletFirstAssets} accent />
