@@ -76,15 +76,8 @@ jobs:
           set -euo pipefail
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
-          unzip -Z1 "$APK" | grep -Eq '^assets/index.android.bundle
-
-          if unzip -Z1 "$APK" | grep -Eq '^assets/index.android.bundle
-; then
-            echo 'PASS: packaged offline JS bundle in standalone release APK'
-          else
-            echo 'FAIL: would require Expo/Metro dev server' >&2
-            exit 1
-          fi
+          unzip -Z1 "$APK" | grep -Fx 'assets/index.android.bundle'
+          echo 'PASS: packaged offline JS bundle in standalone release APK'
           test -s android/app/build/outputs/apk/release/output-metadata.json
           node - <<'NODE'
           const fs=require('node:fs');
