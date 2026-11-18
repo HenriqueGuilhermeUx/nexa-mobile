@@ -244,6 +244,15 @@ export default function AaveCustomerWalletScreen() {
         attest.kind!==pending.kind||attest.onchainEventMatched!==true) {
         throw Error('Comprovante Aave não corresponde à transação.');
       }
+      if(pending.durableIntentId){
+        const recorded=await api('intents/reconcile','POST',{
+          intentId:pending.durableIntentId,txHash:pending.hash,
+        });
+        if(recorded?.state!=='confirmed'||recorded.persisted!==true){
+          setNotice('Blockchain confirmada, reconciliação Nexa pendente. Não repita.');
+          return;
+        }
+      }
       const kind=pending.kind;
       setPending(null);
       await SecureStore.deleteItemAsync(PENDING_KEY).catch(()=>{});
