@@ -228,6 +228,12 @@ export default function AaveCustomerWalletScreen() {
         return;
       }
       if(outcome==='failed'){
+        if(pending.durableIntentId){
+          // A failed chain receipt has not yet been reconciled in the durable
+          // journal. Keep the pending lock to prevent duplicate submissions.
+          setNotice('A transação falhou na Polygon. O registro persistente exige revisão antes de tentar novamente. O gás pode ter sido consumido.');
+          return;
+        }
         setPending(null);
         await SecureStore.deleteItemAsync(PENDING_KEY).catch(()=>{});
         setNotice('A blockchain recusou a transação. O gás gasto pode não ser recuperado.');
