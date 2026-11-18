@@ -229,9 +229,18 @@ export default function AaveCustomerWalletScreen() {
       }
       if(outcome==='failed'){
         if(pending.durableIntentId){
-          // A failed chain receipt has not yet been reconciled in the durable
-          // journal. Keep the pending lock to prevent duplicate submissions.
-          setNotice('A transação falhou na Polygon. O registro persistente exige revisão antes de tentar novamente. O gás pode ter sido consumido.');
+          // Only an independently attested 32-block canonical revert can
+          // release a durable pending lock. Keep it on any ambiguity.
+          const recorded=await api('intents/reconcile','POST',{
+            intentId:pending.durableIntentId,txHash:pending.hash,
+          });
+          if(recorded?.state!=='failed'||recorded.persisted!==true){
+            setNotice('A transação falhou na Polygon, mas a reconciliação ainda está pendente. Não repita.');
+            return;
+          }
+          setPending(null);
+          await SecureStore.deleteItemAsync(PENDING_KEY).catch(()=>{});
+          setNotice('Falha confirmada e registrada pela Nexa. O gás pode ter sido consumido; revise antes de tentar novamente.');
           return;
         }
         setPending(null);
