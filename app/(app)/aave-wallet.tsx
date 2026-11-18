@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { useEmbeddedEthereumWallet } from '@privy-io/expo';
 import { router } from 'expo-router';
@@ -25,8 +26,9 @@ type QuoteResponse=PilotQuote & {
     variableSupplyAprBps:number|null;frozen:boolean;active:boolean;paused:boolean;
   };
   warning:string;
+  durableIntentId?:string;
 };
-type Pending={hash:string;kind:string;to:string;owner:string};
+type Pending={hash:string;kind:string;to:string;owner:string;durableIntentId?:string};
 type Position={chainId:137;owner:string;usdcBalanceBaseUnits:string;aUsdcBalanceBaseUnits:string;readAt:string;source:'POLYGON_AAVE_V3_NATIVE_USDC'};
 const PENDING_KEY='nexa_aave_pending_confirm_v1';
 const API=config.apiUrl.replace(/\/$/,'');
@@ -175,6 +177,7 @@ export default function AaveCustomerWalletScreen() {
       // units from decimal string and enforces the user's bound wallet.
       const data=await api('prepare','POST',{
         action,amountUsdc:amount.replace(',','.'),chainId:137,riskAcknowledged:true,
+        idempotencyKey:randomUUID(),
       }) as QuoteResponse;
       const match=walletFor(data.walletAddress);
       assertPilotQuote(data,match.address);
@@ -196,9 +199,18 @@ export default function AaveCustomerWalletScreen() {
       const hash=await sendOneAavePilotStep(provider,prepared,wallet.address,0);
       setLastHash(hash);
       setPrepared(null);
-      const submitted={hash,kind:step.kind,to:step.to,owner:wallet.address};
+      const submitted:Pending={hash,kind:step.kind,to:step.to,owner:wallet.address,
+        durableIntentId:prepared.durableIntentId};
       setPending(submitted);
       await SecureStore.setItemAsync(PENDING_KEY,JSON.stringify(submitted)).catch(()=>{});
+      if(submitted.durableIntentId){
+        try { await api('intents/report','POST',{
+          intentId:submitted.durableIntentId,txHash:submitted.hash,
+        }); } catch {
+          setNotice('Transação enviada; o registro Nexa ainda precisa ser reconciliado. Não repita.');
+          return;
+        }
+      }
       setNotice('Transação enviada. Não repita enquanto a blockchain confirma.');
     }catch(e){setError(messageFrom(e));}
     finally{setWorking(false);}
