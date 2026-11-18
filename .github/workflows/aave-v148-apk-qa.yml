@@ -1,4 +1,4 @@
-name: Nexa Aave v148 isolated Android APK QA
+name: Nexa Aave v148 standalone Android APK QA
 on:
   push:
     branches: [feat/aave-wallet-real-client-v148-20261117]
@@ -60,19 +60,43 @@ jobs:
           EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
         run: npx expo prebuild --platform android --clean --no-install
-      - name: Build isolated debug APK
+      - name: Build standalone internal APK with bundled JavaScript (release variant)
         env:
           CI: '1'
+          NODE_ENV: production
           EXPO_NO_TELEMETRY: '1'
           EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
           EXPO_PUBLIC_NEXA_API_URL: 'https://nexa-backend-p2u0.onrender.com/api/v1'
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew :app:assembleRelease --no-daemon
+      - name: Reject dev-client APK and assert embedded offline React Native bundle
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          unzip -Z1 "$APK" | grep -Eq '^assets/index.android.bundle
+
+          if unzip -Z1 "$APK" | grep -Eq '^assets/index.android.bundle
+; then
+            echo 'PASS: packaged offline JS bundle in standalone release APK'
+          else
+            echo 'FAIL: would require Expo/Metro dev server' >&2
+            exit 1
+          fi
+          test -s android/app/build/outputs/apk/release/output-metadata.json
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const m=JSON.parse(fs.readFileSync('android/app/build/outputs/apk/release/output-metadata.json','utf8'));
+          if(m.applicationId!=='br.com.trynexa.aavepreview' || m.variantName!=='release'){
+            throw Error('Wrong preview app identity or debug build variant');
+          }
+          console.log('PASS: isolated package and release variant');
+          NODE
       - uses: actions/upload-artifact@v4
         with:
-          name: nexa-aave-v148-internal-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: nexa-aave-v148-standalone-internal-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 7
