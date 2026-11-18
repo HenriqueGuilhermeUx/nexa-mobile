@@ -1,5 +1,11 @@
 name: Nexa Aave v148 isolated Android APK QA
 on:
+  push:
+    branches: [feat/aave-wallet-real-client-v148-20261117]
+    paths:
+      - 'app/(app)/aave-wallet.tsx'
+      - 'src/lib/aavePilotWallet.ts'
+      - '.github/workflows/aave-v148-apk-qa.yml'
   pull_request:
     branches: [main]
     paths:
