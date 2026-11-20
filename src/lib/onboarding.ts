@@ -27,6 +27,14 @@ export async function resolveAuthenticatedRoute(
   profile: any,
   accessToken: string,
 ): Promise<NexaAuthenticatedRoute> {
+  // A wallet is created/reused as part of account activation, including
+  // KYC-pending registrations; KYC remains mandatory for all financial actions.
+  // Privy authentication occurs in the user's own session, never as a server
+  // wallet controlled by Nexa.
+  if (!hasLinkedPrivyWallet(profile)) {
+    return '/onboarding-wallet';
+  }
+
   if (String(profile?.kycStatus || '').toLowerCase() !== 'approved') {
     return '/kyc';
   }
@@ -34,13 +42,6 @@ export async function resolveAuthenticatedRoute(
   const countryCode = String(profile?.residenceCountry || 'BR')
     .trim()
     .toUpperCase();
-
-  // The Nexa app provisions and links the Privy wallet automatically as
-  // part of the authenticated onboarding. Never require payout Pix setup
-  // before this step; payout destination is unrelated to wallet ownership.
-  if (!hasLinkedPrivyWallet(profile)) {
-    return '/onboarding-wallet';
-  }
 
   if (countryCode === 'BR') {
     const pixType = normalizedPixType(profile);
