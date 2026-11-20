@@ -12,18 +12,24 @@ function normalizedPixType(profile: any) {
   return String(profile?.pixKeyType || '').trim().toUpperCase();
 }
 
-function walletAddress(profile: any) {
-  return String(
-    profile?.wallet?.address ||
-      profile?.walletAddress ||
-      '',
-  ).trim();
+/** The Nexa signup-managed address is never a verified Privy wallet. */
+export function hasLinkedPrivyWallet(profile: any): boolean {
+  const wallet = profile?.wallet || {};
+  const address = String(wallet.address || profile?.walletAddress || '').trim();
+  return String(wallet.provider || profile?.walletProvider || '').toLowerCase() === 'privy' &&
+    wallet.privyLinked === true &&
+    /^0x[a-fA-F0-9]{40}$/.test(address);
 }
 
 export async function resolveAuthenticatedRoute(
   profile: any,
   accessToken: string,
 ): Promise<NexaAuthenticatedRoute> {
+  // Automatic user-owned wallet creation precedes KYC; KYC still gates
+  // financial transactions on the backend.
+  if (!hasLinkedPrivyWallet(profile)) {
+    return '/onboarding-wallet';
+  }
   if (String(profile?.kycStatus || '').toLowerCase() !== 'approved') {
     return '/kyc';
   }
@@ -35,7 +41,7 @@ export async function resolveAuthenticatedRoute(
   // Legacy customers with an existing linked wallet must not be sent through
   // new Pix/direct-settlement onboarding. This only changes navigation;
   // server-side financial eligibility and settlement gates stay unchanged.
-  if (walletAddress(profile)) {
+  if (hasLinkedPrivyWallet(profile)) {
     // Existing Beta/Legacy customers keep their linked wallet and original
     // settlement permissions. Ownership proof for direct settlement must not
     // become a prerequisite for opening the current app.
@@ -57,15 +63,11 @@ export async function resolveAuthenticatedRoute(
     const hasSelfBoundPayoutPix =
       profile?.pixWithdrawEnabled === true &&
       Boolean(String(profile?.pixKey || '').trim()) &&
-      ['CPF', 'EMAIL', 'PHONE'].includes(pixType);
+      pixType === 'CPF';
 
     if (!hasSelfBoundPayoutPix) {
       return '/onboarding-pix';
     }
-  }
-
-  if (!walletAddress(profile)) {
-    return '/onboarding-wallet';
   }
 
   try {
