@@ -34,6 +34,21 @@ assert.equal(f({wallet:{address,provider:'privy',privyLinked:true}}),true);
     {kycStatus:'approved',residenceCountry:'US',wallet:{address,provider:'nexa-managed'}},
     'fake-token'),'/onboarding-wallet');
   assert.equal(await ctx.exports.resolveAuthenticatedRoute(
+    {kycStatus:'approved',residenceCountry:'BR',pixWithdrawEnabled:false,
+      pixKeyType:'PHONE',wallet:{address,provider:'nexa-managed'}},
+    'fake-token'),'/onboarding-wallet',
+    'customer should get automatic Privy recovery before configuring Pix CPF');
+  assert.equal(await ctx.exports.resolveAuthenticatedRoute(
+    {kycStatus:'approved',residenceCountry:'BR',pixWithdrawEnabled:true,
+      pixKey:'11977777777',pixKeyType:'PHONE',
+      wallet:{address,provider:'privy',privyLinked:true}},
+    'fake-token'),'/onboarding-pix',
+    'legacy PHONE payout must migrate via explicit review, not bypass CPF-only policy');
+  assert.equal(await ctx.exports.resolveAuthenticatedRoute(
+    {kycStatus:'pending',residenceCountry:'BR',wallet:{address,provider:'nexa-managed'}},
+    'fake-token'),'/kyc','KYC remains mandatory');
+
+  assert.equal(await ctx.exports.resolveAuthenticatedRoute(
     {kycStatus:'approved',residenceCountry:'US',wallet:{address,provider:'privy',privyLinked:true}},
     'fake-token'),'/legacy');
   console.log('Privy-only onboarding route and false managed wallet signals validated.');
