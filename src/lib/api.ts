@@ -414,7 +414,7 @@ export const nexaApi = {
 
   configurePayoutOnboarding(
     accessToken: string,
-    pixKeyType: 'CPF' | 'EMAIL' | 'PHONE',
+    pixKeyType: 'CPF',
   ) {
     return request<any>('/d1-payout/onboarding', {
       method: 'POST',
