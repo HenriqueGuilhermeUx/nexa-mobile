@@ -88,7 +88,12 @@ export default function WalletOnboardingScreen() {
       // Linking is verified by the server above; EIP-191 proof is next.
       // A legacy audit rejection must never block ownership confirmation.
       await nexaApi.auditWallet(session.accessToken).catch(() => null);
-      router.replace('/wallet-ownership' as any);
+      const linkedProfile = await nexaApi.me(session.accessToken);
+      router.replace(
+        String(linkedProfile?.kycStatus || '').toLowerCase() === 'approved'
+          ? '/wallet-ownership' as any
+          : '/kyc' as any,
+      );
     } catch (caught) {
       linkingRef.current = false;
       setError(
@@ -115,7 +120,11 @@ export default function WalletOnboardingScreen() {
       // A nexa-managed wallet is created automatically at signup.
       // It never proves embedded Privy wallet linkage.
       if (hasLinkedPrivyWallet(me)) {
-        router.replace('/wallet-ownership' as any);
+          router.replace(
+          String(me?.kycStatus || '').toLowerCase() === 'approved'
+            ? '/wallet-ownership' as any
+            : '/kyc' as any,
+        );
         return;
       }
 

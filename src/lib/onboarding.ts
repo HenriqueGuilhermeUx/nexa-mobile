@@ -26,6 +26,11 @@ export async function resolveAuthenticatedRoute(
   profile: any,
   accessToken: string,
 ): Promise<NexaAuthenticatedRoute> {
+  // Automatically link/recover user-owned Privy at login, even before KYC.
+  // Financial operations still require KYC approval on the backend.
+  if (!hasLinkedPrivyWallet(profile)) {
+    return '/onboarding-wallet';
+  }
   if (String(profile?.kycStatus || '').toLowerCase() !== 'approved') {
     return '/kyc';
   }
@@ -54,18 +59,12 @@ export async function resolveAuthenticatedRoute(
     }
   }
 
-  // Privy identity must be established before payout Pix onboarding.
-  // A missing CPF Pix key cannot block restoring a customer's embedded wallet.
-  if (!hasLinkedPrivyWallet(profile)) {
-    return '/onboarding-wallet';
-  }
-
   if (countryCode === 'BR') {
     const pixType = normalizedPixType(profile);
     const hasSelfBoundPayoutPix =
       profile?.pixWithdrawEnabled === true &&
       Boolean(String(profile?.pixKey || '').trim()) &&
-      ['CPF', 'EMAIL', 'PHONE'].includes(pixType);
+      pixType === 'CPF';
 
     if (!hasSelfBoundPayoutPix) {
       return '/onboarding-pix';
