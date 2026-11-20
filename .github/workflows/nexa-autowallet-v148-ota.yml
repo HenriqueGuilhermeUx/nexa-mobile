@@ -1,0 +1,75 @@
+name: Nexa v148 cumulative Privy auto-wallet OTA
+on:
+  push:
+    branches:
+      - release/nexa-privy-autowallet-v148-cumulative-20261120
+permissions:
+  contents: read
+concurrency:
+  group: nexa-privy-autowallet-v148
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node scripts/validate-autowallet-v148-ota.cjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run export:android
+  qa-only:
+    if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release(privy): qa-only')"
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: nexa-autowallet-v148-qa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: node scripts/validate-autowallet-v148-ota.cjs
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Audit production update source without changing it
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group createdAt}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await r.json();
+            if(!r.ok||data.errors?.length)throw Error('EAS production read-only audit unavailable');
+            const app=data.data?.app?.byId;
+            console.log('PRODUCTION_SOURCE_AUDIT='+JSON.stringify({
+              channels:app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[],
+              android:app?.prod?.updates?.filter(x=>x.platform==='android')||[]
+            }));
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Publish to isolated EAS QA branch only
+        run: eas update --branch nexa-autowallet-v148-qa --platform android --message "Nexa Privy auto-wallet QA ${{ github.sha }}" --non-interactive
