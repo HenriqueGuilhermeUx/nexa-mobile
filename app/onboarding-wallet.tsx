@@ -14,6 +14,7 @@ import {
 } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
+import { hasLinkedPrivyWallet } from '@/lib/onboarding';
 import { colors, radius, spacing } from '@/theme';
 
 function validWallet(candidate: any) {
@@ -83,8 +84,14 @@ export default function WalletOnboardingScreen() {
       );
 
       setStage('Fazendo a checagem final…');
-      await nexaApi.auditWallet(session.accessToken);
-      router.replace('/wallet-ownership' as any);
+      // Direct-settlement audit is pilot-only; EIP-191 confirms control later.
+      await nexaApi.auditWallet(session.accessToken).catch(() => null);
+      const linkedProfile = await nexaApi.me(session.accessToken);
+      router.replace(
+        String(linkedProfile?.kycStatus || '').toLowerCase() === 'approved'
+          ? '/wallet-ownership' as any
+          : '/kyc' as any,
+      );
     } catch (caught) {
       linkingRef.current = false;
       setError(
@@ -108,12 +115,13 @@ export default function WalletOnboardingScreen() {
       }
 
       const me = await nexaApi.me(session.accessToken);
-      const linkedAddress = String(
-        me?.wallet?.address || me?.walletAddress || '',
-      ).trim();
-
-      if (linkedAddress) {
-        router.replace('/wallet-ownership' as any);
+      // A server-created nexa-managed address must never skip Privy linking.
+      if (hasLinkedPrivyWallet(me)) {
+        router.replace(
+          String(me?.kycStatus || '').toLowerCase() === 'approved'
+            ? '/wallet-ownership' as any
+            : '/kyc' as any,
+        );
         return;
       }
 

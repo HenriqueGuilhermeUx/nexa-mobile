@@ -9,6 +9,7 @@ import { nexaApi } from '@/lib/api';
 import { ensureNexaNotificationPermission } from '@/lib/nexaNotifications';
 import { registerNexaCentralServicePush, revokeNexaCentralServicePush } from '@/lib/nexaCentralPush';
 import { loadNexaSession } from '@/lib/session';
+import { hasLinkedPrivyWallet } from '@/lib/onboarding';
 import { NEXA_TELEGRAM_SUPPORT_URL, nexaWhatsAppSupportUrl } from '@/lib/nexaSupportLinks';
 import { colors, radius, spacing } from '@/theme';
 
@@ -47,6 +48,7 @@ function Action({ title, detail, onPress }: { title: string; detail: string; onP
 export default function CentralNexaScreen() {
   const [identityStage, setIdentityStage] = useState<IdentityStage>('loading');
   const [isBrazilUser, setIsBrazilUser] = useState(false);
+  const [needsPrivyActivation, setNeedsPrivyActivation] = useState(false);
   const [notice, setNotice] = useState('');
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
   const [inboxState, setInboxState] = useState<InboxState>('loading');
@@ -70,6 +72,7 @@ export default function CentralNexaScreen() {
           return;
         }
         const profile = await nexaApi.me(session.accessToken);
+        setNeedsPrivyActivation(!hasLinkedPrivyWallet(profile));
         const country = String(profile?.residenceCountry || 'BR').trim().toUpperCase();
         setIsBrazilUser(country === 'BR');
         const state = country === 'BR'
@@ -336,6 +339,24 @@ export default function CentralNexaScreen() {
         <Text style={styles.title}>Central Nexa</Text>
         <Text style={styles.subtitle}>Seu lugar para pedir ajuda, acompanhar sua jornada e escolher como falar com a Nexa.</Text>
       </View>
+
+      {needsPrivyActivation ? (
+        <View style={styles.section}>
+          <Text style={styles.eyebrow}>AVISO DE SERVIÇO • CARTEIRA PRIVY</Text>
+          <Text style={styles.sectionTitle}>Sua carteira individual está sendo regularizada</Text>
+          <Text style={styles.paragraph}>
+            A Nexa agora cria ou recupera automaticamente a carteira Privy na sua conta. Não crie outra conta nem transfira fundos da carteira anterior. Entre com seu e-mail habitual e, se solicitado, confirme o código para proteger sua carteira.
+          </Text>
+          <Text style={styles.paragraph}>
+            Seu KYC já aprovado permanece válido. Depósitos e outras operações exigem a carteira vinculada e a confirmação de titularidade; nunca informe senhas, códigos ou frases-semente ao atendimento.
+          </Text>
+          <Action
+            title="Ativar minha carteira automaticamente"
+            detail="Retomar a vinculação segura sem criar outra conta"
+            onPress={() => router.push('/onboarding-wallet' as any)}
+          />
+        </View>
+      ) : null}
 
       {isBrazilUser && identityStage === 'pending' ? (
         <View style={styles.section}>
