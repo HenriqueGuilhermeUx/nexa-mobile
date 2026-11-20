@@ -35,7 +35,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run export:android
   qa-ota:
-    if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release(privy): canary-10')"
+    if: "github.event_name == 'push' && (startsWith(github.event.head_commit.message, 'release(privy): qa-only') || startsWith(github.event.head_commit.message, 'release(privy): canary-10'))"
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 40
