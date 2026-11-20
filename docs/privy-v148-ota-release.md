@@ -10,3 +10,10 @@
 - Rollback: verify production latest EAS update group, use EAS update rollback to previous known-good group if a regression is confirmed; do not clear customer data.
 - Owner explicitly authorized OTA and operational notices during the wallet activation incident.
 - Physical-device manual smoke: not yet confirmed; hence canary only.
+
+## Production canary request — 2026-11-20
+
+- Latest branch QA successfully published update group `0422088c-1629-4c66-9e0c-b19de4bae250` via GitHub run `44657686576`.
+- Authorized release is limited to 10% of Android clients on Expo runtime 2.0.43; never iOS.
+- Production step must independently verify live source SHA, production channel mapping, and an identical newly published QA source SHA; fail closed on any mismatch.
+- Provider-level rollout and customer reception are not implied by this commit; confirm actual EAS logs afterwards.
