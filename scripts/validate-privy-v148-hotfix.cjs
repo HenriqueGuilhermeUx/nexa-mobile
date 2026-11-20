@@ -6,7 +6,8 @@ const changed=execFileSync('git',['diff','--name-only',baseline+'...HEAD'],{enco
 const allowed=new Set(['src/lib/onboarding.ts','app/onboarding-wallet.tsx',
  'app/wallet-ownership.tsx','app/central-nexa.tsx',
  'scripts/validate-privy-v148-hotfix.cjs',
- '.github/workflows/nexa-privy-v148-ota-release.yml']);
+ '.github/workflows/nexa-privy-v148-ota-release.yml',
+ 'docs/privy-v148-ota-release.md']);
 assert.deepEqual(changed.filter(x=>!allowed.has(x)),[],'Unexpected native/financial diff in OTA');
 for(const p of ['app.json','app.config.js','eas.json','package.json','package-lock.json',
 'src/lib/api.ts','src/lib/walletFirst.ts']){
