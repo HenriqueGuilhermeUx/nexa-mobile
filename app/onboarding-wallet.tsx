@@ -85,7 +85,12 @@ export default function WalletOnboardingScreen() {
 
       setStage('Fazendo a checagem final…');
       await nexaApi.auditWallet(session.accessToken);
-      router.replace('/wallet-ownership' as any);
+      const linkedProfile = await nexaApi.me(session.accessToken);
+      router.replace(
+        String(linkedProfile?.kycStatus || '').toLowerCase() === 'approved'
+          ? '/wallet-ownership' as any
+          : '/kyc' as any,
+      );
     } catch (caught) {
       linkingRef.current = false;
       setError(
@@ -112,7 +117,11 @@ export default function WalletOnboardingScreen() {
       // The server automatically assigns a nexa-managed address at signup.
       // That is NOT a Privy wallet and must never skip Privy creation/linking.
       if (hasLinkedPrivyWallet(me)) {
-        router.replace('/wallet-ownership' as any);
+          router.replace(
+          String(me?.kycStatus || '').toLowerCase() === 'approved'
+            ? '/wallet-ownership' as any
+            : '/kyc' as any,
+        );
         return;
       }
 
