@@ -14,6 +14,7 @@ import {
 } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
+import { hasLinkedPrivyWallet } from '@/lib/onboarding';
 import { colors, radius, spacing } from '@/theme';
 
 function validWallet(candidate: any) {
@@ -108,11 +109,9 @@ export default function WalletOnboardingScreen() {
       }
 
       const me = await nexaApi.me(session.accessToken);
-      const linkedAddress = String(
-        me?.wallet?.address || me?.walletAddress || '',
-      ).trim();
-
-      if (linkedAddress) {
+      // A nexa-managed wallet is created automatically at signup.
+      // It never proves embedded Privy wallet linkage.
+      if (hasLinkedPrivyWallet(me)) {
         router.replace('/wallet-ownership' as any);
         return;
       }
