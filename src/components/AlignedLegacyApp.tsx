@@ -400,7 +400,6 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
   const [depositAmountBrl, setDepositAmountBrl] = useState('');
   const [depositResult, setDepositResult] = useState<any>(null);
   const [withdrawAmountUsdc, setWithdrawAmountUsdc] = useState('');
-  const [withdrawPixKey, setWithdrawPixKey] = useState('');
   const [withdrawQuote, setWithdrawQuote] = useState<any>(null);
   const [internalTransferRequestId, setInternalTransferRequestId] = useState('');
   const [assetBuyRequestId, setAssetBuyRequestId] = useState('');
@@ -1014,9 +1013,9 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
 
   async function requestPixWithdrawal() {
     const value = Number(String(withdrawAmountUsdc).replace(',', '.'));
-    const key = String(withdrawPixKey || '').trim();
+    const key = String(user?.cpf || '').replace(/\D/g, '');
     if (!withdrawQuote || !value) return setMessage('Atualize a cotação antes de solicitar o Pix.');
-    if (!key) return setMessage('Informe sua chave Pix.');
+    if (!/^\d{11}$/.test(key)) return setMessage('CPF do titular indisponível. Conclua seu cadastro e configure o CPF como chave Pix no banco de destino.');
     if (!config.financialExecutionEnabled) {
       return setMessage('Solicitação de Pix está bloqueada neste build de preview.');
     }
@@ -1032,7 +1031,6 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
       });
       setMessage(data?.message || 'Solicitação Pix registrada.');
       setWithdrawAmountUsdc('');
-      setWithdrawPixKey('');
       setWithdrawQuote(null);
       setPixOutRequestId('');
       await loadAll();
@@ -1916,15 +1914,15 @@ export default function AlignedLegacyApp({ initialUser, token, onLogout, initial
               <Text style={styles.quoteText}>
                 Taxas e proteção de liquidez já consideradas conforme a cotação apresentada.
               </Text>
-              <Text style={styles.formLabel}>Chave Pix</Text>
-              <TextInput
-                style={[styles.input, isPremium ? styles.premiumBorder : null]}
-                placeholder="CPF, e-mail, telefone ou chave aleatória"
-                placeholderTextColor="#64748b"
-                value={withdrawPixKey}
-                onChangeText={setWithdrawPixKey}
-                autoCapitalize="none"
-              />
+              <Text style={styles.formLabel}>Chave Pix de resgate: CPF do titular</Text>
+              <Text style={styles.quoteText}>
+                {user?.cpf ? maskPixKey(user.cpf, 'CPF') : 'CPF não disponível no cadastro'}
+              </Text>
+              <Text style={styles.quoteText}>
+                O Pix do resgate é enviado somente para a chave CPF registrada no banco
+                de sua titularidade. Telefone, e-mail e chaves aleatórias não são aceitos.
+                Cadastre o CPF como chave Pix na instituição de recebimento.
+              </Text>
               <PrimaryButton
                 title={config.financialExecutionEnabled ? 'Solicitar Pix' : 'Solicitação bloqueada no preview'}
                 onPress={requestPixWithdrawal}
