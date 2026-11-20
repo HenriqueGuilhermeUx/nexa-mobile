@@ -128,5 +128,5 @@ jobs:
             console.log('APPROVED_10_PERCENT_SOURCE_PROOF='+JSON.stringify({previous:prod?.id,qa:qa?.id,candidate:process.env.GITHUB_SHA}));
           })().catch(e=>{console.error('FAIL_CLOSED: '+e.message);process.exitCode=1});
           NODE
-      - name: Release Android production to 10 percent canary only
-        run: eas update --branch production --platform android --rollout-percentage 10 --message "Nexa Privy automatic wallet recovery Android 10 percent SHA ${{ github.sha }}" --non-interactive
+      - name: Replace stalled previous rollout with verified new 10-percent hotfix
+        run: eas update --branch production --platform android --rollout-percentage 10 --force-end-active-rollout --message "Nexa Privy automatic wallet recovery Android hotfix SHA ${{ github.sha }}" --non-interactive
