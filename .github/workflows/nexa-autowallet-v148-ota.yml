@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - release/nexa-privy-autowallet-v148-cumulative-20261120
+  pull_request:
+    branches:
+      - release/nexa-v148-autowallet-verified-baseline-20261120
 permissions:
   contents: read
 concurrency:
