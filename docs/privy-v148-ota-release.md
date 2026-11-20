@@ -17,3 +17,9 @@
 - Manual device acceptance remains pending; only 10% canary after verifying the channel is mapped to production and QA SHA matches the exact release.
 
 - OTA QA release requested on production source `b8bc4c65`, with exclusive branch and no customer delivery; retain all live Maya/Central changes.
+
+## Canary production 10% — autorizado
+
+- QA live-cumulative validada no GitHub run `44659162192` com grupo EAS `8571cbdb-bb52-45ce-9032-3273f958592d`.
+- Antes do update production, confirmar automaticamente que Expo production ainda corresponde a `b8bc4c65f08480f2a334be457ef47bcc1b20f49d`, que o canal é `production` e a QA corresponde ao SHA exato deste commit.
+- Se houver divergência, cancelar release. Nunca mover USDC nem forçar rollback.
