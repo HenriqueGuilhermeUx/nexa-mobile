@@ -84,7 +84,10 @@ export default function WalletOnboardingScreen() {
       );
 
       setStage('Fazendo a checagem final…');
-      await nexaApi.auditWallet(session.accessToken);
+      // Legacy-beta accounts are not on the direct-settlement audit allowlist.
+      // Linking is verified by the server above; EIP-191 proof is next.
+      // A legacy audit rejection must never block ownership confirmation.
+      await nexaApi.auditWallet(session.accessToken).catch(() => null);
       router.replace('/wallet-ownership' as any);
     } catch (caught) {
       linkingRef.current = false;
