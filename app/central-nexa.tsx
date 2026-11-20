@@ -9,6 +9,7 @@ import { nexaApi } from '@/lib/api';
 import { ensureNexaNotificationPermission } from '@/lib/nexaNotifications';
 import { registerNexaCentralServicePush, revokeNexaCentralServicePush } from '@/lib/nexaCentralPush';
 import { loadNexaSession } from '@/lib/session';
+import { hasLinkedPrivyWallet } from '@/lib/onboarding';
 import { NEXA_TELEGRAM_SUPPORT_URL, nexaWhatsAppSupportUrl } from '@/lib/nexaSupportLinks';
 import { colors, radius, spacing } from '@/theme';
 
@@ -35,6 +36,7 @@ function Action({ title, detail, onPress }: { title: string; detail: string; onP
 
 export default function CentralNexaScreen() {
   const [identityStage, setIdentityStage] = useState<IdentityStage>('loading');
+  const [needsPrivyActivation, setNeedsPrivyActivation] = useState(false);
   const [notice, setNotice] = useState('');
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
   const [inboxState, setInboxState] = useState<InboxState>('loading');
@@ -55,6 +57,7 @@ export default function CentralNexaScreen() {
           return;
         }
         const profile = await nexaApi.me(session.accessToken);
+        setNeedsPrivyActivation(String(profile?.kycStatus || '').toLowerCase() === 'approved' && !hasLinkedPrivyWallet(profile));
         const country = String(profile?.residenceCountry || 'BR').trim().toUpperCase();
         const state = country === 'BR'
           ? await nexaApi.getMyKycStatus(session.accessToken)
@@ -225,6 +228,25 @@ export default function CentralNexaScreen() {
         <Text style={styles.subtitle}>Seu lugar para pedir ajuda, acompanhar sua jornada e escolher como falar com a Nexa.</Text>
       </View>
 
+      <View style={styles.feature}>
+        <Text style={styles.featureLabel}>ATUALIZAÇÃO IMPORTANTE DA NEXA</Text>
+        <Text style={styles.featureTitle}>Ative sua carteira Privy com segurança</Text>
+        <Text style={styles.featureCopy}>
+          Identificamos que alguns cadastros receberam um endereço de carteira interno,
+          mas ainda precisam concluir a carteira individual Privy. Corrigimos o fluxo
+          de identificação. Não é necessário criar uma nova conta.
+        </Text>
+        <Text style={styles.featureCopy}>
+          Depois de aprovar a identidade, entre com o mesmo e-mail cadastrado
+          e conclua a criação ou vinculação da carteira, incluindo a confirmação de titularidade.
+          Nunca informe senha, frase-semente ou chave privada ao atendimento.
+        </Text>
+        {needsPrivyActivation ? (
+          <Action title="Concluir minha carteira Privy" detail="Retomar ativação com sua conta autenticada" onPress={() => router.push('/onboarding-wallet' as any)} />
+        ) : (
+          <Action title={identityStage === 'approved' ? 'Conferir minha carteira' : 'Acompanhar KYC'} detail="Consulte a etapa da sua conta antes de operar" onPress={() => router.push(identityStage === 'approved' ? '/wallet-ownership' as any : '/kyc' as any)} />
+        )}
+      </View>
       <View style={styles.feature}>
         <Text style={styles.featureLabel}>CONVERSE COM O THEO</Text>
         <Text style={styles.featureTitle}>Como podemos ajudar?</Text>
