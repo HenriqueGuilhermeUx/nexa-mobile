@@ -12,7 +12,6 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
-import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { walletFirstApi } from '@/lib/walletFirst';
 import { colors, radius, spacing } from '@/theme';
