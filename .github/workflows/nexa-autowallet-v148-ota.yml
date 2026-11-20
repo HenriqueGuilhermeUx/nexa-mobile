@@ -31,7 +31,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run export:android
   qa-only:
-    if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release(privy): qa-only')"
+    if: "github.event_name == 'pull_request' && github.head_ref == 'release/nexa-privy-autowallet-v148-cumulative-20261120' && github.base_ref == 'release/nexa-v148-autowallet-verified-baseline-20261120' && github.event.pull_request.head.repo.full_name == 'HenriqueGuilhermeUx/nexa-mobile'"
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 35
