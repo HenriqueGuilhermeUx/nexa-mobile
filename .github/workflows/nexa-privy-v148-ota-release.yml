@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - release/nexa-v148-privy-activation-hotfix-20261119
+  pull_request:
+    branches:
+      - release/central-nexa-v148-ota-safe-20261112
 permissions:
   contents: read
 concurrency:
@@ -31,7 +34,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run export:android
   qa-ota:
-    if: "startsWith(github.event.head_commit.message, 'release(privy): canary-10')"
+    if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release(privy): canary-10')"
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -59,7 +62,7 @@ jobs:
       - name: Publish ONLY to isolated EAS QA branch
         run: eas update --branch nexa-privy-v148-qa --platform android --message "Nexa v148 Privy QA SHA ${{ github.sha }}" --non-interactive
   production-canary:
-    if: "startsWith(github.event.head_commit.message, 'release(privy): canary-10')"
+    if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release(privy): canary-10')"
     needs: [validate, qa-ota]
     runs-on: ubuntu-latest
     timeout-minutes: 40
