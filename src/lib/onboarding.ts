@@ -11,12 +11,16 @@ function normalizedPixType(profile: any) {
   return String(profile?.pixKeyType || '').trim().toUpperCase();
 }
 
-function walletAddress(profile: any) {
-  return String(
-    profile?.wallet?.address ||
-      profile?.walletAddress ||
-      '',
-  ).trim();
+/** The registration service creates an internal nexa-managed address.
+ * Only the verified Privy binding may skip the embedded-wallet onboarding.
+ * Never treat a non-empty EVM address as evidence of Privy activation. */
+export function hasLinkedPrivyWallet(profile: any): boolean {
+  const wallet = profile?.wallet || {};
+  const provider = String(wallet?.provider || profile?.walletProvider || '').trim().toLowerCase();
+  const address = String(wallet?.address || profile?.walletAddress || '').trim();
+  return provider === 'privy' &&
+    /^0x[a-fA-F0-9]{40}$/.test(address) &&
+    wallet?.privyLinked === true;
 }
 
 export async function resolveAuthenticatedRoute(
@@ -43,7 +47,7 @@ export async function resolveAuthenticatedRoute(
     }
   }
 
-  if (!walletAddress(profile)) {
+  if (!hasLinkedPrivyWallet(profile)) {
     return '/onboarding-wallet';
   }
 
