@@ -32,6 +32,6 @@ assert(!wallet.includes('if (linkedAddress)'));
 assert(owner.includes('walletFirstApi.createOwnershipChallenge'));
 assert(owner.includes('walletFirstApi.verifyOwnershipSignature'));
 assert(!owner.includes('walletAuditReady'));
-assert(central.includes('ATUALIZAÇÃO IMPORTANTE DA NEXA'));
+assert(central.includes('ATUALIZAÇÃO DE SEGURANÇA NEXA'));
 assert(central.includes('Concluir minha carteira Privy'));
 console.log('Nexa v148 Privy-only OTA contract passed; changed:',changed);
