@@ -12,7 +12,6 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
-import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { walletFirstApi } from '@/lib/walletFirst';
 import { colors, radius, spacing } from '@/theme';
@@ -61,18 +60,9 @@ export default function WalletOwnershipScreen() {
       const session = await loadNexaSession();
       if (!session) throw new Error('Sua sessão Nexa expirou. Entre novamente.');
 
-      // Segurança continua intacta nos bastidores: associação Privy,
-      // não-custódia, signers e endereço são auditados no servidor.
-      const audit = await nexaApi.auditWallet(session.accessToken);
-      const walletAuditReady =
-        audit?.walletFirstReady === true ||
-        audit?.directSettlementReady === true;
-      if (!walletAuditReady) {
-        throw new Error(
-          'A carteira ainda precisa de uma checagem de segurança. Tente novamente em alguns instantes.',
-        );
-      }
-
+      // Direct-settlement audit is intentionally restricted to pilots.
+      // EIP-191 challenge/verify is the authoritative public Wallet-First proof,
+      // and still checks the destination address and user's signature on server.
       const challenge = await walletFirstApi.createOwnershipChallenge(
         session.accessToken,
       );
