@@ -17,3 +17,4 @@
 - Authorized release is limited to 10% of Android clients on Expo runtime 2.0.43; never iOS.
 - Production step must independently verify live source SHA, production channel mapping, and an identical newly published QA source SHA; fail closed on any mismatch.
 - Provider-level rollout and customer reception are not implied by this commit; confirm actual EAS logs afterwards.
+\n## EAS production inventory check — automatic Privy rollout\nBefore creating a cumulative OTA for all Nexa accounts, verify the exact current Android production source SHA from Expo. Read-only audit only; no production publish.\n
