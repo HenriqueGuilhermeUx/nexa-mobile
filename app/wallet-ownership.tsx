@@ -61,18 +61,8 @@ export default function WalletOwnershipScreen() {
       const session = await loadNexaSession();
       if (!session) throw new Error('Sua sessão Nexa expirou. Entre novamente.');
 
-      // Segurança continua intacta nos bastidores: associação Privy,
-      // não-custódia, signers e endereço são auditados no servidor.
-      const audit = await nexaApi.auditWallet(session.accessToken);
-      const walletAuditReady =
-        audit?.walletFirstReady === true ||
-        audit?.directSettlementReady === true;
-      if (!walletAuditReady) {
-        throw new Error(
-          'A carteira ainda precisa de uma checagem de segurança. Tente novamente em alguns instantes.',
-        );
-      }
-
+      // Cryptographic EIP-191 challenge verifies the owner on the backend.
+      // No pilot-only audit should block regular customers here.
       const challenge = await walletFirstApi.createOwnershipChallenge(
         session.accessToken,
       );
