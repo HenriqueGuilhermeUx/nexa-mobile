@@ -35,20 +35,23 @@ export async function resolveAuthenticatedRoute(
     .trim()
     .toUpperCase();
 
+  // The Nexa app provisions and links the Privy wallet automatically as
+  // part of the authenticated onboarding. Never require payout Pix setup
+  // before this step; payout destination is unrelated to wallet ownership.
+  if (!hasLinkedPrivyWallet(profile)) {
+    return '/onboarding-wallet';
+  }
+
   if (countryCode === 'BR') {
     const pixType = normalizedPixType(profile);
     const hasSelfBoundPayoutPix =
       profile?.pixWithdrawEnabled === true &&
       Boolean(String(profile?.pixKey || '').trim()) &&
-      ['CPF', 'EMAIL', 'PHONE'].includes(pixType);
+      pixType === 'CPF';
 
     if (!hasSelfBoundPayoutPix) {
       return '/onboarding-pix';
     }
-  }
-
-  if (!hasLinkedPrivyWallet(profile)) {
-    return '/onboarding-wallet';
   }
 
   try {
