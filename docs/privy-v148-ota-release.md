@@ -15,3 +15,5 @@
 
 - Rebased additively onto actual Expo Android production SHA `b8bc4c65f08480f2a334be457ef47bcc1b20f49d` (Nov 17). This preserves all 79 intervening commits, including Maya, Central, Aave and wallet features, instead of replacing with Nov 15 OTA.
 - Manual device acceptance remains pending; only 10% canary after verifying the channel is mapped to production and QA SHA matches the exact release.
+
+- OTA QA release requested on production source `b8bc4c65`, with exclusive branch and no customer delivery; retain all live Maya/Central changes.
