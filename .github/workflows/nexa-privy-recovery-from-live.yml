@@ -1,6 +1,7 @@
 name: Nexa Privy recovery on verified live Expo source
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches:
       - release/nexa-privy-expo-active-reference-20261120
 permissions:
@@ -75,3 +76,57 @@ jobs:
           NODE
       - name: Publish isolated EAS QA candidate
         run: eas update --branch nexa-privy-recovery-live-qa --platform android --message "Privy auto-recovery live-base QA ${{ github.sha }}" --non-interactive
+
+  canary-10:
+    if: "github.event_name == 'pull_request' && github.event.action == 'edited' && startsWith(github.event.pull_request.title, '[Privy 10%]') && github.event.pull_request.head.repo.full_name == 'HenriqueGuilhermeUx/nexa-mobile'"
+    needs: [validate, qa]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: node scripts/validate-privy-recovery-from-live.cjs
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Use exact original production feature flags
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\n'))throw Error('Invalid environment variable');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Fail closed unless previous production and exact QA update are unchanged
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}} qa:updateBranchByName(name:"nexa-privy-recovery-live-qa"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const resp=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const body=await resp.json();if(!resp.ok||body.errors?.length)throw Error('EAS preflight unavailable');
+            const app=body.data?.app?.byId;
+            const mapped=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=app?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            if(mapped.length!==1||mapped[0]!=='production')throw Error('Production channel remapped');
+            if(prod?.id!=='01a1f6c3-8104-7838-911d-c3ee3f089884'||prod?.gitCommitHash!=='2e8b883d37381125f7afa1fc17ee630c4dc31bc3')throw Error('Production updated since audit; refuse rollout');
+            if(qa?.gitCommitHash!==process.env.GITHUB_SHA)throw Error('QA SHA differs from this exact release candidate');
+            console.log('APPROVED_10_PERCENT_SOURCE_PROOF='+JSON.stringify({previous:prod?.id,qa:qa?.id,candidate:process.env.GITHUB_SHA}));
+          })().catch(e=>{console.error('FAIL_CLOSED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Release Android production to 10 percent canary only
+        run: eas update --branch production --platform android --rollout-percentage 10 --message "Nexa Privy automatic wallet recovery Android 10 percent SHA ${{ github.sha }}" --non-interactive
