@@ -54,6 +54,12 @@ export async function resolveAuthenticatedRoute(
     }
   }
 
+  // Privy identity must be established before payout Pix onboarding.
+  // A missing CPF Pix key cannot block restoring a customer's embedded wallet.
+  if (!hasLinkedPrivyWallet(profile)) {
+    return '/onboarding-wallet';
+  }
+
   if (countryCode === 'BR') {
     const pixType = normalizedPixType(profile);
     const hasSelfBoundPayoutPix =
@@ -64,10 +70,6 @@ export async function resolveAuthenticatedRoute(
     if (!hasSelfBoundPayoutPix) {
       return '/onboarding-pix';
     }
-  }
-
-  if (!hasLinkedPrivyWallet(profile)) {
-    return '/onboarding-wallet';
   }
 
   try {
