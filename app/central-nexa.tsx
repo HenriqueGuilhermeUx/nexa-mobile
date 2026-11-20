@@ -72,7 +72,7 @@ export default function CentralNexaScreen() {
           return;
         }
         const profile = await nexaApi.me(session.accessToken);
-        setNeedsPrivyActivation(String(profile?.kycStatus || '').toLowerCase() === 'approved' && !hasLinkedPrivyWallet(profile));
+        setNeedsPrivyActivation(!hasLinkedPrivyWallet(profile));
         const country = String(profile?.residenceCountry || 'BR').trim().toUpperCase();
         setIsBrazilUser(country === 'BR');
         const state = country === 'BR'
@@ -365,8 +365,10 @@ export default function CentralNexaScreen() {
           Não crie uma segunda conta e não transfira fundos para regularizar.
         </Text>
         <Text style={styles.featureCopy}>
-          Entre com a mesma conta. Após o KYC aprovado, crie ou vincule sua
-          carteira Privy e confirme a titularidade no próprio aplicativo.
+          Entre com a mesma conta e confirme seu e-mail caso solicitado.
+          A Nexa cria ou recupera a carteira Privy automaticamente, mesmo
+          durante a análise do KYC. Operações financeiras só são liberadas
+          depois das verificações obrigatórias.
           Nunca compartilhe códigos, frases-semente ou chaves privadas.
         </Text>
         {needsPrivyActivation ? (
