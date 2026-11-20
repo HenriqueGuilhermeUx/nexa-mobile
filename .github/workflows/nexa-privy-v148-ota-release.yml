@@ -127,3 +127,33 @@ jobs:
           NODE
       - name: Publish 10-percent canary Android only (never iOS)
         run: eas update --branch production --platform android --rollout-percentage 10 --message "Nexa v148 Privy hotfix 10 percent SHA ${{ github.sha }}" --non-interactive
+
+  expo-source-audit:
+    if: "github.event_name == 'push' && startsWith(github.event.head_commit.message, 'audit(privy):')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Read-only production/QA EAS source inventory
+        shell: bash
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            if(!process.env.EXPO_TOKEN)throw Error('Expo token unavailable');
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){name updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:12){id gitCommitHash platform group createdAt}} qa:updateBranchByName(name:"nexa-privy-v148-qa"){updates(offset:0,limit:5){id gitCommitHash platform group createdAt}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)});
+            const data=await response.json();
+            if(!response.ok||data.errors?.length)throw Error('EAS read-only audit failed');
+            const app=data.data?.app?.byId;
+            if(!app)throw Error('EAS project unavailable');
+            const mapped=app.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const android=app.prod?.updates?.filter(x=>x.platform==='android')||[];
+            const qa=app.qa?.updates?.filter(x=>x.platform==='android')||[];
+            console.log('EAS_SOURCE_AUDIT='+JSON.stringify({mapped,liveAndroid:android.slice(0,5),
+              latestQaAndroid:qa.slice(0,2)}));
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
