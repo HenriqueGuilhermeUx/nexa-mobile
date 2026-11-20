@@ -25,6 +25,7 @@ const owner=fs.readFileSync('app/wallet-ownership.tsx','utf8');
 const central=fs.readFileSync('app/central-nexa.tsx','utf8');
 assert(on.includes('hasLinkedPrivyWallet(profile)'));
 assert(on.includes('wallet.privyLinked === true'));
+assert(on.indexOf("if (!hasLinkedPrivyWallet(profile))") < on.indexOf("if (countryCode === 'BR')"), 'Privy activation must precede payout Pix setup');
 assert(!on.includes('if (!walletAddress(profile))'));
 assert(wallet.includes('hasLinkedPrivyWallet(me)'));
 assert(!wallet.includes('if (linkedAddress)'));
