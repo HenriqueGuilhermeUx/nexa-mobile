@@ -27,6 +27,14 @@ export async function resolveAuthenticatedRoute(
   profile: any,
   accessToken: string,
 ): Promise<NexaAuthenticatedRoute> {
+  // A wallet is created/reused as part of account activation, including
+  // KYC-pending registrations; KYC remains mandatory for all financial actions.
+  // Privy authentication occurs in the user's own session, never as a server
+  // wallet controlled by Nexa.
+  if (!hasLinkedPrivyWallet(profile)) {
+    return '/onboarding-wallet';
+  }
+
   if (String(profile?.kycStatus || '').toLowerCase() !== 'approved') {
     return '/kyc';
   }
@@ -40,15 +48,11 @@ export async function resolveAuthenticatedRoute(
     const hasSelfBoundPayoutPix =
       profile?.pixWithdrawEnabled === true &&
       Boolean(String(profile?.pixKey || '').trim()) &&
-      ['CPF', 'EMAIL', 'PHONE'].includes(pixType);
+      pixType === 'CPF';
 
     if (!hasSelfBoundPayoutPix) {
       return '/onboarding-pix';
     }
-  }
-
-  if (!hasLinkedPrivyWallet(profile)) {
-    return '/onboarding-wallet';
   }
 
   try {

@@ -34,7 +34,26 @@ assert.equal(f({wallet:{address,provider:'privy',privyLinked:true}}),true);
     {kycStatus:'approved',residenceCountry:'US',wallet:{address,provider:'nexa-managed'}},
     'fake-token'),'/onboarding-wallet');
   assert.equal(await ctx.exports.resolveAuthenticatedRoute(
+    {kycStatus:'approved',residenceCountry:'BR',pixWithdrawEnabled:false,
+      pixKeyType:'PHONE',wallet:{address,provider:'nexa-managed'}},
+    'fake-token'),'/onboarding-wallet',
+    'customer should get automatic Privy recovery before configuring Pix CPF');
+  assert.equal(await ctx.exports.resolveAuthenticatedRoute(
+    {kycStatus:'approved',residenceCountry:'BR',pixWithdrawEnabled:true,
+      pixKey:'11977777777',pixKeyType:'PHONE',
+      wallet:{address,provider:'privy',privyLinked:true}},
+    'fake-token'),'/onboarding-pix',
+    'legacy PHONE payout must migrate via explicit review, not bypass CPF-only policy');
+  assert.equal(await ctx.exports.resolveAuthenticatedRoute(
+    {kycStatus:'pending',residenceCountry:'BR',wallet:{address,provider:'nexa-managed'}},
+    'fake-token'),'/onboarding-wallet','wallet provisioning precedes KYC but does not authorize deposits');
+
+  assert.equal(await ctx.exports.resolveAuthenticatedRoute(
     {kycStatus:'approved',residenceCountry:'US',wallet:{address,provider:'privy',privyLinked:true}},
     'fake-token'),'/legacy');
-  console.log('Privy-only onboarding route and false managed wallet signals validated.');
+  assert.equal(await ctx.exports.resolveAuthenticatedRoute(
+    {kycStatus:'pending',residenceCountry:'BR',
+      wallet:{address,provider:'privy',privyLinked:true}},'fake-token'),
+    '/kyc','Privy linkage cannot bypass KYC before finance');
+  console.log('Automatic Privy wallet provisioning and non-financial KYC gates validated.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
