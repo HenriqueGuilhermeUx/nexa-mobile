@@ -30,7 +30,7 @@ assert(wallet.includes('await nexaApi.linkWallet('));
 assert(wallet.includes('if (hasLinkedPrivyWallet(me))'), 'do not skip real wallet creation for internal managed address');
 assert(wallet.includes('embedded.create({ createAdditional: false })'), 'must reuse Privy wallet before creating additional wallet');
 assert(wallet.includes("router.replace('/sign-in')"), 'never create a wallet without account authentication');
-assert(wallet.includes("router.replace({"), 'restore Privy session in the user's own context before binding');
+assert(wallet.includes('router.replace({'), "restore Privy session in the owner's context before binding");
 assert(on.includes("return '/onboarding-wallet'"), 'auto-resume wallet creation for existing customers');
 
 assert(owner.includes('walletFirstApi.createOwnershipChallenge'));
