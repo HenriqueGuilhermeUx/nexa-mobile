@@ -29,4 +29,5 @@ assert(wallet.includes('await nexaApi.linkWallet('));
 assert(owner.includes('walletFirstApi.createOwnershipChallenge'));
 assert(owner.includes('walletFirstApi.verifyOwnershipSignature'));
 assert(!owner.includes('walletAuditReady'));
+assert(!on.includes("['CPF', 'EMAIL', 'PHONE'].includes(pixType)"), 'payout keys must be CPF-only');
 console.log('PASS: OTA JS-only, v148 native baseline, Privy automation, KYC and CPF gates.');
