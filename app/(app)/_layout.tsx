@@ -18,6 +18,7 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="activity" options={{ title: 'Histórico' }} />
       <Stack.Screen name="rewards" options={{ title: 'Rewards' }} />
       <Stack.Screen name="aave-info" options={{ title: 'Investimentos e crédito' }} />
+      <Stack.Screen name="aave-wallet" options={{ title: 'Aave · Minha carteira' }} />
       <Stack.Screen name="pay" options={{ title: 'Pagar conta' }} />
     </Stack>
   );

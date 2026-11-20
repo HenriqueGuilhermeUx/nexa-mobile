@@ -1,0 +1,60 @@
+name: Nexa v148 real Aave USDC pilot — client safety and preserved features
+on:
+  push:
+    branches: [feat/aave-wallet-real-client-v148-20261117]
+permissions:
+  contents: read
+jobs:
+  mobile-aave-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'false'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck whole app
+        run: npm run typecheck
+      - name: Preserve existing wallet and Aave educational tests
+        run: |
+          node scripts/validate-mobile-safety-v123.js
+          node scripts/validate-aave-eligibility.cjs
+          node scripts/validate-aave-educational-simulation.cjs
+          node scripts/validate-aave-android-headers.cjs
+          node scripts/validate-aave-diagnostics.cjs
+      - name: Protect default-off pilot, native USDC and customer-only signature
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),assert=require('assert').strict;
+          const app=require('./app.json').expo;
+          assert.equal(app.version,'2.0.43');assert.equal(app.android.versionCode,148);
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          const ui=fs.readFileSync('app/(app)/aave-wallet.tsx','utf8');
+          const lib=fs.readFileSync('src/lib/aavePilotWallet.ts','utf8');
+          const shell=fs.readFileSync('src/components/AlignedLegacyApp.tsx','utf8');
+          const layout=fs.readFileSync('app/(app)/_layout.tsx','utf8');
+          assert.ok(layout.includes('name="aave-wallet"'));
+          assert.ok(ui.includes("status?.pilotEnabled"));
+          assert.ok(ui.includes("riskAcknowledged:true"));
+          assert.ok(ui.includes('sendOneAavePilotStep'));
+          assert.ok(ui.includes('inspectAavePilotReceipt'));
+          assert.ok(lib.includes("eth_sendTransaction"));
+          assert.ok(lib.includes('exactData(step,quote)'));
+          assert.ok(lib.includes('requiresExplicitWalletConfirmation'));
+          assert.ok(!lib.includes('eth_sendRawTransaction'));
+          assert.ok(!ui.includes('privateKey'));
+          for(const f of ['openWalletFirstDeposit','openWalletFirstWithdraw',
+            'openWalletFirstSend','openWalletFirstAssets']){
+            assert.ok(shell.includes(f),'Missing old wallet flow: '+f);
+          }
+          console.log('Nexa v148 user-signed Aave pilot available only behind server allowlist; main wallet flows preserved.');
+          NODE
