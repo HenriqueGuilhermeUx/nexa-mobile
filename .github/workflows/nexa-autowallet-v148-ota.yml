@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: nexa-privy-autowallet-v148
+  group: nexa-privy-autowallet-v148-20261120-isolated
   cancel-in-progress: false
 jobs:
   validate:
