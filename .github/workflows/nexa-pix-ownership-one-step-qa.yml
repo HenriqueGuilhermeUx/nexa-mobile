@@ -1,0 +1,75 @@
+name: Nexa Pix one-step ownership UX QA
+on:
+  push:
+    branches:
+      - feat/nexa-pix-ownership-one-step-20261121
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Check Pix retains ownership security and returns to deposit
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'); const assert=require('node:assert/strict');
+          const deposit=fs.readFileSync('app/(app)/new-order.tsx','utf8');
+          const proof=fs.readFileSync('app/wallet-ownership.tsx','utf8');
+          assert.match(deposit,/walletFirstApi\.readiness/);
+          assert.match(deposit,/userControlledWalletConfirmed/);
+          assert.match(deposit,/Confirmar e continuar/);
+          assert.match(deposit,/ownershipStatus !== 'confirmed'/);
+          assert.match(deposit,/returnTo: 'new-order', amount/);
+          assert.match(deposit,/const readiness = await walletFirstApi\.readiness/);
+          assert.match(proof,/returnTo === 'new-order'/);
+          assert.match(proof,/pathname: '\/\(app\)\/new-order'/);
+          assert.match(proof,/params: \{ amount: savedAmount \}/);
+          assert.match(proof,/personal_sign/);
+          assert.match(proof,/verifyOwnershipSignature/);
+          assert.match(proof,/onPress=\{proveControl\}/);
+          console.log('Pix one-step flow and non-automated ownership signature guards: PASS');
+          NODE
+      - run: npm run typecheck
+      - run: npm run export:android
+  qa-ota:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Preserve production public build configuration
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\n'))throw Error('Invalid environment');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Publish only isolated Android QA
+        run: eas update --branch nexa-pix-ownership-one-step-qa --platform android --message "Nexa Pix one-step ownership UX QA ${{ github.sha }}" --non-interactive
