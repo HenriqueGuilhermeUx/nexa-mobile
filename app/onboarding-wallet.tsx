@@ -50,6 +50,8 @@ function resolvedWalletIdentifier(wallet: any, privyUser: any): string {
 
 export default function WalletOnboardingScreen() {
   const privy = usePrivy() as any;
+  const privyUserRef = useRef<any>(privy?.user);
+  privyUserRef.current = privy?.user;
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
   const wallet = useMemo(
@@ -97,7 +99,7 @@ export default function WalletOnboardingScreen() {
       // The embedded Ethereum wallet hook can expose an address but omit the
       // internal wallet ID. Recover it from the same authenticated Privy user's
       // embedded-wallet linked account; never fabricate an ID from the address.
-      let privyWalletId = resolvedWalletIdentifier(currentWallet, privy?.user);
+      let privyWalletId = resolvedWalletIdentifier(currentWallet, privyUserRef.current);
       if (!privyWalletId) {
         // Avoid creating a second wallet; the Privy user may still be
         // refreshing its linkedAccounts after successful email OTP.
@@ -105,7 +107,7 @@ export default function WalletOnboardingScreen() {
           await new Promise((resolve) => setTimeout(resolve, 550));
           privyWalletId = resolvedWalletIdentifier(
             currentWallet,
-            privy?.user,
+            privyUserRef.current,
           );
         }
       }
