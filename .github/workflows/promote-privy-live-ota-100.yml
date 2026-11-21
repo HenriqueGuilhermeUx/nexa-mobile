@@ -1,0 +1,69 @@
+name: Promote verified Nexa Privy v148 OTA rollout to 100 percent
+on:
+  push:
+    branches:
+      - release/nexa-privy-walletfirst-v148-live-cumulative-20261121
+    paths:
+      - '.github/workflows/promote-privy-live-ota-100.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-privy-live-promotion-production
+  cancel-in-progress: false
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_NO_TELEMETRY: '1'
+      EXPECTED_GROUP: 9b093805-9be5-4b22-bee9-775e8cbeff60
+      EXPECTED_UPDATE: 01a2000a-4932-70be-bbe4-088062b4535e
+      EXPECTED_SHA: 597e01e19c2ac13a49da64bdea1d3928de2e179f
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: test -n "$EXPO_TOKEN"
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Verify exact Expo production Android OTA unchanged
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const resp=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(15000)
+            });
+            const body=await resp.json();
+            if(!resp.ok||body.errors?.length)throw Error('Expo production verification unavailable');
+            const app=body.data?.app?.byId;
+            const branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const update=app?.prod?.updates?.find(x=>x.platform==='android');
+            console.log('EXACT_PRODUCTION_CANARY='+JSON.stringify({branches,update}));
+            if(branches.length!==1||branches[0]!=='production')throw Error('Production channel remapped');
+            if(update?.id!==process.env.EXPECTED_UPDATE||update?.gitCommitHash!==process.env.EXPECTED_SHA||update?.group!==process.env.EXPECTED_GROUP)throw Error('Production changed: refusing 100 percent promotion');
+            console.log('EXACT_CANARY_VERIFIED=PASS');
+          })().catch(err=>{console.error('FAIL_CLOSED: '+err.message);process.exitCode=1});
+          NODE
+      - name: Promote existing update rollout (no bundle rebuild)
+        run: eas update:edit "$EXPECTED_GROUP" --rollout-percentage 100 --non-interactive
+      - name: Read back exact promoted update
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const resp=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await resp.json();if(!resp.ok||data.errors?.length)throw Error('Readback unavailable');
+            const update=data.data?.app?.byId?.prod?.updates?.find(x=>x.platform==='android');
+            if(update?.id!==process.env.EXPECTED_UPDATE||update?.gitCommitHash!==process.env.EXPECTED_SHA||update?.group!==process.env.EXPECTED_GROUP)throw Error('Unexpected post-promotion source');
+            console.log('PRODUCTION_UPDATE_IDENTITY_CONFIRMED='+JSON.stringify(update));
+            console.log('Promotion command completed; Expo dashboard confirms percentage.');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
