@@ -74,9 +74,10 @@ export default function SignUpScreen() {
         email: normalizedEmail,
       });
 
-      // Todo novo cliente passa imediatamente pelo KYC. O backend define o
-      // fluxo por país e o app nunca presume CPF/Pix fora do Brasil.
-      router.replace('/kyc' as any);
+      // Primeiro ativamos ou recuperamos a carteira do próprio cliente.
+      // A aprovação KYC continua obrigatória antes de qualquer operação.
+      // Não há criação de wallet custodial no app nem movimentação nesta etapa.
+      router.replace('/onboarding-wallet' as any);
     } catch (caught) {
       await clearNexaSession();
       setError(
