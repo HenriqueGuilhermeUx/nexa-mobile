@@ -71,8 +71,12 @@ export default function WalletOnboardingScreen() {
         currentWallet.id ||
           currentWallet.walletId ||
           currentWallet.wallet_id ||
-          currentWallet.address,
+          '',
       ).trim();
+
+      if (!privyWalletId || /^0x[a-fA-F0-9]{40}$/.test(privyWalletId)) {
+        throw new Error('A Privy ainda não confirmou o identificador da carteira. Tente novamente sem criar outra.');
+      }
 
       await nexaApi.linkWallet(
         session.accessToken,
@@ -89,6 +93,10 @@ export default function WalletOnboardingScreen() {
       // A legacy audit rejection must never block ownership confirmation.
       await nexaApi.auditWallet(session.accessToken).catch(() => null);
       const linkedProfile = await nexaApi.me(session.accessToken);
+      if (!hasLinkedPrivyWallet(linkedProfile) ||
+          String(linkedProfile?.wallet?.address || '').toLowerCase() !== String(currentWallet.address).toLowerCase()) {
+        throw new Error('O vínculo Privy ainda não foi confirmado no seu cadastro. Tente novamente.');
+      }
       router.replace(
         String(linkedProfile?.kycStatus || '').toLowerCase() === 'approved'
           ? '/wallet-ownership' as any
@@ -96,6 +104,8 @@ export default function WalletOnboardingScreen() {
       );
     } catch (caught) {
       linkingRef.current = false;
+      startedRef.current = false;
+      setWaitingForWallet(false);
       setError(
         caught instanceof Error
           ? caught.message
