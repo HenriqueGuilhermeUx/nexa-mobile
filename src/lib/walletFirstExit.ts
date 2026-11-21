@@ -40,11 +40,11 @@ function apiError(payload: any, status: number, fallback: string) {
   // Exit rollout readiness must never expose pilot configuration or technical
   // flags to a customer. Funds remain in the customer's own Privy wallet.
   const code = String(payload?.code || payload?.error?.code || payload?.message || '');
-  const blockers = Array.isArray(payload?.blockers) ? payload.blockers.map(String) : [];
+  const safetyBlockers = Array.isArray(payload?.blockers) ? payload.blockers.map(String) : [];
   if (
     code.includes('WALLET_FIRST_EXIT_WALLET_READINESS_BLOCKED') ||
-    blockers.includes('USER_NOT_IN_PILOT_ALLOWLIST') ||
-    blockers.includes('PILOT_ALLOWLIST_EMPTY') ||
+    safetyBlockers.includes('USER_NOT_IN_PILOT_ALLOWLIST') ||
+    safetyBlockers.includes('PILOT_ALLOWLIST_EMPTY') ||
     code.includes('WALLET_FIRST_EXIT_INTAKE_DISABLED') ||
     code.includes('WALLET_FIRST_EXIT_CUSTOMER_SIGNING_DISABLED')
   ) {
