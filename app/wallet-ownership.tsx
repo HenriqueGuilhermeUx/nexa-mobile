@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useEmbeddedEthereumWallet } from '@privy-io/expo';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -28,6 +28,19 @@ function messageToHex(message: string) {
 }
 
 export default function WalletOwnershipScreen() {
+  const params = useLocalSearchParams<{ returnTo?: string | string[]; amount?: string | string[] }>();
+  const returnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const savedAmount = Array.isArray(params.amount) ? params.amount[0] : params.amount || '';
+  function continueAfterProof() {
+    if (returnTo === 'new-order') {
+      router.replace({
+        pathname: '/(app)/new-order' as any,
+        params: { amount: savedAmount },
+      });
+      return;
+    }
+    router.replace('/legacy' as any);
+  }
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
   const [working, setWorking] = useState(false);
@@ -158,7 +171,8 @@ export default function WalletOwnershipScreen() {
         <Badge tone="success">PRONTO</Badge>
         <Title>Sua Nexa está pronta.</Title>
         <Paragraph>
-          Sua identidade, seu Pix de resgate e sua wallet estão configurados. Agora você pode adicionar reais e usar os ativos disponíveis na Nexa.
+          Carteira confirmada. Agora você pode continuar com segurança.
+          Esta assinatura não movimentou dinheiro.
         </Paragraph>
         <Card>
           <Text style={styles.readyTitle}>Sua wallet. Seus ativos.</Text>
@@ -167,8 +181,8 @@ export default function WalletOwnershipScreen() {
           </Text>
         </Card>
         <ActionButton
-          label="Começar"
-          onPress={() => router.replace('/legacy' as any)}
+          label={returnTo === 'new-order' ? 'Continuar meu Pix' : 'Começar'}
+          onPress={continueAfterProof}
         />
       </Screen>
     );
@@ -179,9 +193,9 @@ export default function WalletOwnershipScreen() {
       <Brand />
       <View style={styles.topSpace} />
       <Badge tone="info">PASSO 4 DE 4</Badge>
-      <Title>Confirme sua wallet</Title>
+      <Title>Uma confirmação rápida de segurança</Title>
       <Paragraph>
-        Esta confirmação prova que você controla a wallet vinculada à sua conta. Ela não movimenta ativos e não dá à Nexa acesso à sua chave.
+        Confirme uma única vez que esta carteira é sua. Você só vai assinar uma mensagem: não há Pix, taxa ou transferência nesta etapa.
       </Paragraph>
 
       <Card>
@@ -201,7 +215,7 @@ export default function WalletOwnershipScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <ActionButton
-        label="Confirmar minha wallet"
+        label="Confirmar minha carteira"
         loading={working}
         onPress={proveControl}
       />
