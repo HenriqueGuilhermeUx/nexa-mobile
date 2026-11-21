@@ -491,8 +491,8 @@ export const nexaApi = {
 
   getWalletFirstPixStatus(accessToken: string, correlationID: string) {
     return request<any>(
-      `/fiat-deposit/wallet-first/status/${encodeURIComponent(correlationID)}`,
-      { accessToken },
+      `/fiat-deposit/wallet-first/status/${encodeURIComponent(correlationID)}?refresh=${Date.now()}`,
+      { accessToken, cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } },
     );
   },
 

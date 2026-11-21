@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
+import { walletFirstApi } from '@/lib/walletFirst';
 import { colors, radius, spacing } from '@/theme';
 
 type Result = { kind: 'pix-charge'; payload: any };
@@ -71,7 +72,10 @@ function stageRank(stage: PixStage) {
 }
 
 export default function NewOrderScreen() {
-  const [amount, setAmount] = useState('');
+  const params = useLocalSearchParams<{ amount?: string | string[] }>();
+  const initialAmount = Array.isArray(params.amount) ? params.amount[0] : params.amount || '';
+  const [amount, setAmount] = useState(initialAmount);
+  const [ownershipStatus, setOwnershipStatus] = useState<'checking' | 'confirmed' | 'pending' | 'unavailable'>('checking');
   const [loading, setLoading] = useState(false);
   const [checkingPix, setCheckingPix] = useState(false);
   const [error, setError] = useState('');
@@ -80,6 +84,35 @@ export default function NewOrderScreen() {
   const [copyFeedback, setCopyFeedback] = useState('');
   const [showTechnical, setShowTechnical] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+
+  // Non-financial preflight: guide a customer to the required one-time wallet
+  // ownership signature before attempting to generate a charge.
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const session = await loadNexaSession();
+        if (!session) throw new Error('Sessão expirada');
+        const status = await walletFirstApi.readiness(session.accessToken);
+        if (!active) return;
+        setOwnershipStatus(
+          status?.pilotProfile?.userControlledWalletConfirmed === true
+            ? 'confirmed'
+            : 'pending',
+        );
+      } catch {
+        if (active) setOwnershipStatus('unavailable');
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  function openOwnershipConfirmation() {
+    router.push({
+      pathname: '/wallet-ownership' as any,
+      params: { returnTo: 'new-order', amount },
+    });
+  }
 
   const correlationID =
     result?.kind === 'pix-charge' ? String(result.payload?.correlationID || '').trim() : '';
@@ -163,6 +196,14 @@ export default function NewOrderScreen() {
     try {
       const session = await loadNexaSession();
       if (!session) throw new Error('Sua sessão Nexa expirou.');
+      // Always recheck right before creating a Pix charge; never bypass
+      // backend safety on a stale or uncertain UI status.
+      const readiness = await walletFirstApi.readiness(session.accessToken);
+      if (readiness?.pilotProfile?.userControlledWalletConfirmed !== true) {
+        setOwnershipStatus('pending');
+        setReviewing(false);
+        return;
+      }
       const response = await nexaApi.createWalletFirstPixCharge(
         session.accessToken,
         parsed,
@@ -199,8 +240,15 @@ export default function NewOrderScreen() {
         correlationID,
       );
       setPixStatus(status);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Não foi possível atualizar o Pix agora.');
+    } catch {
+      // Never expose accounting internals ("ledger legado", "Wallet V1.5",
+      // "fail-closed") to clients. The backend must remain fail-closed.
+      // A failed reconciliation is NOT evidence the Pix was unpaid.
+      setError(
+        'Não foi possível concluir a conferência agora. Se você já pagou, não faça outro Pix. ' +
+        'A Nexa mantém o registro desta cobrança para acompanhamento.',
+      );
+      await refreshStatus(true);
     } finally {
       setCheckingPix(false);
     }
@@ -357,6 +405,27 @@ export default function NewOrderScreen() {
         <Text style={styles.recurringArrow}>›</Text>
       </Pressable>
 
+      {ownershipStatus === 'checking' ? (
+        <Paragraph>Conferindo sua carteira para o Pix…</Paragraph>
+      ) : ownershipStatus === 'pending' ? (
+        <Card>
+          <Text style={styles.ruleTitle}>Só falta confirmar sua carteira</Text>
+          <Text style={styles.ruleText}>
+            É uma confirmação de segurança feita apenas uma vez. Você aprova
+            uma mensagem na sua carteira, sem pagar nada ou transferir fundos.
+            Depois, volta direto para seu Pix.
+          </Text>
+          <ActionButton label="Confirmar e continuar" onPress={openOwnershipConfirmation} />
+        </Card>
+      ) : ownershipStatus === 'unavailable' ? (
+        <Card>
+          <Text style={styles.ruleTitle}>Não conseguimos conferir sua carteira</Text>
+          <Text style={styles.ruleText}>
+            Confira a conexão e abra esta tela novamente. Nenhuma cobrança Pix foi criada.
+          </Text>
+        </Card>
+      ) : null}
+
       <Field
         label="Quanto você quer adicionar?"
         value={amount}
@@ -388,7 +457,7 @@ export default function NewOrderScreen() {
       {!reviewing ? (
         <ActionButton
           label="Continuar"
-          disabled={loading}
+          disabled={loading || ownershipStatus !== 'confirmed'}
           onPress={reviewAmount}
         />
       ) : (
@@ -401,6 +470,7 @@ export default function NewOrderScreen() {
           <ActionButton
             label="Gerar Pix"
             loading={loading}
+            disabled={ownershipStatus !== 'confirmed'}
             onPress={submit}
           />
           <ActionButton
