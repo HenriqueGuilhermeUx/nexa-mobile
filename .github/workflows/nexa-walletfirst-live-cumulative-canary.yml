@@ -1,0 +1,143 @@
+name: Nexa live-base Privy wallet-first canary 10 percent
+on:
+  push:
+    branches:
+      - release/nexa-privy-walletfirst-v148-live-cumulative-20261121
+permissions:
+  contents: read
+concurrency:
+  group: nexa-privy-live-base-canary-20261121
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run export:android
+      - name: Check wallet-first recovery from exact deployed baseline
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const assert = require('node:assert/strict');
+          const signup=fs.readFileSync('app/sign-up.tsx','utf8');
+          const kyc=fs.readFileSync('app/kyc.tsx','utf8');
+          const wallet=fs.readFileSync('app/onboarding-wallet.tsx','utf8');
+          const onboarding=fs.readFileSync('src/lib/onboarding.ts','utf8');
+          assert.match(signup,/router\.replace\('\/onboarding-wallet' as any\)/);
+          assert.doesNotMatch(signup,/router\.replace\('\/kyc' as any\)/);
+          assert.match(kyc,/if \(!hasLinkedPrivyWallet\(profile\)\)/);
+          assert.match(kyc,/router\.replace\('\/onboarding-wallet'/);
+          assert.match(onboarding,/return '\/onboarding-wallet'/);
+          assert.match(wallet,/if \(!privyWalletId \|\|/);
+          assert.match(wallet,/if \(!hasLinkedPrivyWallet\(linkedProfile\)/);
+          assert.doesNotMatch(wallet,/currentWallet\.wallet_id \|\|\s*currentWallet\.address/);
+          console.log('SAFE_PRIVY_WALLET_FIRST_ON_LIVE_BASE=PASS');
+          NODE
+  qa:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      EXPO_NO_TELEMETRY: '1'
+      CI: 'true'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Load original production public flags
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\n'))throw Error('Invalid environment');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Expo source preflight read-only
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const resp=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await resp.json();if(!resp.ok||data.errors?.length)throw Error('Expo readback unavailable');
+            const app=data.data?.app?.byId;
+            const branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=app?.prod?.updates?.find(x=>x.platform==='android');
+            console.log('EXPO_PROD_READBACK='+JSON.stringify({branches,android:prod}));
+            if(branches.length!==1||branches[0]!=='production')throw Error('Production mapping changed');
+            if(prod?.id!=='01a1fb30-2593-7954-a65c-55d69163717a'||prod?.gitCommitHash!=='7bd4abc682691db261e3ee426f97b1d66e53e26c')throw Error('Production changed since verified 10-percent source; stop');
+          })().catch(e=>{console.error('FAIL_CLOSED '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish QA branch only
+        run: eas update --branch nexa-privy-walletfirst-v148-live-qa --platform android --message "Wallet-first exact production-base QA ${{ github.sha }}" --non-interactive
+  canary-10:
+    needs: [validate,qa]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Load exact original production public flags
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\n'))throw Error('Invalid environment');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Verify original source and published QA are exactly unchanged
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const query='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}} qa:updateBranchByName(name:"nexa-privy-walletfirst-v148-live-qa"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const resp=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await resp.json();if(!resp.ok||data.errors?.length)throw Error('Expo readback unavailable');
+            const app=data.data?.app?.byId;
+            const branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=app?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            if(branches.length!==1||branches[0]!=='production')throw Error('Production channel changed');
+            if(prod?.id!=='01a1fb30-2593-7954-a65c-55d69163717a'||prod?.gitCommitHash!=='7bd4abc682691db261e3ee426f97b1d66e53e26c')throw Error('Production source changed; refuse canary');
+            if(qa?.gitCommitHash!==process.env.GITHUB_SHA)throw Error('QA SHA mismatch');
+            console.log('CANARY_PRE_FLIGHT_PASS='+JSON.stringify({production:prod.id,qa:qa.id,sha:process.env.GITHUB_SHA}));
+          })().catch(e=>{console.error('FAIL_CLOSED '+e.message);process.exitCode=1});
+          NODE
+      - name: Revert exactly the observed old 10-percent rollout
+        run: eas update:revert-update-rollout --group 18b32826-3257-4e0e-894d-98a564fd02a3 --message "Replace verified older Privy 10-percent canary" --non-interactive
+      - name: Publish new cumulative Android 10-percent canary
+        run: eas update --branch production --platform android --rollout-percentage 10 --message "Nexa Privy wallet-first cumulative from verified live v148 SHA ${{ github.sha }}" --non-interactive
