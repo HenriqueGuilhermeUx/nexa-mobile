@@ -240,8 +240,15 @@ export default function NewOrderScreen() {
         correlationID,
       );
       setPixStatus(status);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Não foi possível atualizar o Pix agora.');
+    } catch {
+      // Never expose accounting internals ("ledger legado", "Wallet V1.5",
+      // "fail-closed") to clients. The backend must remain fail-closed.
+      // A failed reconciliation is NOT evidence the Pix was unpaid.
+      setError(
+        'Não foi possível concluir a conferência agora. Se você já pagou, não faça outro Pix. ' +
+        'A Nexa mantém o registro desta cobrança para acompanhamento.',
+      );
+      await refreshStatus(true);
     } finally {
       setCheckingPix(false);
     }
