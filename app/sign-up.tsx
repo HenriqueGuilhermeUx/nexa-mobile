@@ -74,8 +74,8 @@ export default function SignUpScreen() {
         email: normalizedEmail,
       });
 
-      // Todo novo cliente passa imediatamente pelo KYC. O backend define o
-      // fluxo por país e o app nunca presume CPF/Pix fora do Brasil.
+      // O cliente cria/recupera sua própria Privy wallet antes do KYC.
+      // KYC continua obrigatório antes das operações financeiras.
       router.replace('/onboarding-wallet' as any);
     } catch (caught) {
       await clearNexaSession();
