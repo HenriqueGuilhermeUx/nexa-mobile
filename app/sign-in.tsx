@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionButton,
@@ -123,15 +123,9 @@ export default function SignInScreen() {
     }
   }
 
-  async function openPasswordRecovery() {
+  function openPasswordRecovery() {
     setError('');
-    try {
-      await Linking.openURL('https://trynexa.com.br/login');
-    } catch {
-      setError(
-        'Não foi possível abrir a recuperação de senha. Acesse trynexa.com.br/login no navegador.',
-      );
-    }
+    router.push({ pathname: '/forgot-password' as any, params: { email: email.trim().toLowerCase() } });
   }
 
   return (
