@@ -76,7 +76,7 @@ export default function SignUpScreen() {
 
       // Todo novo cliente passa imediatamente pelo KYC. O backend define o
       // fluxo por país e o app nunca presume CPF/Pix fora do Brasil.
-      router.replace('/kyc' as any);
+      router.replace('/onboarding-wallet' as any);
     } catch (caught) {
       await clearNexaSession();
       setError(
