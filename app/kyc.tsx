@@ -19,7 +19,7 @@ import {
 } from '@/components/ui';
 import { BrazilKycStatus, nexaApi } from '@/lib/api';
 import { shouldShowEcosystemWelcome } from '@/lib/ecosystemOnboarding';
-import { resolveAuthenticatedRoute } from '@/lib/onboarding';
+import { hasLinkedPrivyWallet, resolveAuthenticatedRoute } from '@/lib/onboarding';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
@@ -80,6 +80,13 @@ export default function KycScreen() {
 
     try {
       const profile = await nexaApi.me(session.accessToken);
+      // Recovery gate: an older OTA/deep link may reach KYC before the
+      // user-owned Privy wallet is verified. Restore the wallet-first path.
+      // This never creates a wallet on the server and never authorizes funds.
+      if (!hasLinkedPrivyWallet(profile)) {
+        router.replace('/onboarding-wallet' as any);
+        return;
+      }
       const country = String(profile?.residenceCountry || 'BR')
         .trim()
         .toUpperCase();

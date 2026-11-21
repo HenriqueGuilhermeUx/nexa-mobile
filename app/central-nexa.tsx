@@ -345,14 +345,14 @@ export default function CentralNexaScreen() {
           <Text style={styles.eyebrow}>AVISO DE SERVIÇO • CARTEIRA PRIVY</Text>
           <Text style={styles.sectionTitle}>Sua carteira individual está sendo regularizada</Text>
           <Text style={styles.paragraph}>
-            A Nexa agora cria ou recupera automaticamente a carteira Privy na sua conta. Não crie outra conta nem transfira fundos da carteira anterior. Entre com seu e-mail habitual e, se solicitado, confirme o código para proteger sua carteira.
+            Sua conta Nexa está preservada. Para ativar ou recuperar sua carteira individual Privy, confirme o mesmo e-mail do cadastro quando solicitado. Não crie outra conta nem envie fundos para um endereço antigo enquanto o vínculo não estiver confirmado.
           </Text>
           <Text style={styles.paragraph}>
             Seu KYC já aprovado permanece válido. Depósitos e outras operações exigem a carteira vinculada e a confirmação de titularidade; nunca informe senhas, códigos ou frases-semente ao atendimento.
           </Text>
           <Action
-            title="Ativar minha carteira automaticamente"
-            detail="Retomar a vinculação segura sem criar outra conta"
+            title="Ativar minha carteira Privy"
+            detail="Confirmar meu e-mail e vincular minha carteira, sem novo cadastro"
             onPress={() => router.push('/onboarding-wallet' as any)}
           />
         </View>
