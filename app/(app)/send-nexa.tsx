@@ -46,10 +46,26 @@ function friendlyTransferError(error: unknown, username?: string) {
   if (message.includes('SENDER_WALLET_REQUIRED')) {
     return 'Sua wallet ainda não está pronta para enviar.';
   }
+  if (
+    message.includes('ONCHAIN_DIRECT_SIGNED_INTENT_NOT_READY') ||
+    message.includes('WALLET_V15_TRANSFER_INTENT_SECRET_NOT_CONFIGURED') ||
+    message.includes('WALLET_V15_PAYMENT_ROUTER_EXECUTION_DISABLED') ||
+    message.includes('WALLET_V15_ONCHAIN_INTENT_CONTEXT_NOT_READY')
+  ) {
+    return 'O envio entre carteiras está temporariamente indisponível. Seus USDC continuam na sua carteira. Nenhuma transferência foi realizada.';
+  }
+  if (message.includes('NO_TRANSFER_ROUTE_AVAILABLE') || message.includes('TRANSFER_ROUTE_UNAVAILABLE')) {
+    return 'Não foi possível preparar um envio seguro para este usuário. Confirme se ele ativou a carteira Nexa.';
+  }
+  if (message.includes('ONCHAIN_BALANCE_UNAVAILABLE')) {
+    return 'Não conseguimos consultar o saldo da sua carteira agora. Tente novamente mais tarde.';
+  }
   if (message.includes('INSUFFICIENT_ONCHAIN_USDC')) {
     return 'Seu saldo USDC disponível não é suficiente para este envio.';
   }
-  return message || 'Não foi possível preparar a transferência.';
+  return /\b(?:503|502|500)\b/.test(message)
+    ? 'O serviço de transferências está temporariamente indisponível. Seus fundos permanecem seguros na carteira; nenhum envio foi realizado.'
+    : (message || 'Não foi possível preparar a transferência.');
 }
 
 export default function SendNexaScreen() {
