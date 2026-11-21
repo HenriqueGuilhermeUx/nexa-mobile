@@ -101,6 +101,17 @@ async function requestJson<T>(
 
 const EXIT_BASE = '/direct-settlement/wallet-first/usdc-pilot/exit';
 
+export async function getWalletFirstExitReadiness(accessToken: string): Promise<{
+  success: boolean;
+  available: boolean;
+  financialAction: false;
+  message?: string;
+}> {
+  return requestJson(accessToken, `${EXIT_BASE}/readiness`, {
+    method: 'GET',
+  });
+}
+
 export async function getWalletFirstExitQuote(
   accessToken: string,
   amountUsdc: number,
