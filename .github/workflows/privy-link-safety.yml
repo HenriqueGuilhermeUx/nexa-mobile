@@ -1,0 +1,24 @@
+name: Privy verified linking safety (QA only)
+on:
+  pull_request:
+    paths:
+      - 'app/onboarding-wallet.tsx'
+      - 'src/lib/onboarding.ts'
+      - 'scripts/validate-privy-link-safety.cjs'
+      - '.github/workflows/privy-link-safety.yml'
+  workflow_dispatch:
+jobs:
+  privy-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: node scripts/validate-privy-link-safety.cjs
