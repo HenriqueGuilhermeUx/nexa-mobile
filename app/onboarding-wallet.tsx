@@ -68,11 +68,11 @@ export default function WalletOnboardingScreen() {
       }
 
       const privyWalletId = String(
-        currentWallet.id ||
-          currentWallet.walletId ||
-          currentWallet.wallet_id ||
-          currentWallet.address,
+        currentWallet.id || currentWallet.walletId || currentWallet.wallet_id || '',
       ).trim();
+      if (!privyWalletId || /^0x[a-fA-F0-9]{40}$/.test(privyWalletId)) {
+        throw new Error('A Privy ainda não retornou o identificador da carteira. Reabra sua wallet para recuperar a sessão.');
+      }
 
       await nexaApi.linkWallet(
         session.accessToken,
@@ -87,6 +87,11 @@ export default function WalletOnboardingScreen() {
       // Direct-settlement audit is pilot-only; EIP-191 confirms control later.
       await nexaApi.auditWallet(session.accessToken).catch(() => null);
       const linkedProfile = await nexaApi.me(session.accessToken);
+      if (!hasLinkedPrivyWallet(linkedProfile) ||
+          String(linkedProfile?.wallet?.address || linkedProfile?.walletAddress || '').toLowerCase() !==
+            String(currentWallet.address).toLowerCase()) {
+        throw new Error('A carteira foi preparada, mas o vínculo ainda não foi confirmado. Tente novamente sem criar outra carteira.');
+      }
       router.replace(
         String(linkedProfile?.kycStatus || '').toLowerCase() === 'approved'
           ? '/wallet-ownership' as any
@@ -94,6 +99,7 @@ export default function WalletOnboardingScreen() {
       );
     } catch (caught) {
       linkingRef.current = false;
+      setWaitingForWallet(false);
       setError(
         caught instanceof Error
           ? caught.message
@@ -177,6 +183,17 @@ export default function WalletOnboardingScreen() {
     if (!privy?.isReady) return;
     void startWalletOnboarding();
   }, [privy?.isReady]);
+
+  useEffect(() => {
+    if (!waitingForWallet) return;
+    const timeout = setTimeout(() => {
+      if (linkingRef.current) return;
+      startedRef.current = false;
+      setWaitingForWallet(false);
+      setError('A Privy não confirmou a carteira neste aparelho. Tente novamente; a Nexa vai reutilizar uma carteira existente.');
+    }, 15000);
+    return () => clearTimeout(timeout);
+  }, [waitingForWallet]);
 
   useEffect(() => {
     if (!waitingForWallet || !wallet || linkingRef.current) return;
