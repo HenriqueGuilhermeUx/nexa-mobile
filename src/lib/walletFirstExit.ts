@@ -37,6 +37,25 @@ function headers(accessToken: string) {
 }
 
 function apiError(payload: any, status: number, fallback: string) {
+  // Exit rollout readiness must never expose pilot configuration or technical
+  // flags to a customer. Funds remain in the customer's own Privy wallet.
+  const code = String(payload?.code || payload?.error?.code || payload?.message || '');
+  const safetyBlockers = Array.isArray(payload?.blockers) ? payload.blockers.map(String) : [];
+  if (
+    code.includes('WALLET_FIRST_EXIT_WALLET_READINESS_BLOCKED') ||
+    safetyBlockers.includes('USER_NOT_IN_PILOT_ALLOWLIST') ||
+    safetyBlockers.includes('PILOT_ALLOWLIST_EMPTY') ||
+    code.includes('WALLET_FIRST_EXIT_INTAKE_DISABLED') ||
+    code.includes('WALLET_FIRST_EXIT_CUSTOMER_SIGNING_DISABLED')
+  ) {
+    return 'O resgate em Pix ainda não está disponível para sua conta. Seus USDC continuam na sua carteira. Nenhum valor foi movimentado.';
+  }
+  if (code.includes('PIX_KEY_REQUIRED') || code.includes('PIX_KEY_DOES_NOT_MATCH_KYC_USER')) {
+    return 'Confira sua chave Pix de recebimento. Ela precisa pertencer ao mesmo titular da conta Nexa.';
+  }
+  if (status >= 500) {
+    return 'O resgate Pix está temporariamente indisponível. Seus USDC continuam na carteira. Tente novamente mais tarde.';
+  }
   const raw = payload?.message || payload?.error || payload?.code;
   const base = Array.isArray(raw)
     ? raw.join(', ')
@@ -81,6 +100,17 @@ async function requestJson<T>(
 }
 
 const EXIT_BASE = '/direct-settlement/wallet-first/usdc-pilot/exit';
+
+export async function getWalletFirstExitReadiness(accessToken: string): Promise<{
+  success: boolean;
+  available: boolean;
+  financialAction: false;
+  message?: string;
+}> {
+  return requestJson(accessToken, `${EXIT_BASE}/readiness`, {
+    method: 'GET',
+  });
+}
 
 export async function getWalletFirstExitQuote(
   accessToken: string,

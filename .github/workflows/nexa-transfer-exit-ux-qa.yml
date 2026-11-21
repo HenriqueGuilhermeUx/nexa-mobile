@@ -1,0 +1,25 @@
+name: Nexa transfer and exit UX safety QA
+on:
+  push:
+    branches:
+      - fix/nexa-walletfirst-transfer-exit-friendly-errors-20261121
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node scripts/validate-walletfirst-transfer-exit-ux.cjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run export:android
+      - name: No OTA or live financial actions
+        run: echo 'QA only. App update requires paired exit readiness backend deployment.'
