@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePrivy } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -20,6 +21,7 @@ function digits(value: string) {
 }
 
 export default function SignUpScreen() {
+  const privy = usePrivy() as any;
   const params = useLocalSearchParams<{ countryCode?: string }>();
   const countryCode = String(params.countryCode || 'BR').trim().toUpperCase();
   const isBrazil = countryCode === 'BR';
@@ -58,6 +60,21 @@ export default function SignUpScreen() {
 
     setLoading(true);
     try {
+      if (!privy?.isReady) {
+        throw new Error('A preparação segura da carteira ainda está iniciando. Tente novamente em instantes.');
+      }
+      // A shared phone may retain a Privy session for another Nexa account.
+      // Never silently link that other user's wallet to this new registration.
+      // Sign out only the previous Privy session, never delete its wallet.
+      const previousPrivyToken = typeof privy?.getAccessToken === 'function'
+        ? await privy.getAccessToken()
+        : null;
+      if (previousPrivyToken) {
+        if (typeof privy?.logout !== 'function') {
+          throw new Error('Não foi possível trocar a sessão da carteira. Feche e reabra o aplicativo antes de criar uma conta.');
+        }
+        await privy.logout();
+      }
       await clearNexaSession();
       const response = await nexaApi.register({
         fullName: fullName.trim(),
@@ -74,9 +91,11 @@ export default function SignUpScreen() {
         email: normalizedEmail,
       });
 
-      // Todo novo cliente passa imediatamente pelo KYC. O backend define o
-      // fluxo por país e o app nunca presume CPF/Pix fora do Brasil.
-      router.replace('/kyc' as any);
+      // Every NEW account activates/reuses its own Privy wallet first.
+      // Wallet onboarding verifies the Privy email code and the persisted
+      // link before sending the user to Didit KYC. No financial permission
+      // is granted by creating or linking the wallet.
+      router.replace('/onboarding-wallet' as any);
     } catch (caught) {
       await clearNexaSession();
       setError(
@@ -98,8 +117,8 @@ export default function SignUpScreen() {
       <Title>Crie sua Nexa</Title>
       <Paragraph>
         {isBrazil
-          ? 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade para liberar sua experiência Nexa.'
-          : 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade com os documentos aceitos no seu país de residência.'}
+          ? 'Cadastre-se uma vez. Depois, confirme seu e-mail por código para ativar sua carteira; a verificação de identidade vem em seguida.'
+          : 'Cadastre-se uma vez, confirme seu e-mail por código para ativar sua carteira e depois valide sua identidade conforme seu país.'}
       </Paragraph>
 
       <Field
@@ -145,8 +164,9 @@ export default function SignUpScreen() {
         placeholder="Mínimo de 6 caracteres"
       />
       <ActionButton
-        label="Continuar"
+        label="Criar conta e ativar carteira"
         loading={loading}
+        disabled={!privy?.isReady}
         onPress={createAccount}
       />
       <Text style={styles.country}>País de residência: {countryCode}</Text>

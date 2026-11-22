@@ -1,0 +1,104 @@
+name: Nexa new signup Privy-first KYC preflight
+on:
+  pull_request:
+    paths:
+      - 'app/sign-up.tsx'
+      - 'scripts/validate-new-signup-privy-first.cjs'
+      - '.github/workflows/nexa-new-signup-privy-first-ci.yml'
+  push:
+    branches:
+      - feat/nexa-new-signup-privy-first-20261122
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node scripts/validate-new-signup-privy-first.cjs
+      - run: node scripts/validate-privy-one-code-first-deposit.cjs
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run export:android
+
+  qa-expo:
+    # QA only: no production channel or rollout modification.
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: nexa-privy-qa
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --ignore-scripts
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Preserve current Android public feature flags
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\\n'))throw Error('Invalid public env');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\\n');
+          }
+          NODE
+      - name: Publish new-signup QA update only
+        run: eas update --branch nexa-new-signup-privy-qa --platform android --message "Nexa new signup Privy then KYC QA ${{ github.sha }}" --non-interactive
+
+  release-preflight:
+    # Read-only Expo proof. This job never publishes or promotes to production.
+    needs: qa-expo
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: nexa-privy-qa
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Verify latest QA Android update and inspect production channel
+        run: |
+          node - <<'NODE'
+          (async () => {
+            const query = 'query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group createdAt}} qa:updateBranchByName(name:"nexa-new-signup-privy-qa"){updates(offset:0,limit:5){id gitCommitHash platform group createdAt}}}}}';
+            const response = await fetch('https://api.expo.dev/graphql',{
+              method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(20000),
+            });
+            const result=await response.json();
+            if(!response.ok||result.errors?.length)throw Error('EXPO_READ_ONLY_PROBE_UNAVAILABLE');
+            const project=result.data?.app?.byId;
+            const branchMap=project?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=project?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=project?.qa?.updates?.find(x=>x.platform==='android');
+            console.log('NEXA_ANDROID_RELEASE_PROBE='+JSON.stringify({
+              productionBranches:branchMap,
+              productionUpdateId:prod?.id||null,
+              productionGitCommit:prod?.gitCommitHash||null,
+              qaUpdateId:qa?.id||null,
+              qaGitCommit:qa?.gitCommitHash||null,
+              expectedQACommit:process.env.GITHUB_SHA,
+            }));
+            if(!qa?.id||qa.gitCommitHash!==process.env.GITHUB_SHA)
+              throw Error('FAIL_CLOSED_QA_UPDATE_NOT_CURRENT');
+            if(!prod?.id||branchMap.length!==1||branchMap[0]!=='production')
+              throw Error('FAIL_CLOSED_PRODUCTION_BASELINE_UNCERTAIN');
+            console.log('READ_ONLY_RELEASE_PREFLIGHT=PASS; NO_PRODUCTION_UPDATE_PUBLISHED');
+          })().catch(error=>{console.error(error.message);process.exitCode=1;});
+          NODE
