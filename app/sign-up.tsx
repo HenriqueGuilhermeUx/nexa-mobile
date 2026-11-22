@@ -74,9 +74,11 @@ export default function SignUpScreen() {
         email: normalizedEmail,
       });
 
-      // Todo novo cliente passa imediatamente pelo KYC. O backend define o
-      // fluxo por país e o app nunca presume CPF/Pix fora do Brasil.
-      router.replace('/kyc' as any);
+      // Every NEW account activates/reuses its own Privy wallet first.
+      // Wallet onboarding verifies the Privy email code and the persisted
+      // link before sending the user to Didit KYC. No financial permission
+      // is granted by creating or linking the wallet.
+      router.replace('/onboarding-wallet' as any);
     } catch (caught) {
       await clearNexaSession();
       setError(
@@ -98,8 +100,8 @@ export default function SignUpScreen() {
       <Title>Crie sua Nexa</Title>
       <Paragraph>
         {isBrazil
-          ? 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade para liberar sua experiência Nexa.'
-          : 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade com os documentos aceitos no seu país de residência.'}
+          ? 'Cadastre-se uma vez. Depois, confirme seu e-mail por código para ativar sua carteira; a verificação de identidade vem em seguida.'
+          : 'Cadastre-se uma vez, confirme seu e-mail por código para ativar sua carteira e depois valide sua identidade conforme seu país.'}
       </Paragraph>
 
       <Field
@@ -145,7 +147,7 @@ export default function SignUpScreen() {
         placeholder="Mínimo de 6 caracteres"
       />
       <ActionButton
-        label="Continuar"
+        label="Criar conta e ativar carteira"
         loading={loading}
         onPress={createAccount}
       />
