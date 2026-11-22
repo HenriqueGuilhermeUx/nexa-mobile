@@ -25,3 +25,38 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm run export:android
+
+  qa-expo:
+    # QA only: no production channel or rollout modification.
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: nexa-privy-qa
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --ignore-scripts
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Preserve current Android public feature flags
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\\n'))throw Error('Invalid public env');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\\n');
+          }
+          NODE
+      - name: Publish new-signup QA update only
+        run: eas update --branch nexa-new-signup-privy-qa --platform android --message "Nexa new signup Privy then KYC QA ${{ github.sha }}" --non-interactive
