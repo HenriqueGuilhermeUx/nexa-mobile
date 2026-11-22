@@ -4,7 +4,10 @@ on:
     paths:
       - 'app/onboarding-wallet.tsx'
       - 'src/lib/onboarding.ts'
+      - 'app/wallet-session.tsx'
+      - 'app/wallet-ownership.tsx'
       - 'scripts/validate-privy-link-safety.cjs'
+      - 'scripts/validate-privy-one-code-first-deposit.cjs'
       - '.github/workflows/privy-link-safety.yml'
   workflow_dispatch:
 jobs:
@@ -22,3 +25,4 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: node scripts/validate-privy-link-safety.cjs
+      - run: node scripts/validate-privy-one-code-first-deposit.cjs

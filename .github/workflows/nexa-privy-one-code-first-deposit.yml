@@ -1,0 +1,20 @@
+name: Nexa Privy code-to-deposit safe flow
+on:
+  push:
+    branches:
+      - fix/nexa-privy-one-code-first-deposit-20261122
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/validate-privy-one-code-first-deposit.cjs
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run export:android

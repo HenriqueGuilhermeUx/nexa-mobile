@@ -158,7 +158,7 @@ export default function WalletOwnershipScreen() {
         <Badge tone="success">PRONTO</Badge>
         <Title>Sua Nexa está pronta.</Title>
         <Paragraph>
-          Sua identidade, seu Pix de resgate e sua wallet estão configurados. Agora você pode adicionar reais e usar os ativos disponíveis na Nexa.
+          Sua carteira foi confirmada. Se sua identidade também estiver aprovada, acesse Adicionar para consultar a disponibilidade do Pix, a cotação, taxas e riscos antes de decidir. O resgate por CPF é configurado separadamente, quando necessário.
         </Paragraph>
         <Card>
           <Text style={styles.readyTitle}>Sua wallet. Seus ativos.</Text>

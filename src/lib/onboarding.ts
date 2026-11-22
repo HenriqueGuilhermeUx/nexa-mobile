@@ -58,18 +58,10 @@ export async function resolveAuthenticatedRoute(
     }
   }
 
-  if (countryCode === 'BR') {
-    const pixType = normalizedPixType(profile);
-    const hasSelfBoundPayoutPix =
-      profile?.pixWithdrawEnabled === true &&
-      Boolean(String(profile?.pixKey || '').trim()) &&
-      pixType === 'CPF';
-
-    if (!hasSelfBoundPayoutPix) {
-      return '/onboarding-pix';
-    }
-  }
-
+  // Pix CPF is exclusively a withdrawal destination for Woovi D+1.
+  // Do not force cash-out subaccount enrollment before a customer's first
+  // inbound Pix. Keep CPF/subaccount checks in the cash-out backend gates.
+  // The next customer-owned proof is the wallet signature, not a Pix choice.
   try {
     const readiness = await walletFirstApi.readiness(accessToken);
     if (readiness?.pilotProfile?.userControlledWalletConfirmed !== true) {
