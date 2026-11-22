@@ -1,0 +1,27 @@
+name: Nexa new signup Privy-first KYC preflight
+on:
+  pull_request:
+    paths:
+      - 'app/sign-up.tsx'
+      - 'scripts/validate-new-signup-privy-first.cjs'
+      - '.github/workflows/nexa-new-signup-privy-first-ci.yml'
+  push:
+    branches:
+      - feat/nexa-new-signup-privy-first-20261122
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node scripts/validate-new-signup-privy-first.cjs
+      - run: node scripts/validate-privy-one-code-first-deposit.cjs
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run export:android
