@@ -230,6 +230,20 @@ export default function WalletOnboardingScreen() {
     void startWalletOnboarding();
   }, [privy?.isReady]);
 
+  // A provider SDK may resolve create() before publishing a wallet through
+  // the hook. Avoid an infinite spinner: retry only with the SAME Privy owner.
+  // createAdditional:false means retry must never mint a second wallet.
+  useEffect(() => {
+    if (!waitingForWallet) return;
+    const timeout = setTimeout(() => {
+      if (linkingRef.current) return;
+      startedRef.current = false;
+      setWaitingForWallet(false);
+      setError('A Privy ainda não confirmou sua carteira neste aparelho. Sua conta foi preservada. Tente novamente sem criar outra conta.');
+    }, 20000);
+    return () => clearTimeout(timeout);
+  }, [waitingForWallet]);
+
   useEffect(() => {
     if (!waitingForWallet || !wallet || linkingRef.current) return;
     setWaitingForWallet(false);

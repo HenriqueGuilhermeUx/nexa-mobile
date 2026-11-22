@@ -202,9 +202,9 @@ export default function WalletSessionScreen() {
       <Title>{ready ? 'Tudo certo.' : 'Confirme seu e-mail.'}</Title>
       <Paragraph>
         {ready
-          ? 'A autorização necessária para preparar sua Cripto Wallet está pronta neste aparelho.'
+          ? 'E-mail confirmado. A Nexa vai preparar ou recuperar sua carteira automaticamente.'
           : walletOnboarding
-            ? 'Enviaremos um código para o mesmo e-mail da sua conta Nexa. Essa confirmação protege a criação da sua Cripto Wallet.'
+            ? 'Para ativar sua carteira sem outro cadastro, toque em Enviar código. Usaremos o e-mail da sua conta Nexa. Depois, basta digitar o código recebido.'
             : 'Use o mesmo e-mail da sua conta Nexa para restaurar a autorização da carteira já vinculada.'}
       </Paragraph>
 
@@ -216,7 +216,7 @@ export default function WalletSessionScreen() {
       {!ready ? (
         !codeSent ? (
           <ActionButton
-            label="Enviar código"
+            label="Enviar código para meu e-mail"
             loading={working}
             onPress={sendCode}
           />
@@ -231,7 +231,7 @@ export default function WalletSessionScreen() {
               placeholder="Digite o código"
             />
             <ActionButton
-              label="Confirmar e continuar"
+              label="Confirmar código e ativar carteira"
               loading={working}
               onPress={validateCode}
             />
