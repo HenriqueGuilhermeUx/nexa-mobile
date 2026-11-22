@@ -1,0 +1,136 @@
+name: Nexa CPF Pix onboarding — verified QA then Android production
+on:
+  push:
+    branches:
+      - fix/nexa-pix-cpf-only-frictionless-20261121
+    paths:
+      - '.github/workflows/nexa-cpf-only-production-ota.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-cpf-only-onboarding-release-20261121
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node scripts/validate-cpf-only-onboarding.cjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run export:android
+  qa:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      EXPO_NO_TELEMETRY: '1'
+      CI: 'true'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Load exact original production feature flags
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)) {
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\n'))throw Error('Invalid public environment');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Verify current production source before QA
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const resp=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await resp.json();if(!resp.ok||data.errors?.length)throw Error('Expo source unavailable');
+            const app=data.data?.app?.byId;
+            const branch=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const current=app?.prod?.updates?.find(x=>x.platform==='android');
+            if(branch.length!==1||branch[0]!=='production'||current?.id!=='01a2005a-7e8c-75bb-81a2-b697fff0c28b'||current?.gitCommitHash!=='309e4e5fa1adfa34b842e3c9a9714e91da2ad1e3')throw Error('Production source changed; refuse release');
+            console.log('EXPO_BASE_VERIFIED='+JSON.stringify(current));
+          })().catch(e=>{console.error('FAIL_CLOSED '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish isolated QA candidate
+        run: eas update --branch nexa-cpf-only-productionqa --platform android --message "Nexa CPF-only onboarding QA ${{ github.sha }}" --non-interactive
+  production:
+    needs: [validate,qa]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EXPO_NO_TELEMETRY: '1'
+      CI: 'true'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Use exact original production feature flags
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)) {
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\n'))throw Error('Invalid public environment');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Fail closed unless original 100-percent release and exact QA match
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}} qa:updateBranchByName(name:"nexa-cpf-only-productionqa"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const resp=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await resp.json();if(!resp.ok||data.errors?.length)throw Error('Expo preflight unavailable');
+            const app=data.data?.app?.byId;
+            const branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=app?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            if(branches.length!==1||branches[0]!=='production')throw Error('Production channel changed');
+            if(prod?.id!=='01a2005a-7e8c-75bb-81a2-b697fff0c28b'||prod?.gitCommitHash!=='309e4e5fa1adfa34b842e3c9a9714e91da2ad1e3')throw Error('Production update changed');
+            if(qa?.gitCommitHash!==process.env.GITHUB_SHA)throw Error('QA commit mismatch');
+            console.log('HOTFIX_PRE_FLIGHT_PASS='+JSON.stringify({production:prod.id,qa:qa.id,sha:process.env.GITHUB_SHA}));
+          })().catch(e=>{console.error('FAIL_CLOSED '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish Android correction to production
+        run: eas update --branch production --platform android --message "Nexa CPF-only Pix onboarding UX ${{ github.sha }}" --non-interactive
+      - name: Confirm exact Android hotfix published
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await r.json();if(!r.ok||data.errors?.length)throw Error('Expo readback unavailable');
+            const update=data.data?.app?.byId?.prod?.updates?.find(x=>x.platform==='android');
+            if(update?.gitCommitHash!==process.env.GITHUB_SHA)throw Error('Published SHA differs');
+            console.log('HOTFIX_PRODUCTION_READBACK='+JSON.stringify(update));
+          })().catch(e=>{console.error('FAIL_CLOSED '+e.message);process.exitCode=1});
+          NODE
