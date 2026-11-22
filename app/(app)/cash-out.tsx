@@ -37,6 +37,7 @@ import {
   createWalletFirstExitIntent,
   getWalletFirstActiveExit,
   getWalletFirstExitQuote,
+  getWalletFirstExitReadiness,
   getWalletFirstExitSwapSponsorshipCredentials,
   getWalletFirstExitTransferSponsorshipCredentials,
   prepareWalletFirstExitTransfer,
@@ -403,6 +404,10 @@ export default function CashOutScreen() {
     setLoading(true);
     try {
       const accessToken = await sessionToken();
+      const eligibility = await getWalletFirstExitReadiness(accessToken);
+      if (eligibility?.available !== true) {
+        throw new Error(eligibility?.message || 'O resgate em Pix ainda não está disponível. Seus USDC continuam na carteira.');
+      }
       const nextQuote = await getWalletFirstExitQuote(accessToken, amount);
       setQuote(nextQuote);
       setPhase('quoted');

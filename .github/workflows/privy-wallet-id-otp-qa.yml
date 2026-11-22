@@ -1,0 +1,70 @@
+name: Privy wallet ID after OTP — isolated Android QA
+on:
+  push:
+    branches:
+      - fix/privy-wallet-id-from-verified-user-20261121
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node scripts/validate-privy-id-from-user.cjs
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run export:android
+  qa:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      EXPO_NO_TELEMETRY: '1'
+      CI: 'true'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --no-audit --no-fund
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Preserve original production feature flags
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for (const [key,val] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof val!=='string'||val.includes('\n'))throw Error('Unexpected env');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+val+'\n');
+          }
+          NODE
+      - name: Read current production source (do not change)
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const res=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(15000)});
+            const data=await res.json();if(!res.ok||data.errors?.length)throw Error('Expo unavailable');
+            const app=data.data?.app?.byId;
+            const branch=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=app?.prod?.updates?.find(x=>x.platform==='android');
+            if(branch.length!==1||branch[0]!=='production'||prod?.gitCommitHash!=='597e01e19c2ac13a49da64bdea1d3928de2e179f')throw Error('Production source changed; refuse QA');
+            console.log('PRODUCTION_SNAPSHOT='+JSON.stringify(prod));
+          })().catch(e=>{console.error('FAIL_CLOSED: '+e.message);process.exitCode=1});
+          NODE
+      - name: Publish wallet ID fix to isolated QA only
+        run: eas update --branch nexa-privy-walletid-otp-qa --platform android --message "Fix wallet identifier after OTP QA ${{ github.sha }}" --non-interactive
