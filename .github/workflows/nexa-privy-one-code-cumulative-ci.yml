@@ -1,0 +1,29 @@
+name: Nexa cumulative Privy one-code preflight
+on:
+  pull_request:
+    paths:
+      - 'app/onboarding-wallet.tsx'
+      - 'app/wallet-session.tsx'
+      - 'app/wallet-ownership.tsx'
+      - 'src/lib/onboarding.ts'
+      - 'scripts/validate-privy-one-code-first-deposit.cjs'
+      - '.github/workflows/nexa-privy-one-code-cumulative-ci.yml'
+  push:
+    branches:
+      - release/nexa-privy-one-code-cumulative-qa-20261122
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node scripts/validate-privy-one-code-first-deposit.cjs
+      - run: npm run typecheck
+      - run: npm run export:android
