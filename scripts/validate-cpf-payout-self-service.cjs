@@ -1,0 +1,13 @@
+const fs=require('node:fs'); const assert=require('node:assert/strict');
+const pix=fs.readFileSync('app/onboarding-pix.tsx','utf8');
+const central=fs.readFileSync('app/central-nexa.tsx','utf8');
+const route=fs.readFileSync('src/lib/onboarding.ts','utf8');
+assert.match(pix,/configurePayoutOnboarding\(/);
+assert.match(pix,/router\.replace\('\/kyc'/);
+assert.match(pix,/setSelected\('CPF'\)/);
+assert.doesNotMatch(pix,/type:'EMAIL'/);
+assert.doesNotMatch(pix,/type:'PHONE'/);
+assert.doesNotMatch(route,/return '\/onboarding-pix'/);
+assert.match(central,/Configurar meu CPF para resgates/);
+assert.match(central,/needsCpfPayoutSetup/);
+console.log('NEXA_CPF_SUBACCOUNT_SELF_SERVICE=PASS');
