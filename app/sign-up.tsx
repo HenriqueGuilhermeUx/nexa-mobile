@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePrivy } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -20,6 +21,7 @@ function digits(value: string) {
 }
 
 export default function SignUpScreen() {
+  const privy = usePrivy() as any;
   const params = useLocalSearchParams<{ countryCode?: string }>();
   const countryCode = String(params.countryCode || 'BR').trim().toUpperCase();
   const isBrazil = countryCode === 'BR';
@@ -58,6 +60,18 @@ export default function SignUpScreen() {
 
     setLoading(true);
     try {
+      // A shared phone may retain a Privy session for another Nexa account.
+      // Never silently link that other user's wallet to this new registration.
+      // Sign out only the previous Privy session, never delete its wallet.
+      const previousPrivyToken = typeof privy?.getAccessToken === 'function'
+        ? await privy.getAccessToken()
+        : null;
+      if (previousPrivyToken) {
+        if (typeof privy?.logout !== 'function') {
+          throw new Error('Não foi possível trocar a sessão da carteira. Feche e reabra o aplicativo antes de criar uma conta.');
+        }
+        await privy.logout();
+      }
       await clearNexaSession();
       const response = await nexaApi.register({
         fullName: fullName.trim(),
