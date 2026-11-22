@@ -60,6 +60,9 @@ export default function SignUpScreen() {
 
     setLoading(true);
     try {
+      if (!privy?.isReady) {
+        throw new Error('A preparação segura da carteira ainda está iniciando. Tente novamente em instantes.');
+      }
       // A shared phone may retain a Privy session for another Nexa account.
       // Never silently link that other user's wallet to this new registration.
       // Sign out only the previous Privy session, never delete its wallet.
@@ -163,6 +166,7 @@ export default function SignUpScreen() {
       <ActionButton
         label="Criar conta e ativar carteira"
         loading={loading}
+        disabled={!privy?.isReady}
         onPress={createAccount}
       />
       <Text style={styles.country}>País de residência: {countryCode}</Text>
