@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionButton,
@@ -15,115 +15,26 @@ import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
-type PixType = 'CPF' | 'EMAIL' | 'PHONE';
-
 function maskCpf(value: unknown) {
   const digits = String(value || '').replace(/\D/g, '');
   if (digits.length !== 11) return 'CPF cadastrado';
   return `${digits.slice(0, 3)}.***.***-${digits.slice(-2)}`;
 }
 
-function maskEmail(value: unknown) {
-  const raw = String(value || '').trim().toLowerCase();
-  const [name, domain] = raw.split('@');
-  if (!name || !domain) return raw || 'E-mail cadastrado';
-  return `${name.slice(0, Math.min(2, name.length))}***@${domain}`;
-}
-
-function maskPhone(value: unknown) {
-  const digits = String(value || '').replace(/\D/g, '');
-  if (digits.length < 8) return 'Telefone cadastrado';
-  return `(**) *****-${digits.slice(-4)}`;
-}
-
+/**
+ * Nexa Brazil cash-out uses the customer's own CPF through Woovi D+1.
+ * No alternate email/phone Pix selection: the server already enforces CPF.
+ * This screen is a fallback for missing payout setup, not an extra consent
+ * step. Once KYC is approved we configure idempotently, then continue.
+ */
 export default function OnboardingPixScreen() {
-  const [profile, setProfile] = useState<any>(null);
-  const [selected, setSelected] = useState<PixType>('CPF');
+  const [cpf, setCpf] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let mounted = true;
-    void (async () => {
-      try {
-        const session = await loadNexaSession();
-        if (!session) {
-          router.replace('/sign-in' as any);
-          return;
-        }
-        const me = await nexaApi.me(session.accessToken);
-        if (!mounted) return;
-        setProfile(me);
-
-        const currentType = String(me?.pixKeyType || '').toUpperCase();
-        if (
-          me?.pixWithdrawEnabled === true &&
-          me?.pixKey &&
-          ['CPF', 'EMAIL', 'PHONE'].includes(currentType)
-        ) {
-          router.replace('/onboarding-wallet' as any);
-          return;
-        }
-
-        if (!me?.cpf && me?.email) setSelected('EMAIL');
-        else setSelected('CPF');
-      } catch (caught) {
-        if (mounted) {
-          setError(
-            caught instanceof Error
-              ? caught.message
-              : 'Não foi possível carregar seus dados de resgate.',
-          );
-        }
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const options = useMemo(
-    () =>
-      [
-        profile?.cpf
-          ? {
-              type: 'CPF' as const,
-              title: 'Usar meu CPF',
-              value: maskCpf(profile.cpf),
-              recommended: true,
-            }
-          : null,
-        profile?.email
-          ? {
-              type: 'EMAIL' as const,
-              title: 'Usar meu e-mail',
-              value: maskEmail(profile.email),
-              recommended: false,
-            }
-          : null,
-        profile?.phone
-          ? {
-              type: 'PHONE' as const,
-              title: 'Usar meu telefone',
-              value: maskPhone(profile.phone),
-              recommended: false,
-            }
-          : null,
-      ].filter(Boolean) as Array<{
-        type: PixType;
-        title: string;
-        value: string;
-        recommended: boolean;
-      }>,
-    [profile],
-  );
-
-  async function continueOnboarding() {
+  async function ensureOwnCpfPayout() {
+    setLoading(true);
     setError('');
-    setSaving(true);
     try {
       const session = await loadNexaSession();
       if (!session) {
@@ -131,150 +42,105 @@ export default function OnboardingPixScreen() {
         return;
       }
 
-      await nexaApi.configurePayoutOnboarding(
-        session.accessToken,
-        selected,
-      );
+      const profile = await nexaApi.me(session.accessToken);
+      const country = String(profile?.residenceCountry || 'BR').toUpperCase();
+      if (country !== 'BR') {
+        router.replace('/onboarding-wallet' as any);
+        return;
+      }
 
-      // A subconta é provisionada pelo worker da Nexa em segundo plano. O
-      // cliente não precisa esperar a Woovi para continuar o onboarding.
+      if (String(profile?.kycStatus || '').toLowerCase() !== 'approved') {
+        // The Woovi D+1 beneficiary cannot be configured before verified KYC.
+        router.replace('/kyc' as any);
+        return;
+      }
+
+      const digits = String(profile?.cpf || '').replace(/\D/g, '');
+      if (!/^\d{11}$/.test(digits) || /^(\d)\1{10}$/.test(digits)) {
+        setError('Seu CPF precisa estar confirmado no cadastro antes de ativar resgates Pix.');
+        return;
+      }
+      setCpf(digits);
+
+      const currentPixType = String(profile?.pixKeyType || '').toUpperCase();
+      const currentPix = String(profile?.pixKey || '').replace(/\D/g, '');
+      const alreadyConfigured =
+        profile?.pixWithdrawEnabled === true &&
+        currentPixType === 'CPF' &&
+        currentPix === digits;
+
+      if (!alreadyConfigured) {
+        // The backend verifies KYC and refuses to overwrite preexisting
+        // non-CPF provider profiles without explicit provider reconciliation.
+        await nexaApi.configurePayoutOnboarding(session.accessToken, 'CPF');
+      }
+
+      // D+1 provider activation is asynchronous; no duplicate subaccount
+      // creation is attempted by this screen. The backend must fail closed
+      // for withdrawal until the subaccount is confirmed.
       router.replace('/onboarding-wallet' as any);
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Não foi possível salvar seu Pix de resgate.',
+          : 'Não conseguimos preparar o Pix de resgate agora. Seus fundos permanecem na carteira.',
       );
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   }
+
+  useEffect(() => {
+    void ensureOwnCpfPayout();
+  }, []);
 
   return (
     <Screen>
       <Brand />
       <View style={styles.topSpace} />
-      <Badge tone="info">PASSO 2 DE 4</Badge>
-      <Title>Escolha seu Pix para resgates</Title>
+      <Badge tone="info">RESGATE PIX</Badge>
+      <Title>Resgates pelo seu CPF</Title>
       <Paragraph>
-        Quando você sacar para reais, a Nexa envia o Pix para uma chave já confirmada no seu cadastro. Seu CPF é a opção recomendada no Brasil.
+        A Nexa usa o CPF confirmado na sua identidade para preparar os
+        resgates em reais pela Woovi. Você não precisa escolher nem digitar
+        uma chave Pix.
       </Paragraph>
 
       <Card>
-        <Text style={styles.cardTitle}>Qual chave você quer usar?</Text>
+        <Text style={styles.heading}>Chave Pix do titular</Text>
+        <Text style={styles.value}>{maskCpf(cpf)}</Text>
         <Text style={styles.helper}>
-          Você não precisa digitar a chave. Escolha um dado já verificado na sua conta.
-        </Text>
-
-        <View style={styles.options}>
-          {options.map((option) => {
-            const active = selected === option.type;
-            return (
-              <TouchableOpacity
-                key={option.type}
-                activeOpacity={0.84}
-                onPress={() => setSelected(option.type)}
-                style={[
-                  styles.option,
-                  active ? styles.optionActive : null,
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <View style={styles.optionTitleRow}>
-                    <Text style={styles.optionTitle}>{option.title}</Text>
-                    {option.recommended ? (
-                      <Text style={styles.recommended}>RECOMENDADO</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.optionValue}>{option.value}</Text>
-                </View>
-                <Text style={styles.check}>{active ? '✓' : '○'}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </Card>
-
-      <Card>
-        <Text style={styles.cardTitle}>Depois disso</Text>
-        <Text style={styles.helper}>
-          A Nexa prepara a infraestrutura de resgate em segundo plano. Você continua o onboarding sem precisar configurar banco ou provedor.
+          {loading
+            ? 'Conferindo sua configuração de resgate…'
+            : error
+              ? 'Nenhuma conta adicional foi criada automaticamente.'
+              : 'Configuração confirmada.'}
         </Text>
       </Card>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      <ActionButton
-        label="Continuar"
-        loading={saving || loading}
-        disabled={loading || options.length === 0}
-        onPress={continueOnboarding}
-      />
+      {error ? (
+        <ActionButton
+          label="Tentar novamente"
+          loading={loading}
+          disabled={loading}
+          onPress={() => { void ensureOwnCpfPayout(); }}
+        />
+      ) : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.md },
-  cardTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  helper: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: spacing.sm,
-  },
-  options: {
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    backgroundColor: colors.panelSoft,
-  },
-  optionActive: {
-    borderColor: colors.primary,
-  },
-  optionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  optionTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  optionValue: {
-    color: colors.muted,
-    fontSize: 13,
-    marginTop: 5,
-  },
-  recommended: {
-    color: colors.primary,
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  check: {
-    color: colors.primary,
-    fontSize: 20,
-    fontWeight: '900',
-    marginLeft: spacing.sm,
-  },
+  heading: { color: colors.text, fontSize: 16, fontWeight: '900' },
+  value: { color: colors.text, fontSize: 19, fontWeight: '700', marginTop: spacing.sm },
+  helper: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: spacing.sm },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerSoft,
     borderRadius: radius.md,
     padding: spacing.md,
-    marginBottom: spacing.md,
+    marginTop: spacing.md,
   },
 });
