@@ -331,8 +331,9 @@ export const nexaApi = {
     });
   },
 
+  // Maya básica: endpoint autenticado, independente de Premium e allowlist.
   assistantCapabilities(accessToken: string) {
-    return request<AssistantCapabilities>('/staff/capabilities', {
+    return request<AssistantCapabilities>('/staff/basic/capabilities', {
       accessToken,
     });
   },
@@ -378,7 +379,7 @@ export const nexaApi = {
       });
     }
 
-    return request<AssistantChatResponse>('/staff/chat', {
+    return request<AssistantChatResponse>('/staff/basic/chat', {
       method: 'POST',
       accessToken,
       body: JSON.stringify({
