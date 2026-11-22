@@ -12,6 +12,7 @@ import {
   Screen,
   Title,
 } from '@/components/ui';
+import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { walletFirstApi } from '@/lib/walletFirst';
 import { colors, radius, spacing } from '@/theme';
@@ -60,9 +61,8 @@ export default function WalletOwnershipScreen() {
       const session = await loadNexaSession();
       if (!session) throw new Error('Sua sessão Nexa expirou. Entre novamente.');
 
-      // Direct-settlement audit is intentionally restricted to pilots.
-      // EIP-191 challenge/verify is the authoritative public Wallet-First proof,
-      // and still checks the destination address and user's signature on server.
+      // Cryptographic EIP-191 challenge verifies the owner on the backend.
+      // No pilot-only audit should block regular customers here.
       const challenge = await walletFirstApi.createOwnershipChallenge(
         session.accessToken,
       );
@@ -158,7 +158,7 @@ export default function WalletOwnershipScreen() {
         <Badge tone="success">PRONTO</Badge>
         <Title>Sua Nexa está pronta.</Title>
         <Paragraph>
-          Sua identidade, seu Pix de resgate e sua wallet estão configurados. Agora você pode adicionar reais e usar os ativos disponíveis na Nexa.
+          Sua carteira foi confirmada. Se sua identidade também estiver aprovada, acesse Adicionar para consultar a disponibilidade do Pix, a cotação, taxas e riscos antes de decidir. O resgate por CPF é configurado separadamente, quando necessário.
         </Paragraph>
         <Card>
           <Text style={styles.readyTitle}>Sua wallet. Seus ativos.</Text>
