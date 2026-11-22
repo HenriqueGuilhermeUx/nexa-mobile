@@ -60,3 +60,45 @@ jobs:
           NODE
       - name: Publish new-signup QA update only
         run: eas update --branch nexa-new-signup-privy-qa --platform android --message "Nexa new signup Privy then KYC QA ${{ github.sha }}" --non-interactive
+
+  release-preflight:
+    # Read-only Expo proof. This job never publishes or promotes to production.
+    needs: qa-expo
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: nexa-privy-qa
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Verify latest QA Android update and inspect production channel
+        run: |
+          node - <<'NODE'
+          (async () => {
+            const query = 'query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group createdAt}} qa:updateBranchByName(name:"nexa-new-signup-privy-qa"){updates(offset:0,limit:5){id gitCommitHash platform group createdAt}}}}}';
+            const response = await fetch('https://api.expo.dev/graphql',{
+              method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(20000),
+            });
+            const result=await response.json();
+            if(!response.ok||result.errors?.length)throw Error('EXPO_READ_ONLY_PROBE_UNAVAILABLE');
+            const project=result.data?.app?.byId;
+            const branchMap=project?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=project?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=project?.qa?.updates?.find(x=>x.platform==='android');
+            console.log('NEXA_ANDROID_RELEASE_PROBE='+JSON.stringify({
+              productionBranches:branchMap,
+              productionUpdateId:prod?.id||null,
+              productionGitCommit:prod?.gitCommitHash||null,
+              qaUpdateId:qa?.id||null,
+              qaGitCommit:qa?.gitCommitHash||null,
+              expectedQACommit:process.env.GITHUB_SHA,
+            }));
+            if(!qa?.id||qa.gitCommitHash!==process.env.GITHUB_SHA)
+              throw Error('FAIL_CLOSED_QA_UPDATE_NOT_CURRENT');
+            if(!prod?.id||branchMap.length!==1||branchMap[0]!=='production')
+              throw Error('FAIL_CLOSED_PRODUCTION_BASELINE_UNCERTAIN');
+            console.log('READ_ONLY_RELEASE_PREFLIGHT=PASS; NO_PRODUCTION_UPDATE_PUBLISHED');
+          })().catch(error=>{console.error(error.message);process.exitCode=1;});
+          NODE
