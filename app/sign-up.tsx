@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePrivy } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -20,6 +21,7 @@ function digits(value: string) {
 }
 
 export default function SignUpScreen() {
+  const privy = usePrivy() as any;
   const params = useLocalSearchParams<{ countryCode?: string }>();
   const countryCode = String(params.countryCode || 'BR').trim().toUpperCase();
   const isBrazil = countryCode === 'BR';
@@ -58,6 +60,21 @@ export default function SignUpScreen() {
 
     setLoading(true);
     try {
+      if (!privy?.isReady) {
+        throw new Error('A preparação segura da carteira ainda está iniciando. Tente novamente em instantes.');
+      }
+      // Prevent one customer's previous Privy session from becoming the
+      // identity associated with another new Nexa account on a shared phone.
+      // This signs out the old session; it never deletes any wallet.
+      const previousPrivyToken = typeof privy?.getAccessToken === 'function'
+        ? await privy.getAccessToken()
+        : null;
+      if (previousPrivyToken) {
+        if (typeof privy?.logout !== 'function') {
+          throw new Error('Não foi possível trocar a sessão da carteira. Reabra o aplicativo antes de criar outra conta.');
+        }
+        await privy.logout();
+      }
       await clearNexaSession();
       const response = await nexaApi.register({
         fullName: fullName.trim(),
@@ -98,8 +115,8 @@ export default function SignUpScreen() {
       <Title>Crie sua Nexa</Title>
       <Paragraph>
         {isBrazil
-          ? 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade para liberar sua experiência Nexa.'
-          : 'Sua wallet começa aqui. Cadastre-se e confirme sua identidade com os documentos aceitos no seu país de residência.'}
+          ? 'Cadastre-se uma vez. Depois, confirme seu e-mail por código para ativar sua carteira; a verificação de identidade vem em seguida.'
+          : 'Cadastre-se uma vez, confirme seu e-mail por código para ativar sua carteira e depois valide sua identidade conforme seu país.'}
       </Paragraph>
 
       <Field
@@ -145,8 +162,9 @@ export default function SignUpScreen() {
         placeholder="Mínimo de 6 caracteres"
       />
       <ActionButton
-        label="Continuar"
+        label="Criar conta e ativar carteira"
         loading={loading}
+        disabled={!privy?.isReady}
         onPress={createAccount}
       />
       <Text style={styles.country}>País de residência: {countryCode}</Text>
