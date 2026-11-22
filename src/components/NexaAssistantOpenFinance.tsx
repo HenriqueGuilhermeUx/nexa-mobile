@@ -268,7 +268,7 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
     } catch (err: any) {
       setError(
         err?.status === 503
-          ? 'O Assistente Nexa ainda não foi ativado para esta conta.'
+          ? 'A Maya está temporariamente indisponível. Tente novamente em instantes.'
           : err?.status === 502
             ? 'O motor do assistente está se reconectando. Tente novamente em alguns segundos.'
             : 'Não consegui falar com o Assistente Nexa agora.',
@@ -284,7 +284,7 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
         <Text style={styles.eyebrow}>ASSISTENTE NEXA</Text>
         <Text style={styles.title}>Vida, rotina e dinheiro</Text>
         <Text style={styles.subtitle}>
-          O Assistente ainda não foi ativado para esta conta.
+          A Maya básica é gratuita para todas as contas. O serviço está temporariamente indisponível; tente novamente em instantes. Os recursos Agentics avançados são exclusivos do Premium.
         </Text>
       </View>
     );
