@@ -1,0 +1,13 @@
+const fs=require('node:fs');const assert=require('node:assert/strict');
+const s=fs.readFileSync('app/onboarding-pix.tsx','utf8');
+assert.match(s,/nexaApi\.configurePayoutOnboarding\(session\.accessToken, 'CPF'\)/);
+assert.match(s,/alreadyConfigured/);
+assert.match(s,/currentPixType === 'CPF'/);
+assert.match(s,/currentPix === digits/);
+assert.match(s,/\/kyc/);
+assert.match(s,/router\.replace\('\/onboarding-wallet'/);
+assert.match(s,/Você não precisa escolher nem digitar/);
+assert.doesNotMatch(s,/type PixType = 'CPF' \| 'EMAIL' \| 'PHONE'/);
+assert.doesNotMatch(s,/Qual chave você quer usar/);
+assert.doesNotMatch(s,/setSelected/);
+console.log('CPF_ONLY_ONBOARDING_UX_PASS');
