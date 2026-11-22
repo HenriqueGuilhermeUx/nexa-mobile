@@ -1,0 +1,102 @@
+name: Nexa Privy on verified live Android production source
+on:
+  push:
+    branches: [release/nexa-privy-current-production-safe-20261122]
+  pull_request:
+    branches: [fix/nexa-pix-cpf-only-frictionless-20261121]
+    paths:
+      - 'app/sign-up.tsx'
+      - 'app/wallet-session.tsx'
+      - 'app/onboarding-wallet.tsx'
+      - 'src/lib/onboarding.ts'
+      - 'scripts/validate-privy-current-production-safety.cjs'
+      - '.github/workflows/nexa-privy-live-source-qa.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-privy-live-source-qa-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node scripts/validate-privy-current-production-safety.cjs
+      - run: npm run typecheck
+      - run: npm run export:android
+  qa:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: nexa-privy-qa
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --ignore-scripts
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Preserve exact production public feature flags
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\n'))throw Error('Invalid public flag');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          NODE
+      - name: Publish to independent QA channel only
+        run: eas update --branch nexa-privy-current-production-base-qa --platform android --message "Nexa Privy verified live source QA ${{ github.sha }}" --non-interactive
+  release-source-check:
+    needs: qa
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: nexa-privy-qa
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Verify production unchanged and QA source exact, read-only
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:5){id gitCommitHash platform group}} qa:updateBranchByName(name:"nexa-privy-current-production-base-qa"){updates(offset:0,limit:5){id gitCommitHash platform group}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(20000)});
+            const body=await r.json();
+            if(!r.ok||body.errors?.length)throw Error('EXPO_PROD_SOURCE_NOT_READABLE');
+            const app=body.data?.app?.byId;
+            const mappings=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=app?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            console.log('PRIVY_LIVE_SOURCE_RELEASE_CHECK='+JSON.stringify({
+              prodId:prod?.id,prodCommit:prod?.gitCommitHash,
+              qaId:qa?.id,qaCommit:qa?.gitCommitHash,
+              expectedQACommit:process.env.GITHUB_SHA,
+            }));
+            if(mappings.length!==1||mappings[0]!=='production' ||
+              prod?.id!=='01a200e2-e6af-7af0-b653-831cd549772e' ||
+              prod?.gitCommitHash!=='9d1c1f59437d6a74b0f8631143110fda46d2217b')
+              throw Error('FAIL_CLOSED_PROD_HAS_CHANGED');
+            if(!qa?.id||qa.gitCommitHash!==process.env.GITHUB_SHA)
+              throw Error('FAIL_CLOSED_QA_HAS_CHANGED');
+            console.log('PRIVY_LIVE_SOURCE_QA_READY=PASS; PRODUCTION_NOT_MODIFIED');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
