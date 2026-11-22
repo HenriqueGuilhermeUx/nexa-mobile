@@ -1,0 +1,25 @@
+name: Nexa CPF payout self-service preflight
+on:
+  pull_request:
+    paths:
+      - 'app/onboarding-pix.tsx'
+      - 'app/central-nexa.tsx'
+      - 'scripts/validate-cpf-payout-self-service.cjs'
+  push:
+    branches: [fix/nexa-cpf-subaccounts-self-service-qa-20261122]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: node scripts/validate-cpf-payout-self-service.cjs
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run export:android
