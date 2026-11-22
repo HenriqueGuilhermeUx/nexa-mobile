@@ -48,6 +48,7 @@ function Action({ title, detail, onPress }: { title: string; detail: string; onP
 export default function CentralNexaScreen() {
   const [identityStage, setIdentityStage] = useState<IdentityStage>('loading');
   const [needsPrivyActivation, setNeedsPrivyActivation] = useState(false);
+  const [needsCpfPayoutSetup, setNeedsCpfPayoutSetup] = useState(false);
   const [isBrazilUser, setIsBrazilUser] = useState(false);
   const [notice, setNotice] = useState('');
   const [pushState, setPushState] = useState<'idle' | 'loading' | 'granted' | 'denied'>('idle');
@@ -73,6 +74,10 @@ export default function CentralNexaScreen() {
         }
         const profile = await nexaApi.me(session.accessToken);
         setNeedsPrivyActivation(!hasLinkedPrivyWallet(profile));
+        setNeedsCpfPayoutSetup(
+          String(profile?.residenceCountry || 'BR').toUpperCase() === 'BR' &&
+          !(profile?.pixWithdrawEnabled === true && String(profile?.pixKeyType || '').toUpperCase() === 'CPF' && Boolean(profile?.pixKey))
+        );
         const country = String(profile?.residenceCountry || 'BR').trim().toUpperCase();
         setIsBrazilUser(country === 'BR');
         const state = country === 'BR'
@@ -376,6 +381,9 @@ export default function CentralNexaScreen() {
         ) : (
           <Action title={identityStage === 'approved' ? 'Conferir minha carteira' : 'Acompanhar KYC'} detail="Verificar a etapa da minha conta" onPress={() => router.push(identityStage === 'approved' ? '/wallet-ownership' as any : '/kyc' as any)} />
         )}
+        {isBrazilUser && identityStage === 'approved' && needsCpfPayoutSetup ? (
+          <Action title="Configurar meu CPF para resgates" detail="Opcional para depósitos; confira sua chave Pix CPF" onPress={() => router.push('/onboarding-pix' as any)} />
+        ) : null}
       </View>
       <View style={styles.feature}>
         <Text style={styles.featureLabel}>CONVERSE COM O THEO</Text>

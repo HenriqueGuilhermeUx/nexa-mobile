@@ -57,17 +57,15 @@ export default function OnboardingPixScreen() {
         setProfile(me);
 
         const currentType = String(me?.pixKeyType || '').toUpperCase();
-        if (
-          me?.pixWithdrawEnabled === true &&
-          me?.pixKey &&
-          ['CPF', 'EMAIL', 'PHONE'].includes(currentType)
-        ) {
-          router.replace('/onboarding-wallet' as any);
+        if (me?.kycStatus !== 'approved') {
+          router.replace('/kyc' as any);
           return;
         }
-
-        if (!me?.cpf && me?.email) setSelected('EMAIL');
-        else setSelected('CPF');
+        if (me?.pixWithdrawEnabled === true && me?.pixKey && currentType === 'CPF') {
+          router.replace('/legacy' as any);
+          return;
+        }
+        setSelected('CPF');
       } catch (caught) {
         if (mounted) {
           setError(
@@ -85,40 +83,12 @@ export default function OnboardingPixScreen() {
     };
   }, []);
 
-  const options = useMemo(
-    () =>
-      [
-        profile?.cpf
-          ? {
-              type: 'CPF' as const,
-              title: 'Usar meu CPF',
-              value: maskCpf(profile.cpf),
-              recommended: true,
-            }
-          : null,
-        profile?.email
-          ? {
-              type: 'EMAIL' as const,
-              title: 'Usar meu e-mail',
-              value: maskEmail(profile.email),
-              recommended: false,
-            }
-          : null,
-        profile?.phone
-          ? {
-              type: 'PHONE' as const,
-              title: 'Usar meu telefone',
-              value: maskPhone(profile.phone),
-              recommended: false,
-            }
-          : null,
-      ].filter(Boolean) as Array<{
-        type: PixType;
-        title: string;
-        value: string;
-        recommended: boolean;
-      }>,
-    [profile],
+  // Woovi D+1 only accepts the customer's own CPF as payout Pix key.
+  const options = useMemo(() =>
+    profile?.cpf
+      ? [{type:'CPF' as const,title:'Usar meu CPF',value:maskCpf(profile.cpf),recommended:true}]
+      : [],
+    [profile?.cpf],
   );
 
   async function continueOnboarding() {
@@ -133,12 +103,12 @@ export default function OnboardingPixScreen() {
 
       await nexaApi.configurePayoutOnboarding(
         session.accessToken,
-        selected,
+        'CPF',
       );
 
       // A subconta é provisionada pelo worker da Nexa em segundo plano. O
       // cliente não precisa esperar a Woovi para continuar o onboarding.
-      router.replace('/onboarding-wallet' as any);
+      router.replace('/legacy' as any);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -157,13 +127,13 @@ export default function OnboardingPixScreen() {
       <Badge tone="info">PASSO 2 DE 4</Badge>
       <Title>Escolha seu Pix para resgates</Title>
       <Paragraph>
-        Quando você sacar para reais, a Nexa envia o Pix para uma chave já confirmada no seu cadastro. Seu CPF é a opção recomendada no Brasil.
+        Para resgatar valores em reais, a Nexa utiliza exclusivamente o CPF vinculado à sua identidade verificada. Esta etapa não é necessária para adicionar reais.
       </Paragraph>
 
       <Card>
         <Text style={styles.cardTitle}>Qual chave você quer usar?</Text>
         <Text style={styles.helper}>
-          Você não precisa digitar a chave. Escolha um dado já verificado na sua conta.
+          Você não precisa digitar nenhuma chave. Utilizaremos somente o CPF já confirmado em sua conta.
         </Text>
 
         <View style={styles.options}>
@@ -198,14 +168,14 @@ export default function OnboardingPixScreen() {
       <Card>
         <Text style={styles.cardTitle}>Depois disso</Text>
         <Text style={styles.helper}>
-          A Nexa prepara a infraestrutura de resgate em segundo plano. Você continua o onboarding sem precisar configurar banco ou provedor.
+          A Nexa solicita e reconcilia a subconta com o provedor. A confirmação pode levar algum tempo e não altera o acesso à carteira nem aos depósitos. Caso não haja CPF verificado, procure a Central Nexa.
         </Text>
       </Card>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <ActionButton
-        label="Continuar"
+        label="Configurar CPF para resgates"
         loading={saving || loading}
         disabled={loading || options.length === 0}
         onPress={continueOnboarding}
