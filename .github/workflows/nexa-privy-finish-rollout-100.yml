@@ -1,0 +1,51 @@
+name: Nexa Privy Android — finish existing 10% rollout to 100%
+on:
+  push:
+    branches: [ops/nexa-privy-rollout-100-20261122]
+    paths: ['.github/workflows/nexa-privy-finish-rollout-100.yml']
+permissions:
+  contents: read
+concurrency:
+  group: nexa-privy-rollout-100-20261122
+  cancel-in-progress: false
+jobs:
+  finish-rollout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: nexa-privy-qa
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: test -n "$EXPO_TOKEN"
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Fail closed unless exact expected production Privy rollout is current
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:8){id gitCommitHash platform group}}}}}';
+            const resp=await fetch('https://api.expo.dev/graphql',{method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),signal:AbortSignal.timeout(20000)});
+            const data=await resp.json();
+            if(!resp.ok||data.errors?.length)throw Error('Cannot verify Expo production update');
+            const app=data.data?.app?.byId;
+            const mappings=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=app?.prod?.updates?.find(x=>x.platform==='android');
+            console.log('NEXA_PRODUCTION_PRE_ROLLOUT='+JSON.stringify({branches:mappings,id:prod?.id,sha:prod?.gitCommitHash,group:prod?.group}));
+            if(mappings.length!==1||mappings[0]!=='production'||
+              prod?.id!=='01a205aa-dfdd-7b5f-90d2-b25cb80339c8'||
+              prod?.gitCommitHash!=='f15372f4e59f1e23b46dfb21f237f2fb795a2841')
+              throw Error('FAIL_CLOSED_NOT_EXACT_PRIVY_10_PERCENT_ROLLOUT');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Complete EXISTING update-based Android rollout at 100 percent
+        run: eas update:edit 3d16586d-8a36-4a95-9541-0e4074f35f0f --rollout-percentage 100 --non-interactive
+      - name: Read back update from Expo, no other publishing
+        run: eas update:view 01a205aa-dfdd-7b5f-90d2-b25cb80339c8 --non-interactive
