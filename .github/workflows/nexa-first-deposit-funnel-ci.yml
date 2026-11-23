@@ -1,0 +1,25 @@
+name: Nexa deposit funnel telemetry safety
+on:
+  pull_request:
+    paths:
+      - 'app/(app)/new-order.tsx'
+      - 'src/lib/api.ts'
+      - 'scripts/validate-nexa-first-deposit-funnel.cjs'
+      - '.github/workflows/nexa-first-deposit-funnel-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node scripts/validate-nexa-first-deposit-funnel.cjs
+      - run: npm run typecheck
+      - run: npx expo export --platform android --output-dir dist-funnel-ci
