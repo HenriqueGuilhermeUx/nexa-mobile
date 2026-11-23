@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const app = fs.readFileSync('app/(app)/new-order.tsx','utf8');
+const api = fs.readFileSync('src/lib/api.ts','utf8');
+assert.match(api, /reportDepositJourneyEvent\(/);
+assert.match(api, /'\/deposit-journey\/event'/);
+assert.match(app, /trackJourney\('deposit_screen_opened'\)/);
+assert.match(app, /trackJourney\('pix_method_selected'\)/);
+assert.match(app, /Crypto\.randomUUID\(\)/);
+assert.match(app, /createWalletFirstPixCharge/);
+assert.match(app, /getWalletFirstPixStatus/);
+assert.match(app, /reconcileWalletFirstPixCharge/);
+assert.match(app, /Analytics must never block payments/);
+assert.doesNotMatch(app,/trackJourney\('pix_paid'\)/);
+console.log('LIVE_BASED_NEXA_DEPOSIT_FUNNEL_CONTRACT_PASS');
