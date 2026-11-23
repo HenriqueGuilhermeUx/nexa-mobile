@@ -27,6 +27,6 @@ jobs:
           eas-version: 27.9.0
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Inspect CURRENT production update (read only)
-        run: eas update:view 01a205ba-3316-7bae-8295-443a6810217a --non-interactive
+        run: eas update:view 01a205ba-3316-7bae-8295-443a6810217a
       - name: Inspect production branch updates (read only)
         run: eas update:list --branch production --platform android --limit 5 --non-interactive
