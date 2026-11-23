@@ -3,6 +3,9 @@ on:
   push:
     branches: [ops/nexa-privy-rollout-100-20261122]
     paths: ['.github/workflows/nexa-privy-finish-rollout-100.yml']
+  pull_request:
+    branches: [release/nexa-privy-current-production-safe-20261122]
+    paths: ['.github/workflows/nexa-privy-finish-rollout-100.yml']
 permissions:
   contents: read
 concurrency:
