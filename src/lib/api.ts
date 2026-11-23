@@ -473,6 +473,18 @@ export const nexaApi = {
     return request<any[]>('/fiat-deposit/list', { accessToken });
   },
 
+  reportDepositJourneyEvent(
+    accessToken: string,
+    stage: 'guide_opened' | 'deposit_screen_opened' | 'pix_method_selected',
+    eventId: string,
+  ) {
+    return request<{success:boolean;recorded:boolean;reason?:string}>('/deposit-journey/event', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify({stage,eventId}),
+    });
+  },
+
   createWalletFirstPixCharge(accessToken: string, amountBrl: number) {
     return request<any>('/fiat-deposit/woovi/create-charge', {
       method: 'POST',
