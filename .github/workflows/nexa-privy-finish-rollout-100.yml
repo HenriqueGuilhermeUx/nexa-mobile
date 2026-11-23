@@ -49,7 +49,9 @@ jobs:
               throw Error('FAIL_CLOSED_NOT_EXACT_PRIVY_10_PERCENT_ROLLOUT');
           })().catch(e=>{console.error(e.message);process.exitCode=1});
           NODE
-      - name: Complete EXISTING update-based Android rollout at 100 percent
-        run: eas update:edit 3d16586d-8a36-4a95-9541-0e4074f35f0f --rollout-percentage 100 --non-interactive
-      - name: Read back update from Expo, no other publishing
-        run: eas update:view 01a205aa-dfdd-7b5f-90d2-b25cb80339c8 --non-interactive
+      - name: Republish EXACT existing Privy update to all compatible Android production clients
+        # Expo returned 'not a rollout' to update:edit. Republishing the same
+        # verified bundle is the documented full-distribution fallback.
+        run: eas update:republish --group 3d16586d-8a36-4a95-9541-0e4074f35f0f --destination-branch production --platform android --message "Nexa Privy existing verified update 100 percent" --force-end-active-rollout --non-interactive
+      - name: Read back Android production updates
+        run: eas update:list --branch production --platform android --limit 5 --json --non-interactive
