@@ -1,0 +1,71 @@
+name: Nexa Pix funnel — verified live Android 100% OTA
+on:
+  push:
+    branches: [release/nexa-deposit-funnel-verified-prod-20261123]
+    paths:
+      - 'app/(app)/new-order.tsx'
+      - 'src/lib/api.ts'
+      - 'scripts/validate-live-nexa-funnel.cjs'
+      - '.github/workflows/nexa-funnel-live-android-ota.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-funnel-verified-live-android-release
+  cancel-in-progress: false
+jobs:
+  guarded-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: nexa-privy-qa
+    env:
+      CI: 'true'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - run: npm ci --ignore-scripts
+      - run: node scripts/validate-live-nexa-funnel.cjs
+      - run: npm run typecheck
+      - run: npx expo export --platform android --output-dir dist-nexa-funnel
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Fail closed unless precise previously-audited Android production source remains live
+        run: |
+          node - <<'NODE'
+          (async () => {
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:8){id gitCommitHash platform group}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(20000)
+            });
+            const data=await response.json();
+            if(!response.ok || data.errors?.length)throw Error('EXPO_PRODUCTION_AUDIT_UNAVAILABLE');
+            const app=data.data?.app?.byId;
+            const branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const android=app?.prod?.updates?.find(x=>x.platform==='android');
+            console.log('NEXA_FUNNEL_PRE_RELEASE='+JSON.stringify({
+              branches,androidId:android?.id,androidSha:android?.gitCommitHash,group:android?.group
+            }));
+            if(branches.length!==1||branches[0]!=='production'||
+              android?.id!=='01a205ba-3316-7bae-8295-443a6810217a'||
+              android?.gitCommitHash!=='f15372f4e59f1e23b46dfb21f237f2fb795a2841'||
+              android?.group!=='6dd13132-12cb-4b38-b260-f0709ca17f42')
+              throw Error('FAIL_CLOSED_PRODUCTION_CHANGED_NO_OTA');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Publish only verified base with minimal added funnel events to Android production at 100%
+        run: |
+          eas update --branch production --platform android \
+            --message "Nexa Pix funnel observational stage telemetry 100pct ${GITHUB_SHA}" \
+            --non-interactive
+      - name: Read back production update after publication
+        run: eas update:list --branch production --limit 2 --non-interactive
