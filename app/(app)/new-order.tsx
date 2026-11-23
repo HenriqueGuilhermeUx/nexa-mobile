@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
+import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -81,6 +82,30 @@ export default function NewOrderScreen() {
   const [showTechnical, setShowTechnical] = useState(false);
   const [reviewing, setReviewing] = useState(false);
 
+  // Telemetry only records a coarse journey stage. It never transmits values,
+  // banking details, Pix identifiers, keys or financial success assertions.
+  function trackJourney(stage: 'deposit_screen_opened' | 'pix_method_selected') {
+    void (async () => {
+      try {
+        const session = await loadNexaSession();
+        if (!session?.accessToken) return;
+        await nexaApi.reportDepositJourneyEvent(
+          session.accessToken,
+          stage,
+          Crypto.randomUUID(),
+        );
+      } catch {
+        // Never interrupt a deposit because journey metrics are unavailable.
+      }
+    })();
+  }
+
+  useEffect(() => {
+    trackJourney('deposit_screen_opened');
+    // Once per screen entry, not on every render or status polling cycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const correlationID =
     result?.kind === 'pix-charge' ? String(result.payload?.correlationID || '').trim() : '';
 
@@ -147,6 +172,7 @@ export default function NewOrderScreen() {
       return;
     }
     setReviewing(true);
+    trackJourney('pix_method_selected');
   }
 
   async function submit() {
