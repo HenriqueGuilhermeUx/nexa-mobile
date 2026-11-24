@@ -170,6 +170,19 @@ export default function SecurityScreen() {
       </Card>
 
       <Card>
+        <Text style={styles.cardTitle}>Preferências de comunicação</Text>
+        <Text style={styles.cardText}>
+          Controle separadamente as autorizações de e-mail, WhatsApp e Telegram.
+          Você pode retirar qualquer consentimento sem afetar sua conta.
+        </Text>
+        <ActionButton
+          label="Gerenciar comunicações"
+          variant="secondary"
+          onPress={() => router.push('/communication-preferences' as any)}
+        />
+      </Card>
+
+      <Card>
         <Text style={styles.cardTitle}>Informações do aplicativo</Text>
         <KeyValue label="Versão Nexa" value={config.appVersion} />
         <KeyValue label="Build" value={config.appBuild} />

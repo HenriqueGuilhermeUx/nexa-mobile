@@ -123,6 +123,7 @@ export interface RegistrationData {
   countryCode?: string;
   phone?: string;
   password: string;
+  communicationConsents?: { email:boolean; whatsapp:boolean; telegram:boolean };
 }
 
 export interface CountryCapabilities {
@@ -296,6 +297,19 @@ export const nexaApi = {
     return request<CountryCapabilities>(
       `/nexa-rails/v1/capabilities/${encodeURIComponent(countryCode)}`,
     );
+  },
+
+  getCommunicationConsents(accessToken: string) {
+    return request<{
+      success:boolean;
+      channels:Record<'email'|'whatsapp'|'telegram',{granted:boolean;grantedAt:string|null;revokedAt:string|null}>;
+    }>('/lifecycle/communication-consents',{accessToken});
+  },
+
+  updateCommunicationConsents(accessToken:string,channels:Partial<Record<'email'|'whatsapp'|'telegram',boolean>>) {
+    return request<any>('/lifecycle/communication-consents',{
+      method:'POST',accessToken,body:JSON.stringify({channels}),
+    });
   },
 
   register(data: RegistrationData) {

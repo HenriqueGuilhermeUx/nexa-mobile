@@ -1,0 +1,23 @@
+name: Nexa Signup Communication Consent UI
+on:
+  pull_request:
+    paths:
+      - 'app/sign-up.tsx'
+      - 'app/communication-preferences.tsx'
+      - 'app/security.tsx'
+      - 'src/lib/api.ts'
+      - '.github/workflows/nexa-signup-communication-consent-ci.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm install --ignore-scripts --no-package-lock --legacy-peer-deps
+      - run: npm run typecheck
