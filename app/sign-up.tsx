@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { usePrivy } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionButton,
@@ -31,6 +31,9 @@ export default function SignUpScreen() {
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [consentEmail,setConsentEmail] = useState(false);
+  const [consentWhatsApp,setConsentWhatsApp] = useState(false);
+  const [consentTelegram,setConsentTelegram] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -83,6 +86,9 @@ export default function SignUpScreen() {
         countryCode,
         phone: normalizedPhone || undefined,
         password,
+        communicationConsents:{
+          email:consentEmail,whatsapp:consentWhatsApp,telegram:consentTelegram,
+        },
       });
       const tokens = tokensFromLogin(response);
       await saveNexaSession({
@@ -161,6 +167,34 @@ export default function SignUpScreen() {
         autoComplete="new-password"
         placeholder="Mínimo de 6 caracteres"
       />
+      <View style={styles.communicationConsent}>
+        <Text style={styles.consentTitle}>Como podemos falar com você?</Text>
+        <Text style={styles.consentDescription}>
+          Escolha onde quer receber orientações de uso, novidades e ofertas.
+          Tudo é opcional; você pode criar a conta sem autorizar nenhum canal.
+        </Text>
+        {([
+          {key:'email',label:'E-mail',value:consentEmail,onChange:setConsentEmail},
+          {key:'whatsapp',label:'WhatsApp',value:consentWhatsApp,onChange:setConsentWhatsApp},
+          {key:'telegram',label:'Telegram',value:consentTelegram,onChange:setConsentTelegram},
+        ] as const).map(item=>(
+          <Pressable key={item.key} style={styles.consentRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{checked:item.value}}
+            disabled={loading}
+            onPress={()=>item.onChange(!item.value)}>
+            <View style={[styles.checkbox,item.value&&styles.checkboxChecked]}>
+              <Text style={styles.checkmark}>{item.value?'✓':''}</Text>
+            </View>
+            <Text style={styles.consentLabel}>Receber comunicações por {item.label}</Text>
+          </Pressable>
+        ))}
+        <Text style={styles.consentFinePrint}>
+          Você pode alterar ou revogar suas autorizações depois.
+          Alertas de segurança são tratados separadamente.
+          Para receber mensagens pelo Telegram, vincule seu chat.
+        </Text>
+      </View>
       <ActionButton
         label="Criar conta e ativar carteira"
         loading={loading}
@@ -188,6 +222,17 @@ export default function SignUpScreen() {
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
+  communicationConsent: { marginVertical: spacing.md, padding: spacing.md,
+    borderColor: colors.border, borderWidth: 1, borderRadius: radius.md },
+  consentTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: spacing.sm },
+  consentDescription: { color: colors.muted, fontSize: 13, marginBottom: spacing.sm },
+  consentRow: { flexDirection:'row', alignItems:'center', paddingVertical:9, gap:10 },
+  checkbox: { width:21,height:21,borderWidth:1.5,borderColor:colors.muted,
+    borderRadius:5,alignItems:'center',justifyContent:'center' },
+  checkboxChecked: { backgroundColor:colors.primary,borderColor:colors.primary },
+  checkmark: { color:colors.white,fontWeight:'bold',fontSize:15 },
+  consentLabel: { flex:1,color:colors.text,fontSize:14 },
+  consentFinePrint: { color:colors.muted,fontSize:11,marginTop:spacing.sm },
   badgeGap: { height: spacing.md },
   country: { color: colors.muted, textAlign: 'center', fontSize: 12, marginTop: spacing.md },
   error: {
