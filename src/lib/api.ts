@@ -123,6 +123,7 @@ export interface RegistrationData {
   countryCode?: string;
   phone?: string;
   password: string;
+  communicationConsents?: { email:boolean; whatsapp:boolean; telegram:boolean };
 }
 
 export interface CountryCapabilities {
