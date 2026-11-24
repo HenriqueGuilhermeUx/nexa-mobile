@@ -46,7 +46,7 @@ jobs:
           assert(paths.length>=4 && paths.every(p=>allowed.has(p)),
             'Unreviewed production file change: '+paths.join(','));
           const signup=fs.readFileSync('app/sign-up.tsx','utf8');
-          for(const v of ['usePrivy','privy.logout()',"'onboarding-wallet'",'communicationConsents']){
+          for(const v of ['usePrivy','privy.logout()',"'/onboarding-wallet'",'communicationConsents']){
             assert(signup.includes(v),'Missing production Privy or consent: '+v);
           }
           const api=fs.readFileSync('src/lib/api.ts','utf8');
