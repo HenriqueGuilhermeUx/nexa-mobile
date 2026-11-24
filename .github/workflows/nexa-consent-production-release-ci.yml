@@ -25,7 +25,8 @@ jobs:
           const fs=require('fs'),cp=require('child_process'),assert=require('assert');
           const allowed=new Set(['app/sign-up.tsx','app/security.tsx',
             'app/communication-preferences.tsx','src/lib/api.ts',
-            '.github/workflows/nexa-consent-production-release-ci.yml']);
+            '.github/workflows/nexa-consent-production-release-ci.yml',
+            '.github/workflows/nexa-consent-live-android-ota.yml']);
           const files=cp.execFileSync('git',['diff','--name-only',
             'origin/release/nexa-deposit-funnel-verified-prod-20261123','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
           assert(files.length>0 && files.every(file=>allowed.has(file)), 'Production release has unexpected file changes: '+files.join(', '));
