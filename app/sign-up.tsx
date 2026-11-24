@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionButton,
@@ -29,6 +29,9 @@ export default function SignUpScreen() {
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [consentEmail,setConsentEmail] = useState(false);
+  const [consentWhatsApp,setConsentWhatsApp] = useState(false);
+  const [consentTelegram,setConsentTelegram] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -66,6 +69,11 @@ export default function SignUpScreen() {
         countryCode,
         phone: normalizedPhone || undefined,
         password,
+        communicationConsents:{
+          email:consentEmail,
+          whatsapp:consentWhatsApp,
+          telegram:consentTelegram,
+        },
       });
       const tokens = tokensFromLogin(response);
       await saveNexaSession({
@@ -144,6 +152,39 @@ export default function SignUpScreen() {
         autoComplete="new-password"
         placeholder="Mínimo de 6 caracteres"
       />
+      <View style={styles.communicationConsent}>
+        <Text style={styles.consentTitle}>Como podemos falar com você?</Text>
+        <Text style={styles.consentDescription}>
+          Escolha onde deseja receber orientações de uso, novidades e ofertas da Nexa.
+          Tudo é opcional: seu cadastro funciona mesmo sem marcar nada.
+        </Text>
+        {([
+          {key:'email',label:'E-mail',value:consentEmail,onChange:setConsentEmail},
+          {key:'whatsapp',label:'WhatsApp',value:consentWhatsApp,onChange:setConsentWhatsApp},
+          {key:'telegram',label:'Telegram',value:consentTelegram,onChange:setConsentTelegram},
+        ] as const).map(item=>(
+          <Pressable
+            key={item.key}
+            style={styles.consentRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{checked:item.value}}
+            accessibilityLabel={`Autorizar comunicações por ${item.label}`}
+            disabled={loading}
+            onPress={()=>item.onChange(!item.value)}
+          >
+            <View style={[styles.checkbox,item.value && styles.checkboxChecked]}>
+              <Text style={styles.checkmark}>{item.value?'✓':''}</Text>
+            </View>
+            <Text style={styles.consentLabel}>Receber comunicações por {item.label}</Text>
+          </Pressable>
+        ))}
+        <Text style={styles.consentFinePrint}>
+          Você poderá mudar suas escolhas ou revogar qualquer autorização
+          posteriormente, na área de preferências. Mensagens necessárias ao serviço,
+          como alertas de segurança, são tratadas separadamente.
+          O Telegram só será utilizado após você vincular seu chat.
+        </Text>
+      </View>
       <ActionButton
         label="Continuar"
         loading={loading}
@@ -170,6 +211,17 @@ export default function SignUpScreen() {
 
 const styles = StyleSheet.create({
   topSpace: { height: spacing.lg },
+  communicationConsent: { marginVertical: spacing.md, padding: spacing.md,
+    borderColor: colors.muted, borderWidth: 1, borderRadius: radius.md },
+  consentTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: spacing.sm },
+  consentDescription: { color: colors.muted, fontSize: 13, marginBottom: spacing.sm },
+  consentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, gap: 10 },
+  checkbox: { width: 21, height: 21, borderWidth: 1.5,
+    borderColor: colors.muted, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkmark: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  consentLabel: { flex: 1, color: colors.text, fontSize: 14 },
+  consentFinePrint: { color: colors.muted, fontSize: 11, marginTop: spacing.sm },
   badgeGap: { height: spacing.md },
   country: { color: colors.muted, textAlign: 'center', fontSize: 12, marginTop: spacing.md },
   error: {
