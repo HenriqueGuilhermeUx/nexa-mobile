@@ -299,6 +299,19 @@ export const nexaApi = {
     );
   },
 
+  getCommunicationConsents(accessToken: string) {
+    return request<{
+      success:boolean;
+      channels:Record<'email'|'whatsapp'|'telegram',{granted:boolean;grantedAt:string|null;revokedAt:string|null}>;
+    }>('/lifecycle/communication-consents',{accessToken});
+  },
+
+  updateCommunicationConsents(accessToken:string,channels:Partial<Record<'email'|'whatsapp'|'telegram',boolean>>) {
+    return request<any>('/lifecycle/communication-consents',{
+      method:'POST',accessToken,body:JSON.stringify({channels}),
+    });
+  },
+
   register(data: RegistrationData) {
     return request<LoginResponse>('/auth/register', {
       method: 'POST',
