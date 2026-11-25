@@ -1,0 +1,95 @@
+name: Nexa Privy verified wallet ID recovery — isolated Expo QA only
+on:
+  push:
+    branches:
+      - qa/nexa-privy-id-fallback-20261125
+    paths:
+      - '.github/workflows/nexa-privy-id-fallback-eas-qa.yml'
+permissions:
+  contents: read
+concurrency:
+  group: nexa-privy-id-fallback-expo-qa-20261125
+  cancel-in-progress: false
+jobs:
+  build-and-publish-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: nexa-privy-qa
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify exact approved release commit and QA-only change
+        run: |
+          node - <<'NODE'
+          const assert=require('node:assert/strict'),cp=require('node:child_process'),fs=require('node:fs');
+          const base='1488bec531f54a13bade9a52137060129af53c94';
+          const paths=cp.execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          assert.deepEqual(paths,['.github/workflows/nexa-privy-id-fallback-eas-qa.yml'],'Unexpected source changes in QA');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          assert.equal(app.version,'2.0.43');
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.runtimeVersion.policy,'appVersion');
+          const source=fs.readFileSync('app/onboarding-wallet.tsx','utf8');
+          assert(source.includes('createAdditional: false')&&source.includes('await nexaApi.linkWallet('));
+          assert(!source.includes('A carteira foi localizada, mas a Privy ainda não mostrou seu identificador.'));
+          console.log('NEXA_EXACT_RELEASE_SOURCE_AND_RUNTIME_QA=PASS');
+          NODE
+      - name: Check Expo credentials without printing token
+        run: test -n "$EXPO_TOKEN"
+      - name: Use original release public feature configuration
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const env=JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.env;
+          for(const [key,value] of Object.entries(env)){
+            if(!/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(key)||typeof value!=='string'||value.includes('\n'))
+              throw Error('Unexpected public release configuration');
+            fs.appendFileSync(process.env.GITHUB_ENV,key+'='+value+'\n');
+          }
+          console.log('NEXA_QA_PUBLIC_CONFIG_KEYS='+Object.keys(env).length);
+          NODE
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node scripts/validate-privy-walletid-release-fallback.cjs
+      - run: npm run typecheck
+      - name: Android bundle export (no customer update)
+        run: npm run export:android
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Check live Expo channel read-only before publishing QA branch
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:4){id gitCommitHash platform}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(20000)
+            });
+            const data=await response.json();
+            if(!response.ok||data.errors?.length)throw Error('EXPO_LIVE_READ_ONLY_AUDIT_UNAVAILABLE');
+            const branches=data.data?.app?.byId?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const android=data.data?.app?.byId?.prod?.updates?.find(x=>x.platform==='android');
+            if(!android?.id||branches.length!==1||branches[0]!=='production')throw Error('EXPO_PRODUCTION_CHANNEL_UNEXPECTED');
+            console.log('NEXA_EXPO_LIVE_READ_ONLY='+JSON.stringify({branches,androidId:android.id,androidCommit:android.gitCommitHash}));
+          })().catch(e=>{console.error(e.message);process.exitCode=1;});
+          NODE
+      - name: Publish to isolated QA branch only
+        run: |
+          eas update --branch nexa-privy-id-fallback-qa-20261125 --platform android \
+            --message "Nexa Privy verified provider ID recovery QA $GITHUB_SHA" \
+            --non-interactive
+      - name: Inspect QA branch update only
+        run: eas update:list --branch nexa-privy-id-fallback-qa-20261125 --limit 2 --non-interactive
+      - name: Confirm no production OTA action in this workflow
+        run: echo "This workflow never runs eas update against production."
