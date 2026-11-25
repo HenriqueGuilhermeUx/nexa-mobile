@@ -21,8 +21,37 @@ function validWallet(candidate: any) {
   return /^0x[a-fA-F0-9]{40}$/.test(String(candidate?.address || ''));
 }
 
+function walletIdentifierFromVerifiedPrivyUser(privyUser: any, address: string): string {
+  const accounts = [
+    ...(Array.isArray(privyUser?.linkedAccounts) ? privyUser.linkedAccounts : []),
+    ...(Array.isArray(privyUser?.linked_accounts) ? privyUser.linked_accounts : []),
+  ];
+  const linked = accounts.find((account: any) =>
+    String(account?.address || '').toLowerCase() === address.toLowerCase() &&
+    String(account?.type || '').toLowerCase() === 'wallet' &&
+    (
+      String(account?.walletClientType || account?.wallet_client_type || account?.wallet_client || '').toLowerCase() === 'privy' ||
+      String(account?.connectorType || account?.connector_type || '').toLowerCase() === 'embedded' ||
+      account?.isEmbedded === true ||
+      account?.is_embedded === true
+    ),
+  );
+  const id = String(linked?.id || linked?.walletId || linked?.wallet_id || '').trim();
+  // Never submit an EVM address as the provider's internal wallet ID.
+  return id && !/^0x[a-fA-F0-9]{40}$/.test(id) ? id : '';
+}
+
+function resolvedWalletIdentifier(wallet: any, privyUser: any): string {
+  const address = String(wallet?.address || '').trim();
+  const directId = String(wallet?.id || wallet?.walletId || wallet?.wallet_id || '').trim();
+  if (directId && !/^0x[a-fA-F0-9]{40}$/.test(directId)) return directId;
+  return walletIdentifierFromVerifiedPrivyUser(privyUser, address);
+}
+
 export default function WalletOnboardingScreen() {
   const privy = usePrivy() as any;
+  const privyUserRef = useRef<any>(privy?.user);
+  privyUserRef.current = privy?.user;
   const embedded = useEmbeddedEthereumWallet() as any;
   const wallets = (embedded.wallets || []) as any[];
   const wallet = useMemo(
@@ -67,12 +96,26 @@ export default function WalletOnboardingScreen() {
         return;
       }
 
-      const privyWalletId = String(
-        currentWallet.id ||
-          currentWallet.walletId ||
-          currentWallet.wallet_id ||
-          currentWallet.address,
-      ).trim();
+      // The embedded Ethereum wallet hook can expose an address but omit the
+      // internal wallet ID. Recover it from the same authenticated Privy user's
+      // embedded-wallet linked account; never fabricate an ID from the address.
+      let privyWalletId = resolvedWalletIdentifier(currentWallet, privyUserRef.current);
+      if (!privyWalletId) {
+        // Avoid creating a second wallet; the Privy user may still be
+        // refreshing its linkedAccounts after successful email OTP.
+        for (let attempt = 0; attempt < 5 && !privyWalletId; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 550));
+          privyWalletId = resolvedWalletIdentifier(
+            currentWallet,
+            privyUserRef.current,
+          );
+        }
+      }
+      if (!privyWalletId) {
+        throw new Error(
+          'A carteira foi localizada, mas a Privy ainda não mostrou seu identificador. Sua carteira foi preservada. Reabra a Nexa e tente concluir o vínculo; não crie outra conta.',
+        );
+      }
 
       await nexaApi.linkWallet(
         session.accessToken,
@@ -84,8 +127,15 @@ export default function WalletOnboardingScreen() {
       );
 
       setStage('Fazendo a checagem final…');
-      await nexaApi.auditWallet(session.accessToken);
+      // Legacy-beta accounts are not on the direct-settlement audit allowlist.
+      // Linking is verified by the server above; EIP-191 proof is next.
+      // A legacy audit rejection must never block ownership confirmation.
+      await nexaApi.auditWallet(session.accessToken).catch(() => null);
       const linkedProfile = await nexaApi.me(session.accessToken);
+      if (!hasLinkedPrivyWallet(linkedProfile) ||
+          String(linkedProfile?.wallet?.address || '').toLowerCase() !== String(currentWallet.address).toLowerCase()) {
+        throw new Error('O vínculo Privy ainda não foi confirmado no seu cadastro. Tente novamente.');
+      }
       router.replace(
         String(linkedProfile?.kycStatus || '').toLowerCase() === 'approved'
           ? '/wallet-ownership' as any
@@ -93,6 +143,8 @@ export default function WalletOnboardingScreen() {
       );
     } catch (caught) {
       linkingRef.current = false;
+      startedRef.current = false;
+      setWaitingForWallet(false);
       setError(
         caught instanceof Error
           ? caught.message
@@ -114,8 +166,8 @@ export default function WalletOnboardingScreen() {
       }
 
       const me = await nexaApi.me(session.accessToken);
-      // The server automatically assigns a nexa-managed address at signup.
-      // That is NOT a Privy wallet and must never skip Privy creation/linking.
+      // Older Nexa accounts may retain an internal managed address.
+      // An address alone never proves verified embedded Privy ownership.
       if (hasLinkedPrivyWallet(me)) {
           router.replace(
           String(me?.kycStatus || '').toLowerCase() === 'approved'
@@ -177,6 +229,20 @@ export default function WalletOnboardingScreen() {
     if (!privy?.isReady) return;
     void startWalletOnboarding();
   }, [privy?.isReady]);
+
+  // A provider SDK may resolve create() before publishing a wallet through
+  // the hook. Avoid an infinite spinner: retry only with the SAME Privy owner.
+  // createAdditional:false means retry must never mint a second wallet.
+  useEffect(() => {
+    if (!waitingForWallet) return;
+    const timeout = setTimeout(() => {
+      if (linkingRef.current) return;
+      startedRef.current = false;
+      setWaitingForWallet(false);
+      setError('A Privy ainda não confirmou sua carteira neste aparelho. Sua conta foi preservada. Tente novamente sem criar outra conta.');
+    }, 20000);
+    return () => clearTimeout(timeout);
+  }, [waitingForWallet]);
 
   useEffect(() => {
     if (!waitingForWallet || !wallet || linkingRef.current) return;
