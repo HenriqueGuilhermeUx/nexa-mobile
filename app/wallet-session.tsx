@@ -68,7 +68,7 @@ export default function WalletSessionScreen() {
         setEmail(session.email.trim().toLowerCase());
 
         const token = await currentAuthorizationToken();
-        if (!active || !token) return;
+        if (!active || !token || privyEmailMatchStatus(privy?.user, session.email) !== 'match') return;
         setReady(true);
 
         if (walletOnboarding) {
