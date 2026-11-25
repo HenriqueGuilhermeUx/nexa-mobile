@@ -199,7 +199,7 @@ export default function WalletSessionScreen() {
       <Badge tone={ready ? 'success' : 'warning'}>
         {ready ? 'E-MAIL CONFIRMADO' : 'CONFIRMAR E-MAIL'}
       </Badge>
-      <Title>{ready ? 'Tudo certo.' : 'Confirme seu e-mail.'}</Title>
+      <Title>{ready ? 'Tudo certo.' : 'Confirme seu e-mail para ativar sua carteira.'}</Title>
       <Paragraph>
         {ready
           ? 'E-mail confirmado. A Nexa vai preparar ou recuperar sua carteira automaticamente.'
