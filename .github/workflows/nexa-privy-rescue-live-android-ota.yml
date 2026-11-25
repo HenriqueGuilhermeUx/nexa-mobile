@@ -1,0 +1,98 @@
+name: Nexa Privy rescue — guarded Android OTA
+on:
+  push:
+    branches: [release/nexa-privy-activation-rescue-20261125]
+    paths: ['.github/workflows/nexa-privy-rescue-live-android-ota.yml']
+permissions:
+  contents: read
+concurrency:
+  group: nexa-privy-rescue-production-android
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: nexa-privy-qa
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: test -n "$EXPO_TOKEN"
+      - name: Reject unrelated changes and preserve last production baseline
+        run: |
+          set -euo pipefail
+          git fetch origin release/nexa-consent-preserve-privy-20261124 --depth=1
+          node <<'NODE'
+          const fs=require('fs'),cp=require('child_process'),assert=require('assert');
+          const base='origin/release/nexa-consent-preserve-privy-20261124';
+          const sha=cp.execFileSync('git',['rev-parse',base],{encoding:'utf8'}).trim();
+          assert(sha==='771379a67be4f4cac8b875b89b06e404e09a8122',
+            'Approved Android baseline changed');
+          const allowed=new Set([
+            'app/onboarding-wallet.tsx','app/wallet-session.tsx','app/kyc.tsx',
+            'src/lib/privyEmailIdentity.ts',
+            '.github/workflows/nexa-privy-rescue-live-android-ota.yml'
+          ]);
+          const paths=cp.execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          assert(paths.length>=4&&paths.every(p=>allowed.has(p)),
+            'Scope exceeds approved wallet onboarding UX: '+paths.join(','));
+          const signup=fs.readFileSync('app/sign-up.tsx','utf8');
+          assert(signup.includes('usePrivy')&&signup.includes('communicationConsents'),
+            'Last production signup must remain unchanged');
+          const onboard=fs.readFileSync('app/onboarding-wallet.tsx','utf8');
+          for(const key of ['createAdditional: false','privyEmailMatchStatus','hasLinkedPrivyWallet','linkWallet']){
+            assert(onboard.includes(key),'Required safe wallet flow missing: '+key);
+          }
+          const app=fs.readFileSync('app/_layout.tsx','utf8');
+          assert(app.includes('PrivyProvider')&&app.includes("createOnLogin: 'off'"));
+          const pix=fs.readFileSync('app/(app)/new-order.tsx','utf8');
+          assert(pix.includes('deposit_screen_opened')&&pix.includes('pix_method_selected'));
+          NODE
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npx expo export --platform android --output-dir dist-nexa-privy-rescue
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Fail closed unless latest customer Android OTA is still production
+        run: |
+          node - <<'NODE'
+          (async()=>{
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:8){id gitCommitHash platform group}}}}}';
+            const response=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',
+              headers:{Authorization:'Bearer '+process.env.EXPO_TOKEN,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(20000)
+            });
+            const data=await response.json();
+            if(!response.ok||data.errors?.length)throw Error('EXPO_AUDIT_UNAVAILABLE');
+            const app=data.data?.app?.byId;
+            const branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const android=app?.prod?.updates?.find(x=>x.platform==='android');
+            console.log('PRIVY_RESCUE_PRE_FLIGHT='+JSON.stringify({
+              branches,androidId:android?.id,sha:android?.gitCommitHash,group:android?.group
+            }));
+            if(branches.length!==1||branches[0]!=='production'||
+              android?.id!=='01a20fe8-2914-7e13-8a71-2944f0723185'||
+              android?.gitCommitHash!=='bc93c2346bc366a367bd3d5446dd906df81df772'||
+              android?.group!=='d072a641-7df9-4970-a9db-456c2224290a')
+              throw Error('FAIL_CLOSED_PRODUCTION_CHANGED_NO_OTA');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Publish safe activation fix to Android production only
+        run: |
+          eas update --branch production --platform android \
+            --message "Nexa Privy activation rescue preserved wallet ownership ${GITHUB_SHA}" \
+            --non-interactive
+      - name: Read-back live update
+        run: eas update:list --branch production --limit 2 --non-interactive
