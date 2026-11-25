@@ -1,0 +1,57 @@
+name: Nexa Privy live source — verified wallet ID fallback QA
+on:
+  pull_request:
+    branches:
+      - release/nexa-deposit-funnel-verified-prod-20261123
+    paths:
+      - 'app/onboarding-wallet.tsx'
+      - 'src/lib/api.ts'
+      - 'scripts/validate-privy-walletid-release-fallback.cjs'
+      - '.github/workflows/nexa-privy-live-walletid-fallback-qa.yml'
+permissions:
+  contents: read
+jobs:
+  verify-no-production-effects:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Guard exact production lineage and untouched application features
+        run: |
+          git fetch origin release/nexa-deposit-funnel-verified-prod-20261123 --depth=1
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const cp=require('node:child_process');
+          const fs=require('node:fs');
+          const base='origin/release/nexa-deposit-funnel-verified-prod-20261123';
+          const sha=cp.execFileSync('git',['rev-parse',base],{encoding:'utf8'}).trim();
+          assert.equal(sha,'e08592ce0dd07b191759d1cb9c16593cc943eb58','Live source baseline changed; do not publish');
+          const diff=cp.execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          const allow=new Set(['app/onboarding-wallet.tsx','src/lib/api.ts','scripts/validate-privy-walletid-release-fallback.cjs','.github/workflows/nexa-privy-live-walletid-fallback-qa.yml']);
+          assert(diff.length===4 && diff.every(f=>allow.has(f)), 'Unreviewed file in hotfix: '+diff.join(', '));
+          for(const file of ['app.json','app.config.js','eas.json','package.json','package-lock.json','app/sign-up.tsx','app/kyc.tsx']) {
+            const old=cp.execFileSync('git',['show',base+':'+file],{encoding:'utf8'});
+            const now=fs.readFileSync(file,'utf8');
+            assert.equal(now,old,'Release behavior or dependencies unexpectedly changed: '+file);
+          }
+          console.log('NEXA_EXACT_LIVE_RELEASE_SOURCE=PASS');
+          NODE
+      - name: Assert owner-verified fallback and no duplicate wallet
+        run: node scripts/validate-privy-walletid-release-fallback.cjs
+      - name: Install frozen dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Android bundle export (no OTA)
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+        run: npm run export:android
+      - name: Explicitly prohibit OTA and production deploy
+        run: echo "QA only. This workflow never publishes an EAS update or changes credentials."
