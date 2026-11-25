@@ -1,6 +1,6 @@
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -14,6 +14,7 @@ import {
   Title,
 } from '@/components/ui';
 import { loadNexaSession } from '@/lib/session';
+import { privyEmailMatchStatus } from '@/lib/privyEmailIdentity';
 import { colors, radius, spacing } from '@/theme';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -36,6 +37,7 @@ export default function WalletSessionScreen() {
   const privy = usePrivy() as any;
   const emailLogin = useLoginWithEmail() as any;
 
+  const autoCodeRequested = useRef(false);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
