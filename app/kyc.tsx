@@ -164,7 +164,7 @@ export default function KycScreen() {
   return (
     <Screen>
       <Brand />
-      <Badge tone="info">PASSO 1 DE 4</Badge>
+      <Badge tone="info">IDENTIDADE · DIDIT</Badge>
       <Title>Vamos confirmar que é você</Title>
       <Paragraph>
         A verificação ajuda a proteger sua conta e libera as funcionalidades da Nexa. A etapa é feita em ambiente seguro do provedor de identidade.
