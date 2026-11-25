@@ -449,7 +449,7 @@ export const nexaApi = {
   linkWallet(
     accessToken: string,
     privyAccessToken: string,
-    wallet: { privyWalletId: string; walletAddress: string },
+    wallet: { privyWalletId?: string; walletAddress: string },
   ) {
     return request<any>('/direct-settlement/wallet/link', {
       method: 'POST',
