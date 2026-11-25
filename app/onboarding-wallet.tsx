@@ -15,6 +15,7 @@ import {
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { hasLinkedPrivyWallet } from '@/lib/onboarding';
+import { privyEmailMatchStatus } from '@/lib/privyEmailIdentity';
 import { colors, radius, spacing } from '@/theme';
 
 function validWallet(candidate: any) {
@@ -103,20 +104,17 @@ export default function WalletOnboardingScreen() {
       if (!privyWalletId) {
         // Avoid creating a second wallet; the Privy user may still be
         // refreshing its linkedAccounts after successful email OTP.
-        for (let attempt = 0; attempt < 5 && !privyWalletId; attempt++) {
-          await new Promise((resolve) => setTimeout(resolve, 550));
+        for (let attempt = 0; attempt < 2 && !privyWalletId; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
           privyWalletId = resolvedWalletIdentifier(
             currentWallet,
             privyUserRef.current,
           );
         }
       }
-      if (!privyWalletId) {
-        throw new Error(
-          'A carteira foi localizada, mas a Privy ainda não mostrou seu identificador. Sua carteira foi preservada. Reabra a Nexa e tente concluir o vínculo; não crie outra conta.',
-        );
-      }
-
+      // If the SDK has not published its wallet ID, the authenticated backend
+      // resolves the canonical ID from the same verified Privy user's wallet.
+      // Neither app nor server may synthesize an ID from the address.
       await nexaApi.linkWallet(
         session.accessToken,
         privyAccessToken,
@@ -178,7 +176,10 @@ export default function WalletOnboardingScreen() {
       }
 
       const privyAccessToken = await currentPrivyToken();
-      if (!privyAccessToken) {
+      if (!privyAccessToken ||
+          privyEmailMatchStatus(privyUserRef.current, session.email) !== 'match') {
+        // Never create/relink a wallet from another account's stale Privy
+        // session. Confirm the same Nexa e-mail once, through Privy OTP.
         router.replace({
           pathname: '/wallet-session' as any,
           params: { returnTo: 'onboarding-wallet' },
@@ -263,7 +264,7 @@ export default function WalletOnboardingScreen() {
       <Screen>
         <Brand />
         <View style={styles.topSpace} />
-        <Badge tone="warning">PASSO 3 DE 4</Badge>
+        <Badge tone="warning">ATIVAÇÃO DA CARTEIRA</Badge>
         <Title>Vamos ativar sua wallet</Title>
         <Paragraph>
           Sua conta continua protegida. Tente novamente para concluir a ativação da sua wallet.
@@ -279,7 +280,7 @@ export default function WalletOnboardingScreen() {
   return (
     <View style={styles.loader}>
       <Brand />
-      <Badge tone="info">PASSO 3 DE 4</Badge>
+      <Badge tone="info">ATIVAÇÃO DA CARTEIRA</Badge>
       <View style={styles.progressMark}>
         <Text style={styles.progressMarkText}>N</Text>
       </View>
