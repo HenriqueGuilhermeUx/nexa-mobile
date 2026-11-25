@@ -58,4 +58,13 @@ assert.ok(routing.includes("return '/onboarding-wallet'"));
 assert.ok(kyc.includes('startBrazilKyc('));
 assert.ok(kyc.includes('startGlobalKyc('));
 
+// The Expo hook may publish the wallet address before its internal wallet ID.
+const api = fs.readFileSync('src/lib/api.ts', 'utf8');
+assert.match(api, /wallet:\s*\{ privyWalletId\?: string; walletAddress: string \}/);
+assert.match(wallet, /let privyWalletId = resolvedWalletIdentifier\(currentWallet, privyUserRef\.current\)/);
+assert.ok(!wallet.includes('A carteira foi localizada, mas a Privy ainda não mostrou seu identificador.'),
+  'Do not fail locally before the authenticated backend can recover the provider wallet ID');
+assert.match(wallet, /await nexaApi\.linkWallet\(/);
+assert.ok(wallet.indexOf('let privyWalletId =') < wallet.indexOf('await nexaApi.linkWallet('));
+
 console.log('NEXA_PRIVY_MAIN_PRESERVE_CONSENTS_WALLET_ID_KYC=PASS');
