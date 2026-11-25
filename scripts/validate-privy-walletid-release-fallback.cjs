@@ -23,7 +23,9 @@ for(const check of [
 ])assert.ok(wallet.includes(check),'Existing wallet safety condition lost: '+check);
 assert.doesNotMatch(wallet,/A carteira foi localizada, mas a Privy ainda não mostrou seu identificador/);
 assert.doesNotMatch(wallet,/privyWalletId\s*=\s*currentWallet\.address/);
-assert.match(api,/wallet:\s*\{\s*privyWalletId\?: string; walletAddress: string\s*\}/);
+assert.match(api,/wallet:\s*\{\s*privyWalletId: string; walletAddress: string\s*\}/);
+// The existing API type remains unchanged: an empty string is handled by the
+// backend, which resolves the provider ID from the authenticated Privy owner.
 assert.match(session,/emailLogin\.sendCode/);
 assert.match(session,/emailLogin\.loginWithCode/);
 assert.ok(routing.includes("return '/onboarding-wallet'"));
