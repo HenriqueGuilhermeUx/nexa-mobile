@@ -111,12 +111,11 @@ export default function WalletOnboardingScreen() {
           );
         }
       }
-      if (!privyWalletId) {
-        throw new Error(
-          'A carteira foi localizada, mas a Privy ainda não mostrou seu identificador. Sua carteira foi preservada. Reabra a Nexa e tente concluir o vínculo; não crie outra conta.',
-        );
-      }
-
+      // The linked embedded-wallet ID can appear later than the address.
+      // Our LIVE backend independently verifies the authenticated Privy user,
+      // the wallet address and the canonical provider wallet ID. Allow it to
+      // recover the ID from the verified user's linkedAccounts if still absent.
+      // Never use the EVM address as a made-up provider ID.
       await nexaApi.linkWallet(
         session.accessToken,
         privyAccessToken,
