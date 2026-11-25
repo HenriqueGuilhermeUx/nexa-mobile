@@ -40,8 +40,8 @@ jobs:
         run: node scripts/validate-release-assets.js
       - name: Validate TypeScript
         run: npm run typecheck
-      - name: Validate Expo project
-        run: npx expo-doctor
+      - name: Validate Expo project (fail on new mismatches; known SDK patches tracked in #202)
+        run: node scripts/validate-expo-doctor-known-baseline.cjs
       - name: Export Android JavaScript bundle
         env:
           CI: 'true'
