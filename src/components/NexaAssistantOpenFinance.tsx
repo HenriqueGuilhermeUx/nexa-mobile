@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -341,13 +342,20 @@ export default function NexaAssistantOpenFinance({ token, firstName }: Props) {
           { label: 'Movimentações', route: '/maya-actions-financas' },
           { label: 'Pesquisar', route: '/maya-shopping' },
           { label: 'Mensagens', route: '/maya-comunicacao' },
+          { label: 'Explorar', route: 'https://trynexa.com.br/explorar.html' },
         ] as const).map((item) => (
           <TouchableOpacity
             key={item.route}
             accessibilityRole="button"
             accessibilityLabel={`Abrir Maya: ${item.label}`}
             style={styles.shortcutChip}
-            onPress={() => router.push(item.route as any)}
+            onPress={() => {
+              if (item.route === 'https://trynexa.com.br/explorar.html') {
+                void Linking.openURL(item.route);
+              } else {
+                router.push(item.route as any);
+              }
+            }}
           >
             <Text style={styles.shortcutText}>{item.label}</Text>
           </TouchableOpacity>
