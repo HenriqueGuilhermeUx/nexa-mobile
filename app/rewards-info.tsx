@@ -17,41 +17,41 @@ export default function RewardsInfoScreen() {
       <Eyebrow>REWARDS</Eyebrow>
       <Title>Como funciona o Rewards.</Title>
       <Paragraph>
-        O Rewards permite separar uma parte do seu USDC para participar de produtos elegíveis da Nexa.
+        O Nexa Rewards é opcional. Se estiver habilitado para sua conta, você poderá autorizar a participação em uma estratégia de rendimento variável via Privy Earn, com protocolo externo identificado antes da operação.
       </Paragraph>
 
       <Card>
-        <Text style={styles.title}>Saldo bloqueado</Text>
+        <Text style={styles.title}>Saldo separado da carteira</Text>
         <Text style={styles.text}>
-          O USDC escolhido fica bloqueado enquanto participa do Rewards e deixa de fazer parte do saldo livre para movimentação.
+          O valor enviado para um vault de terceiro deixa de estar disponível como saldo livre da sua carteira. Uma posição no vault não é um saldo bancário nem uma aplicação feita automaticamente pela Nexa.
         </Text>
       </Card>
 
       <Card>
-        <Text style={styles.title}>Alocação e spread</Text>
+        <Text style={styles.title}>Protocolo e custos</Text>
         <Text style={styles.text}>
-          A Nexa aloca o saldo em produtos elegíveis e repassa ao cliente o rendimento apurado com spread aplicado pela Nexa.
+          Antes de confirmar, confira o protocolo e o vault, a rede de destino, eventuais custos de passagem entre redes, taxas da estratégia e remuneração aplicável à Nexa. Essas informações devem corresponder ao serviço efetivamente configurado.
         </Text>
       </Card>
 
       <Card>
         <Text style={styles.title}>Rendimento variável</Text>
         <Text style={styles.text}>
-          O rendimento não é fixo nem garantido. Ele varia conforme os produtos utilizados, condições de mercado e custos aplicáveis.
+          O rendimento não é fixo nem garantido. Há riscos de stablecoin, smart contracts, pontes entre redes, liquidez e perda parcial ou total dos fundos. Não é poupança, CDI nem possui garantia do FGC.
         </Text>
       </Card>
 
       <Card>
         <Text style={styles.title}>Resgate</Text>
         <Text style={styles.text}>
-          O resgate segue a liquidez e o processamento do produto. A Nexa mostra o status da solicitação no app e evita repetir uma ação financeira sem confirmação.
+          A retirada depende da liquidez e do processamento do protocolo. Se houver passagem entre redes, o retorno à sua carteira também precisa ser concluído. Acompanhe a ação pendente antes de repetir qualquer pedido.
         </Text>
       </Card>
 
       <Card>
         <Text style={styles.title}>Sua carteira continua sendo sua</Text>
         <Text style={styles.text}>
-          Quando uma autorização da carteira for necessária, você confirma a operação. A Nexa não assina movimentações da sua carteira por você.
+          Cada depósito ou retirada requer sua autorização individual pela carteira Privy. O Rewards não deve movimentar recursos por ordem automática da Maya.
         </Text>
       </Card>
 
