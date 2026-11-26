@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionButton,
@@ -15,30 +15,15 @@ import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { colors, radius, spacing } from '@/theme';
 
-type PixType = 'CPF' | 'EMAIL' | 'PHONE';
-
 function maskCpf(value: unknown) {
   const digits = String(value || '').replace(/\D/g, '');
   if (digits.length !== 11) return 'CPF cadastrado';
   return `${digits.slice(0, 3)}.***.***-${digits.slice(-2)}`;
 }
 
-function maskEmail(value: unknown) {
-  const raw = String(value || '').trim().toLowerCase();
-  const [name, domain] = raw.split('@');
-  if (!name || !domain) return raw || 'E-mail cadastrado';
-  return `${name.slice(0, Math.min(2, name.length))}***@${domain}`;
-}
-
-function maskPhone(value: unknown) {
-  const digits = String(value || '').replace(/\D/g, '');
-  if (digits.length < 8) return 'Telefone cadastrado';
-  return `(**) *****-${digits.slice(-4)}`;
-}
-
 export default function OnboardingPixScreen() {
   const [profile, setProfile] = useState<any>(null);
-  const [selected, setSelected] = useState<PixType>('CPF');
+  const [legacyReview,setLegacyReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -57,17 +42,14 @@ export default function OnboardingPixScreen() {
         setProfile(me);
 
         const currentType = String(me?.pixKeyType || '').toUpperCase();
-        if (
-          me?.pixWithdrawEnabled === true &&
-          me?.pixKey &&
-          ['CPF', 'EMAIL', 'PHONE'].includes(currentType)
-        ) {
+        if (me?.pixWithdrawEnabled === true && me?.pixKey && currentType === 'CPF') {
           router.replace('/onboarding-wallet' as any);
           return;
         }
-
-        if (!me?.cpf && me?.email) setSelected('EMAIL');
-        else setSelected('CPF');
+        if (me?.pixWithdrawEnabled === true && me?.pixKey && currentType !== 'CPF') {
+          // Never replace a legacy provider-bound key from the app.
+          setLegacyReview(true);
+        }
       } catch (caught) {
         if (mounted) {
           setError(
@@ -85,44 +67,16 @@ export default function OnboardingPixScreen() {
     };
   }, []);
 
-  const options = useMemo(
-    () =>
-      [
-        profile?.cpf
-          ? {
-              type: 'CPF' as const,
-              title: 'Usar meu CPF',
-              value: maskCpf(profile.cpf),
-              recommended: true,
-            }
-          : null,
-        profile?.email
-          ? {
-              type: 'EMAIL' as const,
-              title: 'Usar meu e-mail',
-              value: maskEmail(profile.email),
-              recommended: false,
-            }
-          : null,
-        profile?.phone
-          ? {
-              type: 'PHONE' as const,
-              title: 'Usar meu telefone',
-              value: maskPhone(profile.phone),
-              recommended: false,
-            }
-          : null,
-      ].filter(Boolean) as Array<{
-        type: PixType;
-        title: string;
-        value: string;
-        recommended: boolean;
-      }>,
-    [profile],
-  );
-
   async function continueOnboarding() {
     setError('');
+    if (legacyReview) {
+      router.replace('/onboarding-wallet' as any);
+      return;
+    }
+    if (String(profile?.cpf || '').replace(/\D/g,'').length !== 11) {
+      setError('CPF do titular indisponível ou incompleto. Conclua a verificação de identidade antes de configurar resgates.');
+      return;
+    }
     setSaving(true);
     try {
       const session = await loadNexaSession();
@@ -131,10 +85,7 @@ export default function OnboardingPixScreen() {
         return;
       }
 
-      await nexaApi.configurePayoutOnboarding(
-        session.accessToken,
-        selected,
-      );
+      await nexaApi.configurePayoutOnboarding(session.accessToken, 'CPF');
 
       // A subconta é provisionada pelo worker da Nexa em segundo plano. O
       // cliente não precisa esperar a Woovi para continuar o onboarding.
@@ -155,44 +106,29 @@ export default function OnboardingPixScreen() {
       <Brand />
       <View style={styles.topSpace} />
       <Badge tone="info">PASSO 2 DE 4</Badge>
-      <Title>Escolha seu Pix para resgates</Title>
+      <Title>Resgates somente para Pix CPF</Title>
       <Paragraph>
-        Quando você sacar para reais, a Nexa envia o Pix para uma chave já confirmada no seu cadastro. Seu CPF é a opção recomendada no Brasil.
+        Os resgates da Nexa são enviados exclusivamente para a chave Pix CPF do titular da conta.
+        Não é possível utilizar telefone, e-mail ou chave aleatória.
       </Paragraph>
-
       <Card>
-        <Text style={styles.cardTitle}>Qual chave você quer usar?</Text>
+        <Text style={styles.cardTitle}>Seu CPF para receber resgates</Text>
+        <Text style={styles.optionValue}>{profile?.cpf ? maskCpf(profile.cpf) : 'CPF não disponível'}</Text>
         <Text style={styles.helper}>
-          Você não precisa digitar a chave. Escolha um dado já verificado na sua conta.
+          O CPF precisa estar cadastrado como chave Pix em um banco ou instituição de pagamento
+          no seu nome. A Nexa não cria a chave Pix no seu banco.
         </Text>
-
-        <View style={styles.options}>
-          {options.map((option) => {
-            const active = selected === option.type;
-            return (
-              <TouchableOpacity
-                key={option.type}
-                activeOpacity={0.84}
-                onPress={() => setSelected(option.type)}
-                style={[
-                  styles.option,
-                  active ? styles.optionActive : null,
-                ]}
-              >
-                <View style={{ flex: 1 }}>
-                  <View style={styles.optionTitleRow}>
-                    <Text style={styles.optionTitle}>{option.title}</Text>
-                    {option.recommended ? (
-                      <Text style={styles.recommended}>RECOMENDADO</Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.optionValue}>{option.value}</Text>
-                </View>
-                <Text style={styles.check}>{active ? '✓' : '○'}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {legacyReview ? (
+          <Text style={styles.error}>
+            Há uma configuração antiga de resgate com outra chave Pix. O resgate fica sujeito
+            a revisão pela Nexa. Você pode continuar para a carteira, mas não haverá
+            substituição automática da subconta nem pagamento por telefone ou e-mail.
+          </Text>
+        ) : !profile?.cpf ? (
+          <Text style={styles.error}>
+            Conclua a verificação de identidade para disponibilizar o CPF nesta etapa.
+          </Text>
+        ) : null}
       </Card>
 
       <Card>
@@ -205,9 +141,9 @@ export default function OnboardingPixScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <ActionButton
-        label="Continuar"
+        label={legacyReview ? 'Continuar para a carteira (resgate em revisão)' : 'Confirmar Pix CPF'}
         loading={saving || loading}
-        disabled={loading || options.length === 0}
+        disabled={loading || (!legacyReview && String(profile?.cpf || '').replace(/\D/g,'').length !== 11)}
         onPress={continueOnboarding}
       />
     </Screen>

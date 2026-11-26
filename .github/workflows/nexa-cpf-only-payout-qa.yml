@@ -1,0 +1,26 @@
+name: Nexa Mobile CPF-only Pix payout QA
+on:
+  pull_request:
+    paths:
+      - 'app/onboarding-pix.tsx'
+      - 'src/components/AlignedLegacyApp.tsx'
+      - 'src/lib/api.ts'
+      - '.github/workflows/nexa-cpf-only-payout-qa.yml'
+permissions:
+  contents: read
+jobs:
+  cpf-only-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install JavaScript dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: TypeScript safety validation (no EAS submit)
+        run: npm run typecheck
+      - name: No OTA, APK, AAB or production delivery
+        run: echo 'Static mobile QA only; no rollout.'
