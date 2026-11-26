@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import NexaAssistantOpenFinance from '@/components/NexaAssistantOpenFinance';
 import { nexaApi } from '@/lib/api';
@@ -80,6 +80,28 @@ export default function AssistantScreen() {
           <Text style={{color: '#FFFFFF', fontWeight: '700', textAlign: 'center'}}>Maya · Consultoria financeira Premium</Text>
         </Pressable>
       )}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={{flexGrow: 0, marginBottom: 10}}
+        contentContainerStyle={{gap: 8, paddingRight: 16}}>
+        {([
+          {title: 'Meu dia', path: '/maya-hoje'},
+          {title: 'Tarefas', path: '/maya-actions'},
+          {title: 'Metas', path: '/maya-planning'},
+          {title: 'Pesquisar', path: '/maya-shopping'},
+          {title: 'Mensagens', path: '/maya-comunicacao'},
+        ] as const).map(item => (
+          <Pressable key={item.path} accessibilityRole="button"
+            accessibilityLabel={`Maya: abrir ${item.title}`}
+            onPress={() => router.push(item.path)}
+            style={{borderWidth: 1, borderColor: '#35506B',
+              backgroundColor: '#102438', borderRadius: 18,
+              paddingHorizontal: 13, paddingVertical: 10, minHeight: 42,
+              justifyContent: 'center'}}>
+            <Text style={{color: colors.text, fontWeight: '700', fontSize: 13}}>{item.title}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
       <NexaAssistantOpenFinance token={token} firstName={firstName} />
     </View>
   );
