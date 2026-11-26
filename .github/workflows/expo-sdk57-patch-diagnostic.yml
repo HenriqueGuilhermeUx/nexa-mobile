@@ -1,0 +1,32 @@
+name: Expo SDK 57 patch compatibility — isolated diagnostic
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/expo-sdk57-patch-diagnostic.yml'
+  workflow_dispatch:
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Inspect recommended Expo patches (no repo writes)
+        run: npx expo install --check || true
+      - name: Apply Expo-compatible patch fixes in CI workspace only
+        run: CI=1 npx expo install --fix
+      - name: Check patch compatibility
+        run: npx expo-doctor
+      - run: npm run typecheck
+      - name: Export JS bundle after temporary patch upgrades
+        run: npm run export:android
+      - name: Show what dependency changes would be needed
+        run: git diff --stat -- package.json package-lock.json

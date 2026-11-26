@@ -50,6 +50,7 @@ export default function RootLayout() {
             }}
           >
             <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="forgot-password" options={{ title: 'Recuperar senha' }} />
             <Stack.Screen name="sign-in" options={{ title: 'Bem-vindo de volta' }} />
             <Stack.Screen name="sign-up" options={{ title: 'Crie sua Nexa' }} />
             <Stack.Screen name="legacy" options={{ headerShown: false }} />
