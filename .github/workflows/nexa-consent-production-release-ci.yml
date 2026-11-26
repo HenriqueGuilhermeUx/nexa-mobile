@@ -1,0 +1,49 @@
+name: Nexa Consent — production source compatibility
+on:
+  push:
+    branches: [release/nexa-consent-preserve-privy-20261124]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify production source and preserve existing features
+        run: |
+          set -euo pipefail
+          git fetch origin release/nexa-deposit-funnel-verified-prod-20261123 --depth=1
+          node <<'NODE'
+          const fs=require('fs'),cp=require('child_process'),assert=require('assert');
+          const allowed=new Set(['app/sign-up.tsx','app/security.tsx',
+            'app/communication-preferences.tsx','src/lib/api.ts',
+            '.github/workflows/nexa-consent-production-release-ci.yml',
+            '.github/workflows/nexa-consent-live-android-ota.yml']);
+          const files=cp.execFileSync('git',['diff','--name-only',
+            'origin/release/nexa-deposit-funnel-verified-prod-20261123','HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          assert(files.length>0 && files.every(file=>allowed.has(file)), 'Production release has unexpected file changes: '+files.join(', '));
+          const signup=fs.readFileSync('app/sign-up.tsx','utf8');
+          for (const keep of ['usePrivy','privy.logout()', "router.replace('/onboarding-wallet'",'communicationConsents']) {
+            assert(signup.includes(keep),'Critical Privy flow or consent missing: '+keep);
+          }
+          const api=fs.readFileSync('src/lib/api.ts','utf8');
+          assert(api.includes('communicationConsents?:') && api.includes('getCommunicationConsents'));
+          const order=fs.readFileSync('app/(app)/new-order.tsx','utf8');
+          assert(order.includes('deposit_screen_opened') && order.includes('pix_method_selected'),
+            'Pix funnel telemetry missing from validated production branch');
+          NODE
+      - run: npm install --ignore-scripts --no-package-lock --legacy-peer-deps
+      - run: npm run typecheck
+      - name: Validate Android bundle export without publishing
+        env:
+          CI: 'true'
+          EXPO_NO_TELEMETRY: '1'
+        run: npm run export:android
