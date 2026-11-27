@@ -751,8 +751,8 @@ export default function RewardsScreen() {
       <Eyebrow>REWARDS</Eyebrow>
       <Title>Turbinar seu USDC.</Title>
       <Paragraph>
-        Você escolhe quanto separar. O valor fica bloqueado enquanto participa.
-        A Nexa aloca esse saldo em produtos elegíveis e repassa rendimento com spread.
+        Você escolhe quanto USDC deseja participar, se sua conta estiver habilitada.
+        A operação autorizada utiliza um vault de terceiro via Privy Earn. O rendimento é variável, sem garantia e com riscos e custos.
       </Paragraph>
 
       {premium ? (
@@ -772,7 +772,7 @@ export default function RewardsScreen() {
           Rewards acumulados: {formatUsdc(earnedYield)}
         </Text>
         <Text style={styles.muted}>
-          O saldo permanece bloqueado enquanto participa do programa.
+          Este valor é uma posição no vault, separada do USDC disponível na Wallet. A retirada depende do protocolo e da liquidez.
         </Text>
       </Card>
 
@@ -822,9 +822,9 @@ export default function RewardsScreen() {
 
       {assetsInVault > 0 ? (
         <Card>
-          <Text style={styles.sectionTitle}>Saldo bloqueado no Rewards</Text>
+          <Text style={styles.sectionTitle}>Posição no Nexa Rewards</Text>
           <Text style={styles.muted}>
-            Você pode solicitar o resgate. A liberação segue a liquidez e o processamento do produto.
+            Você pode solicitar o resgate com autorização individual da carteira. A liberação depende de liquidez e do processamento do protocolo, inclusive eventual retorno à Polygon.
           </Text>
           <ActionButton
             label="Resgatar Rewards"
