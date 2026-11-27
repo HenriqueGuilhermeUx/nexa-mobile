@@ -1,0 +1,148 @@
+name: Nexa Maya + Rewards — exact-source Android QA OTA 2026-11-27
+on:
+  push:
+    branches:
+      - release/nexa-maya-uber-rewards-ota-20261127
+    paths:
+      - .github/workflows/nexa-maya-rewards-exact-source-qa-20261127.yml
+permissions:
+  contents: read
+concurrency:
+  group: nexa-maya-rewards-20261127-qa
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    env:
+      CI: 'true'
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify exact Expo live customer release ancestry and tightly scoped changed files
+        run: |
+          node <<'NODE'
+          const fs=require('fs'),assert=require('node:assert/strict'),cp=require('child_process');
+          const base='0bbf8468b70f2bc62c8166018fc98ce20c4b75ac';
+          const ancestor=cp.execFileSync('git',['merge-base',base,'HEAD'],{encoding:'utf8'}).trim();
+          assert.equal(ancestor,base,'Candidate must descend from exact LIVE OTA source');
+          const paths=cp.execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean).sort();
+          const expected=[
+            '.github/workflows/nexa-maya-rewards-exact-source-qa-20261127.yml',
+            'app/(app)/rewards.tsx',
+            'app/maya-actions.tsx',
+            'app/rewards-info.tsx',
+            'src/components/NexaAssistantOpenFinance.tsx'
+          ].sort();
+          assert.deepEqual(paths,expected,'Native, auth, finance and other source changes are not authorized');
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const eas=JSON.parse(fs.readFileSync('eas.json','utf8'));
+          assert.equal(app.version,'2.0.43');
+          assert.equal(app.android.versionCode,148);
+          assert.equal(pkg.version,'2.0.43');
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.runtimeVersion?.policy,'appVersion');
+          assert.equal(eas.build.production.channel,'production');
+          assert.equal(app.updates.url,'https://u.expo.dev/b3faabec-283a-4ba2-88b5-f096304e68aa');
+          const maya=fs.readFileSync('src/components/NexaAssistantOpenFinance.tsx','utf8');
+          for(const required of ['Meu dia','Tarefas','Metas','Movimentações','Pesquisar','Mensagens','Explorar']){
+            assert.ok(maya.includes(required),'Missing Maya existing shortcut: '+required);
+          }
+          assert.match(maya,/https:\/\/trynexa\.com\.br\/explorar\.html/);
+          assert.match(fs.readFileSync('app/maya-actions.tsx','utf8'),/Explorar · Uber e eventos opcionais/);
+          const rewards=fs.readFileSync('app/(app)/rewards.tsx','utf8');
+          for(const key of ['authorizeRewardsAction','bridgeRewardsToBase','depositRewards','withdrawRewardsFull','returnRewardsToWallet','liveActionsEnabled']){
+            assert.ok(rewards.includes(key),'Rewards safety and authorization path absent: '+key);
+          }
+          const details=fs.readFileSync('app/rewards-info.tsx','utf8');
+          assert.match(details,/Morpho/);
+          assert.match(details,/rendimento é variável e não garantido/i);
+          assert.match(details,/Maya não pode aplicar ou retirar USDC automaticamente/);
+          const signup=fs.readFileSync('app/sign-up.tsx','utf8');
+          assert.ok(signup.includes('communicationConsents')&&signup.includes('usePrivy'));
+          assert.ok(fs.readFileSync('app/_layout.tsx','utf8').includes('PrivyProvider'));
+          console.log('EXACT_EXPO_LIVE_ANDROID_SOURCE_PRESERVED='+base);
+          console.log('SCOPED_JS_UI_CHANGES_ONLY='+paths.join(','));
+          console.log('FINANCIAL_LOGIC_UNMODIFIED=true');
+          NODE
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npx expo export --platform android --output-dir dist-nexa-maya-rewards-qa
+  publish-qa:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Confirm production update has not advanced after source inspection
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const token=process.env.EXPO_TOKEN;
+            if(!token)throw Error('Missing Expo publication token');
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:8){id gitCommitHash platform}}}}}';
+            const r=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(18000)
+            });
+            const j=await r.json();
+            if(!r.ok||j.errors?.length)throw Error('Expo live provenance unavailable');
+            const app=j.data?.app?.byId;
+            const branches=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const latest=app?.prod?.updates?.find(x=>x.platform==='android');
+            if(branches.length!==1||branches[0]!=='production'||
+               latest?.id!=='01a2136f-19da-77d3-9973-2b7379046c3f'||
+               latest?.gitCommitHash!=='0bbf8468b70f2bc62c8166018fc98ce20c4b75ac')
+              throw Error('Expo production advanced; do not publish stale QA');
+            console.log('EAS_LIVE_PRODUCTION_BASELINE_CONFIRMED=true');
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Publish Android QA ONLY, not production
+        run: eas update --branch nexa-maya-rewards-qa-20261127 --platform android --environment production --message "Nexa Maya Uber + Rewards safe QA from exact live 0bbf8468" --non-interactive
+      - name: Read back QA update group
+        run: eas update:list --branch nexa-maya-rewards-qa-20261127 --limit 2 --non-interactive
