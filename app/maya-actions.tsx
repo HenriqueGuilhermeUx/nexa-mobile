@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nexaApi } from '@/lib/api';
 import { loadNexaSession } from '@/lib/session';
 import { ensureNexaNotificationPermission, scheduleNexaReminder, cancelNexaReminder } from '@/lib/nexaNotifications';
-import { ScrollView, StyleSheet, Text, TextInput, Pressable, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, Pressable, View, Linking } from 'react-native';
 import { colors, spacing } from '@/theme';
 
 type ActionKind = 'reminder' | 'budget' | 'report';
@@ -151,6 +151,10 @@ export default function MayaActionsScreen() {
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
       <Text style={styles.heading}>Maya · Actions</Text>
       <Text style={styles.description}>Crie tarefas ou agende lembretes locais com confirmação. Tudo permanece neste dispositivo; não há sincronização nem pagamentos automáticos.</Text>
+      <Pressable accessibilityRole="button" onPress={() => { void Linking.openURL('https://trynexa.com.br/explorar.html'); }} style={styles.choice}>
+        <Text style={styles.title}>Explorar · Uber e eventos opcionais</Text>
+        <Text style={styles.description}>Abra a Uber e pague no aplicativo com os meios aceitos por ela. Quem só tem USDC pode conhecer a opção externa de gift card cripto. Sympla é opcional: sem compras ou reservas automáticas.</Text>
+      </Pressable>
       <Pressable accessibilityRole="button" onPress={() => router.push('/maya-shopping' as any)} style={styles.choice}>
         <Text style={styles.title}>Pesquisar preços na web</Text>
         <Text style={styles.description}>Abrir ofertas em lojas para comparar com sua revisão. Sem compras automáticas.</Text>
