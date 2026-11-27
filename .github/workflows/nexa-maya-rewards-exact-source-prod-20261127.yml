@@ -1,0 +1,121 @@
+name: Nexa Maya + Rewards — guarded 10pct Android production OTA 2026-11-27
+on:
+  push:
+    branches:
+      - release/nexa-maya-uber-rewards-ota-20261127
+    paths:
+      - .github/workflows/nexa-maya-rewards-exact-source-prod-20261127.yml
+permissions:
+  contents: read
+concurrency:
+  group: nexa-activation-ota-production
+  cancel-in-progress: false
+jobs:
+  stage-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 43
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_NEXA_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_FINANCIAL_EXECUTION_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_RELEASE_CHANNEL: production
+      EXPO_PUBLIC_NEXA_ASSISTANT_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_MAYA_PREMIUM_ENABLED: 'false'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_API_URL: https://nexa-backend-p2u0.onrender.com/api/v1
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_EFI_OPEN_FINANCE_RECURRING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_ECOSYSTEM_ONBOARDING_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_DOCWALLET_ENABLED: 'true'
+      EXPO_PUBLIC_NEXA_HEALTHWALLET_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify exact successful QA JavaScript source, no native/financial drift
+        run: |
+          node <<'NODE'
+          const cp=require('child_process'),fs=require('fs'),assert=require('node:assert/strict');
+          const qaSha='20c45b24be71a63eebbf5674237b28d0900d593d';
+          const base='0bbf8468b70f2bc62c8166018fc98ce20c4b75ac';
+          assert.equal(cp.execFileSync('git',['merge-base',qaSha,'HEAD'],{encoding:'utf8'}).trim(),qaSha);
+          const paths=cp.execFileSync('git',['diff','--name-only',qaSha,'HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          assert.deepEqual(paths,['.github/workflows/nexa-maya-rewards-exact-source-prod-20261127.yml']);
+          const scope=cp.execFileSync('git',['diff','--name-only',base,'HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+          const allowed=new Set([
+            '.github/workflows/nexa-maya-rewards-exact-source-qa-20261127.yml',
+            '.github/workflows/nexa-maya-rewards-exact-source-prod-20261127.yml',
+            'src/components/NexaAssistantOpenFinance.tsx',
+            'app/maya-actions.tsx',
+            'app/rewards-info.tsx',
+            'app/(app)/rewards.tsx',
+          ]);
+          assert.equal(scope.length,6);
+          assert.ok(scope.every(p=>allowed.has(p)));
+          for(const path of ['app.json','app.config.js','eas.json','package.json','package-lock.json',
+            'app/_layout.tsx','app/sign-up.tsx','app/onboarding-wallet.tsx',
+            'src/lib/rewardsActions.ts','src/lib/session.ts','app/(app)/new-order.tsx']){
+            const earlier=cp.execFileSync('git',['show',qaSha+':'+path]);
+            const now=fs.readFileSync(path);
+            assert.ok(earlier.equals(now),'QA runtime or security source drift: '+path);
+          }
+          const app=JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          assert.equal(app.version,'2.0.43');
+          assert.equal(app.android.versionCode,148);
+          assert.equal(app.android.package,'br.com.trynexa.app');
+          assert.equal(app.runtimeVersion.policy,'appVersion');
+          assert.equal(JSON.parse(fs.readFileSync('eas.json','utf8')).build.production.channel,'production');
+          console.log('EXACT_QA_SOURCE_PROVEN='+qaSha);
+          console.log('NO_NATIVE_OR_FINANCIAL_LOGIC_CHANGES=true');
+          NODE
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node scripts/validate-mobile-safety-v123.js
+      - run: npx expo export --platform android --output-dir dist-nexa-maya-rewards-production
+      - name: Verify QA published update and original customer production baseline just before publishing
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const token=process.env.EXPO_TOKEN;
+            if(!token)throw Error('Missing Expo credentials');
+            const q='query($appId:String!){app{byId(appId:$appId){updateChannelByName(name:"production"){updateBranches(offset:0,limit:10){name}} prod:updateBranchByName(name:"production"){updates(offset:0,limit:8){id gitCommitHash platform}} qa:updateBranchByName(name:"nexa-maya-rewards-qa-20261127"){updates(offset:0,limit:8){id gitCommitHash platform}}}}}';
+            const res=await fetch('https://api.expo.dev/graphql',{
+              method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:JSON.stringify({query:q,variables:{appId:'b3faabec-283a-4ba2-88b5-f096304e68aa'}}),
+              signal:AbortSignal.timeout(20000)
+            });
+            const data=await res.json();
+            if(!res.ok||data.errors?.length)throw Error('Expo update source unavailable');
+            const app=data.data?.app?.byId;
+            const channels=app?.updateChannelByName?.updateBranches?.map(x=>x.name)||[];
+            const prod=app?.prod?.updates?.find(x=>x.platform==='android');
+            const qa=app?.qa?.updates?.find(x=>x.platform==='android');
+            if(channels.length!==1||channels[0]!=='production')
+              throw Error('Production channel mapping changed unexpectedly');
+            if(prod?.id!=='01a2136f-19da-77d3-9973-2b7379046c3f'||
+              prod?.gitCommitHash!=='0bbf8468b70f2bc62c8166018fc98ce20c4b75ac')
+              throw Error('Production Android source advanced: do NOT overwrite');
+            if(qa?.id!=='01a21d7c-9625-711a-8137-bac9c42e2955'||
+              qa?.gitCommitHash!=='20c45b24be71a63eebbf5674237b28d0900d593d')
+              throw Error('Expected QA update provenance not verified; do NOT publish');
+            console.log('EXACT_QA_AND_PROD_SOURCE_CONFIRMED=true');
+          })().catch(e=>{console.error('EAS_SAFE_RELEASE_BLOCKED: '+e.message);process.exitCode=1});
+          NODE
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: 27.9.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Publish 10-percent CANARY only, Android runtime 2.0.43; no financial feature switch
+        run: |
+          eas update --branch production --platform android --environment production \
+            --rollout-percentage=10 \
+            --message "Nexa Maya Explorar Uber + Rewards Privy Earn information safe canary from QA 4ec3a667" \
+            --non-interactive
+      - name: Read back production OTA and rollout
+        run: eas update:list --branch production --limit 2 --non-interactive
