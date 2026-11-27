@@ -152,8 +152,8 @@ export default function MayaActionsScreen() {
       <Text style={styles.heading}>Maya · Actions</Text>
       <Text style={styles.description}>Crie tarefas ou agende lembretes locais com confirmação. Tudo permanece neste dispositivo; não há sincronização nem pagamentos automáticos.</Text>
       <Pressable accessibilityRole="button" onPress={() => { void Linking.openURL('https://trynexa.com.br/explorar.html'); }} style={styles.choice}>
-        <Text style={styles.title}>Explorar · Uber, shows e eventos</Text>
-        <Text style={styles.description}>Encontre opções oficiais de Ticketmaster, Sympla e Uber. Você escolhe e confirma no parceiro; a Maya não compra nem reserva.</Text>
+        <Text style={styles.title}>Explorar · Uber e eventos opcionais</Text>
+        <Text style={styles.description}>Uber como prioridade: pagamento no app Uber, por Pix, cartão ou Uber Cash quando disponível. Para quem só tem USDC, consulte na página da Maya a alternativa externa de gift card com cripto. Sympla é opcional, sem compras ou reservas automáticas.</Text>
       </Pressable>
       <Pressable accessibilityRole="button" onPress={() => router.push('/maya-shopping' as any)} style={styles.choice}>
         <Text style={styles.title}>Pesquisar preços na web</Text>
